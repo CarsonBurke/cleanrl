@@ -27,24 +27,7 @@ Understand the gradient dynamics, the covariance structures, and why each design
 
 Many ideas in these files are implemented poorly and are regressions on standard PPO, and should not be used as a source of truth. Modify, borrow ideas, and improve if desired.
 
-## Research Focus: High-Entropy Time-Correlated Noise
-
-Your work targets the exploration mechanism. The key insight chain:
-
-1. **Diagonal Gaussian** (baseline PPO): independent noise per actuator per step. No coordination, no persistence. Wastes samples.
-2. **gSDE**: temporal correlation (resample exploration matrix per rollout, not per step) + state-dependence. But covariance is still effectively diagonal in action space.
-3. **Pink noise**: temporal correlation via frequency-domain filtering. Simple but not adaptive or state-dependent.
-4. **Lattice**: cross-actuator correlation via W @ D @ W^T. But shares W with the mean pathway — gradient conflict.
-5. **ITCE**: decouples mean/cov projections. Full covariance + temporal correlation + no gradient conflict.
-
-**Your job**: go beyond ITCE. Ideas to explore (non-exhaustive):
-
-- Adaptive resampling schedules (not just per-rollout — maybe triggered by value function surprise or policy entropy collapse)
-- Hierarchical noise structures (low-frequency whole-body coordination + high-frequency corrective noise)
-- Learned spectral profiles (go beyond 1/f — let the network learn the optimal noise color per actuator group)
-- Information-theoretic exploration bonuses that specifically reward temporally coherent state coverage
-- Covariance structures that respect the physical kinematic chain of the agent's body
-- Mixture exploration policies (maintain a portfolio of exploration strategies, weight by recent reward improvement)
+**Your job**: go beyond gSDE. Achieve state-of-the-art performance on continuous control benchmarks.
 
 **Be creative.** The best solution may combine ideas from control theory, signal processing, information geometry, or dynamical systems in ways no one has tried.
 
@@ -88,6 +71,8 @@ uv run python cleanrl/ppo_continuous_action_<method>.py --env-id HalfCheetah-v4 
 uv run python cleanrl/ppo_continuous_action_<method>.py --env-id Hopper-v4 --num-envs 16 --exp-name <method>_v<N> --seed 1
 uv run python cleanrl/ppo_continuous_action_<method>.py --env-id Walker2d-v4 --num-envs 16 --exp-name <method>_v<N> --seed 1
 ```
+
+You may write and use your own benchmarks as you see fit, say for efficiency reasons or specific purposes.
 
 **Version naming**: increment `_v<N>` each time you modify the algorithm and re-run. This creates a clear trail: `method_v1`, `method_v2`, etc.
 
@@ -142,6 +127,8 @@ Use the TensorBoard logs in `runs/` for precise baselines.
 ## Independence
 
 You operate **entirely independently**. Do not ask the user for permission or direction — make decisions, run experiments, analyze results, iterate. The user will check in on your progress; have clear results and reasoning ready.
+
+It is necessary that you be mindful of your limited context window when doing tasks. Delegate tasks to subagents and be frugal so you can work for longer periods of time.
 
 Your workflow loop:
 
