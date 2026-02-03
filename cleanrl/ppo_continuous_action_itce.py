@@ -213,48 +213,79 @@ class ITCEDistribution(nn.Module):
 
     # --- Core interface ---
 
-    def get_action_distribution(
+    def _build_covariance(
         self, latent: torch.Tensor
+    ) -> torch.Tensor:
+        """Build the covariance matrix Sigma(s) from a (detached) latent.
+
+        Sigma = alpha^2 * W_cov @ diag(v_corr(s)) @ W_cov^T + diag(v_ind(s))
+
+        This is factored out so it can be called with or without gradients
+        flowing through cov_net / log_std.
+        """
+        latent_detached = latent.detach()
+        corr_std, ind_std = self._get_std()
+
+        # State-dependent variances: h(s)^2 @ std^2
+        latent_corr_var = (latent_detached ** 2) @ (corr_std ** 2)
+        latent_ind_var = (latent_detached ** 2) @ (ind_std ** 2) + self.std_reg ** 2
+
+        W = self.cov_net.weight  # [action_dim, latent_dim]
+        sigma_mat = self.alpha ** 2 * (
+            (W * latent_corr_var[:, None, :]) @ W.T
+        )
+        sigma_mat[:, range(self.action_dim), range(self.action_dim)] += latent_ind_var
+        return sigma_mat
+
+    def get_action_distribution(
+        self,
+        latent: torch.Tensor,
+        stored_covariance: Optional[torch.Tensor] = None,
     ) -> MultivariateNormal:
         """Build the MultivariateNormal for the given latent.
 
         Args:
             latent: [batch, latent_dim] output of the actor backbone.
+            stored_covariance: optional [batch, action_dim, action_dim] covariance
+                matrices stored during rollout.  When provided (PPO update phase),
+                log_prob uses this fixed covariance so that covariance parameter
+                changes between update epochs do not inflate the importance-sampling
+                ratio.  When None (rollout phase), the current covariance is used.
 
-        Returns:
-            MultivariateNormal with mean = W_mean @ h and covariance =
-            alpha^2 * W_cov @ D(h) @ W_cov^T + diag(sigma^2_ind(h)).
+        Two internal distributions are built:
+
+        1. ``_distribution`` — used by ``log_prob()`` for the PPO surrogate.
+           During rollout: uses the current covariance (no update epochs yet).
+           During update: uses the *stored* rollout covariance so that only
+           mean changes affect the ratio (stable clip fraction).
+
+        2. ``_distribution_with_grad`` — always uses the current covariance
+           with gradients through cov_net and log_std.  Used by ``entropy()``
+           so the entropy bonus can train the covariance parameters.
         """
         self._latent = latent
         self._mean = self.mean_net(latent)
 
-        # Detach latent for the covariance computation.  The mean pathway
-        # (above) carries gradients from the policy objective into the backbone.
-        # The covariance pathway (below) should NOT push the backbone to adjust
-        # activation magnitudes for variance control — that signal belongs
-        # exclusively to cov_net and log_std.
-        latent_detached = latent.detach()
-
-        corr_std, ind_std = self._get_std()
-
-        # State-dependent variances: h(s)^2 @ std^2
-        # [batch, latent] @ [latent, latent] -> [batch, latent]
-        latent_corr_var = (latent_detached ** 2) @ (corr_std ** 2)
-        # [batch, latent] @ [latent, action] -> [batch, action]
-        latent_ind_var = (latent_detached ** 2) @ (ind_std ** 2) + self.std_reg ** 2
-
-        # Covariance: alpha^2 * W_cov @ diag(v_corr) @ W_cov^T + diag(v_ind)
-        W = self.cov_net.weight  # [action_dim, latent_dim]
-        # [batch, action, latent] * [batch, 1, latent] broadcast -> matmul -> [batch, action, action]
-        sigma_mat = self.alpha ** 2 * (
-            (W * latent_corr_var[:, None, :]) @ W.T
+        # Current covariance WITH gradient — always built for entropy.
+        sigma_mat_current = self._build_covariance(latent)
+        self._distribution_with_grad = MultivariateNormal(
+            loc=self._mean, covariance_matrix=sigma_mat_current, validate_args=False
         )
-        # Add independent variance to diagonal
-        sigma_mat[:, range(self.action_dim), range(self.action_dim)] += latent_ind_var
 
+        # Covariance for log_prob: use stored (rollout) covariance during PPO
+        # updates so that cov parameter drift does not shift the ratio.
+        # During rollout (stored_covariance is None), use current covariance.
+        sigma_mat_for_logprob = (
+            stored_covariance if stored_covariance is not None
+            else sigma_mat_current.detach()
+        )
         self._distribution = MultivariateNormal(
-            loc=self._mean, covariance_matrix=sigma_mat, validate_args=False
+            loc=self._mean, covariance_matrix=sigma_mat_for_logprob, validate_args=False
         )
+
+        # Expose the current covariance so the rollout loop can store it.
+        self._covariance = sigma_mat_current.detach()
+
         return self._distribution
 
     def sample(self, latent: torch.Tensor) -> torch.Tensor:
@@ -293,8 +324,12 @@ class ITCEDistribution(nn.Module):
         return self._distribution.log_prob(actions)
 
     def entropy(self) -> torch.Tensor:
-        """Analytical entropy of the MultivariateNormal."""
-        return self._distribution.entropy()
+        """Analytical entropy of the MultivariateNormal.
+
+        Uses the gradient-carrying distribution so that the entropy bonus
+        provides the training signal for cov_net and log_std.
+        """
+        return self._distribution_with_grad.entropy()
 
 
 # ---------------------------------------------------------------------------
@@ -332,9 +367,9 @@ class Agent(nn.Module):
     def get_value(self, x):
         return self.critic(x)
 
-    def get_action_and_value(self, x, action=None):
+    def get_action_and_value(self, x, action=None, stored_covariance=None):
         latent = self.actor_backbone(x)
-        dist = self.dist.get_action_distribution(latent)
+        self.dist.get_action_distribution(latent, stored_covariance=stored_covariance)
         if action is None:
             action = self.dist.sample(latent)
         log_prob = self.dist.log_prob(action)
@@ -498,12 +533,14 @@ if __name__ == "__main__":
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
+    action_dim = np.prod(envs.single_action_space.shape)
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
     logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    covariances = torch.zeros((args.num_steps, args.num_envs, action_dim, action_dim)).to(device)
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
@@ -533,6 +570,7 @@ if __name__ == "__main__":
             with torch.no_grad():
                 action, logprob, _, value = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
+                covariances[step] = agent.dist._covariance
             actions[step] = action
             logprobs[step] = logprob
 
@@ -572,23 +610,25 @@ if __name__ == "__main__":
         b_advantages = advantages.reshape(-1)
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
+        b_covariances = covariances.reshape(-1, action_dim, action_dim)
 
         # Optimizing the policy and value network
         b_inds = np.arange(args.batch_size)
         clipfracs = []
-
-        # ITCE: resample exploration matrices for the update phase.
-        # During training we evaluate log_prob of stored actions under the current
-        # policy, so we need exploration matrices sized for the minibatch.
-        agent.sample_exploration_matrices(batch_size=args.minibatch_size)
-
         for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                # Pass the stored rollout covariance so that log_prob is
+                # evaluated under the original Sigma.  Only mean changes
+                # affect the importance-sampling ratio; covariance changes
+                # are channeled exclusively through the entropy bonus.
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(
+                    b_obs[mb_inds], b_actions[mb_inds],
+                    stored_covariance=b_covariances[mb_inds],
+                )
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
