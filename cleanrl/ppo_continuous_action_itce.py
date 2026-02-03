@@ -238,54 +238,33 @@ class ITCEDistribution(nn.Module):
         return sigma_mat
 
     def get_action_distribution(
-        self,
-        latent: torch.Tensor,
-        stored_covariance: Optional[torch.Tensor] = None,
+        self, latent: torch.Tensor
     ) -> MultivariateNormal:
         """Build the MultivariateNormal for the given latent.
 
-        Args:
-            latent: [batch, latent_dim] output of the actor backbone.
-            stored_covariance: optional [batch, action_dim, action_dim] covariance
-                matrices stored during rollout.  When provided (PPO update phase),
-                log_prob uses this fixed covariance so that covariance parameter
-                changes between update epochs do not inflate the importance-sampling
-                ratio.  When None (rollout phase), the current covariance is used.
+        The full covariance (with gradients through cov_net and log_std) is
+        used for both ``log_prob`` and ``entropy``.  This mirrors standard
+        diagonal-Gaussian PPO where ``log_std`` receives gradient through
+        ``log_prob`` naturally:
 
-        Two internal distributions are built:
+            log p(a) = -0.5 * [ (a-μ)ᵀ Σ⁻¹ (a-μ)  +  log|Σ|  +  k·log(2π) ]
 
-        1. ``_distribution`` — used by ``log_prob()`` for the PPO surrogate.
-           During rollout: uses the current covariance (no update epochs yet).
-           During update: uses the *stored* rollout covariance so that only
-           mean changes affect the ratio (stable clip fraction).
+        The Mahalanobis term ``(a-μ)ᵀ Σ⁻¹ (a-μ)`` pushes Σ larger when
+        actions are far from the mean (exploration signal).  The normalization
+        term ``log|Σ|`` pushes Σ smaller (regularization signal).  These
+        naturally balance, exactly as ``-log(σ)`` and ``(a-μ)²/σ²`` balance
+        in the univariate case.
 
-        2. ``_distribution_with_grad`` — always uses the current covariance
-           with gradients through cov_net and log_std.  Used by ``entropy()``
-           so the entropy bonus can train the covariance parameters.
+        No stored-covariance decomposition or entropy bonus is needed —
+        ``cov_net`` and ``log_std`` receive the same push-pull gradient through
+        ``log_prob`` that ``log_std`` gets in standard PPO.
         """
         self._latent = latent
         self._mean = self.mean_net(latent)
-
-        # Current covariance WITH gradient — always built for entropy.
-        sigma_mat_current = self._build_covariance(latent)
-        self._distribution_with_grad = MultivariateNormal(
-            loc=self._mean, covariance_matrix=sigma_mat_current, validate_args=False
-        )
-
-        # Covariance for log_prob: use stored (rollout) covariance during PPO
-        # updates so that cov parameter drift does not shift the ratio.
-        # During rollout (stored_covariance is None), use current covariance.
-        sigma_mat_for_logprob = (
-            stored_covariance if stored_covariance is not None
-            else sigma_mat_current.detach()
-        )
+        sigma_mat = self._build_covariance(latent)
         self._distribution = MultivariateNormal(
-            loc=self._mean, covariance_matrix=sigma_mat_for_logprob, validate_args=False
+            loc=self._mean, covariance_matrix=sigma_mat, validate_args=False
         )
-
-        # Expose the current covariance so the rollout loop can store it.
-        self._covariance = sigma_mat_current.detach()
-
         return self._distribution
 
     def sample(self, latent: torch.Tensor) -> torch.Tensor:
@@ -320,16 +299,21 @@ class ITCEDistribution(nn.Module):
         return actions
 
     def log_prob(self, actions: torch.Tensor) -> torch.Tensor:
-        """Evaluate log-probability under the current distribution."""
+        """Log-probability under the current distribution.
+
+        Gradients flow through both mean_net (via the Mahalanobis term) and
+        cov_net / log_std (via both the Mahalanobis and normalization terms),
+        providing the natural push-pull that prevents entropy collapse.
+        """
         return self._distribution.log_prob(actions)
 
     def entropy(self) -> torch.Tensor:
         """Analytical entropy of the MultivariateNormal.
 
-        Uses the gradient-carrying distribution so that the entropy bonus
-        provides the training signal for cov_net and log_std.
+        Entropy = 0.5 * (k * log(2πe) + log|Σ|).  Depends only on the
+        covariance, so gradients flow through cov_net and log_std.
         """
-        return self._distribution_with_grad.entropy()
+        return self._distribution.entropy()
 
 
 # ---------------------------------------------------------------------------
@@ -367,9 +351,9 @@ class Agent(nn.Module):
     def get_value(self, x):
         return self.critic(x)
 
-    def get_action_and_value(self, x, action=None, stored_covariance=None):
+    def get_action_and_value(self, x, action=None):
         latent = self.actor_backbone(x)
-        self.dist.get_action_distribution(latent, stored_covariance=stored_covariance)
+        self.dist.get_action_distribution(latent)
         if action is None:
             action = self.dist.sample(latent)
         log_prob = self.dist.log_prob(action)
@@ -533,14 +517,12 @@ if __name__ == "__main__":
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
-    action_dim = np.prod(envs.single_action_space.shape)
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
     logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    covariances = torch.zeros((args.num_steps, args.num_envs, action_dim, action_dim)).to(device)
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
@@ -570,7 +552,6 @@ if __name__ == "__main__":
             with torch.no_grad():
                 action, logprob, _, value = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
-                covariances[step] = agent.dist._covariance
             actions[step] = action
             logprobs[step] = logprob
 
@@ -610,7 +591,6 @@ if __name__ == "__main__":
         b_advantages = advantages.reshape(-1)
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
-        b_covariances = covariances.reshape(-1, action_dim, action_dim)
 
         # Optimizing the policy and value network
         b_inds = np.arange(args.batch_size)
@@ -621,13 +601,8 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                # Pass the stored rollout covariance so that log_prob is
-                # evaluated under the original Sigma.  Only mean changes
-                # affect the importance-sampling ratio; covariance changes
-                # are channeled exclusively through the entropy bonus.
                 _, newlogprob, entropy, newvalue = agent.get_action_and_value(
                     b_obs[mb_inds], b_actions[mb_inds],
-                    stored_covariance=b_covariances[mb_inds],
                 )
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
