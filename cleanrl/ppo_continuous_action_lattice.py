@@ -1,4 +1,5 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# Lattice exploration based on: Latent Exploration for Reinforcement Learning https://arxiv.org/abs/2305.20065
 import os
 import random
 import time
@@ -10,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import tyro
-from torch.distributions.normal import Normal
+from torch.distributions import MultivariateNormal, Normal
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -66,7 +67,7 @@ class Args:
     """the surrogate clipping coefficient"""
     clip_vloss: bool = True
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
-    ent_coef: float = 0.0
+    ent_coef: float = 1e-5
     """coefficient of the entropy"""
     vf_coef: float = 0.5
     """coefficient of the value function"""
@@ -74,6 +75,24 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
+
+    # Lattice specific arguments
+    lattice_alpha: float = 1.0
+    """relative weight between action and latent noise (0 removes latent noise)"""
+    lattice_std_clip_min: float = 1e-3
+    """minimum clipping value for lattice noise standard deviation"""
+    lattice_std_clip_max: float = 10.0
+    """maximum clipping value for lattice noise standard deviation"""
+    lattice_std_reg: float = 0.0
+    """regularization to prevent collapsing to a deterministic policy"""
+    lattice_full_std: bool = False
+    """use full (latent_dim x (latent_dim + action_dim)) std params; False uses only (latent_dim x 2)"""
+    lattice_use_expln: bool = True
+    """use expln() instead of exp() for std (keeps variance above zero, prevents fast growth)"""
+    lattice_learn_features: bool = True
+    """allow gradients to flow through latent features into the variance/noise computation"""
+    sde_sample_freq: int = 1
+    """frequency of resampling lattice noise exploration matrices (1 = every step)"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -109,36 +128,218 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
+class LatticeDistribution:
+    """
+    Lattice exploration distribution for continuous action spaces.
+
+    Creates correlated noise across actuators via a covariance matrix induced by
+    the policy network's last layer weights, following:
+    Latent Exploration for Reinforcement Learning (https://arxiv.org/abs/2305.20065)
+
+    The covariance decomposes into:
+      - Correlated part: alpha^2 * W @ diag(latent_corr_var) @ W^T
+        (noise injected into latent space, then projected through W)
+      - Independent part: diag(latent_ind_var + std_reg^2)
+        (direct per-action noise added to the diagonal)
+
+    :param action_dim: Dimension of the action space.
+    :param latent_dim: Dimension of the latent (last hidden) layer.
+    :param alpha: Weight of correlated latent noise (0 removes lattice effect).
+    :param full_std: If True, use (latent_dim x (latent_dim + action_dim)) std params.
+        If False, use (latent_dim x 2) and broadcast (fewer parameters).
+    :param use_expln: Use expln() instead of exp() for positive std (cf gSDE paper).
+    :param std_clip: (min, max) clipping range for standard deviations.
+    :param std_reg: Regularization to prevent deterministic collapse.
+    :param learn_features: If True, gradients flow through latent features into
+        variance/noise computation. If False, latent features are detached.
+    :param epsilon: Small value to avoid NaN in expln computation.
+    """
+
+    def __init__(
+        self,
+        action_dim: int,
+        latent_dim: int,
+        alpha: float = 1.0,
+        full_std: bool = True,
+        use_expln: bool = False,
+        std_clip: tuple = (1e-3, 1.0),
+        std_reg: float = 0.0,
+        learn_features: bool = True,
+        epsilon: float = 1e-6,
+    ):
+        self.action_dim = action_dim
+        self.latent_dim = latent_dim
+        self.alpha = alpha
+        self.full_std = full_std
+        self.use_expln = use_expln
+        self.min_std, self.max_std = std_clip
+        self.std_reg = std_reg
+        self.learn_features = learn_features
+        self.epsilon = epsilon
+
+        # Exploration noise matrices (sampled periodically)
+        self.corr_exploration_mat = None
+        self.ind_exploration_mat = None
+        self.corr_exploration_matrices = None
+        self.ind_exploration_matrices = None
+
+    def get_std(self, log_std: torch.Tensor):
+        """
+        Compute correlated and independent standard deviations from log_std parameter.
+
+        With full_std=True, log_std has shape (latent_dim, latent_dim + action_dim):
+          - First latent_dim columns: correlated noise std
+          - Last action_dim columns: independent noise std
+
+        With full_std=False, log_std has shape (latent_dim, 2):
+          - Column 0: broadcast to correlated noise std
+          - Column 1: broadcast to independent noise std
+
+        A correction of -0.5 * log(latent_dim) is applied to normalize
+        the variance contribution per latent dimension.
+        """
+        log_std = log_std.clip(min=np.log(self.min_std), max=np.log(self.max_std))
+        log_std = log_std - 0.5 * np.log(self.latent_dim)
+
+        if self.use_expln:
+            below_threshold = torch.exp(log_std) * (log_std <= 0)
+            safe_log_std = log_std * (log_std > 0) + self.epsilon
+            above_threshold = (torch.log1p(safe_log_std) + 1.0) * (log_std > 0)
+            std = below_threshold + above_threshold
+        else:
+            std = torch.exp(log_std)
+
+        if self.full_std:
+            corr_std = std[:, :self.latent_dim]
+            ind_std = std[:, -self.action_dim:]
+        else:
+            corr_std = torch.ones(self.latent_dim, self.latent_dim, device=log_std.device) * std[:, 0:1]
+            ind_std = torch.ones(self.latent_dim, self.action_dim, device=log_std.device) * std[:, 1:]
+        return corr_std, ind_std
+
+    def sample_weights(self, log_std: torch.Tensor, batch_size: int = 1):
+        """
+        Sample exploration matrices from centered Gaussians parameterized by the
+        learned standard deviations. Uses the reparameterization trick for gradients.
+        """
+        corr_std, ind_std = self.get_std(log_std)
+        corr_dist = Normal(torch.zeros_like(corr_std), corr_std)
+        ind_dist = Normal(torch.zeros_like(ind_std), ind_std)
+
+        self.corr_exploration_mat = corr_dist.rsample()
+        self.ind_exploration_mat = ind_dist.rsample()
+        self.corr_exploration_matrices = corr_dist.rsample((batch_size,))
+        self.ind_exploration_matrices = ind_dist.rsample((batch_size,))
+
+    def _get_noise(self, latent_sde, exploration_mat, exploration_matrices):
+        """Compute noise via matrix multiplication of latent features and exploration matrix."""
+        latent_sde = latent_sde if self.learn_features else latent_sde.detach()
+        if len(latent_sde) == 1 or len(latent_sde) != len(exploration_matrices):
+            return torch.mm(latent_sde, exploration_mat)
+        latent_sde = latent_sde.unsqueeze(dim=1)
+        noise = torch.bmm(latent_sde, exploration_matrices)
+        return noise.squeeze(dim=1)
+
+    def sample(self, mean_actions_net, latent_sde):
+        """
+        Sample actions using lattice noise.
+
+        Applies correlated latent perturbation then projects through the action layer,
+        and adds independent action-space noise:
+          actions = W @ (latent + alpha * corr_noise) + b + ind_noise
+        """
+        latent_sde = latent_sde if self.learn_features else latent_sde.detach()
+        latent_noise = self.alpha * self._get_noise(
+            latent_sde, self.corr_exploration_mat, self.corr_exploration_matrices
+        )
+        action_noise = self._get_noise(
+            latent_sde, self.ind_exploration_mat, self.ind_exploration_matrices
+        )
+        actions = mean_actions_net(latent_sde + latent_noise) + action_noise
+        return actions
+
+    def get_distribution(self, mean_actions, log_std, latent_sde, mean_actions_net):
+        """
+        Build a MultivariateNormal distribution with the lattice-induced covariance.
+
+        The covariance has two components:
+          sigma = alpha^2 * W diag(corr_var) W^T + diag(ind_var + std_reg^2)
+        where W are the weights of the action output layer, and corr_var / ind_var
+        are computed from the learned log_std and the latent features.
+        """
+        latent_sde = latent_sde if self.learn_features else latent_sde.detach()
+        corr_std, ind_std = self.get_std(log_std)
+        latent_corr_variance = torch.mm(latent_sde**2, corr_std**2)
+        latent_ind_variance = torch.mm(latent_sde**2, ind_std**2) + self.std_reg**2
+
+        W = mean_actions_net.weight
+        sigma_mat = self.alpha**2 * (W * latent_corr_variance[:, None, :]).matmul(W.T)
+        sigma_mat[:, range(self.action_dim), range(self.action_dim)] += latent_ind_variance
+
+        return MultivariateNormal(loc=mean_actions, covariance_matrix=sigma_mat, validate_args=False)
+
+
 class Agent(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, envs, alpha=1.0, full_std=True, use_expln=False,
+                 std_clip=(1e-3, 1.0), std_reg=0.0, learn_features=True):
         super().__init__()
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        action_dim = np.prod(envs.single_action_space.shape)
+        latent_dim = 64
+
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
-        self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
+        self.actor_trunk = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
+            nn.GELU(),
             layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
+            nn.GELU(),
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_mean = nn.Linear(latent_dim, action_dim)
+
+        # Lattice log_std parameter shape depends on full_std mode
+        # full_std=True:  (latent_dim, latent_dim + action_dim) — full parameterization
+        # full_std=False: (latent_dim, 2) — reduced, broadcast per-dim
+        log_std_shape = (latent_dim, latent_dim + action_dim) if full_std else (latent_dim, 2)
+        self.actor_logstd = nn.Parameter(torch.zeros(log_std_shape))
+
+        self.lattice = LatticeDistribution(
+            action_dim=action_dim,
+            latent_dim=latent_dim,
+            alpha=alpha,
+            full_std=full_std,
+            use_expln=use_expln,
+            std_clip=std_clip,
+            std_reg=std_reg,
+            learn_features=learn_features,
+        )
 
     def get_value(self, x):
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
-        probs = Normal(action_mean, action_std)
+        latent = self.actor_trunk(x)
+        action_mean = self.actor_mean(latent)
+
+        dist = self.lattice.get_distribution(
+            action_mean, self.actor_logstd, latent, self.actor_mean
+        )
+
         if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+            action = self.lattice.sample(self.actor_mean, latent)
+
+        log_prob = dist.log_prob(action)
+        entropy = dist.entropy()
+        return action, log_prob, entropy, self.critic(x)
+
+    def sample_noise(self, batch_size=1):
+        """Resample the lattice exploration matrices."""
+        self.lattice.sample_weights(self.actor_logstd, batch_size=batch_size)
 
 
 if __name__ == "__main__":
@@ -179,8 +380,19 @@ if __name__ == "__main__":
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(
+        envs,
+        alpha=args.lattice_alpha,
+        full_std=args.lattice_full_std,
+        use_expln=args.lattice_use_expln,
+        std_clip=(args.lattice_std_clip_min, args.lattice_std_clip_max),
+        std_reg=args.lattice_std_reg,
+        learn_features=args.lattice_learn_features,
+    ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+
+    # Initial noise sampling
+    agent.sample_noise(batch_size=args.num_envs)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
@@ -211,6 +423,8 @@ if __name__ == "__main__":
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
+                if args.sde_sample_freq > 0 and step % args.sde_sample_freq == 0:
+                    agent.sample_noise(batch_size=args.num_envs)
                 action, logprob, _, value = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
@@ -261,6 +475,9 @@ if __name__ == "__main__":
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
+
+                # Resample lattice noise for each training minibatch
+                agent.sample_noise(batch_size=len(mb_inds))
 
                 _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]

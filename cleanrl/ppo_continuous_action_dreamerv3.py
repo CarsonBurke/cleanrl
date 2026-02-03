@@ -1,4 +1,8 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# DreamerV3 actor-critic variant: replaces PPO-clip with REINFORCE using
+# DreamerV3's symlog observations, percentile-based return normalization
+# (retnorm), symexp-twohot distributional value head, and entropy
+# regularisation.
 import os
 import random
 import time
@@ -8,11 +12,125 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import tyro
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
+
+# ---------------------------------------------------------------------------
+# DreamerV3 primitives
+# ---------------------------------------------------------------------------
+
+def symlog(x: torch.Tensor) -> torch.Tensor:
+    """Symmetric log: sign(x) * log(1 + |x|)."""
+    return torch.sign(x) * torch.log1p(torch.abs(x))
+
+
+def symexp(x: torch.Tensor) -> torch.Tensor:
+    """Symmetric exp (inverse of symlog): sign(x) * (exp(|x|) - 1)."""
+    return torch.sign(x) * torch.expm1(torch.abs(x))
+
+
+class ReturnNormalizer:
+    """Percentile-based return normalizer (DreamerV3 retnorm).
+
+    Tracks the 5th and 95th percentiles of the return distribution with an
+    exponential moving average and uses the range as the scale.
+    """
+
+    def __init__(self, decay: float = 0.99, perclo: float = 5.0, perchi: float = 95.0,
+                 limit: float = 1.0):
+        self.decay = decay
+        self.perclo = perclo
+        self.perchi = perchi
+        self.limit = limit
+        self.lo = 0.0
+        self.hi = 0.0
+        self.initialized = False
+
+    def update(self, x: torch.Tensor):
+        lo = float(torch.quantile(x, self.perclo / 100.0))
+        hi = float(torch.quantile(x, self.perchi / 100.0))
+        if not self.initialized:
+            self.lo = lo
+            self.hi = hi
+            self.initialized = True
+        else:
+            self.lo = self.decay * self.lo + (1 - self.decay) * lo
+            self.hi = self.decay * self.hi + (1 - self.decay) * hi
+
+    def scale(self) -> float:
+        return max(self.limit, self.hi - self.lo)
+
+
+def _symexp_bins(num_bins: int) -> torch.Tensor:
+    """Build symmetric bin centres in symexp-space (DreamerV3 Appendix E)."""
+    if num_bins % 2 == 1:
+        half = torch.linspace(-20.0, 0.0, (num_bins - 1) // 2 + 1)
+        half = symexp(half)
+        bins = torch.cat([half, -half[:-1].flip(0)])
+    else:
+        half = torch.linspace(-20.0, 0.0, num_bins // 2)
+        half = symexp(half)
+        bins = torch.cat([half, -half.flip(0)])
+    return bins
+
+
+def twohot_encode(x: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
+    """Encode scalar targets as two-hot vectors over *bins*."""
+    x = x.unsqueeze(-1)  # (..., 1)
+    below = (bins <= x).long().sum(-1) - 1
+    below = below.clamp(0, len(bins) - 1)
+    above = (below + 1).clamp(0, len(bins) - 1)
+    equal = (below == above)
+    dist_below = torch.where(equal, torch.ones_like(x.squeeze(-1)),
+                             torch.abs(bins[below] - x.squeeze(-1)))
+    dist_above = torch.where(equal, torch.ones_like(x.squeeze(-1)),
+                             torch.abs(bins[above] - x.squeeze(-1)))
+    total = dist_below + dist_above
+    weight_below = dist_above / total
+    weight_above = dist_below / total
+    target = (F.one_hot(below, len(bins)).float() * weight_below.unsqueeze(-1)
+              + F.one_hot(above, len(bins)).float() * weight_above.unsqueeze(-1))
+    return target
+
+
+def twohot_predict(logits: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
+    """Decode a predicted value from two-hot logits via symmetric weighted sum.
+
+    Pairs negative/positive bins to cancel floating-point error, ensuring the
+    prediction is exactly zero when logits are uniform at initialization.
+    """
+    probs = torch.softmax(logits, dim=-1)
+    n = probs.shape[-1]
+    if n % 2 == 1:
+        m = (n - 1) // 2
+        p1 = probs[..., :m]
+        p2 = probs[..., m : m + 1]
+        p3 = probs[..., m + 1 :]
+        b1 = bins[:m]
+        b2 = bins[m : m + 1]
+        b3 = bins[m + 1 :]
+        return (p2 * b2).sum(-1) + ((p1 * b1).flip(-1) + (p3 * b3)).sum(-1)
+    else:
+        p1 = probs[..., : n // 2]
+        p2 = probs[..., n // 2 :]
+        b1 = bins[: n // 2]
+        b2 = bins[n // 2 :]
+        return ((p1 * b1).flip(-1) + (p2 * b2)).sum(-1)
+
+
+def twohot_loss(logits: torch.Tensor, target_twohot: torch.Tensor) -> torch.Tensor:
+    """Cross-entropy loss against a two-hot target (per-element, unreduced)."""
+    log_probs = logits - torch.logsumexp(logits, dim=-1, keepdim=True)
+    return -(target_twohot * log_probs).sum(-1)
+
+
+# ---------------------------------------------------------------------------
+# Args & env helpers
+# ---------------------------------------------------------------------------
 
 @dataclass
 class Args:
@@ -58,22 +176,20 @@ class Args:
     """the lambda for the general advantage estimation"""
     num_minibatches: int = 32
     """the number of mini-batches"""
-    update_epochs: int = 10
-    """the K epochs to update the policy"""
-    norm_adv: bool = True
-    """Toggles advantages normalization"""
-    clip_coef: float = 0.2
-    """the surrogate clipping coefficient"""
-    clip_vloss: bool = True
-    """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
-    ent_coef: float = 0.0
-    """coefficient of the entropy"""
-    vf_coef: float = 0.5
+    ent_coef: float = 3e-4
+    """coefficient of the entropy (DreamerV3 default: 3e-4)"""
+    vf_coef: float = 1.0
     """coefficient of the value function"""
     max_grad_norm: float = 0.5
     """the maximum norm for the gradient clipping"""
-    target_kl: float = None
-    """the target KL divergence threshold"""
+
+    # DreamerV3-style additions
+    num_bins: int = 255
+    """number of bins for symexp-twohot value head"""
+    retnorm_decay: float = 0.99
+    """EMA decay for percentile-based return normalizer"""
+    retnorm_limit: float = 1.0
+    """minimum scale for return normalizer"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -84,7 +200,7 @@ class Args:
     """the number of iterations (computed in runtime)"""
 
 
-def make_env(env_id, idx, capture_video, run_name, gamma):
+def make_env(env_id, idx, capture_video, run_name):
     def thunk():
         if capture_video and idx == 0:
             env = gym.make(env_id, render_mode="rgb_array")
@@ -94,14 +210,17 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
         env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
-        env = gym.wrappers.NormalizeObservation(env)
-        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
-        env = gym.wrappers.NormalizeReward(env, gamma=gamma)
-        env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+        # No NormalizeObservation (symlog replaces it) and no NormalizeReward
+        # (retnorm handles return scale for the policy; the twohot value head
+        # handles arbitrary reward magnitudes directly).
         return env
 
     return thunk
 
+
+# ---------------------------------------------------------------------------
+# Agent
+# ---------------------------------------------------------------------------
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.orthogonal_(layer.weight, std)
@@ -110,36 +229,60 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, envs, num_bins: int = 255, minstd: float = 0.1, maxstd: float = 1.0):
         super().__init__()
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        act_dim = np.prod(envs.single_action_space.shape)
+        self.minstd = minstd
+        self.maxstd = maxstd
+
+        # Critic outputs logits over symexp-twohot bins instead of a scalar
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 1), std=1.0),
+            layer_init(nn.Linear(64, num_bins), std=0.01),
         )
-        self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+        # Actor: shared trunk with separate mean and std heads
+        self.actor_trunk = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_mean = layer_init(nn.Linear(64, act_dim), std=0.01)
+        self.actor_std = layer_init(nn.Linear(64, act_dim), std=0.01)
+
+        # Register symexp-twohot bin centres as a buffer (not a parameter)
+        self.register_buffer("bins", _symexp_bins(num_bins))
+
+    def _policy(self, x):
+        """Return Normal distribution with bounded, state-dependent std."""
+        h = self.actor_trunk(x)
+        mean = torch.tanh(self.actor_mean(h))
+        # DreamerV3: std = (hi - lo) * sigmoid(raw + 2.0) + lo
+        # +2.0 bias so initial std ≈ 0.89 (near maxstd)
+        std = (self.maxstd - self.minstd) * torch.sigmoid(self.actor_std(h) + 2.0) + self.minstd
+        return Normal(mean, std)
 
     def get_value(self, x):
-        return self.critic(x)
+        """Return scalar value predictions (symexp-twohot decoded)."""
+        logits = self.critic(x)
+        return twohot_predict(logits, self.bins)
 
     def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
-        probs = Normal(action_mean, action_std)
+        probs = self._policy(x)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+        value_logits = self.critic(x)
+        value = twohot_predict(value_logits, self.bins)
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), value, value_logits
 
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
@@ -175,12 +318,15 @@ if __name__ == "__main__":
 
     # env setup
     envs = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)]
+        [make_env(args.env_id, i, args.capture_video, run_name) for i in range(args.num_envs)]
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(envs, num_bins=args.num_bins).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+
+    # Percentile-based return normalizer (DreamerV3 retnorm)
+    retnorm = ReturnNormalizer(decay=args.retnorm_decay, limit=args.retnorm_limit)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
@@ -211,7 +357,8 @@ if __name__ == "__main__":
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                # Symlog the observation before feeding into the network
+                action, logprob, _, value, _ = agent.get_action_and_value(symlog(next_obs))
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -231,7 +378,7 @@ if __name__ == "__main__":
 
         # bootstrap value if not done
         with torch.no_grad():
-            next_value = agent.get_value(next_obs).reshape(1, -1)
+            next_value = agent.get_value(symlog(next_obs)).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
             lastgaelam = 0
             for t in reversed(range(args.num_steps)):
@@ -245,6 +392,10 @@ if __name__ == "__main__":
                 advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + values
 
+        # --- DreamerV3 return normalizer: scale advantages by return spread ---
+        retnorm.update(returns.flatten())
+        ret_scale = retnorm.scale()
+
         # flatten the batch
         b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
         b_logprobs = logprobs.reshape(-1)
@@ -253,59 +404,42 @@ if __name__ == "__main__":
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
-        # Optimizing the policy and value network
+        # Normalize advantages by return scale (DreamerV3 retnorm)
+        b_advantages = b_advantages / ret_scale
+
+        # Optimizing the policy and value network — single epoch, on-policy
+        # REINFORCE (no importance sampling ratio, no clipping).
         b_inds = np.arange(args.batch_size)
-        clipfracs = []
-        for epoch in range(args.update_epochs):
-            np.random.shuffle(b_inds)
-            for start in range(0, args.batch_size, args.minibatch_size):
-                end = start + args.minibatch_size
-                mb_inds = b_inds[start:end]
+        np.random.shuffle(b_inds)
+        for start in range(0, args.batch_size, args.minibatch_size):
+            end = start + args.minibatch_size
+            mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
-                logratio = newlogprob - b_logprobs[mb_inds]
-                ratio = logratio.exp()
+            # Symlog observations for the network
+            mb_obs_symlog = symlog(b_obs[mb_inds])
 
-                with torch.no_grad():
-                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
-                    old_approx_kl = (-logratio).mean()
-                    approx_kl = ((ratio - 1) - logratio).mean()
-                    clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+            _, newlogprob, entropy, newvalue, newvalue_logits = \
+                agent.get_action_and_value(mb_obs_symlog, b_actions[mb_inds])
 
-                mb_advantages = b_advantages[mb_inds]
-                if args.norm_adv:
-                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+            mb_advantages = b_advantages[mb_inds]
 
-                # Policy loss
-                pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
-                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+            # Policy loss: REINFORCE  -(logpi * sg(adv) + ent_coef * entropy)
+            # Advantages are detached (stop-gradient), matching DreamerV3's
+            # sg(adv_normed).
+            pg_loss = -(newlogprob * mb_advantages.detach()).mean()
+            entropy_loss = entropy.mean()
 
-                # Value loss
-                newvalue = newvalue.view(-1)
-                if args.clip_vloss:
-                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
-                    v_clipped = b_values[mb_inds] + torch.clamp(
-                        newvalue - b_values[mb_inds],
-                        -args.clip_coef,
-                        args.clip_coef,
-                    )
-                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
-                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
-                else:
-                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+            # Value loss: symexp-twohot cross-entropy on raw returns
+            mb_returns = b_returns[mb_inds]
+            target_twohot = twohot_encode(mb_returns, agent.bins)
+            v_loss = twohot_loss(newvalue_logits, target_twohot).mean()
 
-                entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+            loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
-                optimizer.zero_grad()
-                loss.backward()
-                nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
-                optimizer.step()
-
-            if args.target_kl is not None and approx_kl > args.target_kl:
-                break
+            optimizer.zero_grad()
+            loss.backward()
+            nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
+            optimizer.step()
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
@@ -316,10 +450,8 @@ if __name__ == "__main__":
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
         writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
-        writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
-        writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
-        writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("charts/retnorm_scale", ret_scale, global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

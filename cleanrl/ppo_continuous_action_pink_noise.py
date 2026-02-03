@@ -1,4 +1,9 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# This is a variant of ppo_continuous_action.py that uses temporally correlated
+# colored noise for exploration, following the approach from Eberhard et al.
+# (https://arxiv.org/abs/2011.15034). By default uses pink noise (beta=1),
+# which produces 1/f-correlated exploration that maintains consistent direction
+# over short timescales while still covering the action space over longer horizons.
 import os
 import random
 import time
@@ -66,7 +71,7 @@ class Args:
     """the surrogate clipping coefficient"""
     clip_vloss: bool = True
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
-    ent_coef: float = 0.0
+    ent_coef: float = 0.01
     """coefficient of the entropy"""
     vf_coef: float = 0.5
     """coefficient of the value function"""
@@ -75,6 +80,10 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
+    # Colored noise specific arguments
+    noise_beta: float = 0.75
+    """exponent for colored noise power spectrum S(f) ~ 1/f^beta (0=white, 1=pink, 2=brown)"""
+
     # to be filled in runtime
     batch_size: int = 0
     """the batch size (computed in runtime)"""
@@ -82,6 +91,89 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
+
+
+def powerlaw_psd_gaussian(exponent, size, fmin=0.0, rng=None):
+    """Generate colored noise with a power-law power spectral density.
+
+    Uses the Timmer & Koenig (1995) frequency-domain method.
+    Adapted from the colorednoise library by Feliks Kluzniak.
+
+    Args:
+        exponent: Power-law exponent beta. 0=white, 1=pink, 2=brown.
+        size: Shape of the output. Last dimension is the time axis.
+        fmin: Low-frequency cutoff. Below this, the spectrum is flat.
+        rng: numpy random Generator for reproducibility.
+    Returns:
+        Numpy array of noise with approximately unit variance.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    if isinstance(size, int):
+        size = (size,)
+    samples = size[-1]
+
+    # Frequencies for real FFT
+    f = np.fft.rfftfreq(samples)
+
+    # Minimum frequency
+    fmin = max(fmin, 1.0 / samples)
+
+    # Build the power-law scaling: s(f) = f^(-beta/2)
+    # Frequencies below fmin get the same scaling as fmin (flat spectrum)
+    s_scale = np.where(f < fmin, fmin, f)
+    s_scale = s_scale ** (-exponent / 2.0)
+
+    # Normalization factor for unit variance output
+    w = s_scale[1:].copy()
+    w[-1] *= (1 + (samples % 2)) / 2.0  # correct for Nyquist
+    sigma = 2 * np.sqrt(np.sum(w**2)) / samples
+
+    # Shape for broadcasting: (batch_dims..., num_freqs)
+    dims_to_add = len(size) - 1
+    s_scale = s_scale[(np.newaxis,) * dims_to_add + (Ellipsis,)]
+
+    # Generate scaled random Fourier coefficients
+    sr = rng.normal(scale=s_scale, size=size[:-1] + (len(f),))
+    si = rng.normal(scale=s_scale, size=size[:-1] + (len(f),))
+
+    # DC component must be real
+    si[..., 0] = 0
+    sr[..., 0] *= np.sqrt(2)
+
+    # Nyquist component must be real for even-length signals
+    if samples % 2 == 0:
+        si[..., -1] = 0
+        sr[..., -1] *= np.sqrt(2)
+
+    s = sr + 1j * si
+
+    # Transform back to time domain and normalize
+    y = np.fft.irfft(s, n=samples, axis=-1) / sigma
+    return y
+
+
+def colored_noise_sequence(beta, num_steps, num_envs, action_dim, device, rng=None):
+    """Pre-generate a full rollout of temporally correlated noise.
+
+    Args:
+        beta: Power-law exponent (0=white, 1=pink, 2=brown).
+        num_steps: Number of timesteps per rollout.
+        num_envs: Number of parallel environments.
+        action_dim: Dimensionality of the action space.
+        device: Torch device for the output tensor.
+        rng: numpy random Generator for reproducibility.
+    Returns:
+        Tensor of shape (num_steps, num_envs, action_dim) with unit variance
+        colored noise, where temporal correlation is along the num_steps axis.
+    """
+    # Generate with time as the last axis for correct temporal correlation
+    # Shape: (num_envs, action_dim, num_steps)
+    raw = powerlaw_psd_gaussian(beta, (num_envs, action_dim, num_steps), rng=rng)
+    # Transpose to (num_steps, num_envs, action_dim) for rollout indexing
+    raw = np.transpose(raw, (2, 0, 1))
+    return torch.tensor(raw, dtype=torch.float32, device=device)
 
 
 def make_env(env_id, idx, capture_video, run_name, gamma):
@@ -131,13 +223,14 @@ class Agent(nn.Module):
     def get_value(self, x):
         return self.critic(x)
 
-    def get_action_and_value(self, x, action=None):
+    def get_action_and_value(self, x, action=None, colored_noise=None):
         action_mean = self.actor_mean(x)
         action_logstd = self.actor_logstd.expand_as(action_mean)
         action_std = torch.exp(action_logstd)
         probs = Normal(action_mean, action_std)
         if action is None:
-            action = probs.sample()
+            # During rollout: use pre-generated correlated noise scaled by learned std
+            action = action_mean + colored_noise * action_std
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
 
 
@@ -182,6 +275,9 @@ if __name__ == "__main__":
     agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
+    # Seeded RNG for reproducible colored noise generation
+    noise_rng = np.random.default_rng(args.seed)
+
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
@@ -204,6 +300,12 @@ if __name__ == "__main__":
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
+        # Colored noise: pre-generate a full rollout of temporally correlated noise
+        noise_seq = colored_noise_sequence(
+            args.noise_beta, args.num_steps, args.num_envs,
+            np.prod(envs.single_action_space.shape), device, rng=noise_rng,
+        )
+
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
@@ -211,7 +313,9 @@ if __name__ == "__main__":
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                action, logprob, _, value = agent.get_action_and_value(
+                    next_obs, colored_noise=noise_seq[step]
+                )
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob

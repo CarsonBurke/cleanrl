@@ -1,4 +1,6 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/rpo/#rpo_continuous_actionpy
+# This is a variant of rpo_continuous_action.py that uses generalized
+# State-Dependent Exploration (gSDE) from https://arxiv.org/abs/2005.05719
 import os
 import random
 import time
@@ -32,12 +34,6 @@ class Args:
     """the entity (team) of wandb's project"""
     capture_video: bool = False
     """whether to capture videos of the agent performances (check out `videos` folder)"""
-    save_model: bool = False
-    """whether to save model into the `runs/{run_name}` folder"""
-    upload_model: bool = False
-    """whether to upload the saved model to huggingface"""
-    hf_entity: str = ""
-    """the user or org name of the model repository from the Hugging Face Hub"""
 
     # Algorithm specific arguments
     env_id: str = "HalfCheetah-v4"
@@ -74,6 +70,16 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
+    rpo_alpha: float = 0.1
+    """the alpha parameter for RPO"""
+
+    # gSDE specific arguments
+    gsde_log_std_init: float = -2.0
+    """initial value for the gSDE log standard deviation"""
+    full_std: bool = True
+    """whether to use (latent_dim x action_dim) parameters for std instead of (latent_dim, 1)"""
+    use_expln: bool = False
+    """use expln() instead of exp() for positive std (cf gSDE paper)"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -109,36 +115,127 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
+class gSDEDistribution:
+    """Generalized State-Dependent Exploration (gSDE) distribution.
+
+    Implements the gSDE noise mechanism from https://arxiv.org/abs/2005.05719.
+    The exploration noise is state-dependent: noise = latent_features @ exploration_matrix,
+    where the exploration matrix is sampled from N(0, sigma^2) and held fixed between resamples.
+    """
+
+    def __init__(self, action_dim, latent_sde_dim, full_std=True, use_expln=False, epsilon=1e-6):
+        self.action_dim = action_dim
+        self.latent_sde_dim = latent_sde_dim
+        self.full_std = full_std
+        self.use_expln = use_expln
+        self.epsilon = epsilon
+
+        self.exploration_mat = None
+        self.exploration_matrices = None
+
+    def get_std(self, log_std):
+        if self.use_expln:
+            below_threshold = torch.exp(log_std) * (log_std <= 0)
+            safe_log_std = log_std * (log_std > 0) + self.epsilon
+            above_threshold = (torch.log1p(safe_log_std) + 1.0) * (log_std > 0)
+            std = below_threshold + above_threshold
+        else:
+            std = torch.exp(log_std)
+
+        if self.full_std:
+            return std
+        return torch.ones(self.latent_sde_dim, self.action_dim).to(log_std.device) * std
+
+    def sample_weights(self, log_std, batch_size=1):
+        """Sample new exploration matrices from N(0, sigma^2)."""
+        std = self.get_std(log_std)
+        weights_dist = Normal(torch.zeros_like(std), std)
+        self.exploration_mat = weights_dist.rsample()
+        self.exploration_matrices = weights_dist.rsample((batch_size,))
+
+    def get_noise(self, latent_sde):
+        if len(latent_sde) == 1 or len(latent_sde) != len(self.exploration_matrices):
+            return torch.mm(latent_sde, self.exploration_mat)
+        latent_sde = latent_sde.unsqueeze(dim=1)
+        noise = torch.bmm(latent_sde, self.exploration_matrices)
+        return noise.squeeze(dim=1)
+
+    def get_distribution(self, mean_actions, log_std, latent_sde):
+        """Create the Normal distribution with state-dependent variance."""
+        variance = torch.mm(latent_sde**2, self.get_std(log_std) ** 2)
+        return Normal(mean_actions, torch.sqrt(variance + self.epsilon))
+
+    def sample(self, mean_actions, latent_sde):
+        """Sample actions using the pre-computed exploration matrix."""
+        noise = self.get_noise(latent_sde)
+        return mean_actions + noise
+
+    def log_prob(self, distribution, actions):
+        return distribution.log_prob(actions).sum(-1)
+
+    def entropy(self, distribution):
+        return distribution.entropy().sum(-1)
+
+
 class Agent(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, envs, rpo_alpha, full_std=True, use_expln=False, gsde_log_std_init=-2.0):
         super().__init__()
+        self.rpo_alpha = rpo_alpha
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        action_dim = np.prod(envs.single_action_space.shape)
+        latent_dim = 64
+
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
-        self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+        self.actor_latent = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_mean = layer_init(nn.Linear(latent_dim, action_dim), std=0.01)
+
+        # gSDE distribution
+        self.gsde = gSDEDistribution(
+            action_dim, latent_sde_dim=latent_dim, full_std=full_std, use_expln=use_expln,
+        )
+
+        # gSDE log_std: learnable parameter of shape (latent_dim, action_dim) or (latent_dim, 1)
+        if full_std:
+            self.log_std = nn.Parameter(torch.ones(latent_dim, action_dim) * gsde_log_std_init)
+        else:
+            self.log_std = nn.Parameter(torch.ones(latent_dim, 1) * gsde_log_std_init)
+
+        # Initial noise sample
+        self.gsde.sample_weights(self.log_std)
+
+    def reset_noise(self, batch_size=1):
+        self.gsde.sample_weights(self.log_std, batch_size=batch_size)
 
     def get_value(self, x):
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
-        probs = Normal(action_mean, action_std)
+        # learn_features=True: allow gradients through latent features
+        latent_sde = self.actor_latent(x)
+
         if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+            action_mean = self.actor_mean(latent_sde)
+            distribution = self.gsde.get_distribution(action_mean, self.log_std, latent_sde)
+            action = self.gsde.sample(action_mean, latent_sde)
+        else:  # RPO: perturb latent space instead of action space
+            z = torch.FloatTensor(latent_sde.shape).uniform_(-self.rpo_alpha, self.rpo_alpha).to(x.device)
+            action_mean = self.actor_mean(latent_sde + z)
+            distribution = self.gsde.get_distribution(action_mean, self.log_std, latent_sde)
+
+        log_prob = self.gsde.log_prob(distribution, action)
+        entropy = self.gsde.entropy(distribution)
+        return action, log_prob, entropy, self.critic(x)
 
 
 if __name__ == "__main__":
@@ -179,7 +276,7 @@ if __name__ == "__main__":
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(envs, args.rpo_alpha, full_std=args.full_std, use_expln=args.use_expln, gsde_log_std_init=args.gsde_log_std_init).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -196,18 +293,22 @@ if __name__ == "__main__":
     next_obs, _ = envs.reset(seed=args.seed)
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
+    num_updates = args.total_timesteps // args.batch_size
 
-    for iteration in range(1, args.num_iterations + 1):
+    for update in range(1, num_updates + 1):
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
-            frac = 1.0 - (iteration - 1.0) / args.num_iterations
+            frac = 1.0 - (update - 1.0) / num_updates
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
         for step in range(0, args.num_steps):
-            global_step += args.num_envs
+            global_step += 1 * args.num_envs
             obs[step] = next_obs
             dones[step] = next_done
+
+            # gSDE: resample exploration noise each step
+            agent.reset_noise(batch_size=args.num_envs)
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
@@ -218,9 +319,9 @@ if __name__ == "__main__":
 
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
-            next_done = np.logical_or(terminations, truncations)
+            done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
-            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(done).to(device)
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -261,6 +362,9 @@ if __name__ == "__main__":
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
+
+                # Resample noise for training minibatch
+                agent.reset_noise(batch_size=len(mb_inds))
 
                 _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
@@ -304,8 +408,9 @@ if __name__ == "__main__":
                 nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
 
-            if args.target_kl is not None and approx_kl > args.target_kl:
-                break
+            if args.target_kl is not None:
+                if approx_kl > args.target_kl:
+                    break
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
@@ -322,32 +427,6 @@ if __name__ == "__main__":
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
-
-    if args.save_model:
-        model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
-        torch.save(agent.state_dict(), model_path)
-        print(f"model saved to {model_path}")
-        from cleanrl_utils.evals.ppo_eval import evaluate
-
-        episodic_returns = evaluate(
-            model_path,
-            make_env,
-            args.env_id,
-            eval_episodes=10,
-            run_name=f"{run_name}-eval",
-            Model=Agent,
-            device=device,
-            gamma=args.gamma,
-        )
-        for idx, episodic_return in enumerate(episodic_returns):
-            writer.add_scalar("eval/episodic_return", episodic_return, idx)
-
-        if args.upload_model:
-            from cleanrl_utils.huggingface import push_to_hub
-
-            repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-            repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-            push_to_hub(args, episodic_returns, repo_id, "PPO", f"runs/{run_name}", f"videos/{run_name}-eval")
 
     envs.close()
     writer.close()

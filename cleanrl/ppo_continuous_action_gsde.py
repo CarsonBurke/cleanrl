@@ -1,4 +1,6 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# This is a variant of ppo_continuous_action.py that uses generalized
+# State-Dependent Exploration (gSDE) from https://arxiv.org/abs/2005.05719
 import os
 import random
 import time
@@ -75,6 +77,14 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
+    # gSDE specific arguments
+    gsde_log_std_init: float = -2.0
+    """initial value for the gSDE log standard deviation"""
+    full_std: bool = True
+    """whether to use (latent_dim x action_dim) parameters for std instead of (latent_dim, 1)"""
+    use_expln: bool = False
+    """use expln() instead of exp() for positive std (cf gSDE paper)"""
+
     # to be filled in runtime
     batch_size: int = 0
     """the batch size (computed in runtime)"""
@@ -109,36 +119,121 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
+class gSDEDistribution:
+    """Generalized State-Dependent Exploration (gSDE) distribution.
+
+    Implements the gSDE noise mechanism from https://arxiv.org/abs/2005.05719.
+    The exploration noise is state-dependent: noise = latent_features @ exploration_matrix,
+    where the exploration matrix is sampled from N(0, sigma^2) and held fixed between resamples.
+    """
+
+    def __init__(self, action_dim, latent_sde_dim, full_std=True, use_expln=False, epsilon=1e-6):
+        self.action_dim = action_dim
+        self.latent_sde_dim = latent_sde_dim
+        self.full_std = full_std
+        self.use_expln = use_expln
+        self.epsilon = epsilon
+
+        self.exploration_mat = None
+        self.exploration_matrices = None
+
+    def get_std(self, log_std):
+        if self.use_expln:
+            below_threshold = torch.exp(log_std) * (log_std <= 0)
+            safe_log_std = log_std * (log_std > 0) + self.epsilon
+            above_threshold = (torch.log1p(safe_log_std) + 1.0) * (log_std > 0)
+            std = below_threshold + above_threshold
+        else:
+            std = torch.exp(log_std)
+
+        if self.full_std:
+            return std
+        return torch.ones(self.latent_sde_dim, self.action_dim).to(log_std.device) * std
+
+    def sample_weights(self, log_std, batch_size=1):
+        """Sample new exploration matrices from N(0, sigma^2)."""
+        std = self.get_std(log_std)
+        weights_dist = Normal(torch.zeros_like(std), std)
+        self.exploration_mat = weights_dist.rsample()
+        self.exploration_matrices = weights_dist.rsample((batch_size,))
+
+    def get_noise(self, latent_sde):
+        if len(latent_sde) == 1 or len(latent_sde) != len(self.exploration_matrices):
+            return torch.mm(latent_sde, self.exploration_mat)
+        latent_sde = latent_sde.unsqueeze(dim=1)
+        noise = torch.bmm(latent_sde, self.exploration_matrices)
+        return noise.squeeze(dim=1)
+
+    def get_distribution(self, mean_actions, log_std, latent_sde):
+        """Create the Normal distribution with state-dependent variance."""
+        variance = torch.mm(latent_sde**2, self.get_std(log_std) ** 2)
+        return Normal(mean_actions, torch.sqrt(variance + self.epsilon))
+
+    def sample(self, mean_actions, latent_sde):
+        """Sample actions using the pre-computed exploration matrix."""
+        noise = self.get_noise(latent_sde)
+        return mean_actions + noise
+
+    def log_prob(self, distribution, actions):
+        return distribution.log_prob(actions).sum(-1)
+
+    def entropy(self, distribution):
+        return distribution.entropy().sum(-1)
+
+
 class Agent(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, envs, full_std=True, use_expln=False, gsde_log_std_init=-2.0):
         super().__init__()
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        action_dim = np.prod(envs.single_action_space.shape)
+        latent_dim = 64
+
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
-        self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+        self.actor_latent = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_mean = layer_init(nn.Linear(latent_dim, action_dim), std=0.01)
+
+        # gSDE distribution
+        self.gsde = gSDEDistribution(
+            action_dim, latent_sde_dim=latent_dim, full_std=full_std, use_expln=use_expln,
+        )
+
+        # gSDE log_std: learnable parameter of shape (latent_dim, action_dim) or (latent_dim, 1)
+        if full_std:
+            self.log_std = nn.Parameter(torch.ones(latent_dim, action_dim) * gsde_log_std_init)
+        else:
+            self.log_std = nn.Parameter(torch.ones(latent_dim, 1) * gsde_log_std_init)
+
+        # Initial noise sample
+        self.gsde.sample_weights(self.log_std)
+
+    def reset_noise(self, batch_size=1):
+        self.gsde.sample_weights(self.log_std, batch_size=batch_size)
 
     def get_value(self, x):
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
-        probs = Normal(action_mean, action_std)
+        # learn_features=True: allow gradients through latent features
+        latent_sde = self.actor_latent(x)
+        mean_actions = self.actor_mean(latent_sde)
+
+        distribution = self.gsde.get_distribution(mean_actions, self.log_std, latent_sde)
         if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+            action = self.gsde.sample(mean_actions, latent_sde)
+        log_prob = self.gsde.log_prob(distribution, action)
+        entropy = self.gsde.entropy(distribution)
+        return action, log_prob, entropy, self.critic(x)
 
 
 if __name__ == "__main__":
@@ -179,7 +274,7 @@ if __name__ == "__main__":
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(envs, full_std=args.full_std, use_expln=args.use_expln, gsde_log_std_init=args.gsde_log_std_init).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -203,6 +298,9 @@ if __name__ == "__main__":
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
+
+        # gSDE: resample exploration noise once per rollout
+        agent.reset_noise(batch_size=args.num_envs)
 
         for step in range(0, args.num_steps):
             global_step += args.num_envs
@@ -261,6 +359,9 @@ if __name__ == "__main__":
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
+
+                # Resample noise for training minibatch
+                agent.reset_noise(batch_size=len(mb_inds))
 
                 _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]

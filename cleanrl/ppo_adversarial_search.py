@@ -74,6 +74,8 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
+    perturb_step: float = 1000.0
+    """fixed step size for adversarial/orthogonal perturbation in hidden space"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -110,35 +112,89 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, envs, perturb_step):
         super().__init__()
+        self.perturb_step = perturb_step
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        action_dim = np.prod(envs.single_action_space.shape)
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
-        self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+        self.actor_trunk = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_mean_head = layer_init(nn.Linear(64, action_dim), std=0.01)
+        self.actor_logstd = nn.Parameter(torch.zeros(1, action_dim))
 
     def get_value(self, x):
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
+        hidden = self.actor_trunk(x)
+        action_mean = self.actor_mean_head(hidden)
         action_logstd = self.actor_logstd.expand_as(action_mean)
         action_std = torch.exp(action_logstd)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+
+    def get_perturbed_logprobs(self, x, action):
+        """Compute opposite and orthogonal perturbed log-probs.
+
+        1. Forward through trunk to get hidden
+        2. Compute log_prob grad w.r.t. hidden (the direction current policy cares about)
+        3. Opposite: perturb hidden against the grad direction
+        4. Orthogonal: perturb hidden in a random direction orthogonal to grad
+
+        Returns:
+            opposite_logprob: (batch,)
+            orthogonal_logprob: (batch,)
+        """
+        hidden = self.actor_trunk(x)
+        hidden_for_grad = hidden.detach().requires_grad_(True)
+
+        # Compute log-prob to get gradient direction
+        action_mean = self.actor_mean_head(hidden_for_grad)
+        action_logstd = self.actor_logstd.expand_as(action_mean)
+        action_std = torch.exp(action_logstd)
+        logprob = Normal(action_mean, action_std).log_prob(action).sum(1)
+
+        # Gradient of log-prob w.r.t. hidden: direction current policy uses
+        grad = torch.autograd.grad(logprob.sum(), hidden_for_grad)[0]  # (batch, 64)
+
+        # Normalize gradient per sample
+        grad_norm = grad.norm(dim=1, keepdim=True).clamp(min=1e-8)
+        grad_dir = grad / grad_norm  # (batch, 64)
+
+        # Opposite perturbation: move away from current policy
+        hidden_opposite = hidden + self.perturb_step * (-grad_dir)
+
+        # Orthogonal perturbation: random direction with grad component removed
+        random_dir = torch.randn_like(hidden)
+        proj = (random_dir * grad_dir).sum(dim=1, keepdim=True) * grad_dir
+        ortho_dir = random_dir - proj
+        ortho_norm = ortho_dir.norm(dim=1, keepdim=True).clamp(min=1e-8)
+        ortho_dir = ortho_dir / ortho_norm
+        hidden_orthogonal = hidden + self.perturb_step * ortho_dir
+
+        # Recompute action means from perturbed hiddens
+        mean_opp = self.actor_mean_head(hidden_opposite)
+        mean_orth = self.actor_mean_head(hidden_orthogonal)
+        action_logstd_opp = self.actor_logstd.expand_as(mean_opp)
+        action_logstd_orth = self.actor_logstd.expand_as(mean_orth)
+
+        logprob_opposite = Normal(mean_opp, torch.exp(action_logstd_opp)).log_prob(action).sum(1)
+        logprob_orthogonal = Normal(mean_orth, torch.exp(action_logstd_orth)).log_prob(action).sum(1)
+
+        return logprob_opposite, logprob_orthogonal
 
 
 if __name__ == "__main__":
@@ -179,7 +235,7 @@ if __name__ == "__main__":
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(envs, args.perturb_step).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -256,30 +312,71 @@ if __name__ == "__main__":
         # Optimizing the policy and value network
         b_inds = np.arange(args.batch_size)
         clipfracs = []
+        search_improvements = []
         for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                # Unperturbed forward pass
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(
+                    b_obs[mb_inds], b_actions[mb_inds]
+                )
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
                 with torch.no_grad():
-                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
-                    clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+                    clipfracs += [
+                        ((ratio - 1.0).abs() > args.clip_coef).float().mean().item()
+                    ]
 
                 mb_advantages = b_advantages[mb_inds]
                 if args.norm_adv:
-                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (
+                        mb_advantages.std() + 1e-8
+                    )
 
-                # Policy loss
+                # Unperturbed clipped surrogate (per-sample)
                 pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
-                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+                pg_loss2 = -mb_advantages * torch.clamp(
+                    ratio, 1 - args.clip_coef, 1 + args.clip_coef
+                )
+                pg_unperturbed = torch.max(pg_loss1, pg_loss2)  # (batch,)
+
+                # Opposite + orthogonal perturbed candidates
+                logprob_opp, logprob_orth = agent.get_perturbed_logprobs(
+                    b_obs[mb_inds], b_actions[mb_inds]
+                )
+
+                # Opposite surrogate
+                opp_ratio = (logprob_opp - b_logprobs[mb_inds]).exp()
+                pg_opp = torch.max(
+                    -mb_advantages * opp_ratio,
+                    -mb_advantages * torch.clamp(
+                        opp_ratio, 1 - args.clip_coef, 1 + args.clip_coef
+                    ),
+                )
+
+                # Orthogonal surrogate
+                orth_ratio = (logprob_orth - b_logprobs[mb_inds]).exp()
+                pg_orth = torch.max(
+                    -mb_advantages * orth_ratio,
+                    -mb_advantages * torch.clamp(
+                        orth_ratio, 1 - args.clip_coef, 1 + args.clip_coef
+                    ),
+                )
+
+                # Best of three per sample (lowest surrogate loss)
+                pg_best = torch.min(torch.min(pg_unperturbed, pg_opp), pg_orth)
+                pg_loss = pg_best.mean()
+
+                with torch.no_grad():
+                    best_perturbed = torch.min(pg_opp, pg_orth)
+                    improvement = (pg_unperturbed - best_perturbed).detach()
+                    search_improvements.append(improvement.mean().item())
 
                 # Value loss
                 newvalue = newvalue.view(-1)
@@ -320,6 +417,9 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar(
+            "losses/search_improvement", np.mean(search_improvements), global_step
+        )
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
