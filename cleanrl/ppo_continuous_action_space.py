@@ -1,25 +1,27 @@
-# SPACE v9: Structured Persistent Adaptive Correlated Exploration
+# SPACE v13: Latent-Space Multiplicative Noise (LSMN) with per-action σ
 #
-# v9: Clean K=64 single-matrix gSDE — replicate ACE v6's strong result
+# Evolution from v12b (LSMN): upgrade from per-latent σ to per-(latent, action) σ.
 #
-# Lessons learned from v1-v8:
-#   - 64+Tanh architecture is proven superior to 256+GELU for 1M step training
-#   - gSDE (latent @ exploration_matrix) is the most effective state-dependent noise
-#   - K=64 hard resampling crushed HalfCheetah (ACE v6: 1508)
-#   - Dual-timescale v8 (K=32 primary + white secondary) got 1030 — better than v1 but not 1508
-#   - The white noise secondary component likely hurts by adding unstructured variance
-#   - Noise routing underperforms gSDE on all configs tested
+# v12b results (1M steps):
+#   HC: 1116 (best SPACE ever, beats gSDE v9: 1050)
+#   Walker2d: 1085 peak → 467 final (collapse)
+#   Hopper: 568 peak → 319 final (mediocre)
 #
-# v9 design: Single exploration matrix, hard resampled every K=64 steps
-#   - noise = latent @ exploration_matrix
-#   - Matrix resampled from N(0, σ²) every K steps per env
-#   - Reset on episode termination
-#   - This is the proven best config for HalfCheetah
+# The noise mechanism differs from gSDE:
+#   gSDE: noise_j = Σ_i h_i * N(0, σ_ij²) — INDEPENDENT random per (i,j)
+#   LSMN: noise_j = Σ_i W_ji * h_i * σ_ij * ε_i — SHARED ε_i across actions
 #
-# Goal: Replicate ACE v6's 1508 on HC, then iterate for multi-env performance.
+# Key innovations over gSDE:
+#   1. Cross-action correlation through shared ε AND learned W_noise projection
+#   2. The projection W_noise is learned to produce useful noise structure
+#   3. Noise covariance adapts as W_noise is trained (policy-shaped exploration)
+#
+# v13 adds per-(latent, action) σ: [64, 6] = 384 params (same count as gSDE).
+# This gives more flexible per-action noise control while maintaining the
+# fundamental LSMN difference (shared latent noise, learned projection).
 #
 # Prior results (HC @ 1M):
-#   ACE v6 (K=64): 1508    SPACE v8 (dual K=32): 1030    SPACE v1 (K=10): 877
+#   ACE v6 (gSDE K=64): 1508   v12b (LSMN per-latent σ): 1116   v9 (gSDE): 1050
 
 import math
 import os
@@ -98,13 +100,13 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
-    # SPACE v9 specific arguments
-    gsde_log_std_init: float = -2.0
-    """initial log std for gSDE exploration matrices"""
+    # SPACE v13 specific arguments
+    noise_log_std_init: float = 0.0
+    """initial log std for noise scale (per latent-action pair, ~0.63 effective action std)"""
     resample_interval: int = 64
-    """resampling interval for exploration matrix (steps)"""
+    """resampling interval for persistent latent noise (steps)"""
     resample_on_reset: bool = True
-    """resample exploration matrices for envs that had an episode termination"""
+    """resample noise for envs that had an episode termination"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -144,7 +146,7 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs, gsde_log_std_init=-2.0):
+    def __init__(self, envs, noise_log_std_init=-2.0):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
@@ -170,56 +172,67 @@ class Agent(nn.Module):
 
         self.mean_net = layer_init(nn.Linear(LATENT_DIM, action_dim), std=0.01)
 
-        # gSDE log_std: [latent_dim, action_dim]
-        self.gsde_log_std = nn.Parameter(
-            torch.ones(LATENT_DIM, action_dim) * gsde_log_std_init
+        # LSMN: separate noise projection matrix [action_dim, latent_dim]
+        # Initialized with orthogonal at std=1 (NOT 0.01 like mean_net)
+        self.noise_proj = nn.Linear(LATENT_DIM, action_dim, bias=False)
+        torch.nn.init.orthogonal_(self.noise_proj.weight, gain=1.0)
+
+        # Per-(latent, action) noise scale [latent_dim, action_dim]
+        # Same shape as gSDE's σ, but used differently (shared ε across actions)
+        self.noise_log_std = nn.Parameter(
+            torch.ones(LATENT_DIM, action_dim) * noise_log_std_init
         )
 
-        # Single exploration matrix: [num_envs, latent_dim, action_dim]
-        self.exploration_matrix = None
+        # Persistent latent noise: [num_envs, latent_dim]
+        self.noise_eps = None
 
-    def _get_gsde_std(self):
-        return torch.exp(self.gsde_log_std)
-
-    def _sample_exploration_matrix(self, num_envs):
-        """Sample exploration matrix from N(0, σ²)."""
-        std = self._get_gsde_std()
-        return torch.randn(num_envs, self.latent_dim, self.action_dim, device=std.device) * std.unsqueeze(0)
+    def _get_noise_std(self):
+        return torch.exp(self.noise_log_std)
 
     def reset_noise(self, num_envs):
-        """Sample fresh exploration matrix for all envs."""
-        self.exploration_matrix = self._sample_exploration_matrix(num_envs)
+        """Sample fresh latent noise vectors for all envs."""
+        device = self.noise_log_std.device
+        self.noise_eps = torch.randn(num_envs, self.latent_dim, device=device)
 
     def reset_noise_for_envs(self, env_mask):
-        """Resample exploration matrix for terminated envs."""
+        """Resample noise for terminated envs."""
         if not env_mask.any():
             return
         n_reset = env_mask.sum().item()
-        self.exploration_matrix[env_mask] = self._sample_exploration_matrix(n_reset)
+        self.noise_eps[env_mask] = torch.randn(n_reset, self.latent_dim, device=self.noise_eps.device)
 
     def resample_for_envs(self, env_mask):
-        """Resample matrix for selected envs (periodic resampling)."""
+        """Resample noise for selected envs (periodic resampling)."""
         if not env_mask.any():
             return
         n = env_mask.sum().item()
-        self.exploration_matrix[env_mask] = self._sample_exploration_matrix(n)
+        self.noise_eps[env_mask] = torch.randn(n, self.latent_dim, device=self.noise_eps.device)
 
     def get_value(self, x):
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
-        latent = self.actor_backbone(x)
-        mean = self.mean_net(latent)
+        latent = self.actor_backbone(x)  # [batch, latent_dim]
+        mean = self.mean_net(latent)      # [batch, action_dim]
 
-        # Marginal variance from gSDE: var_j = Σ_i latent_i² * σ_ij²
-        std_sq = self._get_gsde_std() ** 2
-        gsde_var = (latent ** 2) @ std_sq
-        gsde_std = torch.sqrt(gsde_var + 1e-6)
+        # LSMN with per-(latent, action) σ
+        # noise_j = Σ_i W_noise_ji * h_i * σ_ij * ε_i
+        noise_std = self._get_noise_std()       # [latent_dim, action_dim]
+        W_noise = self.noise_proj.weight         # [action_dim, latent_dim]
 
-        dist = Normal(mean, gsde_std)
+        # Marginal variance: var_j = Σ_i W_noise_ji² * h_i² * σ_ij²
+        # latent²: [batch, latent_dim], σ²: [latent_dim, action_dim]
+        # var: [batch, action_dim]
+        action_var = (latent ** 2) @ (noise_std ** 2 * W_noise.T ** 2)  # [batch, action_dim]
+        action_std = torch.sqrt(action_var + 1e-6)
+
+        dist = Normal(mean, action_std)
 
         if action is None:
-            noise = torch.bmm(latent.unsqueeze(1), self.exploration_matrix).squeeze(1)
+            # noise_j = Σ_i W_ji * h_i * σ_ij * ε_i
+            h_eps = latent * self.noise_eps                   # [batch, latent_dim]
+            combined = h_eps.unsqueeze(-1) * noise_std        # [batch, latent, action]
+            noise = torch.einsum('ai,bia->ba', W_noise, combined)  # [batch, action]
             action = mean + noise
 
         log_prob = dist.log_prob(action).sum(-1)
@@ -265,10 +278,7 @@ if __name__ == "__main__":
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(
-        envs,
-        gsde_log_std_init=args.gsde_log_std_init,
-    ).to(device)
+    agent = Agent(envs, noise_log_std_init=args.noise_log_std_init).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -425,7 +435,8 @@ if __name__ == "__main__":
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         with torch.no_grad():
-            writer.add_scalar("space/gsde_log_std_mean", agent.gsde_log_std.mean().item(), global_step)
+            writer.add_scalar("space/noise_log_std_mean", agent.noise_log_std.mean().item(), global_step)
+            writer.add_scalar("space/noise_std_mean", agent._get_noise_std().mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
