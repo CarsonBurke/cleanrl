@@ -93,7 +93,7 @@ class ITCEDistribution(nn.Module):
         alpha: float = 1.0,
         std_reg: float = 0.0,
         min_std: float = 1e-3,
-        max_std: float = 10.0,
+        max_std: float = 100.0,
     ):
         super().__init__()
         self.latent_dim = latent_dim
@@ -103,23 +103,27 @@ class ITCEDistribution(nn.Module):
         self.min_std = min_std
         self.max_std = max_std
 
-        # --- Mean pathway (receives only policy-gradient signal) ---
+        # --- Mean pathway ---
         self.mean_net = nn.Linear(latent_dim, action_dim)
 
-        # --- Covariance pathway (receives only entropy/exploration signal) ---
+        # --- Covariance pathway ---
         # No bias: noise projections must be zero-mean.  Any constant offset
         # belongs in the mean pathway.
         self.cov_net = nn.Linear(latent_dim, action_dim, bias=False)
 
-        # --- Log-std parameters ---
-        # Shape: [latent_dim, 2]
-        #   column 0 -> scalar correlated std (broadcast across latent dims)
-        #   column 1 -> scalar independent std (broadcast across action dims)
-        # This is the parameter-efficient variant.  The full variant would be
-        # [latent_dim, latent_dim + action_dim] but the scalar version works
-        # well in practice and keeps the parameter count minimal.
+        # --- Log-std parameters (full parameterization) ---
+        # Shape: [latent_dim, latent_dim + action_dim]
+        #   columns 0..latent_dim-1    -> correlated noise std per (source, target) pair
+        #   columns latent_dim..end    -> independent noise std per (source, action) pair
+        #
+        # This full parameterization allows each latent dimension to contribute
+        # a different noise scale to each target dimension, giving the optimizer
+        # independent control over the spectral profile of the covariance.
+        # Without this, diag(v_corr) collapses to a scalar * I, and the
+        # off-diagonal correlation structure is locked to W_cov @ W_cov^T
+        # with no way to selectively amplify or suppress latent directions.
         self.log_std = nn.Parameter(
-            torch.ones(latent_dim, 2) * log_std_init,
+            torch.ones(latent_dim, latent_dim + action_dim) * log_std_init,
             requires_grad=True,
         )
 
@@ -161,9 +165,8 @@ class ITCEDistribution(nn.Module):
         log_std = log_std - self._log_dim_correction
         std = torch.exp(log_std)
 
-        # Broadcast scalar columns to full matrices
-        corr_std = std[:, 0:1].expand(self.latent_dim, self.latent_dim)
-        ind_std = std[:, 1:2].expand(self.latent_dim, self.action_dim)
+        corr_std = std[:, :self.latent_dim]
+        ind_std = std[:, self.latent_dim:]
         return corr_std, ind_std
 
     # --- Exploration matrix sampling (gSDE temporal correlation) ---
