@@ -1,26 +1,24 @@
-# SPACE v19: LSMN with Noise Gate
+# SPACE v22: LSMN with Separate Noise Learning Rate
 #
-# Builds on v15 (soft resampling LSMN) by adding a state-conditioned noise gate.
+# Clean v15 LSMN (soft resampling) with slower learning rate for noise params.
 #
-# The noise mechanism:
-#   noise_j = g_j(x) * Σ_i W_ji * h_i * σ_ij * ε_i
-#   - g(x) ∈ R^{action_dim}: learned gate from backbone features (detached)
-#   - All other components same as v15 (LSMN with soft resampling)
+# Key change: noise parameters (noise_log_std, noise_proj.weight) use a
+#   lower learning rate (noise_lr_scale × base_lr). This prevents oscillation
+#   in exploration magnitude, improving training stability.
 #
-# Key innovation: the gate g(x) = exp(linear(latent.detach())).clamp(0.05, 3.0)
-#   - State-dependent noise magnitude, fully learnable through PPO's log_prob
-#   - Uses detached backbone features → no gradient interference with mean/noise
-#   - Initialized to 1.0 (equivalent to v15 at start)
-#   - Can learn to REDUCE noise in unstable states (preventing collapse)
-#     and INCREASE noise in safe states (more exploration)
+# Hypothesis: noise params control the exploration distribution, which should
+#   change gradually. Fast noise updates cause exploration instability →
+#   policy oscillation → training collapse in Walker2d/Hopper.
 #
-# Hypothesis: v15's training collapse in Walker2d/Hopper is caused by
-#   state-independent noise σ that can't adapt per-state. The gate fixes this
-#   by allowing the agent to learn per-state noise modulation.
-#
-# v15 baselines (2M steps):
-#   HC K=64 τ=0.5: 3380      Walker2d K=16 τ=0.3: peak 3335, final 2463
+# v15 baselines (2M):
+#   HC K=64 τ=0.5: 3380
+#   Walker2d K=16 τ=0.3: peak 3335, final 2463
 #   Hopper K=16 τ=0.3: peak 1149, final 804
+#
+# Failed modifications (all regressed from v15):
+#   v19 (gate): HC -15%, Walker2d more volatile
+#   v20 (noise-aware critic): Walker2d peak 2990
+#   v21 (128-dim backbone): Walker2d peak 1744 (too many params)
 
 import math
 import os
@@ -108,6 +106,8 @@ class Args:
     """blend factor τ for soft resampling: 1.0=hard, 0.3=soft (keeps 84% old direction)"""
     resample_on_reset: bool = True
     """resample noise for envs that had an episode termination"""
+    noise_lr_scale: float = 0.3
+    """learning rate multiplier for noise parameters (noise_log_std, noise_proj)"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -155,7 +155,6 @@ class Agent(nn.Module):
         self.action_dim = action_dim
         self.latent_dim = LATENT_DIM
 
-        # Standard PPO architecture: 64-dim, Tanh
         self.critic = nn.Sequential(
             layer_init(nn.Linear(obs_dim, LATENT_DIM)),
             nn.Tanh(),
@@ -181,13 +180,6 @@ class Agent(nn.Module):
         self.noise_log_std = nn.Parameter(
             torch.ones(LATENT_DIM, action_dim) * noise_log_std_init
         )
-
-        # State-conditioned noise gate: g(x) per action dimension
-        # Uses detached backbone features to avoid gradient interference
-        # Initialized to output 0 → exp(0) = 1.0 (equivalent to v15)
-        self.noise_gate_linear = nn.Linear(LATENT_DIM, action_dim)
-        nn.init.zeros_(self.noise_gate_linear.weight)
-        nn.init.zeros_(self.noise_gate_linear.bias)
 
         # Persistent latent noise: [num_envs, latent_dim]
         self.noise_eps = None
@@ -227,16 +219,12 @@ class Agent(nn.Module):
         latent = self.actor_backbone(x)  # [batch, latent_dim]
         mean = self.mean_net(latent)      # [batch, action_dim]
 
-        # State-conditioned noise gate (detached to avoid backbone gradient interference)
-        gate = torch.exp(self.noise_gate_linear(latent.detach())).clamp(min=0.05, max=1.5)
-
-        # LSMN noise variance (diagonal approximation), scaled by gate
+        # LSMN noise variance (diagonal approximation)
         noise_std = self._get_noise_std()       # [latent_dim, action_dim]
         W_noise = self.noise_proj.weight         # [action_dim, latent_dim]
 
-        # Marginal variance: var_j = g_j² * Σ_i W_ji² * h_i² * σ_ij²
-        base_var = (latent ** 2) @ (noise_std ** 2 * W_noise.T ** 2)
-        action_var = gate ** 2 * base_var
+        # Marginal variance: var_j = Σ_i W_ji² * h_i² * σ_ij²
+        action_var = (latent ** 2) @ (noise_std ** 2 * W_noise.T ** 2)
         action_std = torch.sqrt(action_var + 1e-6)
 
         dist = Normal(mean, action_std)
@@ -244,12 +232,15 @@ class Agent(nn.Module):
         if action is None:
             h_eps = latent * self.noise_eps                   # [batch, latent_dim]
             combined = h_eps.unsqueeze(-1) * noise_std        # [batch, latent, action]
-            noise = gate * torch.einsum('ai,bia->ba', W_noise, combined)
+            noise = torch.einsum('ai,bia->ba', W_noise, combined)
             action = mean + noise
 
         log_prob = dist.log_prob(action).sum(-1)
         entropy = dist.entropy().sum(-1)
-        return action, log_prob, entropy, self.critic(x)
+
+        value = self.critic(x)
+
+        return action, log_prob, entropy, value
 
 
 if __name__ == "__main__":
@@ -291,7 +282,15 @@ if __name__ == "__main__":
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
     agent = Agent(envs, noise_log_std_init=args.noise_log_std_init).to(device)
-    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+
+    # Separate learning rates: slower for noise params to stabilize exploration
+    noise_param_names = {'noise_log_std', 'noise_proj.weight'}
+    noise_params = [p for n, p in agent.named_parameters() if n in noise_param_names]
+    other_params = [p for n, p in agent.named_parameters() if n not in noise_param_names]
+    optimizer = optim.Adam([
+        {'params': other_params, 'lr': args.learning_rate},
+        {'params': noise_params, 'lr': args.learning_rate * args.noise_lr_scale},
+    ], eps=1e-5)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
@@ -311,8 +310,8 @@ if __name__ == "__main__":
     for iteration in range(1, args.num_iterations + 1):
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
-            lrnow = frac * args.learning_rate
-            optimizer.param_groups[0]["lr"] = lrnow
+            optimizer.param_groups[0]["lr"] = frac * args.learning_rate
+            optimizer.param_groups[1]["lr"] = frac * args.learning_rate * args.noise_lr_scale
 
         # Fresh noise at start of each rollout
         agent.reset_noise(args.num_envs)
@@ -446,13 +445,6 @@ if __name__ == "__main__":
         with torch.no_grad():
             writer.add_scalar("space/noise_log_std_mean", agent.noise_log_std.mean().item(), global_step)
             writer.add_scalar("space/noise_std_mean", agent._get_noise_std().mean().item(), global_step)
-            # Log gate statistics from last batch
-            sample_latent = agent.actor_backbone(b_obs[:256])
-            sample_gate = torch.exp(agent.noise_gate_linear(sample_latent.detach())).clamp(min=0.05, max=3.0)
-            writer.add_scalar("space/gate_mean", sample_gate.mean().item(), global_step)
-            writer.add_scalar("space/gate_std", sample_gate.std().item(), global_step)
-            writer.add_scalar("space/gate_min", sample_gate.min().item(), global_step)
-            writer.add_scalar("space/gate_max", sample_gate.max().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
