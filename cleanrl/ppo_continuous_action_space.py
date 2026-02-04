@@ -1,27 +1,26 @@
-# SPACE v13: Latent-Space Multiplicative Noise (LSMN) with per-action σ
+# SPACE v19: LSMN with Noise Gate
 #
-# Evolution from v12b (LSMN): upgrade from per-latent σ to per-(latent, action) σ.
+# Builds on v15 (soft resampling LSMN) by adding a state-conditioned noise gate.
 #
-# v12b results (1M steps):
-#   HC: 1116 (best SPACE ever, beats gSDE v9: 1050)
-#   Walker2d: 1085 peak → 467 final (collapse)
-#   Hopper: 568 peak → 319 final (mediocre)
+# The noise mechanism:
+#   noise_j = g_j(x) * Σ_i W_ji * h_i * σ_ij * ε_i
+#   - g(x) ∈ R^{action_dim}: learned gate from backbone features (detached)
+#   - All other components same as v15 (LSMN with soft resampling)
 #
-# The noise mechanism differs from gSDE:
-#   gSDE: noise_j = Σ_i h_i * N(0, σ_ij²) — INDEPENDENT random per (i,j)
-#   LSMN: noise_j = Σ_i W_ji * h_i * σ_ij * ε_i — SHARED ε_i across actions
+# Key innovation: the gate g(x) = exp(linear(latent.detach())).clamp(0.05, 3.0)
+#   - State-dependent noise magnitude, fully learnable through PPO's log_prob
+#   - Uses detached backbone features → no gradient interference with mean/noise
+#   - Initialized to 1.0 (equivalent to v15 at start)
+#   - Can learn to REDUCE noise in unstable states (preventing collapse)
+#     and INCREASE noise in safe states (more exploration)
 #
-# Key innovations over gSDE:
-#   1. Cross-action correlation through shared ε AND learned W_noise projection
-#   2. The projection W_noise is learned to produce useful noise structure
-#   3. Noise covariance adapts as W_noise is trained (policy-shaped exploration)
+# Hypothesis: v15's training collapse in Walker2d/Hopper is caused by
+#   state-independent noise σ that can't adapt per-state. The gate fixes this
+#   by allowing the agent to learn per-state noise modulation.
 #
-# v13 adds per-(latent, action) σ: [64, 6] = 384 params (same count as gSDE).
-# This gives more flexible per-action noise control while maintaining the
-# fundamental LSMN difference (shared latent noise, learned projection).
-#
-# Prior results (HC @ 1M):
-#   ACE v6 (gSDE K=64): 1508   v12b (LSMN per-latent σ): 1116   v9 (gSDE): 1050
+# v15 baselines (2M steps):
+#   HC K=64 τ=0.5: 3380      Walker2d K=16 τ=0.3: peak 3335, final 2463
+#   Hopper K=16 τ=0.3: peak 1149, final 804
 
 import math
 import os
@@ -100,11 +99,13 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
-    # SPACE v13 specific arguments
+    # LSMN noise arguments
     noise_log_std_init: float = 0.0
     """initial log std for noise scale (per latent-action pair, ~0.63 effective action std)"""
-    resample_interval: int = 64
+    resample_interval: int = 16
     """resampling interval for persistent latent noise (steps)"""
+    resample_blend: float = 0.3
+    """blend factor τ for soft resampling: 1.0=hard, 0.3=soft (keeps 84% old direction)"""
     resample_on_reset: bool = True
     """resample noise for envs that had an episode termination"""
 
@@ -146,7 +147,7 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs, noise_log_std_init=-2.0):
+    def __init__(self, envs, noise_log_std_init=0.0):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
@@ -173,15 +174,20 @@ class Agent(nn.Module):
         self.mean_net = layer_init(nn.Linear(LATENT_DIM, action_dim), std=0.01)
 
         # LSMN: separate noise projection matrix [action_dim, latent_dim]
-        # Initialized with orthogonal at std=1 (NOT 0.01 like mean_net)
         self.noise_proj = nn.Linear(LATENT_DIM, action_dim, bias=False)
         torch.nn.init.orthogonal_(self.noise_proj.weight, gain=1.0)
 
         # Per-(latent, action) noise scale [latent_dim, action_dim]
-        # Same shape as gSDE's σ, but used differently (shared ε across actions)
         self.noise_log_std = nn.Parameter(
             torch.ones(LATENT_DIM, action_dim) * noise_log_std_init
         )
+
+        # State-conditioned noise gate: g(x) per action dimension
+        # Uses detached backbone features to avoid gradient interference
+        # Initialized to output 0 → exp(0) = 1.0 (equivalent to v15)
+        self.noise_gate_linear = nn.Linear(LATENT_DIM, action_dim)
+        nn.init.zeros_(self.noise_gate_linear.weight)
+        nn.init.zeros_(self.noise_gate_linear.bias)
 
         # Persistent latent noise: [num_envs, latent_dim]
         self.noise_eps = None
@@ -201,12 +207,18 @@ class Agent(nn.Module):
         n_reset = env_mask.sum().item()
         self.noise_eps[env_mask] = torch.randn(n_reset, self.latent_dim, device=self.noise_eps.device)
 
-    def resample_for_envs(self, env_mask):
-        """Resample noise for selected envs (periodic resampling)."""
+    def resample_for_envs(self, env_mask, blend=1.0):
+        """Soft-resample noise. blend=1.0 is hard, <1 blends with old noise."""
         if not env_mask.any():
             return
         n = env_mask.sum().item()
-        self.noise_eps[env_mask] = torch.randn(n, self.latent_dim, device=self.noise_eps.device)
+        fresh = torch.randn(n, self.latent_dim, device=self.noise_eps.device)
+        if blend >= 1.0:
+            self.noise_eps[env_mask] = fresh
+        else:
+            keep = math.sqrt(1.0 - blend)
+            inject = math.sqrt(blend)
+            self.noise_eps[env_mask] = keep * self.noise_eps[env_mask] + inject * fresh
 
     def get_value(self, x):
         return self.critic(x)
@@ -215,24 +227,24 @@ class Agent(nn.Module):
         latent = self.actor_backbone(x)  # [batch, latent_dim]
         mean = self.mean_net(latent)      # [batch, action_dim]
 
-        # LSMN with per-(latent, action) σ
-        # noise_j = Σ_i W_noise_ji * h_i * σ_ij * ε_i
+        # State-conditioned noise gate (detached to avoid backbone gradient interference)
+        gate = torch.exp(self.noise_gate_linear(latent.detach())).clamp(min=0.05, max=1.5)
+
+        # LSMN noise variance (diagonal approximation), scaled by gate
         noise_std = self._get_noise_std()       # [latent_dim, action_dim]
         W_noise = self.noise_proj.weight         # [action_dim, latent_dim]
 
-        # Marginal variance: var_j = Σ_i W_noise_ji² * h_i² * σ_ij²
-        # latent²: [batch, latent_dim], σ²: [latent_dim, action_dim]
-        # var: [batch, action_dim]
-        action_var = (latent ** 2) @ (noise_std ** 2 * W_noise.T ** 2)  # [batch, action_dim]
+        # Marginal variance: var_j = g_j² * Σ_i W_ji² * h_i² * σ_ij²
+        base_var = (latent ** 2) @ (noise_std ** 2 * W_noise.T ** 2)
+        action_var = gate ** 2 * base_var
         action_std = torch.sqrt(action_var + 1e-6)
 
         dist = Normal(mean, action_std)
 
         if action is None:
-            # noise_j = Σ_i W_ji * h_i * σ_ij * ε_i
             h_eps = latent * self.noise_eps                   # [batch, latent_dim]
             combined = h_eps.unsqueeze(-1) * noise_std        # [batch, latent, action]
-            noise = torch.einsum('ai,bia->ba', W_noise, combined)  # [batch, action]
+            noise = gate * torch.einsum('ai,bia->ba', W_noise, combined)
             action = mean + noise
 
         log_prob = dist.log_prob(action).sum(-1)
@@ -289,9 +301,6 @@ if __name__ == "__main__":
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
 
-    # Track steps for periodic resampling
-    steps_since_resample = torch.zeros(args.num_envs, dtype=torch.long, device=device)
-
     # TRY NOT TO MODIFY: start the game
     global_step = 0
     start_time = time.time()
@@ -305,20 +314,20 @@ if __name__ == "__main__":
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
-        # Fresh matrix at start of each rollout
+        # Fresh noise at start of each rollout
         agent.reset_noise(args.num_envs)
-        steps_since_resample.zero_()
+        steps_since_resample = torch.zeros(args.num_envs, dtype=torch.long, device=device)
 
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
             dones[step] = next_done
 
-            # Periodic hard resampling of exploration matrix
+            # Periodic soft resampling
             steps_since_resample += 1
             resample_mask = steps_since_resample >= args.resample_interval
             if resample_mask.any():
-                agent.resample_for_envs(resample_mask)
+                agent.resample_for_envs(resample_mask, blend=args.resample_blend)
                 steps_since_resample[resample_mask] = 0
 
             with torch.no_grad():
@@ -332,7 +341,7 @@ if __name__ == "__main__":
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
 
-            # Reset matrix for terminated envs
+            # Reset noise for terminated envs
             if args.resample_on_reset and next_done.any():
                 reset_mask = next_done.bool()
                 agent.reset_noise_for_envs(reset_mask)
@@ -437,6 +446,13 @@ if __name__ == "__main__":
         with torch.no_grad():
             writer.add_scalar("space/noise_log_std_mean", agent.noise_log_std.mean().item(), global_step)
             writer.add_scalar("space/noise_std_mean", agent._get_noise_std().mean().item(), global_step)
+            # Log gate statistics from last batch
+            sample_latent = agent.actor_backbone(b_obs[:256])
+            sample_gate = torch.exp(agent.noise_gate_linear(sample_latent.detach())).clamp(min=0.05, max=3.0)
+            writer.add_scalar("space/gate_mean", sample_gate.mean().item(), global_step)
+            writer.add_scalar("space/gate_std", sample_gate.std().item(), global_step)
+            writer.add_scalar("space/gate_min", sample_gate.min().item(), global_step)
+            writer.add_scalar("space/gate_max", sample_gate.max().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
