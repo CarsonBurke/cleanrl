@@ -1,44 +1,31 @@
-# SPACE v2: Structured Persistent Adaptive Correlated Exploration
+# SPACE v9: Structured Persistent Adaptive Correlated Exploration
 #
-# v2 CHANGE: Multi-Timescale OU Exploration
+# v9: Clean K=64 single-matrix gSDE — replicate ACE v6's strong result
 #
-# HYPOTHESIS: Locomotion requires coordinated action at multiple timescales
-# simultaneously. A single OU momentum (0.9, τ≈10) can't capture both slow gait
-# persistence (τ≈100, critical for HalfCheetah) and fast balance corrections
-# (τ≈2, critical for Hopper/Walker2d). This was empirically confirmed:
-#   - ACE v6 ri=64 (slow): HalfCheetah 1526 but Walker2d 302
-#   - ACE v6 ri=1 (fast):  HalfCheetah 634  but Walker2d 705
-# No single timescale works universally.
+# Lessons learned from v1-v8:
+#   - 64+Tanh architecture is proven superior to 256+GELU for 1M step training
+#   - gSDE (latent @ exploration_matrix) is the most effective state-dependent noise
+#   - K=64 hard resampling crushed HalfCheetah (ACE v6: 1508)
+#   - Dual-timescale v8 (K=32 primary + white secondary) got 1030 — better than v1 but not 1508
+#   - The white noise secondary component likely hurts by adding unstructured variance
+#   - Noise routing underperforms gSDE on all configs tested
 #
-# SOLUTION: Three parallel OU processes at different rates:
-#   - SLOW  (α=0.99, τ≈100): Gait discovery and pattern locking
-#   - MEDIUM (α=0.9,  τ≈10):  Step-to-step coordination
-#   - FAST  (α=0.5,  τ≈2):   Rapid balance corrections
+# v9 design: Single exploration matrix, hard resampled every K=64 steps
+#   - noise = latent @ exploration_matrix
+#   - Matrix resampled from N(0, σ²) every K steps per env
+#   - Reset on episode termination
+#   - This is the proven best config for HalfCheetah
 #
-# Each scale has independent exploration matrices evolving at its own rate.
-# Noise is the weighted sum: noise = Σ_k w_k * noise_k, where weights satisfy
-# Σ w_k² = 1 for exact variance preservation (density computation unchanged).
-# Weights are learned parameters — the agent discovers the optimal temporal
-# allocation per task.
+# Goal: Replicate ACE v6's 1508 on HC, then iterate for multi-env performance.
 #
-# MTSOR tried multi-timescale noise but used diagonal Gaussian log_prob with
-# orthogonal rotation — a density mismatch that killed learning (HC: 240).
-# SPACE v2 avoids this by using MultivariateNormal with learned Cholesky factor.
-#
-# Retained from v1:
-#   - Cross-actuator Cholesky factor L for coordinated motor commands
-#   - MultivariateNormal for exact density computation
-#   - 256 hidden units for capacity
-#   - Episode-boundary hard reset
-#
-# v1 results (16 envs, 1-2M steps): HC 800, Hopper 676, Walker2d 1504
+# Prior results (HC @ 1M):
+#   ACE v6 (K=64): 1508    SPACE v8 (dual K=32): 1030    SPACE v1 (K=10): 877
 
 import math
 import os
 import random
 import time
 from dataclasses import dataclass
-from typing import Tuple
 
 import gymnasium as gym
 import numpy as np
@@ -46,7 +33,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import tyro
-from torch.distributions.multivariate_normal import MultivariateNormal
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
@@ -112,11 +98,11 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
-    # SPACE v2 specific arguments
+    # SPACE v9 specific arguments
     gsde_log_std_init: float = -2.0
-    """initial log standard deviation for gSDE exploration matrices"""
-    hidden_dim: int = 256
-    """hidden layer dimension for actor and critic networks"""
+    """initial log std for gSDE exploration matrices"""
+    resample_interval: int = 64
+    """resampling interval for exploration matrix (steps)"""
     resample_on_reset: bool = True
     """resample exploration matrices for envs that had an episode termination"""
 
@@ -129,9 +115,7 @@ class Args:
     """the number of iterations (computed in runtime)"""
 
 
-# Fixed OU momentums for the three timescales
-NOISE_MOMENTUMS = (0.5, 0.9, 0.99)
-NUM_SCALES = len(NOISE_MOMENTUMS)
+LATENT_DIM = 64
 
 
 def make_env(env_id, idx, capture_video, run_name, gamma):
@@ -160,102 +144,65 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs, gsde_log_std_init=-2.0, hidden_dim=256):
+    def __init__(self, envs, gsde_log_std_init=-2.0):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
-        latent_dim = hidden_dim
 
         self.action_dim = action_dim
-        self.latent_dim = latent_dim
-        self.num_scales = NUM_SCALES
-        self.noise_momentums = NOISE_MOMENTUMS
+        self.latent_dim = LATENT_DIM
 
+        # Standard PPO architecture: 64-dim, Tanh
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(obs_dim, hidden_dim)),
+            layer_init(nn.Linear(obs_dim, LATENT_DIM)),
             nn.Tanh(),
-            layer_init(nn.Linear(hidden_dim, hidden_dim)),
+            layer_init(nn.Linear(LATENT_DIM, LATENT_DIM)),
             nn.Tanh(),
-            layer_init(nn.Linear(hidden_dim, 1), std=1.0),
+            layer_init(nn.Linear(LATENT_DIM, 1), std=1.0),
         )
+
         self.actor_backbone = nn.Sequential(
-            layer_init(nn.Linear(obs_dim, hidden_dim)),
+            layer_init(nn.Linear(obs_dim, LATENT_DIM)),
             nn.Tanh(),
-            layer_init(nn.Linear(hidden_dim, hidden_dim)),
+            layer_init(nn.Linear(LATENT_DIM, LATENT_DIM)),
             nn.Tanh(),
         )
-        self.mean_net = layer_init(nn.Linear(latent_dim, action_dim), std=0.01)
+
+        self.mean_net = layer_init(nn.Linear(LATENT_DIM, action_dim), std=0.01)
 
         # gSDE log_std: [latent_dim, action_dim]
         self.gsde_log_std = nn.Parameter(
-            torch.ones(latent_dim, action_dim) * gsde_log_std_init
+            torch.ones(LATENT_DIM, action_dim) * gsde_log_std_init
         )
 
-        # Cross-actuator mixing: learned lower-triangular Cholesky factor
-        self.cholesky_log_diag = nn.Parameter(torch.zeros(action_dim))
-        self.cholesky_offdiag = nn.Parameter(torch.zeros(action_dim * (action_dim - 1) // 2))
-
-        # Multi-timescale mixing weights (learned)
-        # Parameterized as raw log-weights, normalized so Σ w_k² = 1
-        self.scale_log_weights = nn.Parameter(torch.zeros(self.num_scales))
-
-        # Per-env exploration matrices for each timescale:
-        # List of [num_envs, latent_dim, action_dim] tensors
-        self.exploration_matrices_list = [None] * self.num_scales
-
-        # Precompute innovation scales for OU updates
-        self.innovation_scales = [math.sqrt(1.0 - m * m) for m in self.noise_momentums]
+        # Single exploration matrix: [num_envs, latent_dim, action_dim]
+        self.exploration_matrix = None
 
     def _get_gsde_std(self):
         return torch.exp(self.gsde_log_std)
 
-    def _get_cholesky(self):
-        """Build the lower-triangular Cholesky factor L."""
-        L = torch.zeros(self.action_dim, self.action_dim, device=self.cholesky_log_diag.device)
-        L.diagonal().copy_(torch.exp(self.cholesky_log_diag))
-        idx = torch.tril_indices(self.action_dim, self.action_dim, offset=-1)
-        L[idx[0], idx[1]] = self.cholesky_offdiag
-        return L
-
-    def _get_scale_weights(self):
-        """Compute normalized scale weights satisfying Σ w_k² = 1."""
-        raw_w = torch.exp(self.scale_log_weights)
-        # Normalize so sum of squares = 1 (variance preservation)
-        return raw_w / torch.sqrt((raw_w ** 2).sum())
-
-    def _get_gsde_variance(self, latent):
-        """Per-action marginal variance: var_i = sum_j (h_j^2 * sigma_j_i^2)."""
+    def _sample_exploration_matrix(self, num_envs):
+        """Sample exploration matrix from N(0, σ²)."""
         std = self._get_gsde_std()
-        return (latent ** 2) @ (std ** 2)
+        return torch.randn(num_envs, self.latent_dim, self.action_dim, device=std.device) * std.unsqueeze(0)
 
     def reset_noise(self, num_envs):
-        """Sample fresh exploration matrices for all envs at all scales."""
-        std = self._get_gsde_std()
-        dist = Normal(torch.zeros_like(std), std)
-        for k in range(self.num_scales):
-            self.exploration_matrices_list[k] = dist.rsample((num_envs,))
+        """Sample fresh exploration matrix for all envs."""
+        self.exploration_matrix = self._sample_exploration_matrix(num_envs)
 
     def reset_noise_for_envs(self, env_mask):
-        """Resample exploration matrices for terminated envs at all scales."""
+        """Resample exploration matrix for terminated envs."""
         if not env_mask.any():
             return
         n_reset = env_mask.sum().item()
-        std = self._get_gsde_std()
-        dist = Normal(torch.zeros_like(std), std)
-        for k in range(self.num_scales):
-            new_mats = dist.rsample((n_reset,))
-            self.exploration_matrices_list[k][env_mask] = new_mats
+        self.exploration_matrix[env_mask] = self._sample_exploration_matrix(n_reset)
 
-    def evolve_noise(self):
-        """OU update for all timescales, each at its own rate."""
-        std = self._get_gsde_std()
-        dist = Normal(torch.zeros_like(std), std)
-        n_envs = self.exploration_matrices_list[0].shape[0]
-        for k in range(self.num_scales):
-            fresh = dist.rsample((n_envs,))
-            alpha = self.noise_momentums[k]
-            innov = self.innovation_scales[k]
-            self.exploration_matrices_list[k] = alpha * self.exploration_matrices_list[k] + innov * fresh
+    def resample_for_envs(self, env_mask):
+        """Resample matrix for selected envs (periodic resampling)."""
+        if not env_mask.any():
+            return
+        n = env_mask.sum().item()
+        self.exploration_matrix[env_mask] = self._sample_exploration_matrix(n)
 
     def get_value(self, x):
         return self.critic(x)
@@ -264,36 +211,19 @@ class Agent(nn.Module):
         latent = self.actor_backbone(x)
         mean = self.mean_net(latent)
 
-        # State-dependent diagonal variance from gSDE
-        gsde_var = self._get_gsde_variance(latent)  # [batch, action_dim]
-        var_sqrt = torch.sqrt(gsde_var + 1e-6)  # [batch, action_dim]
+        # Marginal variance from gSDE: var_j = Σ_i latent_i² * σ_ij²
+        std_sq = self._get_gsde_std() ** 2
+        gsde_var = (latent ** 2) @ std_sq
+        gsde_std = torch.sqrt(gsde_var + 1e-6)
 
-        # Build full covariance via Cholesky: L @ diag(var) @ L^T
-        L = self._get_cholesky()  # [action_dim, action_dim]
-
-        # Scale L columns by var_sqrt: effective_L[b] = L @ diag(var_sqrt[b])
-        effective_L = L.unsqueeze(0) * var_sqrt.unsqueeze(1)
-
-        # MultivariateNormal with scale_tril for correct cross-actuator density
-        # Variance is preserved because Σ w_k² = 1
-        dist = MultivariateNormal(mean, scale_tril=effective_L)
+        dist = Normal(mean, gsde_std)
 
         if action is None:
-            # Multi-timescale noise: weighted sum across all scales
-            weights = self._get_scale_weights()  # [num_scales], Σ w² = 1
-            noise_total = torch.zeros_like(mean)
-            for k in range(self.num_scales):
-                noise_k = torch.bmm(
-                    latent.unsqueeze(1), self.exploration_matrices_list[k]
-                ).squeeze(1)  # [batch, action_dim]
-                noise_total = noise_total + weights[k] * noise_k
+            noise = torch.bmm(latent.unsqueeze(1), self.exploration_matrix).squeeze(1)
+            action = mean + noise
 
-            # Apply cross-actuator mixing: noise = z @ L^T
-            noise_mixed = noise_total @ L.t()
-            action = mean + noise_mixed
-
-        log_prob = dist.log_prob(action)  # [batch]
-        entropy = dist.entropy()  # [batch]
+        log_prob = dist.log_prob(action).sum(-1)
+        entropy = dist.entropy().sum(-1)
         return action, log_prob, entropy, self.critic(x)
 
 
@@ -338,7 +268,6 @@ if __name__ == "__main__":
     agent = Agent(
         envs,
         gsde_log_std_init=args.gsde_log_std_init,
-        hidden_dim=args.hidden_dim,
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
@@ -350,6 +279,9 @@ if __name__ == "__main__":
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
 
+    # Track steps for periodic resampling
+    steps_since_resample = torch.zeros(args.num_envs, dtype=torch.long, device=device)
+
     # TRY NOT TO MODIFY: start the game
     global_step = 0
     start_time = time.time()
@@ -358,40 +290,43 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs).to(device)
 
     for iteration in range(1, args.num_iterations + 1):
-        # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
-        # Initial noise sample at start of rollout (all scales)
+        # Fresh matrix at start of each rollout
         agent.reset_noise(args.num_envs)
+        steps_since_resample.zero_()
 
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
             dones[step] = next_done
 
-            # Multi-timescale OU noise evolution
-            if step > 0:
-                agent.evolve_noise()
+            # Periodic hard resampling of exploration matrix
+            steps_since_resample += 1
+            resample_mask = steps_since_resample >= args.resample_interval
+            if resample_mask.any():
+                agent.resample_for_envs(resample_mask)
+                steps_since_resample[resample_mask] = 0
 
-            # ALGO LOGIC: action logic
             with torch.no_grad():
                 action, logprob, _, value = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
 
-            # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
 
-            # Resample noise for envs that just terminated/truncated (all scales)
+            # Reset matrix for terminated envs
             if args.resample_on_reset and next_done.any():
-                agent.reset_noise_for_envs(next_done.bool())
+                reset_mask = next_done.bool()
+                agent.reset_noise_for_envs(reset_mask)
+                steps_since_resample[reset_mask] = 0
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -432,9 +367,6 @@ if __name__ == "__main__":
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
-
-                # Resample noise for training (marginal variance is analytically computed)
-                agent.reset_noise(len(mb_inds))
 
                 _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
@@ -484,20 +416,6 @@ if __name__ == "__main__":
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-        # Log diagnostics
-        with torch.no_grad():
-            writer.add_scalar("space/gsde_std_mean", agent._get_gsde_std().mean().item(), global_step)
-            writer.add_scalar("space/gsde_std_max", agent._get_gsde_std().max().item(), global_step)
-            L = agent._get_cholesky()
-            offdiag_norm = (L - torch.diag(L.diagonal())).norm().item()
-            writer.add_scalar("space/cholesky_offdiag_norm", offdiag_norm, global_step)
-            writer.add_scalar("space/cholesky_diag_mean", L.diagonal().mean().item(), global_step)
-            # Log multi-timescale weights
-            weights = agent._get_scale_weights()
-            for k in range(agent.num_scales):
-                writer.add_scalar(f"space/scale_weight_{k}_mom{agent.noise_momentums[k]}", weights[k].item(), global_step)
-
-        # TRY NOT TO MODIFY: record rewards for plotting purposes
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
@@ -506,6 +424,8 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        with torch.no_grad():
+            writer.add_scalar("space/gsde_log_std_mean", agent.gsde_log_std.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
