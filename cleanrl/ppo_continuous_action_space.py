@@ -1,38 +1,44 @@
-# SPACE: Structured Persistent Adaptive Correlated Exploration
+# SPACE v2: Structured Persistent Adaptive Correlated Exploration
 #
-# A fundamentally new exploration architecture for PPO continuous control.
+# v2 CHANGE: Multi-Timescale OU Exploration
 #
-# KEY INSIGHT: The best gSDE variant (ACE) treats action dimensions independently.
-# But locomotion requires COORDINATED motor commands — e.g., anti-correlated leg
-# movements in Walker2d. The Lattice approach showed cross-actuator correlation
-# can improve Walker2d by 84% (4602 vs 2501). Meanwhile, OU temporal evolution
-# gives smooth persistence that helps HalfCheetah gait discovery.
+# HYPOTHESIS: Locomotion requires coordinated action at multiple timescales
+# simultaneously. A single OU momentum (0.9, τ≈10) can't capture both slow gait
+# persistence (τ≈100, critical for HalfCheetah) and fast balance corrections
+# (τ≈2, critical for Hopper/Walker2d). This was empirically confirmed:
+#   - ACE v6 ri=64 (slow): HalfCheetah 1526 but Walker2d 302
+#   - ACE v6 ri=1 (fast):  HalfCheetah 634  but Walker2d 705
+# No single timescale works universally.
 #
-# SPACE combines three structural innovations:
+# SOLUTION: Three parallel OU processes at different rates:
+#   - SLOW  (α=0.99, τ≈100): Gait discovery and pattern locking
+#   - MEDIUM (α=0.9,  τ≈10):  Step-to-step coordination
+#   - FAST  (α=0.5,  τ≈2):   Rapid balance corrections
 #
-# 1. CROSS-ACTUATOR COVARIANCE via learned Cholesky factor L:
-#    - Noise covariance: L @ diag(state_var) @ L^T
-#    - L is lower-triangular, initialized to identity
-#    - Learns coordinated motor patterns (e.g., left-right leg anti-correlation)
-#    - Uses MultivariateNormal for correct density computation
+# Each scale has independent exploration matrices evolving at its own rate.
+# Noise is the weighted sum: noise = Σ_k w_k * noise_k, where weights satisfy
+# Σ w_k² = 1 for exact variance preservation (density computation unchanged).
+# Weights are learned parameters — the agent discovers the optimal temporal
+# allocation per task.
 #
-# 2. OU TEMPORAL EVOLUTION for exploration matrices:
-#    - ε_{t+1} = α*ε_t + sqrt(1-α²)*σ*ξ, preserving marginal N(0,σ²)
-#    - Smooth exponential decay of temporal correlation
-#    - Episode-boundary hard reset prevents bad noise persistence
+# MTSOR tried multi-timescale noise but used diagonal Gaussian log_prob with
+# orthogonal rotation — a density mismatch that killed learning (HC: 240).
+# SPACE v2 avoids this by using MultivariateNormal with learned Cholesky factor.
 #
-# 3. WIDER NETWORK (256 hidden units):
-#    - More capacity for complex state-dependent behaviors
-#    - The standard 64-unit network may bottleneck state-dependent noise scaling
+# Retained from v1:
+#   - Cross-actuator Cholesky factor L for coordinated motor commands
+#   - MultivariateNormal for exact density computation
+#   - 256 hidden units for capacity
+#   - Episode-boundary hard reset
 #
-# Density computation: MultivariateNormal(mean, scale_tril=L @ diag(sqrt(var)))
-# where var_i = Σ_k latent_k² * σ_ki² is the gSDE marginal variance.
+# v1 results (16 envs, 1-2M steps): HC 800, Hopper 676, Walker2d 1504
 
 import math
 import os
 import random
 import time
 from dataclasses import dataclass
+from typing import Tuple
 
 import gymnasium as gym
 import numpy as np
@@ -106,11 +112,9 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
-    # SPACE specific arguments
+    # SPACE v2 specific arguments
     gsde_log_std_init: float = -2.0
     """initial log standard deviation for gSDE exploration matrices"""
-    noise_momentum: float = 0.9
-    """OU process momentum α: 0=white noise, 0.9=τ≈10 steps, 0.99=τ≈100 steps"""
     hidden_dim: int = 256
     """hidden layer dimension for actor and critic networks"""
     resample_on_reset: bool = True
@@ -123,6 +127,11 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
+
+
+# Fixed OU momentums for the three timescales
+NOISE_MOMENTUMS = (0.5, 0.9, 0.99)
+NUM_SCALES = len(NOISE_MOMENTUMS)
 
 
 def make_env(env_id, idx, capture_video, run_name, gamma):
@@ -159,6 +168,8 @@ class Agent(nn.Module):
 
         self.action_dim = action_dim
         self.latent_dim = latent_dim
+        self.num_scales = NUM_SCALES
+        self.noise_momentums = NOISE_MOMENTUMS
 
         self.critic = nn.Sequential(
             layer_init(nn.Linear(obs_dim, hidden_dim)),
@@ -181,14 +192,19 @@ class Agent(nn.Module):
         )
 
         # Cross-actuator mixing: learned lower-triangular Cholesky factor
-        # Initialized to identity (no cross-actuator correlation initially)
-        # L @ diag(var) @ L^T gives the full covariance
-        cholesky_init = torch.eye(action_dim)
         self.cholesky_log_diag = nn.Parameter(torch.zeros(action_dim))
         self.cholesky_offdiag = nn.Parameter(torch.zeros(action_dim * (action_dim - 1) // 2))
 
-        # Per-env exploration matrices: [num_envs, latent_dim, action_dim]
-        self.exploration_matrices = None
+        # Multi-timescale mixing weights (learned)
+        # Parameterized as raw log-weights, normalized so Σ w_k² = 1
+        self.scale_log_weights = nn.Parameter(torch.zeros(self.num_scales))
+
+        # Per-env exploration matrices for each timescale:
+        # List of [num_envs, latent_dim, action_dim] tensors
+        self.exploration_matrices_list = [None] * self.num_scales
+
+        # Precompute innovation scales for OU updates
+        self.innovation_scales = [math.sqrt(1.0 - m * m) for m in self.noise_momentums]
 
     def _get_gsde_std(self):
         return torch.exp(self.gsde_log_std)
@@ -196,12 +212,16 @@ class Agent(nn.Module):
     def _get_cholesky(self):
         """Build the lower-triangular Cholesky factor L."""
         L = torch.zeros(self.action_dim, self.action_dim, device=self.cholesky_log_diag.device)
-        # Diagonal: exp to ensure positive
         L.diagonal().copy_(torch.exp(self.cholesky_log_diag))
-        # Off-diagonal: fill lower triangle
         idx = torch.tril_indices(self.action_dim, self.action_dim, offset=-1)
         L[idx[0], idx[1]] = self.cholesky_offdiag
         return L
+
+    def _get_scale_weights(self):
+        """Compute normalized scale weights satisfying Σ w_k² = 1."""
+        raw_w = torch.exp(self.scale_log_weights)
+        # Normalize so sum of squares = 1 (variance preservation)
+        return raw_w / torch.sqrt((raw_w ** 2).sum())
 
     def _get_gsde_variance(self, latent):
         """Per-action marginal variance: var_i = sum_j (h_j^2 * sigma_j_i^2)."""
@@ -209,28 +229,33 @@ class Agent(nn.Module):
         return (latent ** 2) @ (std ** 2)
 
     def reset_noise(self, num_envs):
-        """Sample fresh exploration matrices for all envs."""
+        """Sample fresh exploration matrices for all envs at all scales."""
         std = self._get_gsde_std()
         dist = Normal(torch.zeros_like(std), std)
-        self.exploration_matrices = dist.rsample((num_envs,))
+        for k in range(self.num_scales):
+            self.exploration_matrices_list[k] = dist.rsample((num_envs,))
 
     def reset_noise_for_envs(self, env_mask):
-        """Resample exploration matrices only for terminated envs."""
+        """Resample exploration matrices for terminated envs at all scales."""
         if not env_mask.any():
             return
         n_reset = env_mask.sum().item()
         std = self._get_gsde_std()
         dist = Normal(torch.zeros_like(std), std)
-        new_mats = dist.rsample((n_reset,))
-        self.exploration_matrices[env_mask] = new_mats
+        for k in range(self.num_scales):
+            new_mats = dist.rsample((n_reset,))
+            self.exploration_matrices_list[k][env_mask] = new_mats
 
-    def evolve_noise(self, momentum):
-        """OU update preserving marginal distribution N(0, σ²)."""
+    def evolve_noise(self):
+        """OU update for all timescales, each at its own rate."""
         std = self._get_gsde_std()
         dist = Normal(torch.zeros_like(std), std)
-        fresh = dist.rsample((self.exploration_matrices.shape[0],))
-        innovation_scale = math.sqrt(1.0 - momentum * momentum)
-        self.exploration_matrices = momentum * self.exploration_matrices + innovation_scale * fresh
+        n_envs = self.exploration_matrices_list[0].shape[0]
+        for k in range(self.num_scales):
+            fresh = dist.rsample((n_envs,))
+            alpha = self.noise_momentums[k]
+            innov = self.innovation_scales[k]
+            self.exploration_matrices_list[k] = alpha * self.exploration_matrices_list[k] + innov * fresh
 
     def get_value(self, x):
         return self.critic(x)
@@ -247,24 +272,27 @@ class Agent(nn.Module):
         L = self._get_cholesky()  # [action_dim, action_dim]
 
         # Scale L columns by var_sqrt: effective_L[b] = L @ diag(var_sqrt[b])
-        # L: [act, act], var_sqrt: [batch, act] -> effective_L: [batch, act, act]
         effective_L = L.unsqueeze(0) * var_sqrt.unsqueeze(1)
 
         # MultivariateNormal with scale_tril for correct cross-actuator density
+        # Variance is preserved because Σ w_k² = 1
         dist = MultivariateNormal(mean, scale_tril=effective_L)
 
         if action is None:
-            # Generate correlated noise using exploration matrices + Cholesky mixing
-            # Independent noise from gSDE: z = latent @ exploration_mat
-            noise_indep = torch.bmm(
-                latent.unsqueeze(1), self.exploration_matrices
-            ).squeeze(1)  # [batch, action_dim]
+            # Multi-timescale noise: weighted sum across all scales
+            weights = self._get_scale_weights()  # [num_scales], Σ w² = 1
+            noise_total = torch.zeros_like(mean)
+            for k in range(self.num_scales):
+                noise_k = torch.bmm(
+                    latent.unsqueeze(1), self.exploration_matrices_list[k]
+                ).squeeze(1)  # [batch, action_dim]
+                noise_total = noise_total + weights[k] * noise_k
 
             # Apply cross-actuator mixing: noise = z @ L^T
-            noise_mixed = noise_indep @ L.t()
+            noise_mixed = noise_total @ L.t()
             action = mean + noise_mixed
 
-        log_prob = dist.log_prob(action)  # [batch] (MultivariateNormal returns scalar)
+        log_prob = dist.log_prob(action)  # [batch]
         entropy = dist.entropy()  # [batch]
         return action, log_prob, entropy, self.critic(x)
 
@@ -314,8 +342,6 @@ if __name__ == "__main__":
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
-    noise_momentum = args.noise_momentum
-
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
@@ -338,7 +364,7 @@ if __name__ == "__main__":
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
-        # Initial noise sample at start of rollout
+        # Initial noise sample at start of rollout (all scales)
         agent.reset_noise(args.num_envs)
 
         for step in range(0, args.num_steps):
@@ -346,9 +372,9 @@ if __name__ == "__main__":
             obs[step] = next_obs
             dones[step] = next_done
 
-            # OU noise evolution: smooth temporal correlation
+            # Multi-timescale OU noise evolution
             if step > 0:
-                agent.evolve_noise(noise_momentum)
+                agent.evolve_noise()
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
@@ -363,7 +389,7 @@ if __name__ == "__main__":
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
 
-            # Resample noise for envs that just terminated/truncated
+            # Resample noise for envs that just terminated/truncated (all scales)
             if args.resample_on_reset and next_done.any():
                 agent.reset_noise_for_envs(next_done.bool())
 
@@ -466,6 +492,10 @@ if __name__ == "__main__":
             offdiag_norm = (L - torch.diag(L.diagonal())).norm().item()
             writer.add_scalar("space/cholesky_offdiag_norm", offdiag_norm, global_step)
             writer.add_scalar("space/cholesky_diag_mean", L.diagonal().mean().item(), global_step)
+            # Log multi-timescale weights
+            weights = agent._get_scale_weights()
+            for k in range(agent.num_scales):
+                writer.add_scalar(f"space/scale_weight_{k}_mom{agent.noise_momentums[k]}", weights[k].item(), global_step)
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
