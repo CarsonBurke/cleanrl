@@ -9,6 +9,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import tyro
 from torch.distributions import MultivariateNormal, Normal
@@ -67,7 +68,7 @@ class Args:
     """the surrogate clipping coefficient"""
     clip_vloss: bool = True
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
-    ent_coef: float = 1e-5
+    ent_coef: float = 0.0
     """coefficient of the entropy"""
     vf_coef: float = 0.5
     """coefficient of the value function"""
@@ -240,39 +241,40 @@ class LatticeDistribution:
         noise = torch.bmm(latent_sde, exploration_matrices)
         return noise.squeeze(dim=1)
 
-    def sample(self, mean_actions_net, latent_sde):
+    def sample(self, mean_actions, action_mean_weight, latent_cov):
         """
         Sample actions using lattice noise.
 
-        Applies correlated latent perturbation then projects through the action layer,
-        and adds independent action-space noise:
-          actions = W @ (latent + alpha * corr_noise) + b + ind_noise
+        Applies correlated latent perturbation from a dedicated covariance latent,
+        projects it through the covariance projection layer, and adds independent
+        action-space noise:
+          actions = mean_actions + W_cov @ (alpha * corr_noise) + ind_noise
         """
-        latent_sde = latent_sde if self.learn_features else latent_sde.detach()
+        latent_cov = latent_cov if self.learn_features else latent_cov.detach()
         latent_noise = self.alpha * self._get_noise(
-            latent_sde, self.corr_exploration_mat, self.corr_exploration_matrices
+            latent_cov, self.corr_exploration_mat, self.corr_exploration_matrices
         )
         action_noise = self._get_noise(
-            latent_sde, self.ind_exploration_mat, self.ind_exploration_matrices
+            latent_cov, self.ind_exploration_mat, self.ind_exploration_matrices
         )
-        actions = mean_actions_net(latent_sde + latent_noise) + action_noise
+        actions = mean_actions + F.linear(latent_noise, action_mean_weight, bias=None) + action_noise
         return actions
 
-    def get_distribution(self, mean_actions, log_std, latent_sde, mean_actions_net):
+    def get_distribution(self, mean_actions, log_std, latent_cov, action_mean_weight):
         """
         Build a MultivariateNormal distribution with the lattice-induced covariance.
 
         The covariance has two components:
-          sigma = alpha^2 * W diag(corr_var) W^T + diag(ind_var + std_reg^2)
-        where W are the weights of the action output layer, and corr_var / ind_var
+          sigma = alpha^2 * W_mean diag(corr_var) W_mean^T + diag(ind_var + std_reg^2)
+        where W_mean are the policy mean projection weights, and corr_var / ind_var
         are computed from the learned log_std and the latent features.
         """
-        latent_sde = latent_sde if self.learn_features else latent_sde.detach()
+        latent_cov = latent_cov if self.learn_features else latent_cov.detach()
         corr_std, ind_std = self.get_std(log_std)
-        latent_corr_variance = torch.mm(latent_sde**2, corr_std**2)
-        latent_ind_variance = torch.mm(latent_sde**2, ind_std**2) + self.std_reg**2
+        latent_corr_variance = torch.mm(latent_cov**2, corr_std**2)
+        latent_ind_variance = torch.mm(latent_cov**2, ind_std**2) + self.std_reg**2
 
-        W = mean_actions_net.weight
+        W = action_mean_weight
         sigma_mat = self.alpha**2 * (W * latent_corr_variance[:, None, :]).matmul(W.T)
         sigma_mat[:, range(self.action_dim), range(self.action_dim)] += latent_ind_variance
 
@@ -294,11 +296,19 @@ class Agent(nn.Module):
             nn.Tanh(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
-        self.actor_trunk = nn.Sequential(
-            layer_init(nn.Linear(obs_dim, 64)),
+        self.actor_mean_trunk = nn.Sequential(
+            nn.Linear(obs_dim, 64),
             nn.GELU(),
-            layer_init(nn.Linear(64, 64)),
+            nn.Linear(64, 64),
             nn.GELU(),
+            nn.RMSNorm(64),
+        )
+        self.actor_cov_trunk = nn.Sequential(
+            nn.Linear(obs_dim, 64),
+            nn.GELU(),
+            nn.Linear(64, 64),
+            nn.GELU(),
+            nn.RMSNorm(64),
         )
         self.actor_mean = nn.Linear(latent_dim, action_dim)
 
@@ -323,15 +333,19 @@ class Agent(nn.Module):
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
-        latent = self.actor_trunk(x)
-        action_mean = self.actor_mean(latent)
+        latent_mean = self.actor_mean_trunk(x)
+        latent_cov_raw = self.actor_cov_trunk(x)
+        cov_rms = torch.sqrt(torch.mean(latent_cov_raw.pow(2), dim=-1, keepdim=True) + 1e-8)
+        latent_cov = latent_cov_raw / cov_rms
+
+        action_mean = self.actor_mean(latent_mean)
 
         dist = self.lattice.get_distribution(
-            action_mean, self.actor_logstd, latent, self.actor_mean
+            action_mean, self.actor_logstd, latent_cov, self.actor_mean.weight
         )
 
         if action is None:
-            action = self.lattice.sample(self.actor_mean, latent)
+            action = self.lattice.sample(action_mean, self.actor_mean.weight, latent_cov)
 
         log_prob = dist.log_prob(action)
         entropy = dist.entropy()
