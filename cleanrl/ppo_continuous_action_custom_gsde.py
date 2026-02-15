@@ -1,20 +1,26 @@
-# Quadratic Latent SDE (QL-SDE) for PPO Continuous Action
+# Quadratic Latent SDE (QL-SDE) v2 for PPO Continuous Action
 #
-# Key idea: Instead of a scalar learnable log-std (base PPO) or a resampled
-# exploration matrix (classic gSDE), compute per-action variance via a quadratic
-# form over a dedicated SDE latent space with RMSNorm + SiLU activation.
+# Hybrid of QL-SDE (quadratic variance) and Lattice (separate trunks).
+#
+# Key ideas:
+#   1. Separate mean/covariance trunks (from Lattice): policy gradient pulls the
+#      mean toward exploitation while entropy gradient pulls variance up.
+#      Separating them eliminates this gradient conflict.
+#   2. State-dependent variance via quadratic form (from QL-SDE): each action's
+#      variance adapts to the current observation without O(n^3) covariance cost.
+#   3. RMSNorm + SiLU on variance path (from QL-SDE): stable normalization.
+#   4. Diagonal Normal distribution: efficient O(1) log_prob/entropy per action dim.
+#   5. No exploration matrix resampling: stateless, simpler than gSDE/Lattice.
 #
 # Architecture:
-#   - Actor backbone (shared) -> mean head (linear) + SDE variance path
-#   - SDE path: linear -> RMSNorm -> SiLU -> reshape to [B, action_dim, sde_dim]
-#   - Variance: sum_j( sde_latent[b,i,j]^2 * exp(2 * log_std_param[j,i]) )
-#   - This gives state-dependent, per-action variance without temporal correlation
+#   - actor_mean_trunk  (obs -> 64-Tanh-64-Tanh) -> actor_mean (linear -> action_dim)
+#   - actor_cov_trunk   (obs -> 64-Tanh-64-Tanh) -> sde_fc -> RMSNorm -> SiLU
+#     -> reshape [B, action_dim, sde_dim] -> quadratic form -> per-action variance
 #
-# Differences from gSDE:
-#   - No exploration matrix resampling (noise is IID per step)
-#   - Variance is a learned quadratic form, not a fixed matrix product
-#   - RMSNorm stabilizes the SDE latent space
-#   - SiLU activation adds smooth nonlinearity to variance computation
+# What was dropped from Lattice and why:
+#   - MultivariateNormal (O(n^3) Cholesky — unnecessary for diagonal noise)
+#   - Exploration matrix resampling (adds statefulness for no clear benefit)
+#   - Raw nn.Linear + GELU + double RMSNorm (untested, redundant normalization)
 #
 # Adapted from a Rust/tch trading bot implementation (quadratic SDE variance head).
 
@@ -167,17 +173,27 @@ class Agent(nn.Module):
             layer_init(nn.Linear(64, 1), std=1.0),
         )
 
-        # Actor backbone (shared latent for mean and SDE path)
-        self.actor_latent = nn.Sequential(
+        # Actor mean trunk (separate from covariance to avoid gradient conflict)
+        self.actor_mean_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
         )
-        # Mean head
         self.actor_mean = layer_init(nn.Linear(64, action_dim), std=0.01)
 
-        # SDE variance path
+        # Covariance trunk (separate pathway — key insight from Lattice)
+        # Policy gradient pulls the mean trunk toward exploitation;
+        # entropy/exploration gradient pulls variance up. Separating them
+        # lets each optimize without interfering.
+        self.actor_cov_trunk = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+        )
+
+        # SDE variance path (applied to covariance trunk output)
         self.sde_fc = layer_init(nn.Linear(64, action_dim * sde_dim), std=1.0)
         self.sde_norm = RMSNorm(action_dim * sde_dim, eps=sde_rmsnorm_eps)
         # Learnable variance weights [sde_dim, action_dim], initialized to sde_log_std_init
@@ -189,11 +205,13 @@ class Agent(nn.Module):
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
-        latent = self.actor_latent(x)                     # [B, 64]
-        action_mean = self.actor_mean(latent)              # [B, action_dim]
+        # Mean path (own trunk)
+        mean_latent = self.actor_mean_trunk(x)             # [B, 64]
+        action_mean = self.actor_mean(mean_latent)         # [B, action_dim]
 
-        # SDE variance: quadratic form over dedicated latent space
-        sde_raw = self.sde_fc(latent)                      # [B, action_dim * sde_dim]
+        # Covariance path (separate trunk → QL-SDE quadratic variance)
+        cov_latent = self.actor_cov_trunk(x)               # [B, 64]
+        sde_raw = self.sde_fc(cov_latent)                  # [B, action_dim * sde_dim]
         sde_latent = F.silu(self.sde_norm(sde_raw))        # [B, action_dim * sde_dim]
         sde_latent = sde_latent.view(-1, self.action_dim, self.sde_dim)
                                                            # [B, action_dim, sde_dim]
