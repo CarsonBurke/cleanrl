@@ -36,7 +36,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import tyro
-from torch.distributions.normal import Normal
+from torch.distributions import MultivariateNormal, Normal
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -176,9 +176,11 @@ class Agent(nn.Module):
         # Actor mean trunk (separate from covariance to avoid gradient conflict)
         self.actor_mean_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
-            nn.Tanh(),
+            nn.RMSNorm(64),
+            nn.SiLU(),
             layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
+            nn.RMSNorm(64),
+            nn.SiLU(),
         )
         self.actor_mean = layer_init(nn.Linear(64, action_dim), std=0.01)
 
@@ -188,9 +190,11 @@ class Agent(nn.Module):
         # lets each optimize without interfering.
         self.actor_cov_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
-            nn.Tanh(),
+            nn.RMSNorm(64),
+            nn.SiLU(),
             layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
+            nn.RMSNorm(64),
+            nn.SiLU(),
         )
 
         # SDE variance path (applied to covariance trunk output)
@@ -209,23 +213,28 @@ class Agent(nn.Module):
         mean_latent = self.actor_mean_trunk(x)             # [B, 64]
         action_mean = self.actor_mean(mean_latent)         # [B, action_dim]
 
-        # Covariance path (separate trunk → QL-SDE quadratic variance)
+        # Covariance path (separate trunk → QL-SDE quadratic covariance)
         cov_latent = self.actor_cov_trunk(x)               # [B, 64]
         sde_raw = self.sde_fc(cov_latent)                  # [B, action_dim * sde_dim]
         sde_latent = F.silu(self.sde_norm(sde_raw))        # [B, action_dim * sde_dim]
         sde_latent = sde_latent.view(-1, self.action_dim, self.sde_dim)
                                                            # [B, action_dim, sde_dim]
-        # var[b,i] = sum_j( sde_latent[b,i,j]^2 * exp(2 * log_std_param[j,i]) )
-        std_sq = torch.exp(2.0 * self.sde_log_std_param)   # [sde_dim, action_dim]
-        variance = (sde_latent.pow(2) * std_sq.T.unsqueeze(0)).sum(-1)
-                                                           # [B, action_dim]
-        action_log_std = 0.5 * torch.log(variance + 1e-8)  # [B, action_dim]
-        action_std = torch.exp(action_log_std)              # [B, action_dim]
 
-        probs = Normal(action_mean, action_std)
+        # Scale each action's latent by its learned std, then form Gram matrix
+        # L[b,i,k] = sde_latent[b,i,k] * exp(log_std_param[k,i])
+        scales = torch.exp(self.sde_log_std_param).T       # [action_dim, sde_dim]
+        L = sde_latent * scales.unsqueeze(0)               # [B, action_dim, sde_dim]
+
+        # Covariance = L @ L^T + eps*I  (PSD by construction)
+        # Diagonal = our original per-action variance
+        # Off-diagonal = cross-actuator correlation from shared SDE latent
+        cov = torch.bmm(L, L.transpose(1, 2))             # [B, action_dim, action_dim]
+        cov = cov + 1e-6 * torch.eye(self.action_dim, device=x.device)
+
+        dist = MultivariateNormal(action_mean, covariance_matrix=cov, validate_args=False)
         if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+            action = dist.sample()
+        return action, dist.log_prob(action), dist.entropy(), self.critic(x)
 
 
 if __name__ == "__main__":
