@@ -181,10 +181,8 @@ class Agent(nn.Module):
         # Actor mean trunk (separate from covariance to avoid gradient conflict)
         self.actor_mean_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
-            nn.RMSNorm(64),
             nn.SiLU(),
             layer_init(nn.Linear(64, 64)),
-            nn.RMSNorm(64),
             nn.SiLU(),
         )
         self.actor_mean = layer_init(nn.Linear(64, action_dim), std=0.01)
@@ -195,18 +193,14 @@ class Agent(nn.Module):
         # lets each optimize without interfering.
         self.actor_cov_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
-            nn.RMSNorm(64),
             nn.SiLU(),
             layer_init(nn.Linear(64, 64)),
-            nn.RMSNorm(64),
             nn.SiLU(),
         )
 
         # SDE variance path (applied to covariance trunk output)
         self.sde_fc = layer_init(nn.Linear(64, action_dim * sde_dim), std=1.0)
-        # Per-action RMSNorm: normalizes each action's sde_dim latent independently
-        # (no cross-action competition for variance budget)
-        self.sde_norm = nn.RMSNorm(sde_dim, eps=sde_rmsnorm_eps)
+        self.sde_norm = nn.RMSNorm(sde_dim)
         # Learnable variance weights [sde_dim, action_dim], initialized to sde_log_std_init
         self.sde_log_std_param = nn.Parameter(
             torch.ones(sde_dim, action_dim) * sde_log_std_init
@@ -232,6 +226,7 @@ class Agent(nn.Module):
         # over sde_dim terms doesn't inflate variance with latent dimensionality
         # L[b,i,k] = sde_latent[b,i,k] * exp(log_std_param[k,i] - 0.5*log(sde_dim))
         normalized_log_std = self.sde_log_std_param - 0.5 * np.log(self.sde_dim)
+        normalized_log_std = normalized_log_std.clamp(min=np.log(1e-3), max=np.log(10.0))
         scales = torch.exp(normalized_log_std).T            # [action_dim, sde_dim]
         L = sde_latent * scales.unsqueeze(0)               # [B, action_dim, sde_dim]
 
