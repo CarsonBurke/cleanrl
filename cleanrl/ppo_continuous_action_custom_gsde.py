@@ -103,10 +103,14 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
+    # RPO
+    rpo_alpha: float = 0.05
+    """RPO noise alpha — adds bounded uniform noise to action mean during training"""
+
     # QL-SDE specific arguments
     sde_dim: int = 64
     """dimensionality of the SDE latent space"""
-    sde_log_std_init: float = -2.0
+    sde_log_std_init: float = 0.0
     """initial value for SDE log-std parameters"""
     sde_rmsnorm_eps: float = 1e-6
     """epsilon for RMSNorm in SDE path"""
@@ -157,12 +161,13 @@ class RMSNorm(nn.Module):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs, sde_dim=64, sde_log_std_init=-2.0, sde_rmsnorm_eps=1e-6):
+    def __init__(self, envs, sde_dim=64, sde_log_std_init=0.0, sde_rmsnorm_eps=1e-6, rpo_alpha=0.2):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
         self.action_dim = action_dim
         self.sde_dim = sde_dim
+        self.rpo_alpha = rpo_alpha
 
         # Critic (unchanged from base PPO)
         self.critic = nn.Sequential(
@@ -199,7 +204,9 @@ class Agent(nn.Module):
 
         # SDE variance path (applied to covariance trunk output)
         self.sde_fc = layer_init(nn.Linear(64, action_dim * sde_dim), std=1.0)
-        self.sde_norm = RMSNorm(action_dim * sde_dim, eps=sde_rmsnorm_eps)
+        # Per-action RMSNorm: normalizes each action's sde_dim latent independently
+        # (no cross-action competition for variance budget)
+        self.sde_norm = nn.RMSNorm(sde_dim, eps=sde_rmsnorm_eps)
         # Learnable variance weights [sde_dim, action_dim], initialized to sde_log_std_init
         self.sde_log_std_param = nn.Parameter(
             torch.ones(sde_dim, action_dim) * sde_log_std_init
@@ -216,13 +223,16 @@ class Agent(nn.Module):
         # Covariance path (separate trunk → QL-SDE quadratic covariance)
         cov_latent = self.actor_cov_trunk(x)               # [B, 64]
         sde_raw = self.sde_fc(cov_latent)                  # [B, action_dim * sde_dim]
-        sde_latent = F.silu(self.sde_norm(sde_raw))        # [B, action_dim * sde_dim]
-        sde_latent = sde_latent.view(-1, self.action_dim, self.sde_dim)
+        sde_latent = sde_raw.view(-1, self.action_dim, self.sde_dim)
                                                            # [B, action_dim, sde_dim]
+        sde_latent = F.silu(self.sde_norm(sde_latent))     # per-action RMSNorm + SiLU
 
         # Scale each action's latent by its learned std, then form Gram matrix
-        # L[b,i,k] = sde_latent[b,i,k] * exp(log_std_param[k,i])
-        scales = torch.exp(self.sde_log_std_param).T       # [action_dim, sde_dim]
+        # Variance normalization: subtract 0.5*log(sde_dim) so that summing
+        # over sde_dim terms doesn't inflate variance with latent dimensionality
+        # L[b,i,k] = sde_latent[b,i,k] * exp(log_std_param[k,i] - 0.5*log(sde_dim))
+        normalized_log_std = self.sde_log_std_param - 0.5 * np.log(self.sde_dim)
+        scales = torch.exp(normalized_log_std).T            # [action_dim, sde_dim]
         L = sde_latent * scales.unsqueeze(0)               # [B, action_dim, sde_dim]
 
         # Covariance = L @ L^T + eps*I  (PSD by construction)
@@ -230,6 +240,11 @@ class Agent(nn.Module):
         # Off-diagonal = cross-actuator correlation from shared SDE latent
         cov = torch.bmm(L, L.transpose(1, 2))             # [B, action_dim, action_dim]
         cov = cov + 1e-6 * torch.eye(self.action_dim, device=x.device)
+
+        # RPO: add bounded uniform noise to mean during training only
+        if action is not None and self.rpo_alpha > 0:
+            z = torch.empty_like(action_mean).uniform_(-self.rpo_alpha, self.rpo_alpha)
+            action_mean = action_mean + z
 
         dist = MultivariateNormal(action_mean, covariance_matrix=cov, validate_args=False)
         if action is None:
@@ -280,6 +295,7 @@ if __name__ == "__main__":
         sde_dim=args.sde_dim,
         sde_log_std_init=args.sde_log_std_init,
         sde_rmsnorm_eps=args.sde_rmsnorm_eps,
+        rpo_alpha=args.rpo_alpha,
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
