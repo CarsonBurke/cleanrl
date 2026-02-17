@@ -1,28 +1,32 @@
-# Quadratic Latent SDE (QL-SDE) v2 for PPO Continuous Action
+# QL-SDE v20: Decoupled Structure-Magnitude Architecture
 #
-# Hybrid of QL-SDE (quadratic variance) and Lattice (separate trunks).
+# KEY INSIGHT: In v19/v19b, sde_log_std_param barely learns (0→0.04 over 3M steps)
+# because its gradient flows through the Gram matrix (L@L^T), which is a long, weak path.
+# Meanwhile logstd_head learns state-dependent modulation but can't compensate for
+# the frozen base scales. We need to DECOUPLE structure from magnitude.
 #
-# Key ideas:
-#   1. Separate mean/covariance trunks (from Lattice): policy gradient pulls the
-#      mean toward exploitation while entropy gradient pulls variance up.
-#      Separating them eliminates this gradient conflict.
-#   2. State-dependent variance via quadratic form (from QL-SDE): each action's
-#      variance adapts to the current observation without O(n^3) covariance cost.
-#   3. RMSNorm + SiLU on variance path (from QL-SDE): stable normalization.
-#   4. Diagonal Normal distribution: efficient O(1) log_prob/entropy per action dim.
-#   5. No exploration matrix resampling: stateless, simpler than gSDE/Lattice.
+# DESIGN: Separate correlation structure from noise magnitude:
+#   STRUCTURE (what direction to explore):
+#     Gram matrix L@L^T from SDE latent features, normalized by sqrt(sde_dim)
+#     → provides cross-action correlations (key to v10's HC=6049)
+#     → learns slowly (fine — correlation patterns are stable)
 #
-# Architecture:
-#   - actor_mean_trunk  (obs -> 64-Tanh-64-Tanh) -> actor_mean (linear -> action_dim)
-#   - actor_cov_trunk   (obs -> 64-Tanh-64-Tanh) -> sde_fc -> RMSNorm -> SiLU
-#     -> reshape [B, action_dim, sde_dim] -> quadratic form -> per-action variance
+#   MAGNITUDE (how much noise per action):
+#     logstd = logstd_base [action_dim] + mod_scale * tanh(logstd_head(state))
+#     → direct gradient path: logstd → exp → outer_product → cov → log_det
+#     → d(log_det)/d(logstd) ≈ 2 (strong, constant gradient!)
+#     → logstd_base replaces sde_log_std_param with SHORT gradient path
+#     → logstd_head adds state-dependent modulation (bounded by tanh)
 #
-# What was dropped from Lattice and why:
-#   - MultivariateNormal (O(n^3) Cholesky — unnecessary for diagonal noise)
-#   - Exploration matrix resampling (adds statefulness for no clear benefit)
-#   - Raw nn.Linear + GELU + double RMSNorm (untested, redundant normalization)
+#   COMBINED: cov = outer(std, std) * cov_corr + eps*I
+#     where cov_corr = L@L^T/sde_dim (normalized Gram, diagonal ≈ O(1))
+#     and std = exp(logstd_base + mod_scale * tanh(logstd_head(cov_latent)))
 #
-# Adapted from a Rust/tch trading bot implementation (quadratic SDE variance head).
+# v19 results: HC=4382@3M (good), Walker2d peak=2065 (volatile)
+# v19b results: HC=4382@3M (good), Walker2d peak=1333 (10x LR too aggressive)
+# Both suffered from frozen sde_log_std_param → v20 removes it entirely.
+#
+# No entropy regularization. The model learns when to be quiet vs noisy.
 
 import os
 import random
@@ -36,7 +40,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import tyro
-from torch.distributions import MultivariateNormal, Normal
+from torch.distributions import MultivariateNormal
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -110,10 +114,10 @@ class Args:
     # QL-SDE specific arguments
     sde_dim: int = 64
     """dimensionality of the SDE latent space"""
-    sde_log_std_init: float = 0.0
-    """initial value for SDE log-std parameters"""
-    sde_rmsnorm_eps: float = 1e-6
-    """epsilon for RMSNorm in SDE path"""
+    logstd_init: float = 0.0
+    """initial value for logstd_base parameter (per-action base noise level)"""
+    mod_scale: float = 3.0
+    """scale for state-dependent logstd modulation (tanh range)"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -149,24 +153,15 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-class RMSNorm(nn.Module):
-    def __init__(self, dim, eps=1e-6):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(dim))
-        self.eps = eps
-
-    def forward(self, x):
-        rms = torch.sqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
-        return self.weight * (x / rms)
-
 
 class Agent(nn.Module):
-    def __init__(self, envs, sde_dim=64, sde_log_std_init=0.0, sde_rmsnorm_eps=1e-6, rpo_alpha=0.2):
+    def __init__(self, envs, sde_dim=64, logstd_init=0.0, mod_scale=3.0, rpo_alpha=0.05):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
         self.action_dim = action_dim
         self.sde_dim = sde_dim
+        self.mod_scale = mod_scale
         self.rpo_alpha = rpo_alpha
 
         # Critic (unchanged from base PPO)
@@ -187,10 +182,7 @@ class Agent(nn.Module):
         )
         self.actor_mean = layer_init(nn.Linear(64, action_dim), std=0.01)
 
-        # Covariance trunk (separate pathway — key insight from Lattice)
-        # Policy gradient pulls the mean trunk toward exploitation;
-        # entropy/exploration gradient pulls variance up. Separating them
-        # lets each optimize without interfering.
+        # Covariance trunk (separate pathway)
         self.actor_cov_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
             nn.SiLU(),
@@ -198,13 +190,19 @@ class Agent(nn.Module):
             nn.SiLU(),
         )
 
-        # SDE variance path (applied to covariance trunk output)
+        # SDE latent projection + per-action RMSNorm + SiLU (structure path)
         self.sde_fc = layer_init(nn.Linear(64, action_dim * sde_dim), std=1.0)
         self.sde_norm = nn.RMSNorm(sde_dim)
-        # Learnable variance weights [sde_dim, action_dim], initialized to sde_log_std_init
-        self.sde_log_std_param = nn.Parameter(
-            torch.ones(sde_dim, action_dim) * sde_log_std_init
-        )
+
+        # MAGNITUDE: per-action base noise level (direct gradient path!)
+        # Replaces sde_log_std_param — gradient flows directly through exp→outer→cov→logdet
+        # d(log_det)/d(logstd_base) ≈ 2 (strong, constant signal)
+        self.logstd_base = nn.Parameter(torch.ones(action_dim) * logstd_init)
+
+        # MAGNITUDE: state-dependent per-action modulation (bounded by tanh)
+        # logstd = logstd_base + mod_scale * tanh(logstd_head(cov_latent))
+        # mod_scale=3.0 → ±3.0 in log-space = ~400x dynamic range
+        self.logstd_head = layer_init(nn.Linear(64, action_dim), std=0.1)
 
     def get_value(self, x):
         return self.critic(x)
@@ -214,26 +212,26 @@ class Agent(nn.Module):
         mean_latent = self.actor_mean_trunk(x)             # [B, 64]
         action_mean = self.actor_mean(mean_latent)         # [B, action_dim]
 
-        # Covariance path (separate trunk → QL-SDE quadratic covariance)
+        # Covariance path (separate trunk)
         cov_latent = self.actor_cov_trunk(x)               # [B, 64]
+
+        # STRUCTURE: Gram matrix for cross-action correlations
+        # fc → reshape → per-action RMSNorm → SiLU → normalize by sqrt(sde_dim)
         sde_raw = self.sde_fc(cov_latent)                  # [B, action_dim * sde_dim]
         sde_latent = sde_raw.view(-1, self.action_dim, self.sde_dim)
-                                                           # [B, action_dim, sde_dim]
         sde_latent = F.silu(self.sde_norm(sde_latent))     # per-action RMSNorm + SiLU
+        L_unit = sde_latent * (1.0 / (self.sde_dim ** 0.5))  # normalize → diagonal ≈ O(1)
+        cov_corr = torch.bmm(L_unit, L_unit.transpose(1, 2))  # [B, ad, ad]
 
-        # Scale each action's latent by its learned std, then form Gram matrix
-        # Variance normalization: subtract 0.5*log(sde_dim) so that summing
-        # over sde_dim terms doesn't inflate variance with latent dimensionality
-        # L[b,i,k] = sde_latent[b,i,k] * exp(log_std_param[k,i] - 0.5*log(sde_dim))
-        normalized_log_std = self.sde_log_std_param - 0.5 * np.log(self.sde_dim)
-        normalized_log_std = normalized_log_std.clamp(min=np.log(1e-3), max=np.log(10.0))
-        scales = torch.exp(normalized_log_std).T            # [action_dim, sde_dim]
-        L = sde_latent * scales.unsqueeze(0)               # [B, action_dim, sde_dim]
+        # MAGNITUDE: base + state-dependent per-action log-std (direct gradient path!)
+        logstd_mod = self.mod_scale * torch.tanh(self.logstd_head(cov_latent))
+        logstd = self.logstd_base + logstd_mod             # [B, action_dim]
+        std = torch.exp(logstd)                            # [B, action_dim]
 
-        # Covariance = L @ L^T + eps*I  (PSD by construction)
-        # Diagonal = our original per-action variance
-        # Off-diagonal = cross-actuator correlation from shared SDE latent
-        cov = torch.bmm(L, L.transpose(1, 2))             # [B, action_dim, action_dim]
+        # Final covariance: outer(std, std) * cov_corr + eps*I
+        # This separates structure (cov_corr) from magnitude (std)
+        # d(log_det(cov))/d(logstd) ≈ 2 → strong, constant gradient!
+        cov = std.unsqueeze(-1) * cov_corr * std.unsqueeze(-2)  # [B, ad, ad]
         cov = cov + 1e-6 * torch.eye(self.action_dim, device=x.device)
 
         # RPO: add bounded uniform noise to mean during training only
@@ -288,10 +286,11 @@ if __name__ == "__main__":
     agent = Agent(
         envs,
         sde_dim=args.sde_dim,
-        sde_log_std_init=args.sde_log_std_init,
-        sde_rmsnorm_eps=args.sde_rmsnorm_eps,
+        logstd_init=args.logstd_init,
+        mod_scale=args.mod_scale,
         rpo_alpha=args.rpo_alpha,
     ).to(device)
+
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -432,6 +431,15 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("losses/logstd_base_mean", agent.logstd_base.data.mean().item(), global_step)
+        with torch.no_grad():
+            # Log the state-dependent logstd statistics from the last minibatch
+            cov_lat = agent.actor_cov_trunk(b_obs[mb_inds])
+            logstd_mod = agent.mod_scale * torch.tanh(agent.logstd_head(cov_lat))
+            logstd_total = agent.logstd_base + logstd_mod
+            writer.add_scalar("losses/logstd_mod_mean", logstd_mod.mean().item(), global_step)
+            writer.add_scalar("losses/logstd_mod_std", logstd_mod.std().item(), global_step)
+            writer.add_scalar("losses/logstd_total_mean", logstd_total.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
