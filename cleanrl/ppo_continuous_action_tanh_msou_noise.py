@@ -1,22 +1,22 @@
-# SPACE v23: LSMN with K/τ Annealing
+# Tanh-MSOU: Tanh-squashed PPO with Multi-Scale OU Exploration Noise
 #
-# Clean v15 LSMN with scheduled reduction of noise persistence.
-# K decreases linearly over training; τ increases linearly.
+# Major iteration goals:
+# - Eliminate action clipping mismatch by using a squashed (tanh) Gaussian with
+#   exact log_prob correction.
+# - Add high-entropy time-correlated exploration via a *fixed* multi-scale OU
+#   noise bank in standardized space epsilon_t (marginal N(0, I)).
 #
-# Motivation: v15 4M results show very high peaks but late-stage collapse
-#   in Walker2d (peak 4556, final 427) and Hopper (peak 3188, final 1058).
-#   The persistent noise that enables early exploration causes late-stage
-#   instability. Annealing K/τ gives exploration early and stability late.
+# Exploration:
+# - Maintain K independent OU/AR(1) processes eps_k with rho_k = exp(-1/tau_k),
+#   each stationary N(0, I).
+# - Combine with deterministic weights w_k ~ tau_k^{-p} and normalize by ||w||_2
+#   so the mixture eps_t has marginal N(0, I) (but rich time correlation).
 #
-# Schedule:
-#   K: resample_interval_max → resample_interval_min (linear in progress)
-#   τ: resample_blend → resample_blend_max (linear in progress)
-#
-# v15 4M baselines:
-#   HC K=64 τ=0.5: peak 4783, final 4768 (stable!)
-#   Walker2d K=16 τ=0.3: peak 4556, final 427 (volatile)
-#   Hopper K=16 τ=0.3: peak 3188q, final 1058 (volatile)
-
+# Sampling:
+#   y_t = mean(s_t) + std(s_t) * eps_t
+#   a_t = tanh(y_t)
+# and log_prob(a_t|s_t) is computed exactly via change-of-variables from
+# Normal(mean, std).
 import math
 import os
 import random
@@ -94,19 +94,21 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
-    # LSMN noise arguments
-    noise_log_std_init: float = 0.0
-    """initial log std for noise scale (per latent-action pair, ~0.63 effective action std)"""
-    resample_interval: int = 16
-    """resampling interval for persistent latent noise (steps)"""
-    resample_blend: float = 0.3
-    """blend factor τ for soft resampling: 1.0=hard, 0.3=soft (keeps 84% old direction)"""
-    resample_on_reset: bool = True
-    """resample noise for envs that had an episode termination"""
-    resample_interval_min: int = -1
-    """final resample interval (for K annealing). -1 = no annealing (use resample_interval)"""
-    resample_blend_max: float = -1.0
-    """final blend factor (for τ annealing). -1 = no annealing (use resample_blend)"""
+    # Multi-scale OU noise arguments
+    num_scales: int = 8
+    """number of OU time scales in the noise bank"""
+    tau_min: float = 1.0
+    """minimum OU time constant in steps"""
+    tau_max: float = 128.0
+    """maximum OU time constant in steps"""
+    weight_power: float = 0.5
+    """mixture weights w_k ~ tau_k^{-weight_power}"""
+    sde_update_freq: int = 1
+    """frequency of OU updates (1 = every step)"""
+    reset_noise_on_done: bool = True
+    """reset OU states for envs that ended an episode"""
+    eps: float = 1e-6
+    """numerical epsilon for tanh log_det + atanh"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -117,9 +119,6 @@ class Args:
     """the number of iterations (computed in runtime)"""
 
 
-LATENT_DIM = 64
-
-
 def make_env(env_id, idx, capture_video, run_name, gamma):
     def thunk():
         if capture_video and idx == 0:
@@ -127,7 +126,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
-        env = gym.wrappers.FlattenObservation(env)
+        env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
         env = gym.wrappers.NormalizeObservation(env)
@@ -145,101 +144,107 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-class Agent(nn.Module):
-    def __init__(self, envs, noise_log_std_init=0.0):
-        super().__init__()
-        obs_dim = np.array(envs.single_observation_space.shape).prod()
-        action_dim = np.prod(envs.single_action_space.shape)
+def atanh(x: torch.Tensor) -> torch.Tensor:
+    return 0.5 * (torch.log1p(x) - torch.log1p(-x))
 
+
+class MultiScaleOUNoise(nn.Module):
+    def __init__(self, action_dim: int, num_scales: int, tau_min: float, tau_max: float, weight_power: float, eps: float):
+        super().__init__()
+        self.action_dim = int(action_dim)
+        self.num_scales = int(num_scales)
+        self.tau_min = float(tau_min)
+        self.tau_max = float(tau_max)
+        self.weight_power = float(weight_power)
+        self.eps = float(eps)
+
+        if self.num_scales < 1:
+            raise ValueError("num_scales must be >= 1")
+        if not (self.tau_min > 0 and self.tau_max >= self.tau_min):
+            raise ValueError("tau_min must be > 0 and tau_max >= tau_min")
+
+        if self.num_scales == 1:
+            taus = torch.tensor([self.tau_max], dtype=torch.float32)
+        else:
+            taus = torch.exp(torch.linspace(math.log(self.tau_min), math.log(self.tau_max), self.num_scales))
+        rhos = torch.exp(-1.0 / taus)
+        rhos = torch.clamp(rhos, min=0.0, max=0.9995)
+
+        w = taus ** (-self.weight_power)
+        w = w / torch.sqrt(torch.sum(w**2) + self.eps)
+
+        self.register_buffer("taus", taus)
+        self.register_buffer("rhos", rhos)  # (K,)
+        self.register_buffer("weights", w)  # (K,)
+        self.states = None  # (K,B,A)
+
+    def reset(self, batch_size: int, device: torch.device, dtype: torch.dtype):
+        self.states = torch.randn((self.num_scales, batch_size, self.action_dim), device=device, dtype=dtype)
+
+    def reset_done_envs(self, done_mask: torch.Tensor):
+        if self.states is None or done_mask is None:
+            return
+        if done_mask.dtype != torch.bool:
+            done_mask = done_mask.bool()
+        if done_mask.numel() == 0 or not torch.any(done_mask):
+            return
+        self.states[:, done_mask, :].normal_()
+
+    def step(self, update: bool = True) -> torch.Tensor:
+        # returns epsilon (B,A), marginally N(0, I)
+        if self.states is None:
+            raise RuntimeError("Noise not initialized; call reset() first.")
+        if update:
+            eps = torch.randn_like(self.states)
+            r = self.rhos.view(self.num_scales, 1, 1).to(self.states)
+            s = torch.sqrt(torch.clamp(1.0 - r**2, min=self.eps))
+            self.states = r * self.states + s * eps
+        return torch.einsum("k,kba->ba", self.weights.to(self.states), self.states)
+
+
+class Agent(nn.Module):
+    def __init__(self, envs):
+        super().__init__()
+        obs_dim = int(np.array(envs.single_observation_space.shape).prod())
+        action_dim = int(np.prod(envs.single_action_space.shape))
         self.action_dim = action_dim
-        self.latent_dim = LATENT_DIM
 
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(obs_dim, LATENT_DIM)),
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(LATENT_DIM, LATENT_DIM)),
+            layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(LATENT_DIM, 1), std=1.0),
+            layer_init(nn.Linear(64, 1), std=1.0),
         )
-
-        self.actor_backbone = nn.Sequential(
-            layer_init(nn.Linear(obs_dim, LATENT_DIM)),
+        self.actor_mean = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(LATENT_DIM, LATENT_DIM)),
+            layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
+            layer_init(nn.Linear(64, action_dim), std=0.01),
         )
-
-        self.mean_net = layer_init(nn.Linear(LATENT_DIM, action_dim), std=0.01)
-
-        # LSMN: separate noise projection matrix [action_dim, latent_dim]
-        self.noise_proj = nn.Linear(LATENT_DIM, action_dim, bias=False)
-        torch.nn.init.orthogonal_(self.noise_proj.weight, gain=1.0)
-
-        # Per-(latent, action) noise scale [latent_dim, action_dim]
-        self.noise_log_std = nn.Parameter(
-            torch.ones(LATENT_DIM, action_dim) * noise_log_std_init
-        )
-
-        # Persistent latent noise: [num_envs, latent_dim]
-        self.noise_eps = None
-
-    def _get_noise_std(self):
-        return torch.exp(self.noise_log_std)
-
-    def reset_noise(self, num_envs):
-        """Sample fresh latent noise vectors for all envs."""
-        device = self.noise_log_std.device
-        self.noise_eps = torch.randn(num_envs, self.latent_dim, device=device)
-
-    def reset_noise_for_envs(self, env_mask):
-        """Resample noise for terminated envs."""
-        if not env_mask.any():
-            return
-        n_reset = env_mask.sum().item()
-        self.noise_eps[env_mask] = torch.randn(n_reset, self.latent_dim, device=self.noise_eps.device)
-
-    def resample_for_envs(self, env_mask, blend=1.0):
-        """Soft-resample noise. blend=1.0 is hard, <1 blends with old noise."""
-        if not env_mask.any():
-            return
-        n = env_mask.sum().item()
-        fresh = torch.randn(n, self.latent_dim, device=self.noise_eps.device)
-        if blend >= 1.0:
-            self.noise_eps[env_mask] = fresh
-        else:
-            keep = math.sqrt(1.0 - blend)
-            inject = math.sqrt(blend)
-            self.noise_eps[env_mask] = keep * self.noise_eps[env_mask] + inject * fresh
+        self.actor_logstd = nn.Parameter(torch.zeros(1, action_dim))
 
     def get_value(self, x):
         return self.critic(x)
 
-    def get_action_and_value(self, x, action=None):
-        latent = self.actor_backbone(x)  # [batch, latent_dim]
-        mean = self.mean_net(latent)      # [batch, action_dim]
+    def dist(self, x):
+        mean = self.actor_mean(x)
+        logstd = self.actor_logstd.expand_as(mean)
+        std = torch.exp(logstd)
+        return mean, std
 
-        # LSMN noise variance (diagonal approximation)
-        noise_std = self._get_noise_std()       # [latent_dim, action_dim]
-        W_noise = self.noise_proj.weight         # [action_dim, latent_dim]
+    def logprob_entropy_value(self, x, action, eps: float):
+        mean, std = self.dist(x)
+        a = torch.clamp(action, min=-1.0 + eps, max=1.0 - eps)
+        y = atanh(a)
 
-        # Marginal variance: var_j = Σ_i W_ji² * h_i² * σ_ij²
-        action_var = (latent ** 2) @ (noise_std ** 2 * W_noise.T ** 2)
-        action_std = torch.sqrt(action_var + 1e-6)
-
-        dist = Normal(mean, action_std)
-
-        if action is None:
-            h_eps = latent * self.noise_eps                   # [batch, latent_dim]
-            combined = h_eps.unsqueeze(-1) * noise_std        # [batch, latent, action]
-            noise = torch.einsum('ai,bia->ba', W_noise, combined)
-            action = mean + noise
-
-        log_prob = dist.log_prob(action).sum(-1)
-        entropy = dist.entropy().sum(-1)
-
-        value = self.critic(x)
-
-        return action, log_prob, entropy, value
+        base = Normal(mean, std.clamp(min=eps))
+        logp_y = base.log_prob(y).sum(-1)
+        log_det = torch.log(torch.clamp(1.0 - a**2, min=eps)).sum(-1)
+        logp = logp_y - log_det
+        entropy = base.entropy().sum(-1)  # approx
+        return logp, entropy, self.critic(x)
 
 
 if __name__ == "__main__":
@@ -280,8 +285,17 @@ if __name__ == "__main__":
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs, noise_log_std_init=args.noise_log_std_init).to(device)
+    agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+
+    noise = MultiScaleOUNoise(
+        action_dim=int(np.prod(envs.single_action_space.shape)),
+        num_scales=args.num_scales,
+        tau_min=args.tau_min,
+        tau_max=args.tau_max,
+        weight_power=args.weight_power,
+        eps=args.eps,
+    ).to(device)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
@@ -298,56 +312,40 @@ if __name__ == "__main__":
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
 
+    noise.reset(batch_size=args.num_envs, device=device, dtype=torch.float32)
+
     for iteration in range(1, args.num_iterations + 1):
+        # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
-
-        # Compute annealed K and τ for this iteration
-        progress = (iteration - 1) / max(args.num_iterations - 1, 1)
-        if args.resample_interval_min >= 0:
-            current_K = int(args.resample_interval + (args.resample_interval_min - args.resample_interval) * progress)
-            current_K = max(current_K, max(args.resample_interval_min, 1))
-        else:
-            current_K = args.resample_interval
-        if args.resample_blend_max >= 0:
-            current_blend = args.resample_blend + (args.resample_blend_max - args.resample_blend) * progress
-        else:
-            current_blend = args.resample_blend
-
-        # Fresh noise at start of each rollout
-        agent.reset_noise(args.num_envs)
-        steps_since_resample = torch.zeros(args.num_envs, dtype=torch.long, device=device)
 
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
             dones[step] = next_done
 
-            # Periodic soft resampling (with annealed K and τ)
-            steps_since_resample += 1
-            resample_mask = steps_since_resample >= current_K
-            if resample_mask.any():
-                agent.resample_for_envs(resample_mask, blend=current_blend)
-                steps_since_resample[resample_mask] = 0
-
+            # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                update_noise = (step % args.sde_update_freq) == 0
+                eps_t = noise.step(update=update_noise)
+                mean, std = agent.dist(next_obs)
+                y = mean + std * eps_t
+                action = torch.tanh(y)
+                logprob, _, value = agent.logprob_entropy_value(next_obs, action=action, eps=args.eps)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
 
+            # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
-            next_done = np.logical_or(terminations, truncations)
+            next_done_np = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
-            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done_np).to(device)
 
-            # Reset noise for terminated envs
-            if args.resample_on_reset and next_done.any():
-                reset_mask = next_done.bool()
-                agent.reset_noise_for_envs(reset_mask)
-                steps_since_resample[reset_mask] = 0
+            if args.reset_noise_on_done:
+                noise.reset_done_envs(next_done.bool())
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -389,7 +387,7 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                newlogprob, entropy, newvalue = agent.logprob_entropy_value(b_obs[mb_inds], action=b_actions[mb_inds], eps=args.eps)
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -402,20 +400,14 @@ if __name__ == "__main__":
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
-                # Policy loss
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
                 newvalue = newvalue.view(-1)
                 if args.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
-                    v_clipped = b_values[mb_inds] + torch.clamp(
-                        newvalue - b_values[mb_inds],
-                        -args.clip_coef,
-                        args.clip_coef,
-                    )
+                    v_clipped = b_values[mb_inds] + torch.clamp(newvalue - b_values[mb_inds], -args.clip_coef, args.clip_coef)
                     v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
                     v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
                     v_loss = 0.5 * v_loss_max.mean()
@@ -430,8 +422,9 @@ if __name__ == "__main__":
                 nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
 
-            if args.target_kl is not None and approx_kl > args.target_kl:
-                break
+            if args.target_kl is not None:
+                if approx_kl > args.target_kl:
+                    break
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
@@ -445,9 +438,6 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        with torch.no_grad():
-            writer.add_scalar("space/noise_log_std_mean", agent.noise_log_std.mean().item(), global_step)
-            writer.add_scalar("space/noise_std_mean", agent._get_noise_std().mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
@@ -455,27 +445,7 @@ if __name__ == "__main__":
         model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
         torch.save(agent.state_dict(), model_path)
         print(f"model saved to {model_path}")
-        from cleanrl_utils.evals.ppo_eval import evaluate
-
-        episodic_returns = evaluate(
-            model_path,
-            make_env,
-            args.env_id,
-            eval_episodes=10,
-            run_name=f"{run_name}-eval",
-            Model=Agent,
-            device=device,
-            gamma=args.gamma,
-        )
-        for idx, episodic_return in enumerate(episodic_returns):
-            writer.add_scalar("eval/episodic_return", episodic_return, idx)
-
-        if args.upload_model:
-            from cleanrl_utils.huggingface import push_to_hub
-
-            repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-            repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-            push_to_hub(args, episodic_returns, repo_id, "PPO", f"runs/{run_name}", f"videos/{run_name}-eval")
 
     envs.close()
     writer.close()
+

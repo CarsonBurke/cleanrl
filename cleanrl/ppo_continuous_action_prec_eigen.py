@@ -1,18 +1,27 @@
-# Log-Cholesky PPO with Fixed-Determinant Covariance (v6)
+# Precision Eigendecomposition PPO (prec_eigen)
 #
-# Key idea: Direct Cholesky with zero-sum log-diagonal constraint.
-#   log_diag = log_diag_raw - mean(log_diag_raw) → det(L) = 1 always
-# This makes log_det gradient exactly zero by construction, so all covariance
-# signal flows through Mahalanobis only ("which noise was good/bad per state").
+# Base: custom_gsde (DreamerV3 symexp-twohot distributional critic)
 #
-# v6 improvements over v3:
-#   - Higher head init (std=0.5): richer initial noise diversity and correlations
-#   - Asymmetric PPO clipping (0.2/0.28): already in template
+# Key idea: Parameterize covariance via eigendecomposition of a symmetric
+# "precision-like" matrix A.  The network outputs the upper-triangular
+# elements of a symmetric matrix A.  We compute:
 #
-# Architecture:
-#   Actor mean:  obs → trunk(64) → mean_head → action_mean
-#   Actor cov:   obs → cov_trunk(64) → {log_diag_head, offdiag_head} → Cholesky L
-#   Critic:      obs → trunk → Linear(num_bins) → softmax → symexp-twohot decode
+#   eigenvalues, Q = eigh(A)
+#   Sigma = Q @ diag(exp(-eigenvalues)) @ Q^T
+#
+# This gives a valid positive-definite covariance matrix.  The entropy
+# gradient becomes trivial because:
+#
+#   log det(Sigma) = -sum(eigenvalues) = -trace(A)
+#
+# So d(entropy)/d(A_ii) = -0.5 for all diagonal elements — a constant
+# gradient that doesn't depend on the current covariance magnitude.
+# This resolves the "vanishing entropy gradient" problem that plagues
+# Cholesky and Gram parameterizations.
+#
+# The eigenvectors Q are learned implicitly and provide cross-actuator
+# correlation (full covariance), while the eigenvalues control per-mode
+# variance magnitude with uniform gradient flow.
 
 import os
 import random
@@ -230,7 +239,7 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 # ---------------------------------------------------------------------------
 
 class Agent(nn.Module):
-    def __init__(self, envs, rpo_alpha=0.05, num_bins=255, bin_range=8.0):
+    def __init__(self, envs, rpo_alpha=0.0, num_bins=255, bin_range=8.0):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
@@ -270,15 +279,14 @@ class Agent(nn.Module):
             nn.SiLU(),
         )
 
-        # Cholesky heads: log-diagonal (zero-sum for fixed det) and off-diagonal
-        self.log_diag_head = layer_init(nn.Linear(64, action_dim), std=0.5)
-        n_offdiag = action_dim * (action_dim - 1) // 2
-        self.offdiag_head = layer_init(nn.Linear(64, n_offdiag), std=0.5)
+        # Symmetric matrix head: outputs upper triangular elements of A
+        n_triu = action_dim * (action_dim + 1) // 2  # 21 for ad=6
+        self.sym_head = layer_init(nn.Linear(64, n_triu), std=0.01)
 
-        # Pre-compute strict lower triangular indices
-        tril_idx = torch.tril_indices(action_dim, action_dim, offset=-1)
-        self.register_buffer('_tril_row', tril_idx[0])
-        self.register_buffer('_tril_col', tril_idx[1])
+        # Pre-compute indices for filling symmetric matrix
+        triu_idx = torch.triu_indices(action_dim, action_dim)
+        self.register_buffer('_triu_row', triu_idx[0])
+        self.register_buffer('_triu_col', triu_idx[1])
 
     def get_value(self, x):
         """Return scalar value predictions (symexp-twohot decoded)."""
@@ -290,43 +298,48 @@ class Agent(nn.Module):
         ad = self.action_dim
 
         # Mean path (own trunk)
-        mean_latent = self.actor_mean_trunk(x)
-        action_mean = self.actor_mean(mean_latent)
+        mean_latent = self.actor_mean_trunk(x)             # [B, 64]
+        action_mean = self.actor_mean(mean_latent)         # [B, ad]
 
-        # Covariance path: zero-sum log-diagonal + free off-diagonal
-        cov_latent = self.actor_cov_trunk(x)           # [B, 64]
-        log_diag_raw = self.log_diag_head(cov_latent)   # [B, ad]
-        offdiag = self.offdiag_head(cov_latent)         # [B, n_offdiag]
+        # Covariance path: symmetric A -> eigendecomposition -> covariance
+        cov_latent = self.actor_cov_trunk(x)               # [B, 64]
+        triu_vals = self.sym_head(cov_latent)              # [B, n_triu]
 
-        # Fixed-determinant: zero-sum log-diagonal → det(L) = 1 always
-        log_diag = log_diag_raw - log_diag_raw.mean(dim=-1, keepdim=True)
-        diag = torch.exp(log_diag)
+        # Build symmetric matrix A
+        A = torch.zeros(B, ad, ad, device=x.device)
+        A[:, self._triu_row, self._triu_col] = triu_vals
+        A = A + A.transpose(-1, -2)
+        # Diagonal was doubled by the symmetrization, fix it
+        diag_idx = torch.arange(ad, device=x.device)
+        A[:, diag_idx, diag_idx] *= 0.5
 
-        # Build lower triangular Cholesky factor
-        chol = torch.zeros(B, ad, ad, device=x.device)
-        chol[:, self._tril_row, self._tril_col] = offdiag
-        chol.diagonal(dim1=-2, dim2=-1).copy_(diag)
+        # Eigendecomposition: A = Q @ diag(eigenvalues) @ Q^T
+        eigenvalues, Q = torch.linalg.eigh(A)              # [B, ad], [B, ad, ad]
+
+        # Covariance eigenvalues = exp(-eigenvalues of A)
+        cov_eigvals = torch.exp(-eigenvalues)               # [B, ad], always positive
+        sqrt_cov_eigvals = torch.sqrt(cov_eigvals)          # [B, ad]
 
         # RPO: add bounded uniform noise to mean during training only
         if action is not None and self.rpo_alpha > 0:
             z = torch.empty_like(action_mean).uniform_(-self.rpo_alpha, self.rpo_alpha)
             action_mean = action_mean + z
 
+        # Sampling: action = mean + Q @ diag(sqrt_eigvals) @ z
         if action is None:
-            # Sample: action = mean + chol @ z
-            z = torch.randn(B, ad, 1, device=x.device)
-            action = action_mean + torch.bmm(chol, z).squeeze(-1)
+            z = torch.randn(B, ad, device=x.device)
+            scaled_z = sqrt_cov_eigvals * z                 # [B, ad]
+            action = action_mean + torch.bmm(Q, scaled_z.unsqueeze(-1)).squeeze(-1)
 
-        # Log prob via Cholesky: -0.5 * (k*log(2pi) + 2*sum(log(diag(chol))) + ||chol^-1(x-mu)||^2)
-        diff = (action - action_mean).unsqueeze(-1)        # [B, ad, 1]
-        solved = torch.linalg.solve_triangular(chol, diff, upper=False)  # [B, ad, 1]
-        mahal = solved.squeeze(-1).pow(2).sum(dim=-1)      # [B]
+        # Log prob: -0.5 * (d*log2pi + log|Sigma| + (a-mu)^T Sigma^{-1} (a-mu))
+        diff = (action - action_mean).unsqueeze(-1)         # [B, ad, 1]
+        rotated = torch.bmm(Q.transpose(-1, -2), diff).squeeze(-1)  # [B, ad]
+        mahal = (rotated ** 2 / cov_eigvals).sum(dim=-1)   # [B]
+        log_det = -eigenvalues.sum(dim=-1)                  # [B] = -trace(A)
+        log_prob = -0.5 * (ad * self._log2pi + log_det + mahal)
 
-        # Fixed-det: log_det = sum(log_diag) = 0 by construction (zero-sum).
-        # All covariance gradient comes through Mahalanobis only.
-        log_det = log_diag.sum(dim=-1)  # ≈ 0 always
-        log_prob = -0.5 * (ad * self._log2pi + 2 * log_det + mahal)
-        entropy = 0.5 * (ad * (1.0 + self._log2pi) + 2 * log_det)
+        # Entropy: 0.5 * (d * (1 + log(2pi)) + log|Sigma|)
+        entropy = 0.5 * (ad * (1.0 + self._log2pi) + log_det)
 
         # Critic: twohot logits + decoded scalar
         value_logits = self.critic(x)
@@ -380,8 +393,7 @@ if __name__ == "__main__":
         bin_range=args.bin_range,
     ).to(device)
 
-    # Single parameter group with uniform learning rate (no 10x multiplier needed --
-    # log-Cholesky parameterization avoids gradient dilution)
+    # Single parameter group, uniform LR (no 10x for covariance)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -514,11 +526,18 @@ if __name__ == "__main__":
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         with torch.no_grad():
             cov_lat = agent.actor_cov_trunk(b_obs[mb_inds])
-            log_diag_raw = agent.log_diag_head(cov_lat)
-            log_diag = log_diag_raw - log_diag_raw.mean(dim=-1, keepdim=True)
-            offdiag = agent.offdiag_head(cov_lat)
-            writer.add_scalar("losses/effective_logstd_mean", log_diag.mean().item(), global_step)
-            writer.add_scalar("losses/offdiag_abs_mean", offdiag.abs().mean().item(), global_step)
+            triu_vals = agent.sym_head(cov_lat)
+            ad = agent.action_dim
+            Bm = triu_vals.shape[0]
+            A_log = torch.zeros(Bm, ad, ad, device=device)
+            A_log[:, agent._triu_row, agent._triu_col] = triu_vals
+            A_log = A_log + A_log.transpose(-1, -2)
+            diag_idx = torch.arange(ad, device=device)
+            A_log[:, diag_idx, diag_idx] *= 0.5
+            eigenvalues_log = torch.linalg.eigvalsh(A_log)
+            # effective logstd = -eigenvalues/2 (since cov_eigval = exp(-eigval), std = exp(-eigval/2))
+            effective_logstd = -eigenvalues_log / 2
+            writer.add_scalar("losses/effective_logstd_mean", effective_logstd.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

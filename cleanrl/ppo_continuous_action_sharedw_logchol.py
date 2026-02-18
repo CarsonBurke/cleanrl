@@ -1,18 +1,26 @@
-# Log-Cholesky PPO with Fixed-Determinant Covariance (v6)
+# Shared-Weight Log-Cholesky PPO (lattice-tanh successor)
 #
-# Key idea: Direct Cholesky with zero-sum log-diagonal constraint.
-#   log_diag = log_diag_raw - mean(log_diag_raw) → det(L) = 1 always
-# This makes log_det gradient exactly zero by construction, so all covariance
-# signal flows through Mahalanobis only ("which noise was good/bad per state").
-#
-# v6 improvements over v3:
-#   - Higher head init (std=0.5): richer initial noise diversity and correlations
-#   - Asymmetric PPO clipping (0.2/0.28): already in template
+# Key insight: sharing the actor_mean weight matrix W for covariance construction
+# aligns exploration with the policy's action-feature mapping. Combined with
+# log-Cholesky parameterization for clean diagonal gradients.
 #
 # Architecture:
-#   Actor mean:  obs → trunk(64) → mean_head → action_mean
-#   Actor cov:   obs → cov_trunk(64) → {log_diag_head, offdiag_head} → Cholesky L
-#   Critic:      obs → trunk → Linear(num_bins) → softmax → symexp-twohot decode
+#   - actor_mean has weight W of shape [action_dim, 64]
+#   - Covariance trunk produces 64-dim features, projected through W to get
+#     policy-aligned action-space vectors
+#   - Log-diagonal head controls per-action noise magnitude with direct gradients
+#   - Off-diagonal structure from outer product of policy-aligned features,
+#     scaled by learned offdiag_scale parameters
+#   - Cholesky factor L built directly: diag = exp(log_diag), lower-tri from
+#     policy-aligned outer products
+#
+# Compared to Gram-factor approach (custom_gsde):
+#   - No expensive Gram matrix L@L^T / k computation
+#   - No cholesky() decomposition needed (we build L directly)
+#   - Diagonal has clean exp(log_diag) gradient path
+#   - Off-diagonal correlations inherit policy structure via shared W
+#
+# Critic: symexp-twohot distributional value head (same as custom_gsde)
 
 import os
 import random
@@ -230,7 +238,7 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 # ---------------------------------------------------------------------------
 
 class Agent(nn.Module):
-    def __init__(self, envs, rpo_alpha=0.05, num_bins=255, bin_range=8.0):
+    def __init__(self, envs, rpo_alpha=0.0, num_bins=255, bin_range=8.0):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
@@ -261,7 +269,7 @@ class Agent(nn.Module):
         )
         self.actor_mean = layer_init(nn.Linear(64, action_dim), std=0.01)
 
-        # Covariance trunk
+        # Covariance trunk (shared features for covariance)
         self.actor_cov_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
             nn.RMSNorm(64),
@@ -270,10 +278,15 @@ class Agent(nn.Module):
             nn.SiLU(),
         )
 
-        # Cholesky heads: log-diagonal (zero-sum for fixed det) and off-diagonal
-        self.log_diag_head = layer_init(nn.Linear(64, action_dim), std=0.5)
+        # Log-diagonal head: controls per-action noise magnitude
+        self.log_diag_head = layer_init(nn.Linear(64, action_dim), std=0.01)
+
+        # Off-diagonal derived from shared W: actor_mean.weight is [ad, 64]
+        # We project cov features through W to get ad-dimensional vectors,
+        # then use these to construct off-diagonal correlations
+        # Additional small projection for off-diagonal fine-tuning
         n_offdiag = action_dim * (action_dim - 1) // 2
-        self.offdiag_head = layer_init(nn.Linear(64, n_offdiag), std=0.5)
+        self.offdiag_scale = nn.Parameter(torch.full((n_offdiag,), 0.01))
 
         # Pre-compute strict lower triangular indices
         tril_idx = torch.tril_indices(action_dim, action_dim, offset=-1)
@@ -290,21 +303,29 @@ class Agent(nn.Module):
         ad = self.action_dim
 
         # Mean path (own trunk)
-        mean_latent = self.actor_mean_trunk(x)
-        action_mean = self.actor_mean(mean_latent)
+        mean_latent = self.actor_mean_trunk(x)             # [B, 64]
+        action_mean = self.actor_mean(mean_latent)         # [B, ad]
 
-        # Covariance path: zero-sum log-diagonal + free off-diagonal
-        cov_latent = self.actor_cov_trunk(x)           # [B, 64]
-        log_diag_raw = self.log_diag_head(cov_latent)   # [B, ad]
-        offdiag = self.offdiag_head(cov_latent)         # [B, n_offdiag]
+        # Covariance path: shared W derives correlations
+        cov_latent = self.actor_cov_trunk(x)                # [B, 64]
+        log_diag = self.log_diag_head(cov_latent)            # [B, ad]
 
-        # Fixed-determinant: zero-sum log-diagonal → det(L) = 1 always
-        log_diag = log_diag_raw - log_diag_raw.mean(dim=-1, keepdim=True)
-        diag = torch.exp(log_diag)
+        # Use actor_mean's weight W to project cov features into action space
+        # W is [ad, 64], cov_latent is [B, 64] -> policy_aligned is [B, ad]
+        W = self.actor_mean.weight                           # [ad, 64]
+        policy_aligned = F.linear(cov_latent, W)             # [B, ad] -- same projection as mean but different input
+
+        # Off-diagonal: outer product of policy-aligned features, take lower triangular
+        # off_diag[i,j] = policy_aligned[i] * policy_aligned[j] * offdiag_scale[k]
+        # This creates correlations that are aligned with the policy structure
+        pa_i = policy_aligned[:, self._tril_row]             # [B, n_offdiag]
+        pa_j = policy_aligned[:, self._tril_col]             # [B, n_offdiag]
+        offdiag = pa_i * pa_j * self.offdiag_scale           # [B, n_offdiag]
 
         # Build lower triangular Cholesky factor
         chol = torch.zeros(B, ad, ad, device=x.device)
         chol[:, self._tril_row, self._tril_col] = offdiag
+        diag = torch.exp(log_diag)
         chol.diagonal(dim1=-2, dim2=-1).copy_(diag)
 
         # RPO: add bounded uniform noise to mean during training only
@@ -317,16 +338,14 @@ class Agent(nn.Module):
             z = torch.randn(B, ad, 1, device=x.device)
             action = action_mean + torch.bmm(chol, z).squeeze(-1)
 
-        # Log prob via Cholesky: -0.5 * (k*log(2pi) + 2*sum(log(diag(chol))) + ||chol^-1(x-mu)||^2)
+        # Log prob via Cholesky: -0.5 * (k*log(2pi) + 2*sum(log(diag)) + ||chol^{-1}(x-mu)||^2)
         diff = (action - action_mean).unsqueeze(-1)        # [B, ad, 1]
         solved = torch.linalg.solve_triangular(chol, diff, upper=False)  # [B, ad, 1]
         mahal = solved.squeeze(-1).pow(2).sum(dim=-1)      # [B]
+        log_prob = -0.5 * (ad * self._log2pi + 2 * log_diag.sum(dim=-1) + mahal)  # [B]
 
-        # Fixed-det: log_det = sum(log_diag) = 0 by construction (zero-sum).
-        # All covariance gradient comes through Mahalanobis only.
-        log_det = log_diag.sum(dim=-1)  # ≈ 0 always
-        log_prob = -0.5 * (ad * self._log2pi + 2 * log_det + mahal)
-        entropy = 0.5 * (ad * (1.0 + self._log2pi) + 2 * log_det)
+        # Entropy: 0.5 * (k * (1 + log(2pi)) + 2 * sum(log(diag)))
+        entropy = 0.5 * (ad * (1.0 + self._log2pi) + 2 * log_diag.sum(dim=-1))  # [B]
 
         # Critic: twohot logits + decoded scalar
         value_logits = self.critic(x)
@@ -380,8 +399,7 @@ if __name__ == "__main__":
         bin_range=args.bin_range,
     ).to(device)
 
-    # Single parameter group with uniform learning rate (no 10x multiplier needed --
-    # log-Cholesky parameterization avoids gradient dilution)
+    # Single parameter group, uniform LR
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -514,11 +532,8 @@ if __name__ == "__main__":
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         with torch.no_grad():
             cov_lat = agent.actor_cov_trunk(b_obs[mb_inds])
-            log_diag_raw = agent.log_diag_head(cov_lat)
-            log_diag = log_diag_raw - log_diag_raw.mean(dim=-1, keepdim=True)
-            offdiag = agent.offdiag_head(cov_lat)
+            log_diag = agent.log_diag_head(cov_lat)
             writer.add_scalar("losses/effective_logstd_mean", log_diag.mean().item(), global_step)
-            writer.add_scalar("losses/offdiag_abs_mean", offdiag.abs().mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

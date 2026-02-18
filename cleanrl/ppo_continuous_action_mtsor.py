@@ -1,19 +1,24 @@
-# Log-Cholesky PPO with Fixed-Determinant Covariance (v6)
+# Multi-Timescale Stochastic Orthogonal Rotation (MTSOR) Exploration for PPO
 #
-# Key idea: Direct Cholesky with zero-sum log-diagonal constraint.
-#   log_diag = log_diag_raw - mean(log_diag_raw) → det(L) = 1 always
-# This makes log_det gradient exactly zero by construction, so all covariance
-# signal flows through Mahalanobis only ("which noise was good/bad per state").
+# Goal: go beyond gSDE-style time correlation while keeping PPO's per-step
+# diagonal-Gaussian log_prob exact and cheap.
 #
-# v6 improvements over v3:
-#   - Higher head init (std=0.5): richer initial noise diversity and correlations
-#   - Asymmetric PPO clipping (0.2/0.28): already in template
+# Key ideas:
+# 1) Multi-timescale AR(1) noise bank: maintain K independent AR(1) latents with
+#    different time constants (rho_k = exp(-1/tau_k)). Each latent has stationary
+#    N(0, I) marginals.
+# 2) State-dependent spectral mixing: compute weights w_k(s) and mix the K
+#    latents into a single exploration noise vector; normalize by ||w||_2 to
+#    preserve unit variance exactly (so noise_t ~ N(0, I) marginally).
+# 3) Orthogonal rotation: apply a random orthogonal matrix R (resampled each
+#    rollout) so the resulting exploration exhibits rich cross-actuator *lag*
+#    correlations while keeping same-time covariance equal to identity.
 #
-# Architecture:
-#   Actor mean:  obs → trunk(64) → mean_head → action_mean
-#   Actor cov:   obs → cov_trunk(64) → {log_diag_head, offdiag_head} → Cholesky L
-#   Critic:      obs → trunk → Linear(num_bins) → softmax → symexp-twohot decode
-
+# The resulting sampled action is:
+#   a_t = mean(s_t) + std(s_t) * (R @ z_t),  z_t ~ N(0, I)
+# so the policy distribution at each step is still diagonal Gaussian and we can
+# use the exact Normal(mean, std) log_prob for PPO.
+import math
 import os
 import random
 import time
@@ -23,100 +28,11 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 import tyro
+from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
-
-# ---------------------------------------------------------------------------
-# DreamerV3 primitives (following reference impl at ../dreamerv3)
-# ---------------------------------------------------------------------------
-
-def symlog(x: torch.Tensor) -> torch.Tensor:
-    """Symmetric log: sign(x) * log(1 + |x|)."""
-    return torch.sign(x) * torch.log1p(torch.abs(x))
-
-
-def symexp(x: torch.Tensor) -> torch.Tensor:
-    """Symmetric exp (inverse of symlog): sign(x) * (exp(|x|) - 1)."""
-    return torch.sign(x) * torch.expm1(torch.abs(x))
-
-
-def build_symexp_bins(num_bins: int, bin_range: float = 8.0) -> torch.Tensor:
-    """Build symmetric bin centres in symexp-space.
-
-    Bins are linearly spaced in symlog-space from [-bin_range, +bin_range],
-    then transformed via symexp to get non-uniform spacing in value-space
-    (dense near 0, coarse at extremes).
-
-    bin_range controls the max representable value: symexp(bin_range).
-    Default 8.0 -> max ~ +-2981, suitable for normalized-reward envs.
-    """
-    if num_bins % 2 == 1:
-        half = torch.linspace(-bin_range, 0.0, (num_bins - 1) // 2 + 1)
-        half = symexp(half)
-        bins = torch.cat([half, -half[:-1].flip(0)])
-    else:
-        half = torch.linspace(-bin_range, 0.0, num_bins // 2)
-        half = symexp(half)
-        bins = torch.cat([half, -half.flip(0)])
-    return bins
-
-
-def twohot_encode(x: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
-    """Encode scalar targets as two-hot vectors over bins."""
-    x = x.unsqueeze(-1)  # (..., 1)
-    below = (bins <= x).long().sum(-1) - 1
-    below = below.clamp(0, len(bins) - 1)
-    above = (below + 1).clamp(0, len(bins) - 1)
-    equal = (below == above)
-    dist_below = torch.where(equal, torch.ones_like(x.squeeze(-1)),
-                             torch.abs(bins[below] - x.squeeze(-1)))
-    dist_above = torch.where(equal, torch.ones_like(x.squeeze(-1)),
-                             torch.abs(bins[above] - x.squeeze(-1)))
-    total = dist_below + dist_above
-    weight_below = dist_above / total
-    weight_above = dist_below / total
-    target = (F.one_hot(below, len(bins)).float() * weight_below.unsqueeze(-1)
-              + F.one_hot(above, len(bins)).float() * weight_above.unsqueeze(-1))
-    return target
-
-
-def twohot_predict(logits: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
-    """Decode predicted value from two-hot logits via symmetric weighted sum.
-
-    Pairs negative/positive bins to cancel floating-point error, ensuring
-    prediction is exactly zero when logits are uniform at initialization.
-    """
-    probs = torch.softmax(logits, dim=-1)
-    n = probs.shape[-1]
-    if n % 2 == 1:
-        m = (n - 1) // 2
-        p1 = probs[..., :m]
-        p2 = probs[..., m : m + 1]
-        p3 = probs[..., m + 1 :]
-        b1 = bins[:m]
-        b2 = bins[m : m + 1]
-        b3 = bins[m + 1 :]
-        return (p2 * b2).sum(-1) + ((p1 * b1).flip(-1) + (p3 * b3)).sum(-1)
-    else:
-        p1 = probs[..., : n // 2]
-        p2 = probs[..., n // 2 :]
-        b1 = bins[: n // 2]
-        b2 = bins[n // 2 :]
-        return ((p1 * b1).flip(-1) + (p2 * b2)).sum(-1)
-
-
-def twohot_loss(logits: torch.Tensor, target_twohot: torch.Tensor) -> torch.Tensor:
-    """Cross-entropy loss against a two-hot target (per-element, unreduced)."""
-    log_probs = logits - torch.logsumexp(logits, dim=-1, keepdim=True)
-    return -(target_twohot * log_probs).sum(-1)
-
-
-# ---------------------------------------------------------------------------
-# Args & env helpers
-# ---------------------------------------------------------------------------
 
 @dataclass
 class Args:
@@ -166,12 +82,10 @@ class Args:
     """the K epochs to update the policy"""
     norm_adv: bool = True
     """Toggles advantages normalization"""
-    clip_coef_low: float = 0.2
-    """the lower surrogate clipping coefficient (ratio floor = 1 - this)"""
-    clip_coef_high: float = 0.28
-    """the upper surrogate clipping coefficient (ratio ceiling = 1 + this)"""
-    clip_vloss: bool = False
-    """Toggles whether to use a clipped loss for the value function (off by default -- twohot CE doesn't need it)."""
+    clip_coef: float = 0.2
+    """the surrogate clipping coefficient"""
+    clip_vloss: bool = True
+    """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
     ent_coef: float = 0.0
     """coefficient of the entropy"""
     vf_coef: float = 0.5
@@ -181,15 +95,19 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
-    # RPO
-    rpo_alpha: float = 0.0
-    """RPO noise alpha -- adds bounded uniform noise to action mean during training"""
-
-    # Twohot critic arguments
-    num_bins: int = 255
-    """number of bins for symexp-twohot value head"""
-    bin_range: float = 8.0
-    """symlog-space range for bins (symexp(bin_range) = max representable value)"""
+    # MTSOR exploration arguments
+    num_scales: int = 6
+    """number of AR(1) time scales in the noise bank"""
+    tau_min: float = 1.0
+    """minimum AR time constant in steps (smaller -> whiter component)"""
+    tau_max: float = 128.0
+    """maximum AR time constant in steps (larger -> smoother component)"""
+    mix_temperature: float = 1.0
+    """softmax temperature for scale weights (smaller -> more peaky)"""
+    resample_rotation_every_rollout: bool = True
+    """resample orthogonal rotation at each rollout start"""
+    reset_noise_on_done: bool = True
+    """reset AR states for envs that ended an episode"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -225,114 +143,121 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-# ---------------------------------------------------------------------------
-# Agent
-# ---------------------------------------------------------------------------
+def _sample_orthogonal(action_dim: int, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+    # Sample a random orthogonal matrix via QR; stabilize sign ambiguity.
+    a = torch.randn((action_dim, action_dim), device=device, dtype=dtype)
+    q, r = torch.linalg.qr(a)
+    d = torch.sign(torch.diag(r))
+    d[d == 0] = 1.0
+    q = q * d.unsqueeze(0)
+    return q
+
 
 class Agent(nn.Module):
-    def __init__(self, envs, rpo_alpha=0.05, num_bins=255, bin_range=8.0):
+    def __init__(self, envs, num_scales: int, tau_min: float, tau_max: float, mix_temperature: float):
         super().__init__()
-        obs_dim = np.array(envs.single_observation_space.shape).prod()
-        action_dim = np.prod(envs.single_action_space.shape)
+        obs_dim = int(np.array(envs.single_observation_space.shape).prod())
+        action_dim = int(np.prod(envs.single_action_space.shape))
         self.action_dim = action_dim
-        self.rpo_alpha = rpo_alpha
-        self._log2pi = np.log(2 * np.pi)
+        self.num_scales = int(num_scales)
+        self.tau_min = float(tau_min)
+        self.tau_max = float(tau_max)
+        self.mix_temperature = float(mix_temperature)
 
-        # Critic: outputs logits over symexp-twohot bins instead of a scalar
         self.critic = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
-            nn.RMSNorm(64),
-            nn.SiLU(),
+            nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
-            nn.SiLU(),
-            layer_init(nn.Linear(64, num_bins), std=0.01),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 1), std=1.0),
         )
 
-        # Register symexp-twohot bin centres as a buffer (not a parameter)
-        self.register_buffer("bins", build_symexp_bins(num_bins, bin_range))
-
-        # Actor mean trunk
-        self.actor_mean_trunk = nn.Sequential(
+        self.actor_latent = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
-            nn.RMSNorm(64),
-            nn.SiLU(),
+            nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
-            nn.SiLU(),
+            nn.Tanh(),
         )
         self.actor_mean = layer_init(nn.Linear(64, action_dim), std=0.01)
+        self.actor_logstd = nn.Parameter(torch.zeros(1, action_dim))
+        self.actor_mix = layer_init(nn.Linear(64, self.num_scales), std=0.01)
 
-        # Covariance trunk
-        self.actor_cov_trunk = nn.Sequential(
-            layer_init(nn.Linear(obs_dim, 64)),
-            nn.RMSNorm(64),
-            nn.SiLU(),
-            layer_init(nn.Linear(64, 64)),
-            nn.SiLU(),
-        )
+        self.noise_states = None
+        self.rotation = None
+        self._rhos = None
+        self._noise_scales = None
 
-        # Cholesky heads: log-diagonal (zero-sum for fixed det) and off-diagonal
-        self.log_diag_head = layer_init(nn.Linear(64, action_dim), std=0.5)
-        n_offdiag = action_dim * (action_dim - 1) // 2
-        self.offdiag_head = layer_init(nn.Linear(64, n_offdiag), std=0.5)
+    def reset_noise(self, batch_size: int, resample_rotation: bool = True):
+        device = next(self.parameters()).device
+        dtype = next(self.parameters()).dtype
 
-        # Pre-compute strict lower triangular indices
-        tril_idx = torch.tril_indices(action_dim, action_dim, offset=-1)
-        self.register_buffer('_tril_row', tril_idx[0])
-        self.register_buffer('_tril_col', tril_idx[1])
+        if self.num_scales < 1:
+            raise ValueError("num_scales must be >= 1")
+        if not (self.tau_min > 0 and self.tau_max >= self.tau_min):
+            raise ValueError("tau_min must be > 0 and tau_max >= tau_min")
+
+        # log-spaced time constants -> rho in (0, 1)
+        if self.num_scales == 1:
+            taus = torch.tensor([self.tau_max], device=device, dtype=dtype)
+        else:
+            taus = torch.exp(torch.linspace(math.log(self.tau_min), math.log(self.tau_max), self.num_scales, device=device, dtype=dtype))
+        rhos = torch.exp(-1.0 / taus)
+        rhos = torch.clamp(rhos, min=0.0, max=0.9995)
+        self._rhos = rhos.view(self.num_scales, 1, 1)
+        self._noise_scales = torch.sqrt(torch.clamp(1.0 - self._rhos**2, min=1e-6))
+
+        self.noise_states = torch.randn((self.num_scales, batch_size, self.action_dim), device=device, dtype=dtype)
+        if resample_rotation:
+            self.rotation = _sample_orthogonal(self.action_dim, device=device, dtype=dtype)
+
+    def reset_done_envs(self, done_mask: torch.Tensor):
+        if self.noise_states is None:
+            return
+        if done_mask is None:
+            return
+        if done_mask.dtype != torch.bool:
+            done_mask = done_mask.bool()
+        if done_mask.numel() == 0 or not torch.any(done_mask):
+            return
+        self.noise_states[:, done_mask, :].normal_()
 
     def get_value(self, x):
-        """Return scalar value predictions (symexp-twohot decoded)."""
-        logits = self.critic(x)
-        return twohot_predict(logits, self.bins)
+        return self.critic(x)
 
-    def get_action_and_value(self, x, action=None):
-        B = x.shape[0]
-        ad = self.action_dim
+    def _mix_weights(self, latent: torch.Tensor) -> torch.Tensor:
+        logits = self.actor_mix(latent)
+        temp = max(self.mix_temperature, 1e-6)
+        return torch.softmax(logits / temp, dim=-1)
 
-        # Mean path (own trunk)
-        mean_latent = self.actor_mean_trunk(x)
-        action_mean = self.actor_mean(mean_latent)
+    def _sample_correlated_noise(self, weights: torch.Tensor, update_noise: bool = True) -> torch.Tensor:
+        # weights: (B, K), noise_states: (K, B, A)
+        if self.noise_states is None or self.noise_states.shape[1] != weights.shape[0]:
+            self.reset_noise(batch_size=weights.shape[0], resample_rotation=False)
 
-        # Covariance path: zero-sum log-diagonal + free off-diagonal
-        cov_latent = self.actor_cov_trunk(x)           # [B, 64]
-        log_diag_raw = self.log_diag_head(cov_latent)   # [B, ad]
-        offdiag = self.offdiag_head(cov_latent)         # [B, n_offdiag]
+        if update_noise:
+            eps = torch.randn_like(self.noise_states)
+            self.noise_states = self._rhos * self.noise_states + self._noise_scales * eps
 
-        # Fixed-determinant: zero-sum log-diagonal → det(L) = 1 always
-        log_diag = log_diag_raw - log_diag_raw.mean(dim=-1, keepdim=True)
-        diag = torch.exp(log_diag)
+        mixed = torch.einsum("bk,kba->ba", weights, self.noise_states)
+        denom = torch.sqrt(torch.sum(weights**2, dim=-1, keepdim=True) + 1e-8)
+        mixed = mixed / denom
+        if self.rotation is not None:
+            mixed = mixed @ self.rotation.T
+        return mixed
 
-        # Build lower triangular Cholesky factor
-        chol = torch.zeros(B, ad, ad, device=x.device)
-        chol[:, self._tril_row, self._tril_col] = offdiag
-        chol.diagonal(dim1=-2, dim2=-1).copy_(diag)
-
-        # RPO: add bounded uniform noise to mean during training only
-        if action is not None and self.rpo_alpha > 0:
-            z = torch.empty_like(action_mean).uniform_(-self.rpo_alpha, self.rpo_alpha)
-            action_mean = action_mean + z
+    def get_action_and_value(self, x, action=None, update_noise: bool = True):
+        latent = self.actor_latent(x)
+        action_mean = self.actor_mean(latent)
+        action_logstd = self.actor_logstd.expand_as(action_mean)
+        action_std = torch.exp(action_logstd)
+        dist = Normal(action_mean, action_std)
 
         if action is None:
-            # Sample: action = mean + chol @ z
-            z = torch.randn(B, ad, 1, device=x.device)
-            action = action_mean + torch.bmm(chol, z).squeeze(-1)
+            weights = self._mix_weights(latent)
+            noise = self._sample_correlated_noise(weights, update_noise=update_noise)
+            action = action_mean + noise * action_std
 
-        # Log prob via Cholesky: -0.5 * (k*log(2pi) + 2*sum(log(diag(chol))) + ||chol^-1(x-mu)||^2)
-        diff = (action - action_mean).unsqueeze(-1)        # [B, ad, 1]
-        solved = torch.linalg.solve_triangular(chol, diff, upper=False)  # [B, ad, 1]
-        mahal = solved.squeeze(-1).pow(2).sum(dim=-1)      # [B]
-
-        # Fixed-det: log_det = sum(log_diag) = 0 by construction (zero-sum).
-        # All covariance gradient comes through Mahalanobis only.
-        log_det = log_diag.sum(dim=-1)  # ≈ 0 always
-        log_prob = -0.5 * (ad * self._log2pi + 2 * log_det + mahal)
-        entropy = 0.5 * (ad * (1.0 + self._log2pi) + 2 * log_det)
-
-        # Critic: twohot logits + decoded scalar
-        value_logits = self.critic(x)
-        value = twohot_predict(value_logits, self.bins)
-
-        return action, log_prob, entropy, value, value_logits
+        return action, dist.log_prob(action).sum(-1), dist.entropy().sum(-1), self.critic(x)
 
 
 if __name__ == "__main__":
@@ -375,13 +300,11 @@ if __name__ == "__main__":
 
     agent = Agent(
         envs,
-        rpo_alpha=args.rpo_alpha,
-        num_bins=args.num_bins,
-        bin_range=args.bin_range,
+        num_scales=args.num_scales,
+        tau_min=args.tau_min,
+        tau_max=args.tau_max,
+        mix_temperature=args.mix_temperature,
     ).to(device)
-
-    # Single parameter group with uniform learning rate (no 10x multiplier needed --
-    # log-Cholesky parameterization avoids gradient dilution)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -406,6 +329,8 @@ if __name__ == "__main__":
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
+        agent.reset_noise(batch_size=args.num_envs, resample_rotation=args.resample_rotation_every_rollout)
+
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
@@ -413,7 +338,7 @@ if __name__ == "__main__":
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value, _ = agent.get_action_and_value(next_obs)
+                action, logprob, _, value = agent.get_action_and_value(next_obs, update_noise=True)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -423,6 +348,9 @@ if __name__ == "__main__":
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+
+            if args.reset_noise_on_done:
+                agent.reset_done_envs(next_done.bool())
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -464,7 +392,7 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue, newvalue_logits = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds], update_noise=False)
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -472,7 +400,7 @@ if __name__ == "__main__":
                     # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
-                    clipfracs += [((ratio < (1 - args.clip_coef_low)) | (ratio > (1 + args.clip_coef_high))).float().mean().item()]
+                    clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
 
                 mb_advantages = b_advantages[mb_inds]
                 if args.norm_adv:
@@ -480,13 +408,19 @@ if __name__ == "__main__":
 
                 # Policy loss
                 pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef_low, 1 + args.clip_coef_high)
+                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss: symexp-twohot cross-entropy
-                mb_returns = b_returns[mb_inds]
-                target_twohot = twohot_encode(mb_returns, agent.bins)
-                v_loss = twohot_loss(newvalue_logits, target_twohot).mean()
+                # Value loss
+                newvalue = newvalue.view(-1)
+                if args.clip_vloss:
+                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
+                    v_clipped = b_values[mb_inds] + torch.clamp(newvalue - b_values[mb_inds], -args.clip_coef, args.clip_coef)
+                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
+                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+                    v_loss = 0.5 * v_loss_max.mean()
+                else:
+                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
@@ -496,8 +430,9 @@ if __name__ == "__main__":
                 nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
 
-            if args.target_kl is not None and approx_kl > args.target_kl:
-                break
+            if args.target_kl is not None:
+                if approx_kl > args.target_kl:
+                    break
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
@@ -512,13 +447,6 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        with torch.no_grad():
-            cov_lat = agent.actor_cov_trunk(b_obs[mb_inds])
-            log_diag_raw = agent.log_diag_head(cov_lat)
-            log_diag = log_diag_raw - log_diag_raw.mean(dim=-1, keepdim=True)
-            offdiag = agent.offdiag_head(cov_lat)
-            writer.add_scalar("losses/effective_logstd_mean", log_diag.mean().item(), global_step)
-            writer.add_scalar("losses/offdiag_abs_mean", offdiag.abs().mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
@@ -526,27 +454,6 @@ if __name__ == "__main__":
         model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
         torch.save(agent.state_dict(), model_path)
         print(f"model saved to {model_path}")
-        from cleanrl_utils.evals.ppo_eval import evaluate
-
-        episodic_returns = evaluate(
-            model_path,
-            make_env,
-            args.env_id,
-            eval_episodes=10,
-            run_name=f"{run_name}-eval",
-            Model=Agent,
-            device=device,
-            gamma=args.gamma,
-        )
-        for idx, episodic_return in enumerate(episodic_returns):
-            writer.add_scalar("eval/episodic_return", episodic_return, idx)
-
-        if args.upload_model:
-            from cleanrl_utils.huggingface import push_to_hub
-
-            repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-            repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-            push_to_hub(args, episodic_returns, repo_id, "PPO", f"runs/{run_name}", f"videos/{run_name}-eval")
 
     envs.close()
     writer.close()
