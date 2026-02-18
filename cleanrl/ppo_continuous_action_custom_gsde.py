@@ -1,18 +1,22 @@
-# QL-SDE v23: Direct Cholesky Parameterization
+# QL-SDE + DreamerV3-style symexp-twohot distributional critic
 #
-# CHANGES FROM v22:
-#   - Replaced overparameterized Gram construction (ad×sde_dim params → L@L^T → cholesky)
-#     with direct Cholesky factor output (ad*(ad+1)/2 params, softplus diagonal)
-#   - Eliminates cholesky decomposition entirely (network outputs the factor directly)
-#   - Shorter gradient path: loss → log_prob → solve_triangular → chol_direct → trunk
-#   - Parameter reduction: e.g. for ad=6, from 384 → 21 covariance params per sample
-#     (sde_fc: 24K → ~1.3K weights)
+# Base: custom_gsde v23 (direct Cholesky parameterization)
+# Addition: Replace scalar critic with symexp-twohot distributional value head
+#   - Critic outputs logits over symexp-spaced bins instead of a single scalar
+#   - Value loss: cross-entropy on two-hot encoded returns (not MSE)
+#   - Prediction: softmax-weighted sum over bin centres
+#
+# BUCKET RANGE NOTE:
+#   DreamerV3 defaults to linspace(-20, 0) → symexp covers ±4.85e8.
+#   With NormalizeReward + clip(-10, 10), practical returns are O(10-100).
+#   We use bin_range=8 → symexp(8)≈2981, covering the realistic range
+#   with much denser bucket spacing. This avoids wasting 99.9% of bins
+#   on unreachable values.
 #
 # ARCHITECTURE:
-#   STRUCTURE: chol_flat = sde_fc(cov_trunk(obs))  [ad*(ad+1)/2 values]
-#              fill lower triangular, softplus on diagonal → chol
-#   SAMPLING:  action = mean + chol @ z
-#   LOG_PROB:  via Cholesky solve (triangular) + diagonal
+#   Actor: same as custom_gsde (shared trunk → mean + direct Cholesky)
+#   Critic: trunk → Linear(num_bins) → softmax → weighted sum of symexp bins
+#   Value loss: cross-entropy(logits, twohot_encode(returns))
 
 import os
 import random
@@ -28,6 +32,95 @@ import torch.optim as optim
 import tyro
 from torch.utils.tensorboard import SummaryWriter
 
+
+# ---------------------------------------------------------------------------
+# DreamerV3 primitives (following reference impl at ../dreamerv3)
+# ---------------------------------------------------------------------------
+
+def symlog(x: torch.Tensor) -> torch.Tensor:
+    """Symmetric log: sign(x) * log(1 + |x|)."""
+    return torch.sign(x) * torch.log1p(torch.abs(x))
+
+
+def symexp(x: torch.Tensor) -> torch.Tensor:
+    """Symmetric exp (inverse of symlog): sign(x) * (exp(|x|) - 1)."""
+    return torch.sign(x) * torch.expm1(torch.abs(x))
+
+
+def build_symexp_bins(num_bins: int, bin_range: float = 8.0) -> torch.Tensor:
+    """Build symmetric bin centres in symexp-space.
+
+    Bins are linearly spaced in symlog-space from [-bin_range, +bin_range],
+    then transformed via symexp to get non-uniform spacing in value-space
+    (dense near 0, coarse at extremes).
+
+    bin_range controls the max representable value: symexp(bin_range).
+    Default 8.0 → max ≈ ±2981, suitable for normalized-reward envs.
+    """
+    if num_bins % 2 == 1:
+        half = torch.linspace(-bin_range, 0.0, (num_bins - 1) // 2 + 1)
+        half = symexp(half)
+        bins = torch.cat([half, -half[:-1].flip(0)])
+    else:
+        half = torch.linspace(-bin_range, 0.0, num_bins // 2)
+        half = symexp(half)
+        bins = torch.cat([half, -half.flip(0)])
+    return bins
+
+
+def twohot_encode(x: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
+    """Encode scalar targets as two-hot vectors over bins."""
+    x = x.unsqueeze(-1)  # (..., 1)
+    below = (bins <= x).long().sum(-1) - 1
+    below = below.clamp(0, len(bins) - 1)
+    above = (below + 1).clamp(0, len(bins) - 1)
+    equal = (below == above)
+    dist_below = torch.where(equal, torch.ones_like(x.squeeze(-1)),
+                             torch.abs(bins[below] - x.squeeze(-1)))
+    dist_above = torch.where(equal, torch.ones_like(x.squeeze(-1)),
+                             torch.abs(bins[above] - x.squeeze(-1)))
+    total = dist_below + dist_above
+    weight_below = dist_above / total
+    weight_above = dist_below / total
+    target = (F.one_hot(below, len(bins)).float() * weight_below.unsqueeze(-1)
+              + F.one_hot(above, len(bins)).float() * weight_above.unsqueeze(-1))
+    return target
+
+
+def twohot_predict(logits: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
+    """Decode predicted value from two-hot logits via symmetric weighted sum.
+
+    Pairs negative/positive bins to cancel floating-point error, ensuring
+    prediction is exactly zero when logits are uniform at initialization.
+    """
+    probs = torch.softmax(logits, dim=-1)
+    n = probs.shape[-1]
+    if n % 2 == 1:
+        m = (n - 1) // 2
+        p1 = probs[..., :m]
+        p2 = probs[..., m : m + 1]
+        p3 = probs[..., m + 1 :]
+        b1 = bins[:m]
+        b2 = bins[m : m + 1]
+        b3 = bins[m + 1 :]
+        return (p2 * b2).sum(-1) + ((p1 * b1).flip(-1) + (p3 * b3)).sum(-1)
+    else:
+        p1 = probs[..., : n // 2]
+        p2 = probs[..., n // 2 :]
+        b1 = bins[: n // 2]
+        b2 = bins[n // 2 :]
+        return ((p1 * b1).flip(-1) + (p2 * b2)).sum(-1)
+
+
+def twohot_loss(logits: torch.Tensor, target_twohot: torch.Tensor) -> torch.Tensor:
+    """Cross-entropy loss against a two-hot target (per-element, unreduced)."""
+    log_probs = logits - torch.logsumexp(logits, dim=-1, keepdim=True)
+    return -(target_twohot * log_probs).sum(-1)
+
+
+# ---------------------------------------------------------------------------
+# Args & env helpers
+# ---------------------------------------------------------------------------
 
 @dataclass
 class Args:
@@ -81,8 +174,8 @@ class Args:
     """the lower surrogate clipping coefficient (ratio floor = 1 - this)"""
     clip_coef_high: float = 0.28
     """the upper surrogate clipping coefficient (ratio ceiling = 1 + this)"""
-    clip_vloss: bool = True
-    """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
+    clip_vloss: bool = False
+    """Toggles whether to use a clipped loss for the value function (off by default — twohot CE doesn't need it)."""
     ent_coef: float = 0.0
     """coefficient of the entropy"""
     vf_coef: float = 0.5
@@ -98,7 +191,13 @@ class Args:
 
     # QL-SDE specific arguments
     sde_dim: int = 64
-    """dimensionality of the SDE latent space"""
+    """dimensionality of the SDE latent space (Gram factor width)"""
+
+    # Twohot critic arguments
+    num_bins: int = 255
+    """number of bins for symexp-twohot value head"""
+    bin_range: float = 8.0
+    """symlog-space range for bins (symexp(bin_range) = max representable value)"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -134,9 +233,12 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
+# ---------------------------------------------------------------------------
+# Agent
+# ---------------------------------------------------------------------------
 
 class Agent(nn.Module):
-    def __init__(self, envs, sde_dim=64, rpo_alpha=0.05):
+    def __init__(self, envs, sde_dim=64, rpo_alpha=0.05, num_bins=255, bin_range=8.0):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
@@ -144,15 +246,18 @@ class Agent(nn.Module):
         self.rpo_alpha = rpo_alpha
         self._log2pi = np.log(2 * np.pi)
 
-        # Critic
+        # Critic: outputs logits over symexp-twohot bins instead of a scalar
         self.critic = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
             nn.RMSNorm(64),
             nn.SiLU(),
             layer_init(nn.Linear(64, 64)),
             nn.SiLU(),
-            layer_init(nn.Linear(64, 1), std=1.0),
+            layer_init(nn.Linear(64, num_bins), std=0.01),
         )
+
+        # Register symexp-twohot bin centres as a buffer (not a parameter)
+        self.register_buffer("bins", build_symexp_bins(num_bins, bin_range))
 
         # Actor mean trunk
         self.actor_mean_trunk = nn.Sequential(
@@ -164,25 +269,24 @@ class Agent(nn.Module):
         )
         self.actor_mean = layer_init(nn.Linear(64, action_dim), std=0.01)
 
-        # Covariance trunk (2*softsign as final activation, no trailing SiLU)
+        # Covariance trunk
         self.actor_cov_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
             nn.RMSNorm(64),
             nn.SiLU(),
             layer_init(nn.Linear(64, 64)),
+            nn.SiLU(),
         )
 
-        # Direct Cholesky parameterization: ad*(ad+1)/2 free params
-        chol_dim = action_dim * (action_dim + 1) // 2
-        self.sde_fc = layer_init(nn.Linear(64, chol_dim), std=0.01)
-
-        # Pre-compute lower triangular indices
-        tril_idx = torch.tril_indices(action_dim, action_dim)
-        self.register_buffer('_tril_row', tril_idx[0])
-        self.register_buffer('_tril_col', tril_idx[1])
+        # Gram factor: projects to L [ad, sde_dim], then cov = L@L^T / sde_dim + εI
+        self.sde_dim = sde_dim
+        self.sde_fc = layer_init(nn.Linear(64, action_dim * sde_dim), std=0.01)
+        self.sde_norm = nn.RMSNorm(action_dim * sde_dim)
 
     def get_value(self, x):
-        return self.critic(x)
+        """Return scalar value predictions (symexp-twohot decoded)."""
+        logits = self.critic(x)
+        return twohot_predict(logits, self.bins)
 
     def get_action_and_value(self, x, action=None):
         B = x.shape[0]
@@ -192,18 +296,16 @@ class Agent(nn.Module):
         mean_latent = self.actor_mean_trunk(x)             # [B, 64]
         action_mean = self.actor_mean(mean_latent)         # [B, ad]
 
-        # Covariance path (own trunk) → 2*softsign → Cholesky factor
+        # Covariance path: trunk → sde_fc → RMSNorm → 2*softsign bounds L to [-2,2]
         cov_latent = self.actor_cov_trunk(x)               # [B, 64]
-        cov_features = 2.0 * cov_latent / (1.0 + cov_latent.abs())
-        chol_flat = self.sde_fc(cov_features)              # [B, chol_dim]
+        L_raw = self.sde_norm(self.sde_fc(cov_latent))     # [B, ad*k] normalized
+        L_raw = L_raw.view(B, ad, self.sde_dim)            # [B, ad, k]
+        L = 2.0 * L_raw / (1.0 + L_raw.abs())             # [B, ad, k]
 
-        # Fill lower triangular matrix
-        chol = torch.zeros(B, ad, ad, device=x.device)
-        chol[:, self._tril_row, self._tril_col] = chol_flat
-
-        # Positive diagonal via softplus (softplus(0)=ln2≈0.69 → initial std≈0.69)
-        diag_idx = torch.arange(ad, device=x.device)
-        chol[:, diag_idx, diag_idx] = F.softplus(chol[:, diag_idx, diag_idx])
+        # Gram covariance: Σ = L@L^T / k + εI
+        cov = torch.bmm(L, L.transpose(1, 2)) / self.sde_dim       # [B, ad, ad]
+        cov.diagonal(dim1=-2, dim2=-1).add_(1e-6)
+        chol = torch.linalg.cholesky(cov)                  # [B, ad, ad]
 
         # RPO: add bounded uniform noise to mean during training only
         if action is not None and self.rpo_alpha > 0:
@@ -225,7 +327,11 @@ class Agent(nn.Module):
         # Entropy: 0.5 * (k * (1 + log(2π)) + 2 * sum(log(diag(chol))))
         entropy = 0.5 * (ad * (1.0 + self._log2pi) + 2 * log_diag)  # [B]
 
-        return action, log_prob, entropy, self.critic(x)
+        # Critic: twohot logits + decoded scalar
+        value_logits = self.critic(x)
+        value = twohot_predict(value_logits, self.bins)
+
+        return action, log_prob, entropy, value, value_logits
 
 
 if __name__ == "__main__":
@@ -269,9 +375,17 @@ if __name__ == "__main__":
     agent = Agent(
         envs,
         rpo_alpha=args.rpo_alpha,
+        num_bins=args.num_bins,
+        bin_range=args.bin_range,
     ).to(device)
 
-    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    # Separate param groups: 10x LR for covariance path to compensate Gram gradient dilution
+    cov_params = set(agent.actor_cov_trunk.parameters()) | set(agent.sde_fc.parameters())
+    other_params = [p for p in agent.parameters() if p not in cov_params]
+    optimizer = optim.Adam([
+        {"params": other_params},
+        {"params": list(cov_params), "lr": args.learning_rate * 10},
+    ], lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
@@ -294,6 +408,7 @@ if __name__ == "__main__":
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
+            optimizer.param_groups[1]["lr"] = lrnow * 10
 
         for step in range(0, args.num_steps):
             global_step += args.num_envs
@@ -302,7 +417,7 @@ if __name__ == "__main__":
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                action, logprob, _, value, _ = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -353,7 +468,7 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, newlogprob, entropy, newvalue, newvalue_logits = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -372,20 +487,10 @@ if __name__ == "__main__":
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef_low, 1 + args.clip_coef_high)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
-                newvalue = newvalue.view(-1)
-                if args.clip_vloss:
-                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
-                    v_clipped = b_values[mb_inds] + torch.clamp(
-                        newvalue - b_values[mb_inds],
-                        -args.clip_coef_low,
-                        args.clip_coef_high,
-                    )
-                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
-                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
-                else:
-                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+                # Value loss: symexp-twohot cross-entropy
+                mb_returns = b_returns[mb_inds]
+                target_twohot = twohot_encode(mb_returns, agent.bins)
+                v_loss = twohot_loss(newvalue_logits, target_twohot).mean()
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
@@ -413,15 +518,14 @@ if __name__ == "__main__":
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         with torch.no_grad():
             cov_lat = agent.actor_cov_trunk(b_obs[mb_inds])
-            cov_feat_log = 2.0 * cov_lat / (1.0 + cov_lat.abs())
-            chol_flat = agent.sde_fc(cov_feat_log)
             ad = agent.action_dim
-            Bm = chol_flat.shape[0]
-            chol_log = torch.zeros(Bm, ad, ad, device=device)
-            chol_log[:, agent._tril_row, agent._tril_col] = chol_flat
-            diag_idx = torch.arange(ad, device=device)
-            chol_log[:, diag_idx, diag_idx] = F.softplus(chol_log[:, diag_idx, diag_idx])
-            log_diag = chol_log[:, diag_idx, diag_idx].log()
+            Bm = cov_lat.shape[0]
+            L_raw_log = agent.sde_norm(agent.sde_fc(cov_lat)).view(Bm, ad, agent.sde_dim)
+            L_log = 2.0 * L_raw_log / (1.0 + L_raw_log.abs())
+            cov_log = torch.bmm(L_log, L_log.transpose(1, 2)) / agent.sde_dim
+            cov_log.diagonal(dim1=-2, dim2=-1).add_(1e-6)
+            chol_log = torch.linalg.cholesky(cov_log)
+            log_diag = chol_log.diagonal(dim1=-2, dim2=-1).log()
             writer.add_scalar("losses/effective_logstd_mean", log_diag.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
