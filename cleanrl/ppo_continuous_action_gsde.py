@@ -82,7 +82,7 @@ class Args:
     """initial value for the gSDE log standard deviation"""
     full_std: bool = True
     """whether to use (latent_dim x action_dim) parameters for std instead of (latent_dim, 1)"""
-    use_expln: bool = False
+    use_expln: bool = True
     """use expln() instead of exp() for positive std (cf gSDE paper)"""
 
     # to be filled in runtime
