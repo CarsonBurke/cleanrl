@@ -1,32 +1,18 @@
-# QL-SDE v20: Decoupled Structure-Magnitude Architecture
+# QL-SDE v23: Direct Cholesky Parameterization
 #
-# KEY INSIGHT: In v19/v19b, sde_log_std_param barely learns (0→0.04 over 3M steps)
-# because its gradient flows through the Gram matrix (L@L^T), which is a long, weak path.
-# Meanwhile logstd_head learns state-dependent modulation but can't compensate for
-# the frozen base scales. We need to DECOUPLE structure from magnitude.
+# CHANGES FROM v22:
+#   - Replaced overparameterized Gram construction (ad×sde_dim params → L@L^T → cholesky)
+#     with direct Cholesky factor output (ad*(ad+1)/2 params, softplus diagonal)
+#   - Eliminates cholesky decomposition entirely (network outputs the factor directly)
+#   - Shorter gradient path: loss → log_prob → solve_triangular → chol_direct → trunk
+#   - Parameter reduction: e.g. for ad=6, from 384 → 21 covariance params per sample
+#     (sde_fc: 24K → ~1.3K weights)
 #
-# DESIGN: Separate correlation structure from noise magnitude:
-#   STRUCTURE (what direction to explore):
-#     Gram matrix L@L^T from SDE latent features, normalized by sqrt(sde_dim)
-#     → provides cross-action correlations (key to v10's HC=6049)
-#     → learns slowly (fine — correlation patterns are stable)
-#
-#   MAGNITUDE (how much noise per action):
-#     logstd = logstd_base [action_dim] + mod_scale * tanh(logstd_head(state))
-#     → direct gradient path: logstd → exp → outer_product → cov → log_det
-#     → d(log_det)/d(logstd) ≈ 2 (strong, constant gradient!)
-#     → logstd_base replaces sde_log_std_param with SHORT gradient path
-#     → logstd_head adds state-dependent modulation (bounded by tanh)
-#
-#   COMBINED: cov = outer(std, std) * cov_corr + eps*I
-#     where cov_corr = L@L^T/sde_dim (normalized Gram, diagonal ≈ O(1))
-#     and std = exp(logstd_base + mod_scale * tanh(logstd_head(cov_latent)))
-#
-# v19 results: HC=4382@3M (good), Walker2d peak=2065 (volatile)
-# v19b results: HC=4382@3M (good), Walker2d peak=1333 (10x LR too aggressive)
-# Both suffered from frozen sde_log_std_param → v20 removes it entirely.
-#
-# No entropy regularization. The model learns when to be quiet vs noisy.
+# ARCHITECTURE:
+#   STRUCTURE: chol_flat = sde_fc(cov_trunk(obs))  [ad*(ad+1)/2 values]
+#              fill lower triangular, softplus on diagonal → chol
+#   SAMPLING:  action = mean + chol @ z
+#   LOG_PROB:  via Cholesky solve (triangular) + diagonal
 
 import os
 import random
@@ -40,7 +26,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import tyro
-from torch.distributions import MultivariateNormal
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -108,16 +93,12 @@ class Args:
     """the target KL divergence threshold"""
 
     # RPO
-    rpo_alpha: float = 0.05
+    rpo_alpha: float = 0.0
     """RPO noise alpha — adds bounded uniform noise to action mean during training"""
 
     # QL-SDE specific arguments
     sde_dim: int = 64
     """dimensionality of the SDE latent space"""
-    logstd_init: float = 0.0
-    """initial value for logstd_base parameter (per-action base noise level)"""
-    mod_scale: float = 3.0
-    """scale for state-dependent logstd modulation (tanh range)"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -155,94 +136,96 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs, sde_dim=64, logstd_init=0.0, mod_scale=3.0, rpo_alpha=0.05):
+    def __init__(self, envs, sde_dim=64, rpo_alpha=0.05):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
         self.action_dim = action_dim
-        self.sde_dim = sde_dim
-        self.mod_scale = mod_scale
         self.rpo_alpha = rpo_alpha
+        self._log2pi = np.log(2 * np.pi)
 
-        # Critic (unchanged from base PPO)
+        # Critic
         self.critic = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
-            nn.Tanh(),
+            nn.RMSNorm(64),
+            nn.SiLU(),
             layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
+            nn.SiLU(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
 
-        # Actor mean trunk (separate from covariance to avoid gradient conflict)
+        # Actor mean trunk
         self.actor_mean_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
+            nn.RMSNorm(64),
             nn.SiLU(),
             layer_init(nn.Linear(64, 64)),
             nn.SiLU(),
         )
         self.actor_mean = layer_init(nn.Linear(64, action_dim), std=0.01)
 
-        # Covariance trunk (separate pathway)
+        # Covariance trunk (2*softsign as final activation, no trailing SiLU)
         self.actor_cov_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
+            nn.RMSNorm(64),
             nn.SiLU(),
             layer_init(nn.Linear(64, 64)),
-            nn.SiLU(),
         )
 
-        # SDE latent projection + per-action RMSNorm + SiLU (structure path)
-        self.sde_fc = layer_init(nn.Linear(64, action_dim * sde_dim), std=1.0)
-        self.sde_norm = nn.RMSNorm(sde_dim)
+        # Direct Cholesky parameterization: ad*(ad+1)/2 free params
+        chol_dim = action_dim * (action_dim + 1) // 2
+        self.sde_fc = layer_init(nn.Linear(64, chol_dim), std=0.01)
 
-        # MAGNITUDE: per-action base noise level (direct gradient path!)
-        # Replaces sde_log_std_param — gradient flows directly through exp→outer→cov→logdet
-        # d(log_det)/d(logstd_base) ≈ 2 (strong, constant signal)
-        self.logstd_base = nn.Parameter(torch.ones(action_dim) * logstd_init)
-
-        # MAGNITUDE: state-dependent per-action modulation (bounded by tanh)
-        # logstd = logstd_base + mod_scale * tanh(logstd_head(cov_latent))
-        # mod_scale=3.0 → ±3.0 in log-space = ~400x dynamic range
-        self.logstd_head = layer_init(nn.Linear(64, action_dim), std=0.1)
+        # Pre-compute lower triangular indices
+        tril_idx = torch.tril_indices(action_dim, action_dim)
+        self.register_buffer('_tril_row', tril_idx[0])
+        self.register_buffer('_tril_col', tril_idx[1])
 
     def get_value(self, x):
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
+        B = x.shape[0]
+        ad = self.action_dim
+
         # Mean path (own trunk)
         mean_latent = self.actor_mean_trunk(x)             # [B, 64]
-        action_mean = self.actor_mean(mean_latent)         # [B, action_dim]
+        action_mean = self.actor_mean(mean_latent)         # [B, ad]
 
-        # Covariance path (separate trunk)
+        # Covariance path (own trunk) → 2*softsign → Cholesky factor
         cov_latent = self.actor_cov_trunk(x)               # [B, 64]
+        cov_features = 2.0 * cov_latent / (1.0 + cov_latent.abs())
+        chol_flat = self.sde_fc(cov_features)              # [B, chol_dim]
 
-        # STRUCTURE: Gram matrix for cross-action correlations
-        # fc → reshape → per-action RMSNorm → SiLU → normalize by sqrt(sde_dim)
-        sde_raw = self.sde_fc(cov_latent)                  # [B, action_dim * sde_dim]
-        sde_latent = sde_raw.view(-1, self.action_dim, self.sde_dim)
-        sde_latent = F.silu(self.sde_norm(sde_latent))     # per-action RMSNorm + SiLU
-        L_unit = sde_latent * (1.0 / (self.sde_dim ** 0.5))  # normalize → diagonal ≈ O(1)
-        cov_corr = torch.bmm(L_unit, L_unit.transpose(1, 2))  # [B, ad, ad]
+        # Fill lower triangular matrix
+        chol = torch.zeros(B, ad, ad, device=x.device)
+        chol[:, self._tril_row, self._tril_col] = chol_flat
 
-        # MAGNITUDE: base + state-dependent per-action log-std (direct gradient path!)
-        logstd_mod = self.mod_scale * torch.tanh(self.logstd_head(cov_latent))
-        logstd = self.logstd_base + logstd_mod             # [B, action_dim]
-        std = torch.exp(logstd)                            # [B, action_dim]
-
-        # Final covariance: outer(std, std) * cov_corr + eps*I
-        # This separates structure (cov_corr) from magnitude (std)
-        # d(log_det(cov))/d(logstd) ≈ 2 → strong, constant gradient!
-        cov = std.unsqueeze(-1) * cov_corr * std.unsqueeze(-2)  # [B, ad, ad]
-        cov = cov + 1e-6 * torch.eye(self.action_dim, device=x.device)
+        # Positive diagonal via softplus (softplus(0)=ln2≈0.69 → initial std≈0.69)
+        diag_idx = torch.arange(ad, device=x.device)
+        chol[:, diag_idx, diag_idx] = F.softplus(chol[:, diag_idx, diag_idx])
 
         # RPO: add bounded uniform noise to mean during training only
         if action is not None and self.rpo_alpha > 0:
             z = torch.empty_like(action_mean).uniform_(-self.rpo_alpha, self.rpo_alpha)
             action_mean = action_mean + z
 
-        dist = MultivariateNormal(action_mean, covariance_matrix=cov, validate_args=False)
         if action is None:
-            action = dist.sample()
-        return action, dist.log_prob(action), dist.entropy(), self.critic(x)
+            # Sample: action = mean + chol @ z
+            z = torch.randn(B, ad, 1, device=x.device)
+            action = action_mean + torch.bmm(chol, z).squeeze(-1)
+
+        # Log prob via Cholesky: -0.5 * (k*log(2π) + 2*sum(log(diag(chol))) + ||chol⁻¹(x-μ)||²)
+        diff = (action - action_mean).unsqueeze(-1)        # [B, ad, 1]
+        solved = torch.linalg.solve_triangular(chol, diff, upper=False)  # [B, ad, 1]
+        mahal = solved.squeeze(-1).pow(2).sum(dim=-1)      # [B]
+        log_diag = chol.diagonal(dim1=-2, dim2=-1).log().sum(dim=-1)  # [B]
+        log_prob = -0.5 * (ad * self._log2pi + 2 * log_diag + mahal)  # [B]
+
+        # Entropy: 0.5 * (k * (1 + log(2π)) + 2 * sum(log(diag(chol))))
+        entropy = 0.5 * (ad * (1.0 + self._log2pi) + 2 * log_diag)  # [B]
+
+        return action, log_prob, entropy, self.critic(x)
 
 
 if __name__ == "__main__":
@@ -285,9 +268,6 @@ if __name__ == "__main__":
 
     agent = Agent(
         envs,
-        sde_dim=args.sde_dim,
-        logstd_init=args.logstd_init,
-        mod_scale=args.mod_scale,
         rpo_alpha=args.rpo_alpha,
     ).to(device)
 
@@ -431,15 +411,18 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        writer.add_scalar("losses/logstd_base_mean", agent.logstd_base.data.mean().item(), global_step)
         with torch.no_grad():
-            # Log the state-dependent logstd statistics from the last minibatch
             cov_lat = agent.actor_cov_trunk(b_obs[mb_inds])
-            logstd_mod = agent.mod_scale * torch.tanh(agent.logstd_head(cov_lat))
-            logstd_total = agent.logstd_base + logstd_mod
-            writer.add_scalar("losses/logstd_mod_mean", logstd_mod.mean().item(), global_step)
-            writer.add_scalar("losses/logstd_mod_std", logstd_mod.std().item(), global_step)
-            writer.add_scalar("losses/logstd_total_mean", logstd_total.mean().item(), global_step)
+            cov_feat_log = 2.0 * cov_lat / (1.0 + cov_lat.abs())
+            chol_flat = agent.sde_fc(cov_feat_log)
+            ad = agent.action_dim
+            Bm = chol_flat.shape[0]
+            chol_log = torch.zeros(Bm, ad, ad, device=device)
+            chol_log[:, agent._tril_row, agent._tril_col] = chol_flat
+            diag_idx = torch.arange(ad, device=device)
+            chol_log[:, diag_idx, diag_idx] = F.softplus(chol_log[:, diag_idx, diag_idx])
+            log_diag = chol_log[:, diag_idx, diag_idx].log()
+            writer.add_scalar("losses/effective_logstd_mean", log_diag.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
