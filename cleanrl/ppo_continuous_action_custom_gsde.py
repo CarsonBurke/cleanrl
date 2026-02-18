@@ -168,7 +168,7 @@ class Args:
     """the target KL divergence threshold"""
 
     # RPO
-    rpo_alpha: float = 0.05
+    rpo_alpha: float = 0.0
     """RPO noise alpha — adds bounded uniform noise to action mean during training"""
 
     # QL-SDE specific arguments
