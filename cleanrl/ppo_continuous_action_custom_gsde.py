@@ -156,8 +156,8 @@ class Args:
     """the lower surrogate clipping coefficient (ratio floor = 1 - this)"""
     clip_coef_high: float = 0.28
     """the upper surrogate clipping coefficient (ratio ceiling = 1 + this)"""
-    clip_vloss: bool = False
-    """Toggles whether to use a clipped loss for the value function (off — twohot CE doesn't need it)."""
+    clip_vloss: bool = True
+    """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
     ent_coef: float = 0.0
     """coefficient of the entropy"""
     vf_coef: float = 0.5
@@ -168,7 +168,7 @@ class Args:
     """the target KL divergence threshold"""
 
     # RPO
-    rpo_alpha: float = 0.0
+    rpo_alpha: float = 0.1
     """RPO noise alpha — adds bounded uniform noise to action mean during training"""
 
     # QL-SDE specific arguments
@@ -225,15 +225,15 @@ class Agent(nn.Module):
         self.rpo_alpha = rpo_alpha
         self._log2pi = np.log(2 * np.pi)
 
-        # Critic: DreamerV3 twohot distributional value head
+        # Critic: scalar value head
         self.critic = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
-            nn.Tanh(),
+            nn.SiLU(),
+            nn.RMSNorm(64),
             layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, num_bins), std=0.01),
+            nn.SiLU(),
+            layer_init(nn.Linear(64, 1), std=1.0),
         )
-        self.register_buffer("bins", build_symexp_bins(num_bins, bin_range))
 
         # Actor mean trunk (separate from covariance to avoid gradient conflict)
         self.actor_mean_trunk = nn.Sequential(
@@ -258,9 +258,7 @@ class Agent(nn.Module):
         self.sde_fc = layer_init(nn.Linear(64, action_dim * sde_dim), std=1.0)
 
     def get_value(self, x):
-        """Return scalar value predictions (symexp-twohot decoded)."""
-        logits = self.critic(x)
-        return twohot_predict(logits, self.bins)
+        return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
         B = x.shape[0]
@@ -306,11 +304,7 @@ class Agent(nn.Module):
         # Entropy: 0.5 * (k * (1 + log(2π)) + 2 * sum(log(diag(chol))))
         entropy = 0.5 * (ad * (1.0 + self._log2pi) + 2 * log_diag)  # [B]
 
-        # Critic: twohot logits + decoded scalar
-        value_logits = self.critic(x)
-        value = twohot_predict(value_logits, self.bins)
-
-        return action, log_prob, entropy, value, value_logits
+        return action, log_prob, entropy, self.critic(x)
 
 
 if __name__ == "__main__":
@@ -355,8 +349,6 @@ if __name__ == "__main__":
         envs,
         sde_dim=args.sde_dim,
         rpo_alpha=args.rpo_alpha,
-        num_bins=args.num_bins,
-        bin_range=args.bin_range,
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
@@ -387,7 +379,7 @@ if __name__ == "__main__":
             dones[step] = next_done
 
             with torch.no_grad():
-                action, logprob, _, value, _ = agent.get_action_and_value(next_obs)
+                action, logprob, _, value = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -437,7 +429,7 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue, newvalue_logits = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -455,10 +447,20 @@ if __name__ == "__main__":
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef_low, 1 + args.clip_coef_high)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss: symexp-twohot cross-entropy
-                mb_returns = b_returns[mb_inds]
-                target_twohot = twohot_encode(mb_returns, agent.bins)
-                v_loss = twohot_loss(newvalue_logits, target_twohot).mean()
+                # Value loss
+                newvalue = newvalue.view(-1)
+                if args.clip_vloss:
+                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
+                    v_clipped = b_values[mb_inds] + torch.clamp(
+                        newvalue - b_values[mb_inds],
+                        -args.clip_coef_low,
+                        args.clip_coef_high,
+                    )
+                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
+                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+                    v_loss = 0.5 * v_loss_max.mean()
+                else:
+                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
