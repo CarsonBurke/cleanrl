@@ -1,16 +1,21 @@
-# QL-SDE v22: Gram-Tanh Covariance + DreamerV3 Twohot Critic
+# QL-SDE v23: Gram-Tanh Covariance + Conditional Normalizing Flow
 #
-# Actor: Gram-Tanh full covariance with separate mean/cov trunks
-#   STRUCTURE: L = tanh(sde_fc(cov_trunk(obs))) / sqrt(sde_dim)
-#              cov = L @ L^T + εI
-#              chol = cholesky(cov)
-#   SAMPLING:  action = mean + chol @ z
-#   LOG_PROB:  via Cholesky solve (triangular) + diagonal
+# Builds on v22b (best: HC 6,079 final / 6,258 peak) by adding a state-dependent
+# normalizing flow after the Cholesky correlation step. This transforms Gaussian
+# noise through learned invertible nonlinear layers, enabling:
+#   - State-dependent kurtosis (heavy tails when uncertain, tight for fine control)
+#   - Skewness (asymmetric exploration toward promising directions)
+#   - Non-Gaussian exploration shape that adapts per-state
 #
-# Critic: DreamerV3-style symexp-twohot distributional value head
-#   - Outputs logits over symexp-spaced bins instead of a scalar
-#   - Value loss: cross-entropy on two-hot encoded returns (not MSE)
-#   - bin_range=8 → symexp(8)≈2981, dense near 0, covering normalized-reward range
+# Architecture:
+#   z ~ N(0, I) → chol(obs) @ z → CouplingFlow(·; obs) → + mean(obs) → action
+#
+# The flow is a 2-layer affine coupling (RealNVP-style):
+#   Layer 1: transform second-half dims conditioned on (first-half, obs)
+#   Layer 2: transform first-half dims conditioned on (transformed-second-half, obs)
+#
+# Log-prob remains exact: log N(z;0,I) - log|det(chol)| - sum(s1) - sum(s2)
+# Zero-initialized flow → starts as identity → model begins as pure MVN
 
 import os
 import random
@@ -21,88 +26,10 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 import tyro
 from torch.utils.tensorboard import SummaryWriter
 
-
-# ---------------------------------------------------------------------------
-# DreamerV3 primitives
-# ---------------------------------------------------------------------------
-
-def symlog(x: torch.Tensor) -> torch.Tensor:
-    """Symmetric log: sign(x) * log(1 + |x|)."""
-    return torch.sign(x) * torch.log1p(torch.abs(x))
-
-
-def symexp(x: torch.Tensor) -> torch.Tensor:
-    """Symmetric exp (inverse of symlog): sign(x) * (exp(|x|) - 1)."""
-    return torch.sign(x) * torch.expm1(torch.abs(x))
-
-
-def build_symexp_bins(num_bins: int, bin_range: float = 8.0) -> torch.Tensor:
-    """Build symmetric bin centres in symexp-space."""
-    if num_bins % 2 == 1:
-        half = torch.linspace(-bin_range, 0.0, (num_bins - 1) // 2 + 1)
-        half = symexp(half)
-        bins = torch.cat([half, -half[:-1].flip(0)])
-    else:
-        half = torch.linspace(-bin_range, 0.0, num_bins // 2)
-        half = symexp(half)
-        bins = torch.cat([half, -half.flip(0)])
-    return bins
-
-
-def twohot_encode(x: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
-    """Encode scalar targets as two-hot vectors over bins."""
-    x = x.unsqueeze(-1)
-    below = (bins <= x).long().sum(-1) - 1
-    below = below.clamp(0, len(bins) - 1)
-    above = (below + 1).clamp(0, len(bins) - 1)
-    equal = (below == above)
-    dist_below = torch.where(equal, torch.ones_like(x.squeeze(-1)),
-                             torch.abs(bins[below] - x.squeeze(-1)))
-    dist_above = torch.where(equal, torch.ones_like(x.squeeze(-1)),
-                             torch.abs(bins[above] - x.squeeze(-1)))
-    total = dist_below + dist_above
-    weight_below = dist_above / total
-    weight_above = dist_below / total
-    target = (F.one_hot(below, len(bins)).float() * weight_below.unsqueeze(-1)
-              + F.one_hot(above, len(bins)).float() * weight_above.unsqueeze(-1))
-    return target
-
-
-def twohot_predict(logits: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
-    """Decode predicted value from two-hot logits via symmetric weighted sum."""
-    probs = torch.softmax(logits, dim=-1)
-    n = probs.shape[-1]
-    if n % 2 == 1:
-        m = (n - 1) // 2
-        p1 = probs[..., :m]
-        p2 = probs[..., m : m + 1]
-        p3 = probs[..., m + 1 :]
-        b1 = bins[:m]
-        b2 = bins[m : m + 1]
-        b3 = bins[m + 1 :]
-        return (p2 * b2).sum(-1) + ((p1 * b1).flip(-1) + (p3 * b3)).sum(-1)
-    else:
-        p1 = probs[..., : n // 2]
-        p2 = probs[..., n // 2 :]
-        b1 = bins[: n // 2]
-        b2 = bins[n // 2 :]
-        return ((p1 * b1).flip(-1) + (p2 * b2)).sum(-1)
-
-
-def twohot_loss(logits: torch.Tensor, target_twohot: torch.Tensor) -> torch.Tensor:
-    """Cross-entropy loss against a two-hot target (per-element, unreduced)."""
-    log_probs = logits - torch.logsumexp(logits, dim=-1, keepdim=True)
-    return -(target_twohot * log_probs).sum(-1)
-
-
-# ---------------------------------------------------------------------------
-# Args & env helpers
-# ---------------------------------------------------------------------------
 
 @dataclass
 class Args:
@@ -175,11 +102,9 @@ class Args:
     sde_dim: int = 64
     """dimensionality of the SDE latent space"""
 
-    # Twohot critic arguments
-    num_bins: int = 255
-    """number of bins for symexp-twohot value head"""
-    bin_range: float = 8.0
-    """symlog-space range for bins (symexp(bin_range) = max representable value)"""
+    # Flow specific arguments
+    flow_hidden: int = 32
+    """hidden dimension for coupling flow networks"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -215,8 +140,78 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
+# ---------------------------------------------------------------------------
+# Conditional Normalizing Flow (RealNVP-style affine coupling)
+# ---------------------------------------------------------------------------
+
+class AffineCouplingLayer(nn.Module):
+    """Affine coupling: transforms x_transform conditioned on (x_cond, obs)."""
+
+    def __init__(self, cond_dim, transform_dim, obs_dim, hidden=32):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(cond_dim + obs_dim, hidden),
+            nn.SiLU(),
+            nn.Linear(hidden, 2 * transform_dim),
+        )
+        # Zero-init last layer → identity transform at initialization
+        nn.init.zeros_(self.net[-1].weight)
+        nn.init.zeros_(self.net[-1].bias)
+
+    def _get_scale_shift(self, x_cond, obs):
+        st = self.net(torch.cat([x_cond, obs], dim=-1))
+        s_raw, t = st.chunk(2, dim=-1)
+        s = torch.tanh(s_raw) * 2.0  # clamp: exp(s) in [0.14, 7.39]
+        return s, t
+
+    def forward(self, x_cond, x_transform, obs):
+        """Forward: x_transform → y, returns (y, log_scale)."""
+        s, t = self._get_scale_shift(x_cond, obs)
+        y = x_transform * torch.exp(s) + t
+        return y, s
+
+    def inverse(self, x_cond, y, obs):
+        """Inverse: y → x_transform, returns (x_transform, log_scale)."""
+        s, t = self._get_scale_shift(x_cond, obs)
+        x = (y - t) * torch.exp(-s)
+        return x, s
+
+
+class CouplingFlow(nn.Module):
+    """Two-layer affine coupling flow conditioned on observation.
+
+    Layer 1: transforms dims [d1:] conditioned on (dims [:d1], obs)
+    Layer 2: transforms dims [:d1] conditioned on (transformed dims [d1:], obs)
+    """
+
+    def __init__(self, action_dim, obs_dim, hidden=32):
+        super().__init__()
+        self.d1 = action_dim // 2
+        self.d2 = action_dim - self.d1
+        self.layer1 = AffineCouplingLayer(self.d1, self.d2, obs_dim, hidden)
+        self.layer2 = AffineCouplingLayer(self.d2, self.d1, obs_dim, hidden)
+
+    def forward(self, x, obs):
+        """Forward: x → y, returns (y, log_det_jacobian)."""
+        x1, x2 = x[..., :self.d1], x[..., self.d1:]
+        h2, s1 = self.layer1.forward(x1, x2, obs)
+        h1, s2 = self.layer2.forward(h2, x1, obs)
+        y = torch.cat([h1, h2], dim=-1)
+        log_det = s1.sum(-1) + s2.sum(-1)
+        return y, log_det
+
+    def inverse(self, y, obs):
+        """Inverse: y → x, returns (x, forward_log_det_jacobian)."""
+        h1, h2 = y[..., :self.d1], y[..., self.d1:]
+        x1, s2 = self.layer2.inverse(h2, h1, obs)
+        x2, s1 = self.layer1.inverse(x1, h2, obs)
+        x = torch.cat([x1, x2], dim=-1)
+        log_det = s1.sum(-1) + s2.sum(-1)
+        return x, log_det
+
+
 class Agent(nn.Module):
-    def __init__(self, envs, sde_dim=64, rpo_alpha=0.05, num_bins=255, bin_range=8.0):
+    def __init__(self, envs, sde_dim=64, rpo_alpha=0.1, flow_hidden=32):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
@@ -225,7 +220,7 @@ class Agent(nn.Module):
         self.rpo_alpha = rpo_alpha
         self._log2pi = np.log(2 * np.pi)
 
-        # Critic: scalar value head
+        # Critic: scalar value head with SiLU+RMSNorm
         self.critic = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
             nn.SiLU(),
@@ -235,7 +230,7 @@ class Agent(nn.Module):
             layer_init(nn.Linear(64, 1), std=1.0),
         )
 
-        # Actor mean trunk (separate from covariance to avoid gradient conflict)
+        # Actor mean trunk (separate from covariance)
         self.actor_mean_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
             nn.SiLU(),
@@ -253,9 +248,10 @@ class Agent(nn.Module):
             nn.SiLU(),
             nn.RMSNorm(64),
         )
-
-        # SDE latent projection + tanh
         self.sde_fc = layer_init(nn.Linear(64, action_dim * sde_dim), std=1.0)
+
+        # Conditional normalizing flow (after Cholesky correlation)
+        self.flow = CouplingFlow(action_dim, obs_dim, hidden=flow_hidden)
 
     def get_value(self, x):
         return self.critic(x)
@@ -264,45 +260,49 @@ class Agent(nn.Module):
         B = x.shape[0]
         ad = self.action_dim
 
-        # Mean path (own trunk)
-        mean_latent = self.actor_mean_trunk(x)             # [B, 64]
-        action_mean = self.actor_mean(mean_latent)         # [B, ad]
+        # Mean path
+        mean_latent = self.actor_mean_trunk(x)
+        action_mean = self.actor_mean(mean_latent)
 
-        # Covariance path (separate trunk)
-        cov_latent = self.actor_cov_trunk(x)               # [B, 64]
-
-        # L = tanh(sde_fc(cov_latent)) / sqrt(sde_dim)
-        sde_raw = self.sde_fc(cov_latent)                  # [B, ad * sde_dim]
+        # Covariance path → Cholesky
+        cov_latent = self.actor_cov_trunk(x)
+        sde_raw = self.sde_fc(cov_latent)
         sde_latent = sde_raw.view(B, ad, self.sde_dim)
         L = torch.tanh(sde_latent) * (1.0 / (self.sde_dim ** 0.5))
-
-        # Gram covariance: L @ L^T + εI
-        cov = torch.bmm(L, L.transpose(1, 2))             # [B, ad, ad]
+        cov = torch.bmm(L, L.transpose(1, 2))
         eps_eye = 1e-4 * torch.eye(ad, device=x.device)
         cov = cov + eps_eye
+        chol = torch.linalg.cholesky(cov)
 
-        # Cholesky factorization for stable sampling and log_prob
-        chol = torch.linalg.cholesky(cov)                  # [B, ad, ad]
-
-        # RPO: add bounded uniform noise to mean during training only
+        # RPO: bounded uniform noise on mean (training only)
         if action is not None and self.rpo_alpha > 0:
-            z = torch.empty_like(action_mean).uniform_(-self.rpo_alpha, self.rpo_alpha)
-            action_mean = action_mean + z
+            z_rpo = torch.empty_like(action_mean).uniform_(-self.rpo_alpha, self.rpo_alpha)
+            action_mean = action_mean + z_rpo
+
+        log_diag = chol.diagonal(dim1=-2, dim2=-1).log().sum(dim=-1)  # [B]
 
         if action is None:
-            # Sample: action = mean + chol @ z
+            # Forward: z → chol @ z → flow → + mean
             z = torch.randn(B, ad, 1, device=x.device)
-            action = action_mean + torch.bmm(chol, z).squeeze(-1)
+            correlated = torch.bmm(chol, z).squeeze(-1)          # [B, ad]
+            noise, flow_log_det = self.flow.forward(correlated, x)
+            action = action_mean + noise
+            mahal = z.squeeze(-1).pow(2).sum(dim=-1)              # [B]
+        else:
+            # Inverse: action → noise → flow⁻¹ → correlated → chol⁻¹ → z
+            noise = action - action_mean
+            correlated, flow_log_det = self.flow.inverse(noise, x)
+            z_col = torch.linalg.solve_triangular(
+                chol, correlated.unsqueeze(-1), upper=False
+            )
+            mahal = z_col.squeeze(-1).pow(2).sum(dim=-1)          # [B]
 
-        # Log prob via Cholesky: -0.5 * (k*log(2π) + 2*sum(log(diag(chol))) + ||chol⁻¹(x-μ)||²)
-        diff = (action - action_mean).unsqueeze(-1)        # [B, ad, 1]
-        solved = torch.linalg.solve_triangular(chol, diff, upper=False)  # [B, ad, 1]
-        mahal = solved.squeeze(-1).pow(2).sum(dim=-1)      # [B]
-        log_diag = chol.diagonal(dim1=-2, dim2=-1).log().sum(dim=-1)  # [B]
-        log_prob = -0.5 * (ad * self._log2pi + 2 * log_diag + mahal)  # [B]
+        # log p(action) = log N(z;0,I) - log|det(chol)| - flow_log_det
+        log_prob = -0.5 * (ad * self._log2pi + mahal) - log_diag - flow_log_det
 
-        # Entropy: 0.5 * (k * (1 + log(2π)) + 2 * sum(log(diag(chol))))
-        entropy = 0.5 * (ad * (1.0 + self._log2pi) + 2 * log_diag)  # [B]
+        # Entropy estimate: base Gaussian entropy + Jacobian volume change
+        # Exact for the Gaussian part; point estimate for flow contribution
+        entropy = 0.5 * (ad * (1.0 + self._log2pi)) + log_diag + flow_log_det
 
         return action, log_prob, entropy, self.critic(x)
 
@@ -349,6 +349,7 @@ if __name__ == "__main__":
         envs,
         sde_dim=args.sde_dim,
         rpo_alpha=args.rpo_alpha,
+        flow_hidden=args.flow_hidden,
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
@@ -486,15 +487,21 @@ if __name__ == "__main__":
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         with torch.no_grad():
+            # Log effective covariance magnitude
             cov_lat = agent.actor_cov_trunk(b_obs[mb_inds])
             ad = agent.action_dim
             sde_raw = agent.sde_fc(cov_lat)
             sde_latent = sde_raw.view(-1, ad, agent.sde_dim)
-            L = torch.tanh(sde_latent) * (1.0 / (agent.sde_dim ** 0.5))
-            cov = torch.bmm(L, L.transpose(1, 2)) + 1e-4 * torch.eye(ad, device=device)
-            chol = torch.linalg.cholesky(cov)
-            log_diag = chol.diagonal(dim1=-2, dim2=-1).log()
-            writer.add_scalar("losses/effective_logstd_mean", log_diag.mean().item(), global_step)
+            L_diag = torch.tanh(sde_latent) * (1.0 / (agent.sde_dim ** 0.5))
+            cov_diag = torch.bmm(L_diag, L_diag.transpose(1, 2)) + 1e-4 * torch.eye(ad, device=device)
+            chol_diag = torch.linalg.cholesky(cov_diag)
+            log_diag_vals = chol_diag.diagonal(dim1=-2, dim2=-1).log()
+            writer.add_scalar("losses/effective_logstd_mean", log_diag_vals.mean().item(), global_step)
+            # Log flow contribution: forward pass on fresh noise to measure log_det
+            z_probe = torch.randn(b_obs[mb_inds].shape[0], ad, 1, device=device)
+            corr_probe = torch.bmm(chol_diag, z_probe).squeeze(-1)
+            _, flow_ld = agent.flow.forward(corr_probe, b_obs[mb_inds])
+            writer.add_scalar("losses/flow_log_det_mean", flow_ld.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
