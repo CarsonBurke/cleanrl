@@ -1,29 +1,29 @@
-# QL-SDE v24d: Advantage-Guided RPO
+# QL-SDE v25b: Gram-Tanh + Learnable Noise Floor + Learnable Prescale + Entropy Ceiling
 #
-# Builds on v22b (best: HC 6,079 final / 6,258 peak).
+# Replaces RPO + advantage predictor with:
+#   1. Learnable per-dim noise floor on covariance diagonal
+#   2. Learnable per-dim prescale on tanh saturation (clamped [1, 10])
+#   3. Entropy ceiling to prevent runaway
 #
-# Key insight from v24a-c: pure gradient-based noise floor self-extinguishes
-# as the advantage landscape flattens near the optimal mean. RPO provides
-# constant exploration pressure (good) but applies it uniformly (wasteful).
+# Why noise floor > RPO:
+#   - Part of the covariance → properly in log_prob/entropy (no distribution mismatch)
+#   - Per-dimension learnable (RPO is uniform)
+#   - PG can learn optimal noise level per dimension
 #
-# This version combines both:
-#   - RPO controls the exploration BUDGET (constant alpha)
-#   - Advantage predictor gradient controls the ALLOCATION (which dims get more)
+# Why learnable prescale:
+#   - Controls how binary vs linear each action dim's features are
+#   - Higher prescale → more saturated tanh → sharper covariance structure
+#   - Clamped to [1, 10] to keep gradients healthy
 #
-# During training, RPO noise is modulated per-dimension:
-#   grad = |∇_a A_pred(obs, mean)|  (detached from policy)
-#   dim_weights = grad / mean(grad)  (normalize to mean=1)
-#   dim_weights = clamp(dim_weights, 0.2, 5.0)  (bound modulation)
-#   noise = uniform(-alpha, alpha) * dim_weights
-#   mean_train = mean + noise
+# Architecture:
+#   prescale = clamp(prescale_raw, 1, 10)  # learnable [action_dim, 1]
+#   L = tanh(sde_latent * prescale) / sqrt(sde_dim)
+#   cov = L @ L^T + diag(noise_floor²) + εI
+#   noise_floor = exp(log_noise_floor)  # learnable [action_dim]
 #
-# The advantage predictor is trained on raw GAE advantages via MSE.
-# Early on (predictor untrained), weights ≈ 1.0 → behaves like standard RPO.
-# As predictor learns, noise concentrates on high-sensitivity dimensions.
-#
-# v22b baseline: HC=6,079 (with RPO α=0.1)
-# v22b no-RPO:   HC=4,072 (policy collapses without exploration help)
-# v24c (noise floor only): HC≈4,500 (noise floor self-extinguishes)
+# v25 (entropy ceiling + RPO): HC=6,041/6,203/6,280, entropy stable at 3.6
+# v24d (RPO, no ceiling): HC=5,975, entropy drifts to 6.1
+# v22b-no-RPO: HC=4,072 (covariance collapse)
 
 import os
 import random
@@ -103,23 +103,23 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
-    # RPO
-    rpo_alpha: float = 0.1
-    """RPO noise alpha — base exploration magnitude"""
-
     # QL-SDE specific arguments
     sde_dim: int = 64
     """dimensionality of the SDE latent space"""
 
-    # Advantage predictor arguments
-    adv_pred_hidden: int = 64
-    """hidden dimension for advantage predictor network"""
-    adv_pred_coef: float = 0.5
-    """loss coefficient for advantage predictor MSE"""
-    adv_mod_min: float = 0.2
-    """minimum per-dimension modulation weight"""
-    adv_mod_max: float = 5.0
-    """maximum per-dimension modulation weight"""
+    # Noise floor & prescale
+    noise_floor_init: float = -1.5
+    """initial log noise floor per dim (exp(-1.5) ≈ 0.22, nf²≈0.05)"""
+    prescale_min: float = 1.0
+    """minimum tanh prescale (clamp lower bound)"""
+    prescale_max: float = 10.0
+    """maximum tanh prescale (clamp upper bound)"""
+
+    # Entropy ceiling
+    target_ent_per_dim: float = 0.6
+    """target entropy per action dimension (ceiling for entropy regulation)"""
+    ent_ceiling_coef: float = 0.5
+    """coefficient for entropy ceiling penalty"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -155,45 +155,16 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-class AdvantagePredictor(nn.Module):
-    """Predicts advantage A(obs, action) → scalar.
-
-    Gradient ∇_a A provides per-dimension action sensitivity used to
-    modulate RPO noise allocation across dimensions.
-    """
-    def __init__(self, obs_dim, action_dim, hidden=64):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(obs_dim + action_dim, hidden),
-            nn.SiLU(),
-            nn.Linear(hidden, hidden),
-            nn.SiLU(),
-            nn.Linear(hidden, 1),
-        )
-        # Standard init for meaningful gradients from the start
-        nn.init.orthogonal_(self.net[0].weight, gain=np.sqrt(2))
-        nn.init.zeros_(self.net[0].bias)
-        nn.init.orthogonal_(self.net[2].weight, gain=np.sqrt(2))
-        nn.init.zeros_(self.net[2].bias)
-        nn.init.orthogonal_(self.net[4].weight, gain=0.1)
-        nn.init.zeros_(self.net[4].bias)
-
-    def forward(self, obs, action):
-        return self.net(torch.cat([obs, action], dim=-1)).squeeze(-1)
-
-
 class Agent(nn.Module):
-    def __init__(self, envs, sde_dim=64, rpo_alpha=0.1,
-                 adv_pred_hidden=64, adv_mod_min=0.2, adv_mod_max=5.0):
+    def __init__(self, envs, sde_dim=64, noise_floor_init=-1.5,
+                 prescale_min=1.0, prescale_max=10.0):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
         self.action_dim = action_dim
-        self.obs_dim = obs_dim
         self.sde_dim = sde_dim
-        self.rpo_alpha = rpo_alpha
-        self.adv_mod_min = adv_mod_min
-        self.adv_mod_max = adv_mod_max
+        self.prescale_min = prescale_min
+        self.prescale_max = prescale_max
         self._log2pi = np.log(2 * np.pi)
 
         # Critic: scalar value head with SiLU+RMSNorm
@@ -226,33 +197,17 @@ class Agent(nn.Module):
         )
         self.sde_fc = layer_init(nn.Linear(64, action_dim * sde_dim), std=1.0)
 
-        # Advantage predictor (separate from policy graph)
-        self.adv_predictor = AdvantagePredictor(obs_dim, action_dim, hidden=adv_pred_hidden)
+        # Learnable prescale: controls tanh saturation per action dim
+        # Higher → more binary features → sharper covariance structure
+        # Clamped to [prescale_min, prescale_max] to keep gradients healthy
+        self.prescale_raw = nn.Parameter(torch.full((action_dim, 1), 1.5))
+
+        # Learnable noise floor: per-dim minimum noise added to covariance diagonal
+        # init exp(-1.5) ≈ 0.22, so noise_floor² ≈ 0.05 added to each cov diagonal
+        self.log_noise_floor = nn.Parameter(torch.full((action_dim,), noise_floor_init))
 
     def get_value(self, x):
         return self.critic(x)
-
-    def _compute_dim_weights(self, obs, action_mean):
-        """Compute per-dimension RPO modulation weights from advantage gradient.
-
-        Returns: dim_weights [B, action_dim] with mean≈1, clamped to [mod_min, mod_max].
-        Fully detached from policy graph.
-        """
-        obs_d = obs.detach()
-        act_d = action_mean.detach().requires_grad_(True)
-
-        with torch.enable_grad():
-            adv_pred = self.adv_predictor(obs_d, act_d)
-            grad = torch.autograd.grad(
-                adv_pred.sum(), act_d, create_graph=False
-            )[0]  # [B, action_dim]
-
-        # Normalize |∇_a A| to mean=1 per sample, then clamp
-        grad_abs = grad.abs()
-        grad_mean = grad_abs.mean(dim=-1, keepdim=True) + 1e-8
-        dim_weights = (grad_abs / grad_mean).clamp(self.adv_mod_min, self.adv_mod_max)
-
-        return dim_weights.detach()
 
     def get_action_and_value(self, x, action=None):
         B = x.shape[0]
@@ -262,22 +217,20 @@ class Agent(nn.Module):
         mean_latent = self.actor_mean_trunk(x)
         action_mean = self.actor_mean(mean_latent)
 
-        # Covariance path → Gram-tanh Cholesky (pure v22b)
+        # Covariance path → Gram-tanh Cholesky with learnable prescale
         cov_latent = self.actor_cov_trunk(x)
         sde_raw = self.sde_fc(cov_latent)
         sde_latent = sde_raw.view(B, ad, self.sde_dim)
-        L = torch.tanh(sde_latent) * (1.0 / (self.sde_dim ** 0.5))
-        cov = torch.bmm(L, L.transpose(1, 2))  # [B, ad, ad]
+        prescale = self.prescale_raw.clamp(min=self.prescale_min, max=self.prescale_max)
+        L = torch.tanh(sde_latent * prescale) * (1.0 / (self.sde_dim ** 0.5))
+        gram = torch.bmm(L, L.transpose(1, 2))  # [B, ad, ad]
+
+        # Learnable noise floor: adds to covariance diagonal
+        noise_floor = torch.exp(self.log_noise_floor)  # [ad]
+        cov = gram + torch.diag(noise_floor.pow(2))  # broadcast over batch
         eps_eye = 1e-4 * torch.eye(ad, device=x.device)
         cov = cov + eps_eye
         chol = torch.linalg.cholesky(cov)
-
-        # Advantage-guided RPO: modulated noise on mean (training only)
-        dim_weights = None
-        if action is not None and self.rpo_alpha > 0:
-            dim_weights = self._compute_dim_weights(x, action_mean)  # [B, ad]
-            z_rpo = torch.empty_like(action_mean).uniform_(-self.rpo_alpha, self.rpo_alpha)
-            action_mean = action_mean + z_rpo * dim_weights
 
         if action is None:
             z = torch.randn(B, ad, 1, device=x.device)
@@ -293,7 +246,7 @@ class Agent(nn.Module):
         # Entropy
         entropy = 0.5 * (ad * (1.0 + self._log2pi) + 2 * log_diag)
 
-        return action, log_prob, entropy, self.critic(x), dim_weights
+        return action, log_prob, entropy, self.critic(x)
 
 
 if __name__ == "__main__":
@@ -334,13 +287,15 @@ if __name__ == "__main__":
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
+    action_dim = np.prod(envs.single_action_space.shape)
+    target_entropy = args.target_ent_per_dim * action_dim
+
     agent = Agent(
         envs,
         sde_dim=args.sde_dim,
-        rpo_alpha=args.rpo_alpha,
-        adv_pred_hidden=args.adv_pred_hidden,
-        adv_mod_min=args.adv_mod_min,
-        adv_mod_max=args.adv_mod_max,
+        noise_floor_init=args.noise_floor_init,
+        prescale_min=args.prescale_min,
+        prescale_max=args.prescale_max,
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
@@ -371,7 +326,7 @@ if __name__ == "__main__":
             dones[step] = next_done
 
             with torch.no_grad():
-                action, logprob, _, value, _ = agent.get_action_and_value(next_obs)
+                action, logprob, _, value = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -415,15 +370,13 @@ if __name__ == "__main__":
         # Optimizing the policy and value network
         b_inds = np.arange(args.batch_size)
         clipfracs = []
-        adv_pred_losses = []
-        dim_weight_stds = []
         for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue, dim_weights = agent.get_action_and_value(
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(
                     b_obs[mb_inds], b_actions[mb_inds]
                 )
                 logratio = newlogprob - b_logprobs[mb_inds]
@@ -458,26 +411,20 @@ if __name__ == "__main__":
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
-                # Advantage predictor loss (trains on raw unnormalized advantages)
-                adv_pred = agent.adv_predictor(b_obs[mb_inds], b_actions[mb_inds])
-                adv_pred_loss = F.mse_loss(adv_pred, b_advantages[mb_inds].detach())
-
+                # Entropy ceiling: penalize only when entropy exceeds target
                 entropy_loss = entropy.mean()
+                ent_excess = F.relu(entropy_loss - target_entropy)
+                ent_ceiling_loss = ent_excess ** 2
+
                 loss = (pg_loss
                         - args.ent_coef * entropy_loss
                         + v_loss * args.vf_coef
-                        + args.adv_pred_coef * adv_pred_loss)
+                        + args.ent_ceiling_coef * ent_ceiling_loss)
 
                 optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
-
-                # Track diagnostics
-                with torch.no_grad():
-                    adv_pred_losses.append(adv_pred_loss.item())
-                    if dim_weights is not None:
-                        dim_weight_stds.append(dim_weights.std().item())
 
             if args.target_kl is not None and approx_kl > args.target_kl:
                 break
@@ -494,18 +441,32 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        # Advantage predictor diagnostics
-        writer.add_scalar("losses/adv_pred_loss", np.mean(adv_pred_losses), global_step)
-        if dim_weight_stds:
-            writer.add_scalar("adv_pred/dim_weight_std", np.mean(dim_weight_stds), global_step)
+        # Entropy ceiling diagnostics
+        writer.add_scalar("ent_ceiling/penalty", ent_ceiling_loss.item(), global_step)
+        writer.add_scalar("ent_ceiling/target", target_entropy, global_step)
+        # Noise floor diagnostics
         with torch.no_grad():
-            # Log effective covariance magnitude
+            nf = torch.exp(agent.log_noise_floor)
+            writer.add_scalar("noise_floor/mean", nf.mean().item(), global_step)
+            writer.add_scalar("noise_floor/min", nf.min().item(), global_step)
+            writer.add_scalar("noise_floor/max", nf.max().item(), global_step)
+            writer.add_scalar("noise_floor/log_mean", agent.log_noise_floor.mean().item(), global_step)
+            ps = agent.prescale_raw.clamp(min=agent.prescale_min, max=agent.prescale_max)
+            writer.add_scalar("prescale/mean", ps.mean().item(), global_step)
+            writer.add_scalar("prescale/min", ps.min().item(), global_step)
+            writer.add_scalar("prescale/max", ps.max().item(), global_step)
+            # Effective covariance (gram + floor)
             cov_lat = agent.actor_cov_trunk(b_obs[mb_inds])
             ad = agent.action_dim
             sde_raw = agent.sde_fc(cov_lat)
             sde_latent = sde_raw.view(-1, ad, agent.sde_dim)
-            L_val = torch.tanh(sde_latent) * (1.0 / (agent.sde_dim ** 0.5))
-            cov_val = torch.bmm(L_val, L_val.transpose(1, 2)) + 1e-4 * torch.eye(ad, device=device)
+            L_val = torch.tanh(sde_latent * ps) * (1.0 / (agent.sde_dim ** 0.5))
+            gram_val = torch.bmm(L_val, L_val.transpose(1, 2))
+            gram_diag_mean = gram_val.diagonal(dim1=-2, dim2=-1).mean()
+            floor_sq_mean = nf.pow(2).mean()
+            writer.add_scalar("noise_floor/gram_diag_mean", gram_diag_mean.item(), global_step)
+            writer.add_scalar("noise_floor/floor_to_gram_ratio", (floor_sq_mean / (gram_diag_mean + 1e-8)).item(), global_step)
+            cov_val = gram_val + torch.diag(nf.pow(2)) + 1e-4 * torch.eye(ad, device=device)
             chol_val = torch.linalg.cholesky(cov_val)
             log_diag = chol_val.diagonal(dim1=-2, dim2=-1).log()
             writer.add_scalar("losses/effective_logstd_mean", log_diag.mean().item(), global_step)
