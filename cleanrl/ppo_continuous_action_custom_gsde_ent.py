@@ -1,23 +1,17 @@
-# QL-SDE v1: SAC-Style Learnable Entropy Regularization
+# Direct Log-Cholesky + entropy ceiling (v2)
 #
-# Fork of custom_gsde v25b. Key changes:
-#   - Replaces fixed entropy ceiling with SAC-style learnable α (entropy coefficient)
-#   - α is optimized via dual gradient descent to keep entropy near target
-#   - No separate noise floor — exploration emerges from entropy regularization
-#   - When entropy drops below target, α increases → more entropy bonus → covariance grows
-#   - When entropy rises above target, α decreases → less entropy bonus → covariance shrinks
+# Replaces Gram-tanh-Cholesky with direct Cholesky parameterization:
+#   - Network outputs ad*(ad+1)/2 values → lower triangular Cholesky factor
+#   - Diagonal goes through softplus for positivity (log-Cholesky)
+#   - No tanh, no Gram, no sde_dim — network learns Cholesky directly
 #
-# Why this might be better than entropy ceiling:
-#   - Bidirectional: encourages exploration when too low (ceiling only penalizes high)
-#   - Smooth: gradient-based (ceiling has discontinuous gradient at threshold)
-#   - Adaptive: α adjusts dynamically (ceiling coefficient is fixed)
+# Why: Gram-tanh was the bottleneck. Multiple entropy/noise variants all
+# converged to ~6k on HC. The indirection (384 params → 21 cov values →
+# Cholesky) and tanh quantization limited expressiveness.
 #
-# Architecture:
-#   prescale = clamp(prescale_raw, 1, 10)  # learnable [action_dim, 1]
-#   L = tanh(sde_latent * prescale) / sqrt(sde_dim)
-#   cov = L @ L^T + εI
-#   loss = pg_loss - α * entropy + vf_coef * v_loss
-#   α_loss = α * (entropy.detach() - target_entropy)  # dual gradient descent
+# Entropy ceiling (not SAC-α) for control — SAC dual gradient can't penalize
+# high entropy, only remove bonus. PPO's entropy naturally drifts up, needs
+# active downward pressure.
 
 import os
 import random
@@ -95,23 +89,11 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
-    # QL-SDE specific arguments
-    sde_dim: int = 64
-    """dimensionality of the SDE latent space"""
-
-    # Learnable prescale
-    prescale_min: float = 1.0
-    """minimum tanh prescale (clamp lower bound)"""
-    prescale_max: float = 10.0
-    """maximum tanh prescale (clamp upper bound)"""
-
-    # SAC-style entropy tuning
+    # Entropy ceiling
     target_ent_per_dim: float = 0.6
-    """target entropy per action dimension"""
-    alpha_lr: float = 3e-4
-    """learning rate for the entropy coefficient α"""
-    alpha_init: float = 0.01
-    """initial value of α (entropy coefficient)"""
+    """target entropy per action dimension (ceiling)"""
+    ent_ceiling_coef: float = 0.5
+    """coefficient for entropy ceiling penalty"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -148,17 +130,22 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs, sde_dim=64, prescale_min=1.0, prescale_max=10.0):
+    def __init__(self, envs):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
         self.action_dim = action_dim
-        self.sde_dim = sde_dim
-        self.prescale_min = prescale_min
-        self.prescale_max = prescale_max
         self._log2pi = np.log(2 * np.pi)
 
-        # Critic: scalar value head with SiLU+RMSNorm
+        # Number of elements in lower-triangular Cholesky factor
+        self.chol_size = action_dim * (action_dim + 1) // 2
+
+        # Precompute tril indices
+        self.register_buffer("tril_row", torch.tril_indices(action_dim, action_dim)[0])
+        self.register_buffer("tril_col", torch.tril_indices(action_dim, action_dim)[1])
+        self.register_buffer("diag_idx", torch.arange(action_dim))
+
+        # Critic
         self.critic = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
             nn.SiLU(),
@@ -168,7 +155,7 @@ class Agent(nn.Module):
             layer_init(nn.Linear(64, 1), std=1.0),
         )
 
-        # Actor mean trunk (separate from covariance)
+        # Actor mean
         self.actor_mean_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
             nn.SiLU(),
@@ -177,8 +164,8 @@ class Agent(nn.Module):
         )
         self.actor_mean = layer_init(nn.Linear(64, action_dim), std=0.01)
 
-        # Covariance trunk (separate pathway)
-        self.actor_cov_trunk = nn.Sequential(
+        # Actor covariance → outputs Cholesky elements directly
+        self.actor_chol_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
             nn.SiLU(),
             nn.RMSNorm(64),
@@ -186,10 +173,8 @@ class Agent(nn.Module):
             nn.SiLU(),
             nn.RMSNorm(64),
         )
-        self.sde_fc = layer_init(nn.Linear(64, action_dim * sde_dim), std=1.0)
-
-        # Learnable prescale: controls tanh saturation per action dim
-        self.prescale_raw = nn.Parameter(torch.full((action_dim, 1), 1.5))
+        # Small init so initial covariance is small (softplus(~0) ≈ 0.69 → std ~0.69)
+        self.chol_fc = layer_init(nn.Linear(64, self.chol_size), std=0.01)
 
     def get_value(self, x):
         return self.critic(x)
@@ -198,32 +183,24 @@ class Agent(nn.Module):
         B = x.shape[0]
         ad = self.action_dim
 
-        # Mean path
-        mean_latent = self.actor_mean_trunk(x)
-        action_mean = self.actor_mean(mean_latent)
+        # Mean
+        action_mean = self.actor_mean(self.actor_mean_trunk(x))
 
-        # Covariance path → Gram-tanh Cholesky with learnable prescale
-        cov_latent = self.actor_cov_trunk(x)
-        sde_raw = self.sde_fc(cov_latent)
-        sde_latent = sde_raw.view(B, ad, self.sde_dim)
-        prescale = self.prescale_raw.clamp(min=self.prescale_min, max=self.prescale_max)
-        L = torch.tanh(sde_latent * prescale) * (1.0 / (self.sde_dim ** 0.5))
-        gram = torch.bmm(L, L.transpose(1, 2))  # [B, ad, ad]
-
-        # Covariance = gram + small epsilon for stability
-        eps_eye = 1e-4 * torch.eye(ad, device=x.device)
-        cov = gram + eps_eye
-        chol = torch.linalg.cholesky(cov)
+        # Cholesky factor: network → lower triangular with positive diagonal
+        chol_raw = self.chol_fc(self.actor_chol_trunk(x))  # [B, chol_size]
+        chol = torch.zeros(B, ad, ad, device=x.device)
+        chol[:, self.tril_row, self.tril_col] = chol_raw
+        chol[:, self.diag_idx, self.diag_idx] = F.softplus(chol[:, self.diag_idx, self.diag_idx])
 
         if action is None:
             z = torch.randn(B, ad, 1, device=x.device)
             action = action_mean + torch.bmm(chol, z).squeeze(-1)
 
-        # Log prob via Cholesky solve
+        # Log prob
         diff = (action - action_mean).unsqueeze(-1)
         solved = torch.linalg.solve_triangular(chol, diff, upper=False)
         mahal = solved.squeeze(-1).pow(2).sum(dim=-1)
-        log_diag = chol.diagonal(dim1=-2, dim2=-1).log().sum(dim=-1)
+        log_diag = chol[:, self.diag_idx, self.diag_idx].log().sum(dim=-1)
         log_prob = -0.5 * (ad * self._log2pi + 2 * log_diag + mahal)
 
         # Entropy
@@ -256,7 +233,6 @@ if __name__ == "__main__":
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
-    # TRY NOT TO MODIFY: seeding
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -264,7 +240,6 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
-    # env setup
     envs = gym.vector.SyncVectorEnv(
         [make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)]
     )
@@ -273,19 +248,10 @@ if __name__ == "__main__":
     action_dim = np.prod(envs.single_action_space.shape)
     target_entropy = args.target_ent_per_dim * action_dim
 
-    agent = Agent(
-        envs,
-        sde_dim=args.sde_dim,
-        prescale_min=args.prescale_min,
-        prescale_max=args.prescale_max,
-    ).to(device)
+    agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
-    # SAC-style learnable entropy coefficient
-    log_alpha = torch.tensor(np.log(args.alpha_init), dtype=torch.float32, device=device, requires_grad=True)
-    alpha_optimizer = optim.Adam([log_alpha], lr=args.alpha_lr)
-
-    # ALGO Logic: Storage setup
+    # Storage
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
     logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
@@ -293,7 +259,6 @@ if __name__ == "__main__":
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
 
-    # TRY NOT TO MODIFY: start the game
     global_step = 0
     start_time = time.time()
     next_obs, _ = envs.reset(seed=args.seed)
@@ -305,8 +270,6 @@ if __name__ == "__main__":
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
-            # Also anneal alpha_lr proportionally
-            alpha_optimizer.param_groups[0]["lr"] = frac * args.alpha_lr
 
         for step in range(0, args.num_steps):
             global_step += args.num_envs
@@ -331,7 +294,7 @@ if __name__ == "__main__":
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
-        # bootstrap value if not done
+        # Bootstrap
         with torch.no_grad():
             next_value = agent.get_value(next_obs).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
@@ -347,7 +310,6 @@ if __name__ == "__main__":
                 advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + values
 
-        # flatten the batch
         b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
@@ -355,7 +317,7 @@ if __name__ == "__main__":
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
-        # Optimizing the policy and value network
+        # PPO update
         b_inds = np.arange(args.batch_size)
         clipfracs = []
         for epoch in range(args.update_epochs):
@@ -399,23 +361,16 @@ if __name__ == "__main__":
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
-                # SAC-style entropy regularization with learned α
-                alpha = log_alpha.exp()
                 entropy_loss = entropy.mean()
+                ent_excess = F.relu(entropy_loss - target_entropy)
+                ent_ceiling_loss = ent_excess ** 2
 
-                loss = pg_loss - alpha.detach() * entropy_loss + v_loss * args.vf_coef
+                loss = pg_loss + v_loss * args.vf_coef + args.ent_ceiling_coef * ent_ceiling_loss
 
                 optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
-
-                # Update α via dual gradient descent
-                # α_loss = α * (entropy - target): when entropy > target, decrease α; when below, increase α
-                alpha_loss = alpha * (entropy_loss.detach() - target_entropy)
-                alpha_optimizer.zero_grad()
-                alpha_loss.backward()
-                alpha_optimizer.step()
 
             if args.target_kl is not None and approx_kl > args.target_kl:
                 break
@@ -432,30 +387,19 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        # SAC-style alpha diagnostics
+        writer.add_scalar("ent_ceiling/penalty", ent_ceiling_loss.item(), global_step)
+        writer.add_scalar("ent_ceiling/target", target_entropy, global_step)
         with torch.no_grad():
-            writer.add_scalar("alpha/value", alpha.item(), global_step)
-            writer.add_scalar("alpha/log_value", log_alpha.item(), global_step)
-            writer.add_scalar("alpha/loss", alpha_loss.item(), global_step)
-            writer.add_scalar("alpha/target_entropy", target_entropy, global_step)
-            # Prescale diagnostics
-            ps = agent.prescale_raw.clamp(min=agent.prescale_min, max=agent.prescale_max)
-            writer.add_scalar("prescale/mean", ps.mean().item(), global_step)
-            writer.add_scalar("prescale/min", ps.min().item(), global_step)
-            writer.add_scalar("prescale/max", ps.max().item(), global_step)
-            # Effective covariance diagnostics
+            # Cholesky diagnostics from last minibatch
+            chol_raw = agent.chol_fc(agent.actor_chol_trunk(b_obs[mb_inds]))
             ad = agent.action_dim
-            cov_lat = agent.actor_cov_trunk(b_obs[mb_inds])
-            sde_raw = agent.sde_fc(cov_lat)
-            sde_latent = sde_raw.view(-1, ad, agent.sde_dim)
-            L_val = torch.tanh(sde_latent * ps) * (1.0 / (agent.sde_dim ** 0.5))
-            gram_val = torch.bmm(L_val, L_val.transpose(1, 2))
-            gram_diag_mean = gram_val.diagonal(dim1=-2, dim2=-1).mean()
-            writer.add_scalar("cov/gram_diag_mean", gram_diag_mean.item(), global_step)
-            cov_val = gram_val + 1e-4 * torch.eye(ad, device=device)
-            chol_val = torch.linalg.cholesky(cov_val)
-            log_diag = chol_val.diagonal(dim1=-2, dim2=-1).log()
-            writer.add_scalar("losses/effective_logstd_mean", log_diag.mean().item(), global_step)
+            chol_diag_raw = torch.zeros(chol_raw.shape[0], ad, ad, device=device)
+            chol_diag_raw[:, agent.tril_row, agent.tril_col] = chol_raw
+            chol_diag_vals = F.softplus(chol_diag_raw[:, agent.diag_idx, agent.diag_idx])
+            writer.add_scalar("chol/diag_mean", chol_diag_vals.mean().item(), global_step)
+            writer.add_scalar("chol/diag_min", chol_diag_vals.min().item(), global_step)
+            writer.add_scalar("chol/diag_max", chol_diag_vals.max().item(), global_step)
+            writer.add_scalar("chol/offdiag_absmax", chol_diag_raw[:, agent.tril_row[ad:], agent.tril_col[ad:]].abs().max().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
@@ -463,27 +407,6 @@ if __name__ == "__main__":
         model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
         torch.save(agent.state_dict(), model_path)
         print(f"model saved to {model_path}")
-        from cleanrl_utils.evals.ppo_eval import evaluate
-
-        episodic_returns = evaluate(
-            model_path,
-            make_env,
-            args.env_id,
-            eval_episodes=10,
-            run_name=f"{run_name}-eval",
-            Model=Agent,
-            device=device,
-            gamma=args.gamma,
-        )
-        for idx, episodic_return in enumerate(episodic_returns):
-            writer.add_scalar("eval/episodic_return", episodic_return, idx)
-
-        if args.upload_model:
-            from cleanrl_utils.huggingface import push_to_hub
-
-            repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-            repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-            push_to_hub(args, episodic_returns, repo_id, "PPO", f"runs/{run_name}", f"videos/{run_name}-eval")
 
     envs.close()
     writer.close()
