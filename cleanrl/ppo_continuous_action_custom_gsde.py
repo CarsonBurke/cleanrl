@@ -1,21 +1,29 @@
-# QL-SDE v23: Gram-Tanh Covariance + Conditional Normalizing Flow
+# QL-SDE v24d: Advantage-Guided RPO
 #
-# Builds on v22b (best: HC 6,079 final / 6,258 peak) by adding a state-dependent
-# normalizing flow after the Cholesky correlation step. This transforms Gaussian
-# noise through learned invertible nonlinear layers, enabling:
-#   - State-dependent kurtosis (heavy tails when uncertain, tight for fine control)
-#   - Skewness (asymmetric exploration toward promising directions)
-#   - Non-Gaussian exploration shape that adapts per-state
+# Builds on v22b (best: HC 6,079 final / 6,258 peak).
 #
-# Architecture:
-#   z ~ N(0, I) → chol(obs) @ z → CouplingFlow(·; obs) → + mean(obs) → action
+# Key insight from v24a-c: pure gradient-based noise floor self-extinguishes
+# as the advantage landscape flattens near the optimal mean. RPO provides
+# constant exploration pressure (good) but applies it uniformly (wasteful).
 #
-# The flow is a 2-layer affine coupling (RealNVP-style):
-#   Layer 1: transform second-half dims conditioned on (first-half, obs)
-#   Layer 2: transform first-half dims conditioned on (transformed-second-half, obs)
+# This version combines both:
+#   - RPO controls the exploration BUDGET (constant alpha)
+#   - Advantage predictor gradient controls the ALLOCATION (which dims get more)
 #
-# Log-prob remains exact: log N(z;0,I) - log|det(chol)| - sum(s1) - sum(s2)
-# Zero-initialized flow → starts as identity → model begins as pure MVN
+# During training, RPO noise is modulated per-dimension:
+#   grad = |∇_a A_pred(obs, mean)|  (detached from policy)
+#   dim_weights = grad / mean(grad)  (normalize to mean=1)
+#   dim_weights = clamp(dim_weights, 0.2, 5.0)  (bound modulation)
+#   noise = uniform(-alpha, alpha) * dim_weights
+#   mean_train = mean + noise
+#
+# The advantage predictor is trained on raw GAE advantages via MSE.
+# Early on (predictor untrained), weights ≈ 1.0 → behaves like standard RPO.
+# As predictor learns, noise concentrates on high-sensitivity dimensions.
+#
+# v22b baseline: HC=6,079 (with RPO α=0.1)
+# v22b no-RPO:   HC=4,072 (policy collapses without exploration help)
+# v24c (noise floor only): HC≈4,500 (noise floor self-extinguishes)
 
 import os
 import random
@@ -26,6 +34,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import tyro
 from torch.utils.tensorboard import SummaryWriter
@@ -96,15 +105,21 @@ class Args:
 
     # RPO
     rpo_alpha: float = 0.1
-    """RPO noise alpha — adds bounded uniform noise to action mean during training"""
+    """RPO noise alpha — base exploration magnitude"""
 
     # QL-SDE specific arguments
     sde_dim: int = 64
     """dimensionality of the SDE latent space"""
 
-    # Flow specific arguments
-    flow_hidden: int = 32
-    """hidden dimension for coupling flow networks"""
+    # Advantage predictor arguments
+    adv_pred_hidden: int = 64
+    """hidden dimension for advantage predictor network"""
+    adv_pred_coef: float = 0.5
+    """loss coefficient for advantage predictor MSE"""
+    adv_mod_min: float = 0.2
+    """minimum per-dimension modulation weight"""
+    adv_mod_max: float = 5.0
+    """maximum per-dimension modulation weight"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -140,84 +155,45 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-# ---------------------------------------------------------------------------
-# Conditional Normalizing Flow (RealNVP-style affine coupling)
-# ---------------------------------------------------------------------------
+class AdvantagePredictor(nn.Module):
+    """Predicts advantage A(obs, action) → scalar.
 
-class AffineCouplingLayer(nn.Module):
-    """Affine coupling: transforms x_transform conditioned on (x_cond, obs)."""
-
-    def __init__(self, cond_dim, transform_dim, obs_dim, hidden=32):
+    Gradient ∇_a A provides per-dimension action sensitivity used to
+    modulate RPO noise allocation across dimensions.
+    """
+    def __init__(self, obs_dim, action_dim, hidden=64):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(cond_dim + obs_dim, hidden),
+            nn.Linear(obs_dim + action_dim, hidden),
             nn.SiLU(),
-            nn.Linear(hidden, 2 * transform_dim),
+            nn.Linear(hidden, hidden),
+            nn.SiLU(),
+            nn.Linear(hidden, 1),
         )
-        # Zero-init last layer → identity transform at initialization
-        nn.init.zeros_(self.net[-1].weight)
-        nn.init.zeros_(self.net[-1].bias)
+        # Standard init for meaningful gradients from the start
+        nn.init.orthogonal_(self.net[0].weight, gain=np.sqrt(2))
+        nn.init.zeros_(self.net[0].bias)
+        nn.init.orthogonal_(self.net[2].weight, gain=np.sqrt(2))
+        nn.init.zeros_(self.net[2].bias)
+        nn.init.orthogonal_(self.net[4].weight, gain=0.1)
+        nn.init.zeros_(self.net[4].bias)
 
-    def _get_scale_shift(self, x_cond, obs):
-        st = self.net(torch.cat([x_cond, obs], dim=-1))
-        s_raw, t = st.chunk(2, dim=-1)
-        s = torch.tanh(s_raw) * 2.0  # clamp: exp(s) in [0.14, 7.39]
-        return s, t
-
-    def forward(self, x_cond, x_transform, obs):
-        """Forward: x_transform → y, returns (y, log_scale)."""
-        s, t = self._get_scale_shift(x_cond, obs)
-        y = x_transform * torch.exp(s) + t
-        return y, s
-
-    def inverse(self, x_cond, y, obs):
-        """Inverse: y → x_transform, returns (x_transform, log_scale)."""
-        s, t = self._get_scale_shift(x_cond, obs)
-        x = (y - t) * torch.exp(-s)
-        return x, s
-
-
-class CouplingFlow(nn.Module):
-    """Two-layer affine coupling flow conditioned on observation.
-
-    Layer 1: transforms dims [d1:] conditioned on (dims [:d1], obs)
-    Layer 2: transforms dims [:d1] conditioned on (transformed dims [d1:], obs)
-    """
-
-    def __init__(self, action_dim, obs_dim, hidden=32):
-        super().__init__()
-        self.d1 = action_dim // 2
-        self.d2 = action_dim - self.d1
-        self.layer1 = AffineCouplingLayer(self.d1, self.d2, obs_dim, hidden)
-        self.layer2 = AffineCouplingLayer(self.d2, self.d1, obs_dim, hidden)
-
-    def forward(self, x, obs):
-        """Forward: x → y, returns (y, log_det_jacobian)."""
-        x1, x2 = x[..., :self.d1], x[..., self.d1:]
-        h2, s1 = self.layer1.forward(x1, x2, obs)
-        h1, s2 = self.layer2.forward(h2, x1, obs)
-        y = torch.cat([h1, h2], dim=-1)
-        log_det = s1.sum(-1) + s2.sum(-1)
-        return y, log_det
-
-    def inverse(self, y, obs):
-        """Inverse: y → x, returns (x, forward_log_det_jacobian)."""
-        h1, h2 = y[..., :self.d1], y[..., self.d1:]
-        x1, s2 = self.layer2.inverse(h2, h1, obs)
-        x2, s1 = self.layer1.inverse(x1, h2, obs)
-        x = torch.cat([x1, x2], dim=-1)
-        log_det = s1.sum(-1) + s2.sum(-1)
-        return x, log_det
+    def forward(self, obs, action):
+        return self.net(torch.cat([obs, action], dim=-1)).squeeze(-1)
 
 
 class Agent(nn.Module):
-    def __init__(self, envs, sde_dim=64, rpo_alpha=0.1, flow_hidden=32):
+    def __init__(self, envs, sde_dim=64, rpo_alpha=0.1,
+                 adv_pred_hidden=64, adv_mod_min=0.2, adv_mod_max=5.0):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
         self.action_dim = action_dim
+        self.obs_dim = obs_dim
         self.sde_dim = sde_dim
         self.rpo_alpha = rpo_alpha
+        self.adv_mod_min = adv_mod_min
+        self.adv_mod_max = adv_mod_max
         self._log2pi = np.log(2 * np.pi)
 
         # Critic: scalar value head with SiLU+RMSNorm
@@ -250,11 +226,33 @@ class Agent(nn.Module):
         )
         self.sde_fc = layer_init(nn.Linear(64, action_dim * sde_dim), std=1.0)
 
-        # Conditional normalizing flow (after Cholesky correlation)
-        self.flow = CouplingFlow(action_dim, obs_dim, hidden=flow_hidden)
+        # Advantage predictor (separate from policy graph)
+        self.adv_predictor = AdvantagePredictor(obs_dim, action_dim, hidden=adv_pred_hidden)
 
     def get_value(self, x):
         return self.critic(x)
+
+    def _compute_dim_weights(self, obs, action_mean):
+        """Compute per-dimension RPO modulation weights from advantage gradient.
+
+        Returns: dim_weights [B, action_dim] with mean≈1, clamped to [mod_min, mod_max].
+        Fully detached from policy graph.
+        """
+        obs_d = obs.detach()
+        act_d = action_mean.detach().requires_grad_(True)
+
+        with torch.enable_grad():
+            adv_pred = self.adv_predictor(obs_d, act_d)
+            grad = torch.autograd.grad(
+                adv_pred.sum(), act_d, create_graph=False
+            )[0]  # [B, action_dim]
+
+        # Normalize |∇_a A| to mean=1 per sample, then clamp
+        grad_abs = grad.abs()
+        grad_mean = grad_abs.mean(dim=-1, keepdim=True) + 1e-8
+        dim_weights = (grad_abs / grad_mean).clamp(self.adv_mod_min, self.adv_mod_max)
+
+        return dim_weights.detach()
 
     def get_action_and_value(self, x, action=None):
         B = x.shape[0]
@@ -264,47 +262,38 @@ class Agent(nn.Module):
         mean_latent = self.actor_mean_trunk(x)
         action_mean = self.actor_mean(mean_latent)
 
-        # Covariance path → Cholesky
+        # Covariance path → Gram-tanh Cholesky (pure v22b)
         cov_latent = self.actor_cov_trunk(x)
         sde_raw = self.sde_fc(cov_latent)
         sde_latent = sde_raw.view(B, ad, self.sde_dim)
         L = torch.tanh(sde_latent) * (1.0 / (self.sde_dim ** 0.5))
-        cov = torch.bmm(L, L.transpose(1, 2))
+        cov = torch.bmm(L, L.transpose(1, 2))  # [B, ad, ad]
         eps_eye = 1e-4 * torch.eye(ad, device=x.device)
         cov = cov + eps_eye
         chol = torch.linalg.cholesky(cov)
 
-        # RPO: bounded uniform noise on mean (training only)
+        # Advantage-guided RPO: modulated noise on mean (training only)
+        dim_weights = None
         if action is not None and self.rpo_alpha > 0:
+            dim_weights = self._compute_dim_weights(x, action_mean)  # [B, ad]
             z_rpo = torch.empty_like(action_mean).uniform_(-self.rpo_alpha, self.rpo_alpha)
-            action_mean = action_mean + z_rpo
-
-        log_diag = chol.diagonal(dim1=-2, dim2=-1).log().sum(dim=-1)  # [B]
+            action_mean = action_mean + z_rpo * dim_weights
 
         if action is None:
-            # Forward: z → chol @ z → flow → + mean
             z = torch.randn(B, ad, 1, device=x.device)
-            correlated = torch.bmm(chol, z).squeeze(-1)          # [B, ad]
-            noise, flow_log_det = self.flow.forward(correlated, x)
-            action = action_mean + noise
-            mahal = z.squeeze(-1).pow(2).sum(dim=-1)              # [B]
-        else:
-            # Inverse: action → noise → flow⁻¹ → correlated → chol⁻¹ → z
-            noise = action - action_mean
-            correlated, flow_log_det = self.flow.inverse(noise, x)
-            z_col = torch.linalg.solve_triangular(
-                chol, correlated.unsqueeze(-1), upper=False
-            )
-            mahal = z_col.squeeze(-1).pow(2).sum(dim=-1)          # [B]
+            action = action_mean + torch.bmm(chol, z).squeeze(-1)
 
-        # log p(action) = log N(z;0,I) - log|det(chol)| - flow_log_det
-        log_prob = -0.5 * (ad * self._log2pi + mahal) - log_diag - flow_log_det
+        # Log prob via Cholesky solve
+        diff = (action - action_mean).unsqueeze(-1)
+        solved = torch.linalg.solve_triangular(chol, diff, upper=False)
+        mahal = solved.squeeze(-1).pow(2).sum(dim=-1)
+        log_diag = chol.diagonal(dim1=-2, dim2=-1).log().sum(dim=-1)
+        log_prob = -0.5 * (ad * self._log2pi + 2 * log_diag + mahal)
 
-        # Entropy estimate: base Gaussian entropy + Jacobian volume change
-        # Exact for the Gaussian part; point estimate for flow contribution
-        entropy = 0.5 * (ad * (1.0 + self._log2pi)) + log_diag + flow_log_det
+        # Entropy
+        entropy = 0.5 * (ad * (1.0 + self._log2pi) + 2 * log_diag)
 
-        return action, log_prob, entropy, self.critic(x)
+        return action, log_prob, entropy, self.critic(x), dim_weights
 
 
 if __name__ == "__main__":
@@ -349,7 +338,9 @@ if __name__ == "__main__":
         envs,
         sde_dim=args.sde_dim,
         rpo_alpha=args.rpo_alpha,
-        flow_hidden=args.flow_hidden,
+        adv_pred_hidden=args.adv_pred_hidden,
+        adv_mod_min=args.adv_mod_min,
+        adv_mod_max=args.adv_mod_max,
     ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
@@ -380,7 +371,7 @@ if __name__ == "__main__":
             dones[step] = next_done
 
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                action, logprob, _, value, _ = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -424,13 +415,17 @@ if __name__ == "__main__":
         # Optimizing the policy and value network
         b_inds = np.arange(args.batch_size)
         clipfracs = []
+        adv_pred_losses = []
+        dim_weight_stds = []
         for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, newlogprob, entropy, newvalue, dim_weights = agent.get_action_and_value(
+                    b_obs[mb_inds], b_actions[mb_inds]
+                )
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -463,13 +458,26 @@ if __name__ == "__main__":
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
+                # Advantage predictor loss (trains on raw unnormalized advantages)
+                adv_pred = agent.adv_predictor(b_obs[mb_inds], b_actions[mb_inds])
+                adv_pred_loss = F.mse_loss(adv_pred, b_advantages[mb_inds].detach())
+
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                loss = (pg_loss
+                        - args.ent_coef * entropy_loss
+                        + v_loss * args.vf_coef
+                        + args.adv_pred_coef * adv_pred_loss)
 
                 optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
+
+                # Track diagnostics
+                with torch.no_grad():
+                    adv_pred_losses.append(adv_pred_loss.item())
+                    if dim_weights is not None:
+                        dim_weight_stds.append(dim_weights.std().item())
 
             if args.target_kl is not None and approx_kl > args.target_kl:
                 break
@@ -486,22 +494,21 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        # Advantage predictor diagnostics
+        writer.add_scalar("losses/adv_pred_loss", np.mean(adv_pred_losses), global_step)
+        if dim_weight_stds:
+            writer.add_scalar("adv_pred/dim_weight_std", np.mean(dim_weight_stds), global_step)
         with torch.no_grad():
             # Log effective covariance magnitude
             cov_lat = agent.actor_cov_trunk(b_obs[mb_inds])
             ad = agent.action_dim
             sde_raw = agent.sde_fc(cov_lat)
             sde_latent = sde_raw.view(-1, ad, agent.sde_dim)
-            L_diag = torch.tanh(sde_latent) * (1.0 / (agent.sde_dim ** 0.5))
-            cov_diag = torch.bmm(L_diag, L_diag.transpose(1, 2)) + 1e-4 * torch.eye(ad, device=device)
-            chol_diag = torch.linalg.cholesky(cov_diag)
-            log_diag_vals = chol_diag.diagonal(dim1=-2, dim2=-1).log()
-            writer.add_scalar("losses/effective_logstd_mean", log_diag_vals.mean().item(), global_step)
-            # Log flow contribution: forward pass on fresh noise to measure log_det
-            z_probe = torch.randn(b_obs[mb_inds].shape[0], ad, 1, device=device)
-            corr_probe = torch.bmm(chol_diag, z_probe).squeeze(-1)
-            _, flow_ld = agent.flow.forward(corr_probe, b_obs[mb_inds])
-            writer.add_scalar("losses/flow_log_det_mean", flow_ld.mean().item(), global_step)
+            L_val = torch.tanh(sde_latent) * (1.0 / (agent.sde_dim ** 0.5))
+            cov_val = torch.bmm(L_val, L_val.transpose(1, 2)) + 1e-4 * torch.eye(ad, device=device)
+            chol_val = torch.linalg.cholesky(cov_val)
+            log_diag = chol_val.diagonal(dim1=-2, dim2=-1).log()
+            writer.add_scalar("losses/effective_logstd_mean", log_diag.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
