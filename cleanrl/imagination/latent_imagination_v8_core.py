@@ -309,7 +309,7 @@ def current_imagination_phase_coef(args: Args, global_step: int) -> float:
 
 
 def current_behavior_actor_coef(args: Args, global_step: int) -> float:
-    return 1.0 if current_imagination_phase_coef(args, global_step) <= 0.0 else 0.0
+    return 1.0
 
 
 def build_policy_prior(agent: Agent):
@@ -825,18 +825,9 @@ def main(args_class=Args):
             global_step += args.num_envs
             obs[step] = next_obs
             dones[step] = next_done
-            imagination_active = current_imagination_phase_coef(args, global_step) > 0.0 and imagination_prior is not None
-
             with torch.no_grad():
-                if imagination_active:
-                    latent = agent.encode(next_obs)
-                    dist = agent.get_imagination_dist_from_latent_context(latent, online_context_state)
-                    action = dist.sample()
-                    logprob = dist.log_prob(action).sum(-1)
-                    value = agent.get_value_from_latent(latent).flatten()
-                else:
-                    action, logprob, _, value = agent.get_action_and_value(next_obs)
-                    value = value.flatten()
+                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                value = value.flatten()
                 executed_action = agent.clamp_action(action)
                 values[step] = value
             actions[step] = action
