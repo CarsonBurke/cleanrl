@@ -66,7 +66,7 @@ class Args:
     eps: float = 1e-8
     batch_size: int = 16
     batch_length: int = 32
-    train_ratio: float = 256.0
+    train_ratio: float = 64.0
     imag_last: int = 8  # only start imagination from last K timesteps (0=all)
     max_grad_norm: float = 1000.0
     weight_decay: float = 0.0
