@@ -459,8 +459,14 @@ class EpisodeReplayBuffer:
         if not valid:
             valid = self.episodes
 
-        batch = {k: [] for k in valid[0].keys()}
-        for _ in range(batch_size):
+        keys = tuple(valid[0].keys())
+        sample_ep = valid[0]
+        batch = {}
+        for k in keys:
+            shape = sample_ep[k].shape[1:]
+            batch[k] = np.zeros((batch_size, batch_length) + shape, dtype=sample_ep[k].dtype)
+
+        for batch_index in range(batch_size):
             ep = valid[np.random.randint(len(valid))]
             ep_len = len(ep['reward'])
             if ep_len >= batch_length:
@@ -468,14 +474,22 @@ class EpisodeReplayBuffer:
             else:
                 start = 0
             end = start + batch_length
-            for k in batch:
+            for k in keys:
                 chunk = ep[k][start:end]
-                if len(chunk) < batch_length:
-                    pad_shape = (batch_length - len(chunk),) + chunk.shape[1:]
-                    chunk = np.concatenate([chunk, np.zeros(pad_shape, dtype=chunk.dtype)])
-                batch[k].append(chunk)
+                batch[k][batch_index, : len(chunk)] = chunk
 
-        return {k: np.stack(v) for k, v in batch.items()}
+        return batch
+
+    def sample_tensors(self, batch_size, batch_length, device: torch.device):
+        batch_np = self.sample(batch_size, batch_length)
+        batch = {}
+        for key, value in batch_np.items():
+            tensor = torch.from_numpy(value)
+            if tensor.dtype == torch.bool:
+                batch[key] = tensor.to(device=device)
+            else:
+                batch[key] = tensor.to(device=device, dtype=torch.float32)
+        return batch
 
 
 # ---------------------------------------------------------------------------
@@ -496,7 +510,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 1_000_000
-    num_envs: int = 1
+    num_envs: int = 8
 
     # RSSM
     rssm_deter: int = 256
@@ -520,9 +534,9 @@ class Args:
     actor_learning_rate: float = 1e-4
     critic_learning_rate: float = 1e-4
     eps: float = 1e-8
-    batch_size: int = 16
-    batch_length: int = 16
-    train_ratio: float = 32.0
+    batch_size_per_env: int = 16  # d4 ref: 16 at 1 env, scales with num_envs
+    batch_length: int = 32
+    train_ratio: float = 64.0
     imag_last: int = 8
     max_grad_norm: float = 1000.0
     compile: bool = True
@@ -574,6 +588,7 @@ def make_env(env_id, idx, capture_video, run_name):
 
 def main(args_class=Args):
     args = tyro.cli(args_class)
+    args.batch_size = args.batch_size_per_env * args.num_envs
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
 
     if args.track:
@@ -699,9 +714,7 @@ def main(args_class=Args):
     free_nats_t = torch.tensor(args.free_nats, device=device)
 
     def train_step():
-        batch_np = replay.sample(args.batch_size, args.batch_length)
-        batch = {k: torch.tensor(v, device=device, dtype=torch.float32 if v.dtype != bool else torch.bool)
-                 for k, v in batch_np.items()}
+        batch = replay.sample_tensors(args.batch_size, args.batch_length, device)
         obs = batch['obs']
         prev_act = batch['prev_act']
         rew = batch['reward']
@@ -860,6 +873,8 @@ def main(args_class=Args):
     print(f"Total parameters: {total_params:,}")
     print(f"RSSM: deter={args.rssm_deter}, stoch={args.rssm_stoch}x{args.rssm_classes}, "
           f"feat_dim={feat_dim}")
+    print(f"Batch: {args.batch_size} ({args.batch_size_per_env}/env × {args.num_envs} envs), "
+          f"length={args.batch_length}, train_ratio={args.train_ratio}")
 
     obs, _ = envs.reset(seed=args.seed)
     for i in range(args.num_envs):
@@ -930,9 +945,10 @@ def main(args_class=Args):
 
         # --- Training ---
         if not prefilling and replay.can_sample(args.batch_length):
-            target_train_steps = int(global_step * args.train_ratio / steps_per_train)
-            # Cap training burst to avoid long stalls after prefill
-            max_steps_per_cycle = max(4, int(args.num_envs * args.train_ratio / steps_per_train) + 1)
+            effective_step = global_step - args.prefill_steps
+            target_train_steps = int(effective_step * args.train_ratio / steps_per_train)
+            # Cap training burst (match dreamer4 ref)
+            max_steps_per_cycle = max(1, int(args.num_envs * args.train_ratio / steps_per_train)) * 2
             steps_this_cycle = 0
             while train_steps < target_train_steps and steps_this_cycle < max_steps_per_cycle:
                 stats = train_step()
