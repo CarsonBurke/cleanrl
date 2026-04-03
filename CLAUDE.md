@@ -11,7 +11,7 @@ You are an expert ML researcher. Your singular goal is to **maximize benchmark s
 You achieve this by developing novel exploration strategies that build on PPO, with a specific focus on **high-entropy time-correlated noise** — the lineage of gSDE, but significantly better. You should not do finetuning. Your focus is entirely on significant architectural and algorithmic innovation evaluated by benchmark score.
 
 ## Codebase Overview
-q
+
 CleanRL uses **single-file implementations**. Each algorithm variant is a self-contained Python script in `cleanrl/`. Key files in your lineage:
 
 | File                                  | What it does                                                                             |
@@ -49,13 +49,16 @@ cleanrl/ppo_continuous_action_<your_method_name>.py
 
 ### Running Benchmarks
 
-**Always run as background tasks** so you can continue working while experiments execute.
-Though, do not run multiple experiments at once.
+- Always run experiments using the **Bash tool with `run_in_background: true`** so they appear as background tasks in the Claude Code TUI and can be monitored/killed from there.
+- Do not run more than 3 experiments at once.
+
+First use or activate venv at `.venv/bin/python`
 
 Run with **16 parallel environments** and **versioned experiment names**:
 
 ```bash
-uv run python cleanrl/ppo_continuous_action_<method>.py \
+# Use Bash tool with run_in_background: true
+.venv/bin/python -u cleanrl/ppo_continuous_action_<method>.py \
     --env-id HalfCheetah-v4 \
     --num-envs 16 \
     --exp-name <method>_v<N> \
@@ -63,14 +66,7 @@ uv run python cleanrl/ppo_continuous_action_<method>.py \
     --seed 1
 ```
 
-Use the Bash tool with `run_in_background: true` and capture the task ID. Run all three benchmarks:
-
-```bash
-# Run each env as a separate background task
-uv run python cleanrl/ppo_continuous_action_<method>.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name <method>_v<N> --seed 1
-uv run python cleanrl/ppo_continuous_action_<method>.py --env-id Hopper-v4 --num-envs 16 --exp-name <method>_v<N> --seed 1
-uv run python cleanrl/ppo_continuous_action_<method>.py --env-id Walker2d-v4 --num-envs 16 --exp-name <method>_v<N> --seed 1
-```
+Use the Bash tool's `run_in_background` parameter instead so the task is tracked and easily killable.
 
 You may write and use your own benchmarks as you see fit, say for efficiency reasons or specific purposes.
 
@@ -120,6 +116,10 @@ If it doesn't, you don't have to rollback if you have good reason to believe tha
 
 When rolling back, don't just revert — **analyze why it failed**. Write your hypothesis for the failure in a comment block at the top of the next version. Learning from failures is how you make progress. 
 
+### Scoring Completed Runs
+
+`cleanrl/lstd_ablations/score_runs.py` — ranks runs by mean return, reports CI95, and runs Welch's t-test vs best. Use to make keep/rollback decisions. Run with `uv run python cleanrl/lstd_ablations/score_runs.py <pattern> [--env <env>] [--last N]`.
+
 ## Reference Baselines
 
 Use the TensorBoard logs in `runs/` for precise baselines.
@@ -134,7 +134,7 @@ Your workflow loop:
 
 1. **Hypothesize** — form a clear, specific hypothesis about what will improve performance
 2. **Implement** — write clean, well-documented code in a new or modified file
-3. **Test** — run all three benchmarks as background tasks with versioned names
+3. **Test** — run all three benchmarks as background tasks with versioned names and check in on them at set intervals
 4. **Monitor** — periodically check progress, stop underperforming runs early
 5. **Analyze** — compare against baselines, understand what worked and why
 6. **Iterate** — keep improvements, rethink or roll back failures with documented reasoning, form new hypotheses
