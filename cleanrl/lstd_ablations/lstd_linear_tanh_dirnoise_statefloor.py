@@ -1,25 +1,20 @@
-"""PPO with Transformer++ Backbone — Ablation of lstd_linear_tanh
+"""State-dependent diagonal floor: replace static log_std_floor with a sigmoid-gated
+head from actor features, letting the agent go near-deterministic on well-understood
+dims while keeping directional exploration on others.
 
-Fork of lstd_linear_tanh replacing the 2-layer MLP backbone (for both actor
-and critic) with a single Transformer++ block over virtual tokens.
+Uses a low-rank multivariate normal:
+  action ~ N(mean, B^T diag(amp(h)²) B + diag(floor(h)²))
 
-Architecture:
-1. Initial projection: Linear(obs_dim, 64) → RMSNorm → SiLU  (same as original layer 1)
-2. Virtual tokenization: Linear(64, 8*32) → reshape to (batch, 8, 32)
-   8 virtual tokens, each 32-dim — learned projections of the hidden state
-3. 1x Transformer++ block:
-   - Pre-norm RMSNorm → MHSA (4 heads, head_dim=8) via F.scaled_dot_product_attention
-   - Residual
-   - Pre-norm RMSNorm → SwiGLU FFN (intermediate=64, gated to 32)
-   - Residual
-4. Aggregation: mean-pool tokens → Linear(32, 64) → RMSNorm → SiLU → h (batch, 64)
+Where:
+- B: (noise_rank, act_dim) learned basis of exploration directions (orthogonal init)
+- amp(h): (noise_rank,) state-dependent per-direction amplitude via sigmoid gate
+- floor(h): (act_dim,) state-dependent per-dim diagonal floor via sigmoid gate
 
-Everything else (SDE noise path, training loop, hyperparameters) is identical
-to lstd_linear_tanh.
+The floor head outputs per-dimension log-std values clamped to [FLOOR_LOG_STD_MIN,
+FLOOR_LOG_STD_MAX] via sigmoid, so the agent can suppress noise on dimensions where
+it is confident while maintaining a minimum exploration floor elsewhere.
 
-Hypothesis: self-attention over virtual tokens can learn richer feature
-interactions than stacked linear layers, improving representation quality
-for both policy and value estimation.
+Log-prob is tractable via Woodbury identity (PyTorch LowRankMultivariateNormal).
 """
 import os
 import random
@@ -33,15 +28,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import tyro
-from torch.distributions.normal import Normal
+from torch.distributions import LowRankMultivariateNormal
 from torch.utils.tensorboard import SummaryWriter
 
 
-LOG_STD_INIT = -2.0
-LOG_STD_MIN = -3.0
-LOG_STD_MAX = -0.5
-SDE_EPS = 1e-6
-SDE_PRESCALE = 1.5  # divisor before tanh, controls saturation
+LOG_AMP_MIN = -4.0    # per-direction amplitude min: exp(-4) ≈ 0.018
+LOG_AMP_MAX = 0.0     # per-direction amplitude max: exp(0) = 1.0
+FLOOR_LOG_STD_MIN = -5.0  # floor std min ≈ 0.007
+FLOOR_LOG_STD_MAX = -2.0  # floor std max ≈ 0.135
 
 
 @dataclass
@@ -152,154 +146,77 @@ class RMSNorm(nn.Module):
         return x / rms * self.weight
 
 
-class SigmaLinear(nn.Module):
-    """Linear layer with sigma-Reparam (Zhai et al., ICML 2023).
-
-    W_eff = (gamma / sigma_1(W)) * W
-    gamma is initialized to sigma_1(W_init) so W_eff = W_init at start.
-    Spectral norm is recomputed each forward via power iteration.
-    """
-    def __init__(self, in_features, out_features, bias=False, init_std=None):
-        super().__init__()
-        self.linear = nn.Linear(in_features, out_features, bias=bias)
-        if init_std is not None:
-            nn.init.normal_(self.linear.weight, std=init_std)
-        # Register spectral norm (uses power iteration, no SVD at runtime)
-        nn.utils.parametrizations.spectral_norm(self.linear)
-        # gamma initialized to preserve original weight matrix
-        with torch.no_grad():
-            sigma1 = torch.linalg.svdvals(self.linear.weight)[0].item()
-        self.gamma = nn.Parameter(torch.tensor(sigma1))
-
-    def forward(self, x):
-        return self.gamma * self.linear(x)
-
-
-class TransformerBlock(nn.Module):
-    """Pre-norm Transformer++ block with sigma-Reparam on all projections.
-
-    sigma-Reparam bounds the spectral norm of each linear layer via
-    W_eff = gamma * W/sigma_1(W), preventing unbounded growth of layer
-    sensitivity during PPO multi-epoch updates.
-    """
-    def __init__(self, d_token=32, n_heads=4, ffn_hidden=64):
-        super().__init__()
-        self.n_heads = n_heads
-        self.head_dim = d_token // n_heads  # 8
-
-        # Pre-norm for attention
-        self.attn_norm = RMSNorm(d_token)
-        self.qkv = SigmaLinear(d_token, 3 * d_token)
-        self.o_proj = SigmaLinear(d_token, d_token, init_std=0.02)
-
-        # QK-norm: stabilizes attention logits, critical for small head_dim
-        self.q_norm = RMSNorm(self.head_dim)
-        self.k_norm = RMSNorm(self.head_dim)
-
-        # Pre-norm for FFN
-        self.ffn_norm = RMSNorm(d_token)
-        self.ffn_gate_value = SigmaLinear(d_token, 2 * ffn_hidden)
-        self.ffn_out = SigmaLinear(ffn_hidden, d_token, init_std=0.02)
-
-    def forward(self, x):
-        # x: (batch, n_tokens, d_token)
-        B, T, D = x.shape
-
-        # --- Multi-head self-attention ---
-        h = self.attn_norm(x)
-        qkv = self.qkv(h).reshape(B, T, 3, self.n_heads, self.head_dim)
-        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, B, n_heads, T, head_dim)
-        q, k, v = qkv.unbind(0)
-        q, k = self.q_norm(q), self.k_norm(k)
-        with torch.amp.autocast('cuda', dtype=torch.bfloat16):
-            attn_out = F.scaled_dot_product_attention(q, k, v)  # (B, n_heads, T, head_dim)
-        attn_out = attn_out.to(x.dtype).transpose(1, 2).reshape(B, T, D)
-        x = x + self.o_proj(attn_out)
-
-        # --- SwiGLU FFN ---
-        h = self.ffn_norm(x)
-        gate_value = self.ffn_gate_value(h)  # (B, T, 2*ffn_hidden)
-        gate, value = gate_value.chunk(2, dim=-1)
-        h = F.silu(gate) * value
-        x = x + self.ffn_out(h)
-
-        return x
-
-
 class Agent(nn.Module):
     def __init__(self, envs, args):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         act_dim = np.prod(envs.single_action_space.shape)
         hidden_dim = 64
-        n_tokens = 8
-        d_token = 32
+        self.noise_rank = act_dim  # full rank for max expressiveness
 
-        # === Actor backbone: obs → transformer → hidden features ===
-        # Layer 1: initial projection (same as original)
+        # Actor backbone: obs -> hidden features
         self.actor_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
         self.actor_norm1 = RMSNorm(hidden_dim)
-        # Virtual tokenization
-        self.actor_tokenize = nn.Linear(hidden_dim, n_tokens * d_token)
-        # Transformer block
-        self.actor_transformer = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
-        # Aggregation: mean-pool → project back to hidden_dim
-        self.actor_agg = layer_init(nn.Linear(d_token, hidden_dim))
-        self.actor_agg_norm = RMSNorm(hidden_dim)
+        self.actor_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.actor_norm2 = RMSNorm(hidden_dim)
 
-        # Actor output head
+        # Mean head
         self.actor_out = layer_init(nn.Linear(hidden_dim, act_dim), std=1.0)
         self.mean_scale = nn.Parameter(torch.tensor(0.01))
 
-        # SDE noise with learned log_std_param (unchanged from lstd_linear_tanh)
-        self.sde_fc = layer_init(nn.Linear(hidden_dim, hidden_dim), std=1.0)
-        self.sde_norm = RMSNorm(hidden_dim)
-        self.sde_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim), std=1.0)
-        self.log_std_param = nn.Parameter(torch.zeros(hidden_dim, act_dim))
+        # Directional noise: learned basis + state-dependent amplitudes
+        # Basis: orthogonal directions in action space (diverse init)
+        basis = torch.empty(self.noise_rank, act_dim)
+        nn.init.orthogonal_(basis)
+        self.noise_basis = nn.Parameter(basis)
 
-        # === Critic backbone: same transformer architecture ===
+        # Per-direction amplitude head: sigmoid-gated from actor features
+        self.dir_head = layer_init(nn.Linear(hidden_dim, self.noise_rank), std=0.01)
+        nn.init.constant_(self.dir_head.bias, 0.0)
+
+        # State-dependent diagonal noise floor
+        self.floor_head = layer_init(nn.Linear(hidden_dim, act_dim), std=0.01)
+        nn.init.constant_(self.floor_head.bias, 0.0)
+
+        # Critic backbone (separate from actor)
         self.critic_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
         self.critic_norm1 = RMSNorm(hidden_dim)
-        self.critic_tokenize = nn.Linear(hidden_dim, n_tokens * d_token)
-        self.critic_transformer = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
-        self.critic_agg = layer_init(nn.Linear(d_token, hidden_dim))
-        self.critic_agg_norm = RMSNorm(hidden_dim)
+        self.critic_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.critic_norm2 = RMSNorm(hidden_dim)
 
         # Scalar value head
         self.value_out = layer_init(nn.Linear(hidden_dim, 1), std=1.0)
 
-        # Store dims for reshaping
-        self._n_tokens = n_tokens
-        self._d_token = d_token
-
     def _actor_features(self, x):
-        B = x.shape[0]
-        h = F.silu(self.actor_norm1(self.actor_fc1(x)))  # (B, 64)
-        tokens = self.actor_tokenize(h).reshape(B, self._n_tokens, self._d_token)  # (B, 8, 32)
-        tokens = self.actor_transformer(tokens)  # (B, 8, 32)
-        pooled = tokens.mean(dim=1)  # (B, 32)
-        h = F.silu(self.actor_agg_norm(self.actor_agg(pooled)))  # (B, 64)
+        h = F.silu(self.actor_norm1(self.actor_fc1(x)))
+        h = F.silu(self.actor_norm2(self.actor_fc2(h)))
         return h
 
-    def _get_action_std(self, h):
-        """State-dependent action std via RMSNorm→tanh SDE + learned log_std_param."""
-        sde_raw = self.sde_fc(h)
-        sde_latent = (self.sde_fc2(self.sde_norm(sde_raw)) / SDE_PRESCALE).tanh()
+    def _get_distribution(self, h, action_mean):
+        batch = h.shape[0]
+        act_dim = action_mean.shape[-1]
 
-        log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        std_sq = log_std.exp().pow(2)
+        # State-dependent per-direction log-amplitude via sigmoid gate
+        raw = self.dir_head(h)  # (batch, noise_rank)
+        log_amp = LOG_AMP_MIN + (LOG_AMP_MAX - LOG_AMP_MIN) * torch.sigmoid(raw)
+        amp = log_amp.exp()  # (batch, noise_rank)
 
-        action_var = (sde_latent.pow(2)) @ std_sq
-        action_std = (action_var + SDE_EPS).sqrt()
-        return action_std
+        # cov_factor: scale each basis direction by its state-dependent amplitude
+        # noise_basis.T: (act_dim, noise_rank)
+        # amp: (batch, noise_rank) -> (batch, 1, noise_rank)
+        cov_factor = self.noise_basis.T.unsqueeze(0) * amp.unsqueeze(1)
+        # shape: (batch, act_dim, noise_rank)
+
+        # State-dependent diagonal floor variance
+        floor_raw = self.floor_head(h)
+        floor_log_std = FLOOR_LOG_STD_MIN + (FLOOR_LOG_STD_MAX - FLOOR_LOG_STD_MIN) * torch.sigmoid(floor_raw)
+        cov_diag = floor_log_std.exp().square()
+
+        return LowRankMultivariateNormal(action_mean, cov_factor, cov_diag), log_amp
 
     def _critic_features(self, x):
-        B = x.shape[0]
         h = F.silu(self.critic_norm1(self.critic_fc1(x)))
-        tokens = self.critic_tokenize(h).reshape(B, self._n_tokens, self._d_token)
-        tokens = self.critic_transformer(tokens)
-        pooled = tokens.mean(dim=1)
-        h = F.silu(self.critic_agg_norm(self.critic_agg(pooled)))
+        h = F.silu(self.critic_norm2(self.critic_fc2(h)))
         return h
 
     def get_value(self, x):
@@ -307,16 +224,15 @@ class Agent(nn.Module):
         return self.value_out(h)
 
     def get_action_and_value(self, x, action=None):
-        # Actor
         h = self._actor_features(x)
         action_mean = self.actor_out(h) * self.mean_scale
-        action_std = self._get_action_std(h)
 
-        probs = Normal(action_mean, action_std)
+        dist, _ = self._get_distribution(h, action_mean)
         if action is None:
-            action = probs.sample()
+            action = dist.sample()
 
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.get_value(x)
+        # MVN log_prob and entropy are already summed over action dims
+        return action, dist.log_prob(action), dist.entropy(), self.get_value(x)
 
 
 if __name__ == "__main__":
@@ -504,10 +420,19 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        # lstd-specific metrics
-        log_std_eff = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        writer.add_scalar("tbot/log_std_mean", log_std_eff.mean().item(), global_step)
-        writer.add_scalar("tbot/log_std_std", log_std_eff.std().item(), global_step)
+        # Directional noise metrics
+        with torch.no_grad():
+            sample_h = agent._actor_features(b_obs[:256])
+            sample_mean = agent.actor_out(sample_h) * agent.mean_scale
+            _, sample_log_amp = agent._get_distribution(sample_h, sample_mean)
+            writer.add_scalar("noise/log_amp_mean", sample_log_amp.mean().item(), global_step)
+            writer.add_scalar("noise/log_amp_std", sample_log_amp.std().item(), global_step)
+            floor_sample = FLOOR_LOG_STD_MIN + (FLOOR_LOG_STD_MAX - FLOOR_LOG_STD_MIN) * torch.sigmoid(agent.floor_head(sample_h))
+            writer.add_scalar("noise/floor_log_std_mean", floor_sample.mean().item(), global_step)
+            writer.add_scalar("noise/floor_log_std_std", floor_sample.std().item(), global_step)
+            # Basis norm: how large are the learned directions
+            basis_norms = agent.noise_basis.norm(dim=-1)
+            writer.add_scalar("noise/basis_norm_mean", basis_norms.mean().item(), global_step)
         writer.add_scalar("tbot/mean_scale", agent.mean_scale.item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)

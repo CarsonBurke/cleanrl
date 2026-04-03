@@ -1,25 +1,18 @@
-"""PPO with Transformer++ Backbone — Ablation of lstd_linear_tanh
+"""LSTD + SPO with adaptive ε via policy loss feedback
 
-Fork of lstd_linear_tanh replacing the 2-layer MLP backbone (for both actor
-and critic) with a single Transformer++ block over virtual tokens.
+Ablation: instead of dual descent / targets, ε adapts based on whether the
+policy loss improves or degrades across the K update epochs.
 
-Architecture:
-1. Initial projection: Linear(obs_dim, 64) → RMSNorm → SiLU  (same as original layer 1)
-2. Virtual tokenization: Linear(64, 8*32) → reshape to (batch, 8, 32)
-   8 virtual tokens, each 32-dim — learned projections of the hidden state
-3. 1x Transformer++ block:
-   - Pre-norm RMSNorm → MHSA (4 heads, head_dim=8) via F.scaled_dot_product_attention
-   - Residual
-   - Pre-norm RMSNorm → SwiGLU FFN (intermediate=64, gated to 32)
-   - Residual
-4. Aggregation: mean-pool tokens → Linear(32, 64) → RMSNorm → SiLU → h (batch, 64)
+After each iteration's K epochs:
+- If pg_loss improved (decreased): trust region was appropriate → slowly grow ε
+- If pg_loss degraded (increased): overshooting → shrink ε
 
-Everything else (SDE noise path, training loop, hyperparameters) is identical
-to lstd_linear_tanh.
+This is analogous to TRPO's line search — adapt the trust region size based on
+actual optimization quality, not ratio statistics. No target, no dual descent,
+no separate optimizer.
 
-Hypothesis: self-attention over virtual tokens can learn richer feature
-interactions than stacked linear layers, improving representation quality
-for both policy and value estimation.
+eps_high and eps_low are updated independently based on their contribution to
+the policy loss change.
 """
 import os
 import random
@@ -93,9 +86,17 @@ class Args:
     norm_adv: bool = True
     """Toggles advantages normalization"""
     clip_coef_low: float = 0.2
-    """the lower surrogate clipping coefficient (ratio floor = 1 - this)"""
+    """initial SPO ε for negative advantages; also used for value loss clipping"""
     clip_coef_high: float = 0.28
-    """the upper surrogate clipping coefficient (ratio ceiling = 1 + this)"""
+    """initial SPO ε for positive advantages; also used for value loss clipping"""
+    eps_grow: float = 0.01
+    """log_eps increment when policy loss improves"""
+    eps_shrink: float = 0.05
+    """log_eps decrement when policy loss degrades (asymmetric: shrink faster than grow)"""
+    eps_min: float = 0.05
+    """minimum ε (prevents collapse)"""
+    eps_max: float = 5.0
+    """maximum ε (prevents unbounded growth)"""
     ent_coef: float = 0.0
     """coefficient of the entropy"""
     vf_coef: float = 0.5
@@ -152,154 +153,64 @@ class RMSNorm(nn.Module):
         return x / rms * self.weight
 
 
-class SigmaLinear(nn.Module):
-    """Linear layer with sigma-Reparam (Zhai et al., ICML 2023).
-
-    W_eff = (gamma / sigma_1(W)) * W
-    gamma is initialized to sigma_1(W_init) so W_eff = W_init at start.
-    Spectral norm is recomputed each forward via power iteration.
-    """
-    def __init__(self, in_features, out_features, bias=False, init_std=None):
-        super().__init__()
-        self.linear = nn.Linear(in_features, out_features, bias=bias)
-        if init_std is not None:
-            nn.init.normal_(self.linear.weight, std=init_std)
-        # Register spectral norm (uses power iteration, no SVD at runtime)
-        nn.utils.parametrizations.spectral_norm(self.linear)
-        # gamma initialized to preserve original weight matrix
-        with torch.no_grad():
-            sigma1 = torch.linalg.svdvals(self.linear.weight)[0].item()
-        self.gamma = nn.Parameter(torch.tensor(sigma1))
-
-    def forward(self, x):
-        return self.gamma * self.linear(x)
-
-
-class TransformerBlock(nn.Module):
-    """Pre-norm Transformer++ block with sigma-Reparam on all projections.
-
-    sigma-Reparam bounds the spectral norm of each linear layer via
-    W_eff = gamma * W/sigma_1(W), preventing unbounded growth of layer
-    sensitivity during PPO multi-epoch updates.
-    """
-    def __init__(self, d_token=32, n_heads=4, ffn_hidden=64):
-        super().__init__()
-        self.n_heads = n_heads
-        self.head_dim = d_token // n_heads  # 8
-
-        # Pre-norm for attention
-        self.attn_norm = RMSNorm(d_token)
-        self.qkv = SigmaLinear(d_token, 3 * d_token)
-        self.o_proj = SigmaLinear(d_token, d_token, init_std=0.02)
-
-        # QK-norm: stabilizes attention logits, critical for small head_dim
-        self.q_norm = RMSNorm(self.head_dim)
-        self.k_norm = RMSNorm(self.head_dim)
-
-        # Pre-norm for FFN
-        self.ffn_norm = RMSNorm(d_token)
-        self.ffn_gate_value = SigmaLinear(d_token, 2 * ffn_hidden)
-        self.ffn_out = SigmaLinear(ffn_hidden, d_token, init_std=0.02)
-
-    def forward(self, x):
-        # x: (batch, n_tokens, d_token)
-        B, T, D = x.shape
-
-        # --- Multi-head self-attention ---
-        h = self.attn_norm(x)
-        qkv = self.qkv(h).reshape(B, T, 3, self.n_heads, self.head_dim)
-        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, B, n_heads, T, head_dim)
-        q, k, v = qkv.unbind(0)
-        q, k = self.q_norm(q), self.k_norm(k)
-        with torch.amp.autocast('cuda', dtype=torch.bfloat16):
-            attn_out = F.scaled_dot_product_attention(q, k, v)  # (B, n_heads, T, head_dim)
-        attn_out = attn_out.to(x.dtype).transpose(1, 2).reshape(B, T, D)
-        x = x + self.o_proj(attn_out)
-
-        # --- SwiGLU FFN ---
-        h = self.ffn_norm(x)
-        gate_value = self.ffn_gate_value(h)  # (B, T, 2*ffn_hidden)
-        gate, value = gate_value.chunk(2, dim=-1)
-        h = F.silu(gate) * value
-        x = x + self.ffn_out(h)
-
-        return x
-
-
 class Agent(nn.Module):
     def __init__(self, envs, args):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         act_dim = np.prod(envs.single_action_space.shape)
         hidden_dim = 64
-        n_tokens = 8
-        d_token = 32
 
-        # === Actor backbone: obs → transformer → hidden features ===
-        # Layer 1: initial projection (same as original)
+        # Actor backbone: obs -> hidden features
         self.actor_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
         self.actor_norm1 = RMSNorm(hidden_dim)
-        # Virtual tokenization
-        self.actor_tokenize = nn.Linear(hidden_dim, n_tokens * d_token)
-        # Transformer block
-        self.actor_transformer = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
-        # Aggregation: mean-pool → project back to hidden_dim
-        self.actor_agg = layer_init(nn.Linear(d_token, hidden_dim))
-        self.actor_agg_norm = RMSNorm(hidden_dim)
+        self.actor_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.actor_norm2 = RMSNorm(hidden_dim)
 
-        # Actor output head
+        # Actor output head -- init std=1.0 so weights are meaningful for noise modulation
         self.actor_out = layer_init(nn.Linear(hidden_dim, act_dim), std=1.0)
+        # Separate learnable scale for the mean (starts small -> near-zero initial actions)
         self.mean_scale = nn.Parameter(torch.tensor(0.01))
 
-        # SDE noise with learned log_std_param (unchanged from lstd_linear_tanh)
+        # SDE noise with learned log_std_param (trading bot approach)
         self.sde_fc = layer_init(nn.Linear(hidden_dim, hidden_dim), std=1.0)
         self.sde_norm = RMSNorm(hidden_dim)
         self.sde_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim), std=1.0)
+        # Learned per-element noise magnitude: log_std = (param + LOG_STD_INIT).clamp(min, max)
         self.log_std_param = nn.Parameter(torch.zeros(hidden_dim, act_dim))
 
-        # === Critic backbone: same transformer architecture ===
+
+        # Critic backbone (separate from actor)
         self.critic_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
         self.critic_norm1 = RMSNorm(hidden_dim)
-        self.critic_tokenize = nn.Linear(hidden_dim, n_tokens * d_token)
-        self.critic_transformer = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
-        self.critic_agg = layer_init(nn.Linear(d_token, hidden_dim))
-        self.critic_agg_norm = RMSNorm(hidden_dim)
+        self.critic_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.critic_norm2 = RMSNorm(hidden_dim)
 
         # Scalar value head
         self.value_out = layer_init(nn.Linear(hidden_dim, 1), std=1.0)
 
-        # Store dims for reshaping
-        self._n_tokens = n_tokens
-        self._d_token = d_token
-
     def _actor_features(self, x):
-        B = x.shape[0]
-        h = F.silu(self.actor_norm1(self.actor_fc1(x)))  # (B, 64)
-        tokens = self.actor_tokenize(h).reshape(B, self._n_tokens, self._d_token)  # (B, 8, 32)
-        tokens = self.actor_transformer(tokens)  # (B, 8, 32)
-        pooled = tokens.mean(dim=1)  # (B, 32)
-        h = F.silu(self.actor_agg_norm(self.actor_agg(pooled)))  # (B, 64)
+        h = F.silu(self.actor_norm1(self.actor_fc1(x)))
+        h = F.silu(self.actor_norm2(self.actor_fc2(h)))
         return h
 
     def _get_action_std(self, h):
         """State-dependent action std via RMSNorm→tanh SDE + learned log_std_param."""
-        sde_raw = self.sde_fc(h)
-        sde_latent = (self.sde_fc2(self.sde_norm(sde_raw)) / SDE_PRESCALE).tanh()
+        sde_raw = self.sde_fc(h)  # (batch, hidden_dim)
+        # RMSNorm → linear → tanh: extra linear gives learned pre-tanh transform
+        sde_latent = (self.sde_fc2(self.sde_norm(sde_raw)) / SDE_PRESCALE).tanh()  # (batch, hidden_dim)
 
+        # Learned per-element log-std with offset initialization and clamping
         log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        std_sq = log_std.exp().pow(2)
+        std_sq = log_std.exp().pow(2)  # (hidden_dim, act_dim)
 
-        action_var = (sde_latent.pow(2)) @ std_sq
+        # SDE variance: sum over hidden dim of (latent^2 * std^2)
+        action_var = (sde_latent.pow(2)) @ std_sq  # (batch, act_dim)
         action_std = (action_var + SDE_EPS).sqrt()
         return action_std
 
     def _critic_features(self, x):
-        B = x.shape[0]
         h = F.silu(self.critic_norm1(self.critic_fc1(x)))
-        tokens = self.critic_tokenize(h).reshape(B, self._n_tokens, self._d_token)
-        tokens = self.critic_transformer(tokens)
-        pooled = tokens.mean(dim=1)
-        h = F.silu(self.critic_agg_norm(self.critic_agg(pooled)))
+        h = F.silu(self.critic_norm2(self.critic_fc2(h)))
         return h
 
     def get_value(self, x):
@@ -359,6 +270,10 @@ if __name__ == "__main__":
 
     agent = Agent(envs, args).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+
+    # Adaptive ε — adjusted per iteration based on policy loss trajectory
+    log_eps_high = np.log(args.clip_coef_high)
+    log_eps_low = np.log(args.clip_coef_low)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
@@ -434,8 +349,17 @@ if __name__ == "__main__":
         # Optimizing the policy and value network
         b_inds = np.arange(args.batch_size)
         clipfracs = []
+        spo_penalty_sum = 0.0
+        eps_high = np.clip(np.exp(log_eps_high), args.eps_min, args.eps_max)
+        eps_low = np.clip(np.exp(log_eps_low), args.eps_min, args.eps_max)
+        eps_high_t = torch.tensor(eps_high, dtype=torch.float32, device=device)
+        eps_low_t = torch.tensor(eps_low, dtype=torch.float32, device=device)
+        pg_loss_epoch0 = None  # track first epoch's pg_loss
+        pg_loss_epochK = None  # track last epoch's pg_loss
         for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
+            epoch_pg_loss = 0.0
+            n_mb = 0
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
@@ -450,7 +374,7 @@ if __name__ == "__main__":
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
                     clipfracs += [
-                        ((ratio < (1 - args.clip_coef_low)) | (ratio > (1 + args.clip_coef_high)))
+                        ((ratio < (1 - eps_low)) | (ratio > (1 + eps_high)))
                         .float()
                         .mean()
                         .item()
@@ -460,10 +384,17 @@ if __name__ == "__main__":
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
-                # Policy loss
-                pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef_low, 1 + args.clip_coef_high)
-                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+                # SPO with fixed eps for this iteration (adapted between iterations)
+                eps = torch.where(mb_advantages >= 0, eps_high_t, eps_low_t)
+
+                spo_surrogate = ratio * mb_advantages
+                spo_penalty = torch.abs(mb_advantages) / (2 * eps) * (ratio - 1).pow(2)
+                pg_loss = -(spo_surrogate - spo_penalty).mean()
+
+                with torch.no_grad():
+                    spo_penalty_sum += spo_penalty.mean().item()
+                    epoch_pg_loss += pg_loss.item()
+                    n_mb += 1
 
                 # Value loss
                 newvalue = newvalue.view(-1)
@@ -488,14 +419,32 @@ if __name__ == "__main__":
                 nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
 
+            # Track pg_loss at first and last epoch
+            avg_epoch_pg = epoch_pg_loss / max(n_mb, 1)
+            if epoch == 0:
+                pg_loss_epoch0 = avg_epoch_pg
+            pg_loss_epochK = avg_epoch_pg
+
             if args.target_kl is not None and approx_kl > args.target_kl:
                 break
+
+        # Adaptive eps: compare policy loss at epoch 0 vs epoch K
+        # If loss improved (decreased): grow eps (allow more)
+        # If loss degraded (increased): shrink eps (constrain more)
+        pg_improved = pg_loss_epochK < pg_loss_epoch0
+        if pg_improved:
+            log_eps_high += args.eps_grow
+            log_eps_low += args.eps_grow
+        else:
+            log_eps_high -= args.eps_shrink
+            log_eps_low -= args.eps_shrink
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-        # TRY NOT TO MODIFY: record rewards for plotting purposes
+        n_updates = args.update_epochs * (args.batch_size // args.minibatch_size)
+
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
@@ -504,6 +453,13 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        # SPO adaptive eps metrics
+        writer.add_scalar("spo/eps_high", np.clip(np.exp(log_eps_high), args.eps_min, args.eps_max), global_step)
+        writer.add_scalar("spo/eps_low", np.clip(np.exp(log_eps_low), args.eps_min, args.eps_max), global_step)
+        writer.add_scalar("spo/penalty_mean", spo_penalty_sum / max(n_updates, 1), global_step)
+        writer.add_scalar("spo/pg_loss_epoch0", pg_loss_epoch0, global_step)
+        writer.add_scalar("spo/pg_loss_epochK", pg_loss_epochK, global_step)
+        writer.add_scalar("spo/pg_improved", float(pg_improved), global_step)
         # lstd-specific metrics
         log_std_eff = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
         writer.add_scalar("tbot/log_std_mean", log_std_eff.mean().item(), global_step)

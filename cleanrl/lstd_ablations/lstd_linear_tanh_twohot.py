@@ -1,26 +1,28 @@
-"""PPO with Transformer++ Backbone — Ablation of lstd_linear_tanh
+"""LSTD linear-tanh SDE + DreamerV3-style twohot distributional critic + slow EMA target
 
-Fork of lstd_linear_tanh replacing the 2-layer MLP backbone (for both actor
-and critic) with a single Transformer++ block over virtual tokens.
+Fork of lstd_linear_tanh with three additions:
 
-Architecture:
-1. Initial projection: Linear(obs_dim, 64) → RMSNorm → SiLU  (same as original layer 1)
-2. Virtual tokenization: Linear(64, 8*32) → reshape to (batch, 8, 32)
-   8 virtual tokens, each 32-dim — learned projections of the hidden state
-3. 1x Transformer++ block:
-   - Pre-norm RMSNorm → MHSA (4 heads, head_dim=8) via F.scaled_dot_product_attention
-   - Residual
-   - Pre-norm RMSNorm → SwiGLU FFN (intermediate=64, gated to 32)
-   - Residual
-4. Aggregation: mean-pool tokens → Linear(32, 64) → RMSNorm → SiLU → h (batch, 64)
+1. **Symexp-twohot distributional critic**: Critic outputs logits over symexp-spaced
+   bins. Value loss is cross-entropy on two-hot encoded returns (not MSE).
+   Prediction: softmax-weighted sum over bin centres. Bin range is tight (5.0)
+   because NormalizeReward + clip(-10,10) keeps returns well within symexp(3)≈19.
+   Tight range packs ~80% of bins into the ±10 region where returns actually live.
 
-Everything else (SDE noise path, training loop, hyperparameters) is identical
-to lstd_linear_tanh.
+2. **No value loss clipping**: Twohot CE is a proper distribution-matching loss that
+   doesn't benefit from clipping. clip_vloss is removed entirely.
 
-Hypothesis: self-attention over virtual tokens can learn richer feature
-interactions than stacked linear layers, improving representation quality
-for both policy and value estimation.
+3. **Slow EMA target critic**: A frozen copy of the critic updated via exponential
+   moving average after each PPO iteration. The EMA critic provides the value
+   estimates used during rollouts and GAE bootstrap, giving stabler advantage
+   estimates. The fast critic is trained via twohot CE but its values are never
+   used for GAE. EMA decay defaults to 0.98 (DreamerV3 default).
+
+Retains from lstd_linear_tanh:
+- Shared actor_out.weight W for mean projection AND noise modulation
+- RMSNorm → tanh SDE latent with learned per-element log_std_param
+- Asymmetric PPO clipping, RMSNorm + SiLU backbone, mean_scale decoupling
 """
+import copy
 import os
 import random
 import time
@@ -37,11 +39,87 @@ from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
 
+# ---------------------------------------------------------------------------
+# DreamerV3 primitives
+# ---------------------------------------------------------------------------
+
+def symlog(x: torch.Tensor) -> torch.Tensor:
+    return torch.sign(x) * torch.log1p(torch.abs(x))
+
+
+def symexp(x: torch.Tensor) -> torch.Tensor:
+    return torch.sign(x) * torch.expm1(torch.abs(x))
+
+
+def build_symexp_bins(num_bins: int, bin_range: float = 3.0) -> torch.Tensor:
+    """Symmetric bin centres in symexp-space.
+
+    bin_range=3.0 → max ≈ ±19, dense resolution for normalized-reward envs.
+    """
+    if num_bins % 2 == 1:
+        half = torch.linspace(-bin_range, 0.0, (num_bins - 1) // 2 + 1)
+        half = symexp(half)
+        bins = torch.cat([half, -half[:-1].flip(0)])
+    else:
+        half = torch.linspace(-bin_range, 0.0, num_bins // 2)
+        half = symexp(half)
+        bins = torch.cat([half, -half.flip(0)])
+    return bins
+
+
+def twohot_encode(x: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
+    x = x.unsqueeze(-1)
+    below = (bins <= x).long().sum(-1) - 1
+    below = below.clamp(0, len(bins) - 1)
+    above = (below + 1).clamp(0, len(bins) - 1)
+    equal = (below == above)
+    dist_below = torch.where(equal, torch.ones_like(x.squeeze(-1)),
+                             torch.abs(bins[below] - x.squeeze(-1)))
+    dist_above = torch.where(equal, torch.ones_like(x.squeeze(-1)),
+                             torch.abs(bins[above] - x.squeeze(-1)))
+    total = dist_below + dist_above
+    weight_below = dist_above / total
+    weight_above = dist_below / total
+    target = (F.one_hot(below, len(bins)).float() * weight_below.unsqueeze(-1)
+              + F.one_hot(above, len(bins)).float() * weight_above.unsqueeze(-1))
+    return target
+
+
+def twohot_predict(logits: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
+    """Symmetric weighted sum — cancels FP error so uniform logits → exact zero."""
+    probs = torch.softmax(logits, dim=-1)
+    n = probs.shape[-1]
+    if n % 2 == 1:
+        m = (n - 1) // 2
+        p1 = probs[..., :m]
+        p2 = probs[..., m : m + 1]
+        p3 = probs[..., m + 1 :]
+        b1 = bins[:m]
+        b2 = bins[m : m + 1]
+        b3 = bins[m + 1 :]
+        return (p2 * b2).sum(-1) + ((p1 * b1).flip(-1) + (p3 * b3)).sum(-1)
+    else:
+        p1 = probs[..., : n // 2]
+        p2 = probs[..., n // 2 :]
+        b1 = bins[: n // 2]
+        b2 = bins[n // 2 :]
+        return ((p1 * b1).flip(-1) + (p2 * b2)).sum(-1)
+
+
+def twohot_loss(logits: torch.Tensor, target_twohot: torch.Tensor) -> torch.Tensor:
+    log_probs = logits - torch.logsumexp(logits, dim=-1, keepdim=True)
+    return -(target_twohot * log_probs).sum(-1)
+
+
+# ---------------------------------------------------------------------------
+# Args & env helpers
+# ---------------------------------------------------------------------------
+
 LOG_STD_INIT = -2.0
 LOG_STD_MIN = -3.0
 LOG_STD_MAX = -0.5
 SDE_EPS = 1e-6
-SDE_PRESCALE = 1.5  # divisor before tanh, controls saturation
+SDE_PRESCALE = 1.5
 
 
 @dataclass
@@ -104,8 +182,14 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
-    clip_vloss: bool = True
-    """Toggles whether or not to use a clipped loss for the value function"""
+
+    # Twohot critic arguments
+    num_bins: int = 255
+    """number of bins for symexp-twohot value head"""
+    bin_range: float = 3.0
+    """symlog-space range for bins; 3.0 → max ≈ ±19, dense where normalized returns live"""
+    critic_ema_decay: float = 0.98
+    """EMA decay for slow target critic (DreamerV3 default)"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -152,79 +236,9 @@ class RMSNorm(nn.Module):
         return x / rms * self.weight
 
 
-class SigmaLinear(nn.Module):
-    """Linear layer with sigma-Reparam (Zhai et al., ICML 2023).
-
-    W_eff = (gamma / sigma_1(W)) * W
-    gamma is initialized to sigma_1(W_init) so W_eff = W_init at start.
-    Spectral norm is recomputed each forward via power iteration.
-    """
-    def __init__(self, in_features, out_features, bias=False, init_std=None):
-        super().__init__()
-        self.linear = nn.Linear(in_features, out_features, bias=bias)
-        if init_std is not None:
-            nn.init.normal_(self.linear.weight, std=init_std)
-        # Register spectral norm (uses power iteration, no SVD at runtime)
-        nn.utils.parametrizations.spectral_norm(self.linear)
-        # gamma initialized to preserve original weight matrix
-        with torch.no_grad():
-            sigma1 = torch.linalg.svdvals(self.linear.weight)[0].item()
-        self.gamma = nn.Parameter(torch.tensor(sigma1))
-
-    def forward(self, x):
-        return self.gamma * self.linear(x)
-
-
-class TransformerBlock(nn.Module):
-    """Pre-norm Transformer++ block with sigma-Reparam on all projections.
-
-    sigma-Reparam bounds the spectral norm of each linear layer via
-    W_eff = gamma * W/sigma_1(W), preventing unbounded growth of layer
-    sensitivity during PPO multi-epoch updates.
-    """
-    def __init__(self, d_token=32, n_heads=4, ffn_hidden=64):
-        super().__init__()
-        self.n_heads = n_heads
-        self.head_dim = d_token // n_heads  # 8
-
-        # Pre-norm for attention
-        self.attn_norm = RMSNorm(d_token)
-        self.qkv = SigmaLinear(d_token, 3 * d_token)
-        self.o_proj = SigmaLinear(d_token, d_token, init_std=0.02)
-
-        # QK-norm: stabilizes attention logits, critical for small head_dim
-        self.q_norm = RMSNorm(self.head_dim)
-        self.k_norm = RMSNorm(self.head_dim)
-
-        # Pre-norm for FFN
-        self.ffn_norm = RMSNorm(d_token)
-        self.ffn_gate_value = SigmaLinear(d_token, 2 * ffn_hidden)
-        self.ffn_out = SigmaLinear(ffn_hidden, d_token, init_std=0.02)
-
-    def forward(self, x):
-        # x: (batch, n_tokens, d_token)
-        B, T, D = x.shape
-
-        # --- Multi-head self-attention ---
-        h = self.attn_norm(x)
-        qkv = self.qkv(h).reshape(B, T, 3, self.n_heads, self.head_dim)
-        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, B, n_heads, T, head_dim)
-        q, k, v = qkv.unbind(0)
-        q, k = self.q_norm(q), self.k_norm(k)
-        with torch.amp.autocast('cuda', dtype=torch.bfloat16):
-            attn_out = F.scaled_dot_product_attention(q, k, v)  # (B, n_heads, T, head_dim)
-        attn_out = attn_out.to(x.dtype).transpose(1, 2).reshape(B, T, D)
-        x = x + self.o_proj(attn_out)
-
-        # --- SwiGLU FFN ---
-        h = self.ffn_norm(x)
-        gate_value = self.ffn_gate_value(h)  # (B, T, 2*ffn_hidden)
-        gate, value = gate_value.chunk(2, dim=-1)
-        h = F.silu(gate) * value
-        x = x + self.ffn_out(h)
-
-        return x
-
+# ---------------------------------------------------------------------------
+# Agent
+# ---------------------------------------------------------------------------
 
 class Agent(nn.Module):
     def __init__(self, envs, args):
@@ -232,53 +246,45 @@ class Agent(nn.Module):
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         act_dim = np.prod(envs.single_action_space.shape)
         hidden_dim = 64
-        n_tokens = 8
-        d_token = 32
 
-        # === Actor backbone: obs → transformer → hidden features ===
-        # Layer 1: initial projection (same as original)
+        # Actor backbone: obs -> hidden features
         self.actor_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
         self.actor_norm1 = RMSNorm(hidden_dim)
-        # Virtual tokenization
-        self.actor_tokenize = nn.Linear(hidden_dim, n_tokens * d_token)
-        # Transformer block
-        self.actor_transformer = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
-        # Aggregation: mean-pool → project back to hidden_dim
-        self.actor_agg = layer_init(nn.Linear(d_token, hidden_dim))
-        self.actor_agg_norm = RMSNorm(hidden_dim)
+        self.actor_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.actor_norm2 = RMSNorm(hidden_dim)
 
-        # Actor output head
+        # Actor output head -- init std=1.0 so weights are meaningful for noise modulation
         self.actor_out = layer_init(nn.Linear(hidden_dim, act_dim), std=1.0)
         self.mean_scale = nn.Parameter(torch.tensor(0.01))
 
-        # SDE noise with learned log_std_param (unchanged from lstd_linear_tanh)
+        # SDE noise with learned log_std_param
         self.sde_fc = layer_init(nn.Linear(hidden_dim, hidden_dim), std=1.0)
         self.sde_norm = RMSNorm(hidden_dim)
         self.sde_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim), std=1.0)
         self.log_std_param = nn.Parameter(torch.zeros(hidden_dim, act_dim))
 
-        # === Critic backbone: same transformer architecture ===
-        self.critic_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
-        self.critic_norm1 = RMSNorm(hidden_dim)
-        self.critic_tokenize = nn.Linear(hidden_dim, n_tokens * d_token)
-        self.critic_transformer = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
-        self.critic_agg = layer_init(nn.Linear(d_token, hidden_dim))
-        self.critic_agg_norm = RMSNorm(hidden_dim)
+        # Fast critic: twohot distributional value head
+        self.critic = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, hidden_dim)),
+            RMSNorm(hidden_dim),
+            nn.SiLU(),
+            layer_init(nn.Linear(hidden_dim, hidden_dim)),
+            RMSNorm(hidden_dim),
+            nn.SiLU(),
+            layer_init(nn.Linear(hidden_dim, args.num_bins), std=0.01),
+        )
 
-        # Scalar value head
-        self.value_out = layer_init(nn.Linear(hidden_dim, 1), std=1.0)
+        # Symexp bin centres (shared between fast and EMA critics)
+        self.register_buffer("bins", build_symexp_bins(args.num_bins, args.bin_range))
 
-        # Store dims for reshaping
-        self._n_tokens = n_tokens
-        self._d_token = d_token
+        # Slow EMA target critic — frozen copy, updated via EMA after each iteration
+        self.critic_ema = copy.deepcopy(self.critic)
+        for p in self.critic_ema.parameters():
+            p.requires_grad = False
 
     def _actor_features(self, x):
-        B = x.shape[0]
-        h = F.silu(self.actor_norm1(self.actor_fc1(x)))  # (B, 64)
-        tokens = self.actor_tokenize(h).reshape(B, self._n_tokens, self._d_token)  # (B, 8, 32)
-        tokens = self.actor_transformer(tokens)  # (B, 8, 32)
-        pooled = tokens.mean(dim=1)  # (B, 32)
-        h = F.silu(self.actor_agg_norm(self.actor_agg(pooled)))  # (B, 64)
+        h = F.silu(self.actor_norm1(self.actor_fc1(x)))
+        h = F.silu(self.actor_norm2(self.actor_fc2(h)))
         return h
 
     def _get_action_std(self, h):
@@ -293,21 +299,23 @@ class Agent(nn.Module):
         action_std = (action_var + SDE_EPS).sqrt()
         return action_std
 
-    def _critic_features(self, x):
-        B = x.shape[0]
-        h = F.silu(self.critic_norm1(self.critic_fc1(x)))
-        tokens = self.critic_tokenize(h).reshape(B, self._n_tokens, self._d_token)
-        tokens = self.critic_transformer(tokens)
-        pooled = tokens.mean(dim=1)
-        h = F.silu(self.critic_agg_norm(self.critic_agg(pooled)))
-        return h
+    @torch.no_grad()
+    def update_critic_ema(self, decay: float):
+        """Polyak-average fast critic → slow EMA critic."""
+        for p_fast, p_slow in zip(self.critic.parameters(), self.critic_ema.parameters()):
+            p_slow.data.lerp_(p_fast.data, 1.0 - decay)
 
     def get_value(self, x):
-        h = self._critic_features(x)
-        return self.value_out(h)
+        """EMA critic value — used for rollout bootstrapping (stable targets)."""
+        logits = self.critic_ema(x)
+        return twohot_predict(logits, self.bins)
 
     def get_action_and_value(self, x, action=None):
-        # Actor
+        """Returns (action, log_prob, entropy, ema_value, fast_logits).
+
+        ema_value: from the slow EMA critic (for GAE / value storage).
+        fast_logits: from the trainable critic (for twohot CE loss).
+        """
         h = self._actor_features(x)
         action_mean = self.actor_out(h) * self.mean_scale
         action_std = self._get_action_std(h)
@@ -316,8 +324,19 @@ class Agent(nn.Module):
         if action is None:
             action = probs.sample()
 
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.get_value(x)
+        # EMA value — no grad even during training (frozen params)
+        ema_logits = self.critic_ema(x)
+        value = twohot_predict(ema_logits, self.bins)
 
+        # Fast critic logits — has grad, used for CE loss during training
+        value_logits = self.critic(x)
+
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), value, value_logits
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
@@ -387,9 +406,9 @@ if __name__ == "__main__":
             obs[step] = next_obs
             dones[step] = next_done
 
-            # ALGO LOGIC: action logic
+            # ALGO LOGIC: action logic — values from EMA critic for stable GAE
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                action, logprob, _, value, _ = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -407,7 +426,7 @@ if __name__ == "__main__":
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
-        # bootstrap value if not done
+        # bootstrap value if not done — EMA critic for stable bootstrap
         with torch.no_grad():
             next_value = agent.get_value(next_obs).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
@@ -440,7 +459,7 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(
+                _, newlogprob, entropy, _, newvalue_logits = agent.get_action_and_value(
                     b_obs[mb_inds], b_actions[mb_inds]
                 )
                 logratio = newlogprob - b_logprobs[mb_inds]
@@ -465,20 +484,10 @@ if __name__ == "__main__":
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef_low, 1 + args.clip_coef_high)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
-                newvalue = newvalue.view(-1)
-                if args.clip_vloss:
-                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
-                    v_clipped = b_values[mb_inds] + torch.clamp(
-                        newvalue - b_values[mb_inds],
-                        -args.clip_coef_low,
-                        args.clip_coef_high,
-                    )
-                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
-                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
-                else:
-                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+                # Value loss: twohot cross-entropy (no clipping)
+                mb_returns = b_returns[mb_inds]
+                target_twohot = twohot_encode(mb_returns, agent.bins)
+                v_loss = twohot_loss(newvalue_logits, target_twohot).mean()
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
@@ -490,6 +499,9 @@ if __name__ == "__main__":
 
             if args.target_kl is not None and approx_kl > args.target_kl:
                 break
+
+        # Update slow EMA critic after each PPO iteration
+        agent.update_critic_ema(args.critic_ema_decay)
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)

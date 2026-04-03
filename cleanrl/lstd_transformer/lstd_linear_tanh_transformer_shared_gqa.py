@@ -1,25 +1,15 @@
-"""PPO with Transformer++ Backbone — Ablation of lstd_linear_tanh
+"""Shared transformer backbone with GQA — v2 with modern stabilization.
 
-Fork of lstd_linear_tanh replacing the 2-layer MLP backbone (for both actor
-and critic) with a single Transformer++ block over virtual tokens.
+v1 got ~4300 on HalfCheetah vs ~5000 for MLP. Diagnosis: head_dim=8 is tiny,
+attention logits can explode; pre-norm in shallow nets causes rank collapse;
+additive pos embeddings are weak.
 
-Architecture:
-1. Initial projection: Linear(obs_dim, 64) → RMSNorm → SiLU  (same as original layer 1)
-2. Virtual tokenization: Linear(64, 8*32) → reshape to (batch, 8, 32)
-   8 virtual tokens, each 32-dim — learned projections of the hidden state
-3. 1x Transformer++ block:
-   - Pre-norm RMSNorm → MHSA (4 heads, head_dim=8) via F.scaled_dot_product_attention
-   - Residual
-   - Pre-norm RMSNorm → SwiGLU FFN (intermediate=64, gated to 32)
-   - Residual
-4. Aggregation: mean-pool tokens → Linear(32, 64) → RMSNorm → SiLU → h (batch, 64)
-
-Everything else (SDE noise path, training loop, hyperparameters) is identical
-to lstd_linear_tanh.
-
-Hypothesis: self-attention over virtual tokens can learn richer feature
-interactions than stacked linear layers, improving representation quality
-for both policy and value estimation.
+v2 fixes:
+1. QK-norm: RMSNorm on Q and K before attention — critical for head_dim=8
+2. Post-norm: norm AFTER residual addition — better gradient flow in shallow nets
+3. Hypersphere: L2-normalize pooled features before heads — prevents magnitude drift
+4. RoPE: rotary position embeddings instead of learned additive — better token ordering
+5. Learnable residual scale: α * residual + (1-α) * branch — smooth interpolation
 """
 import os
 import random
@@ -41,7 +31,13 @@ LOG_STD_INIT = -2.0
 LOG_STD_MIN = -3.0
 LOG_STD_MAX = -0.5
 SDE_EPS = 1e-6
-SDE_PRESCALE = 1.5  # divisor before tanh, controls saturation
+SDE_PRESCALE = 1.5
+
+NUM_TOKENS = 4
+TOKEN_DIM = 32  # output feature dim after pooling
+NUM_Q_HEADS = 4
+NUM_KV_HEADS = 2  # GQA: 2 KV groups for 4 Q heads
+FFN_MULT = 2
 
 
 @dataclass
@@ -152,76 +148,115 @@ class RMSNorm(nn.Module):
         return x / rms * self.weight
 
 
-class SigmaLinear(nn.Module):
-    """Linear layer with sigma-Reparam (Zhai et al., ICML 2023).
+def _build_rope_cache(seq_len, head_dim, device):
+    """Precompute RoPE sin/cos for given sequence length and head dim."""
+    assert head_dim % 2 == 0
+    theta = 1.0 / (10000.0 ** (torch.arange(0, head_dim, 2, device=device).float() / head_dim))
+    positions = torch.arange(seq_len, device=device).float()
+    freqs = torch.outer(positions, theta)  # (T, head_dim/2)
+    return torch.cos(freqs), torch.sin(freqs)  # each (T, head_dim/2)
 
-    W_eff = (gamma / sigma_1(W)) * W
-    gamma is initialized to sigma_1(W_init) so W_eff = W_init at start.
-    Spectral norm is recomputed each forward via power iteration.
-    """
-    def __init__(self, in_features, out_features, bias=False, init_std=None):
+
+def _apply_rope(x, cos, sin):
+    """Apply RoPE to x of shape (B, num_heads, T, head_dim)."""
+    d2 = x.shape[-1] // 2
+    x1, x2 = x[..., :d2], x[..., d2:]
+    cos = cos[:x.shape[2]]  # trim to actual T
+    sin = sin[:x.shape[2]]
+    # Broadcast: cos/sin are (T, d2), x is (B, H, T, d2)
+    return torch.cat([x1 * cos - x2 * sin, x2 * cos + x1 * sin], dim=-1)
+
+
+class GQATransformerBlock(nn.Module):
+    """Transformer block with GQA + QK-norm + post-norm + RoPE + learnable residual scale."""
+
+    def __init__(self, dim, num_q_heads, num_kv_heads, num_tokens, ffn_mult=2):
         super().__init__()
-        self.linear = nn.Linear(in_features, out_features, bias=bias)
-        if init_std is not None:
-            nn.init.normal_(self.linear.weight, std=init_std)
-        # Register spectral norm (uses power iteration, no SVD at runtime)
-        nn.utils.parametrizations.spectral_norm(self.linear)
-        # gamma initialized to preserve original weight matrix
-        with torch.no_grad():
-            sigma1 = torch.linalg.svdvals(self.linear.weight)[0].item()
-        self.gamma = nn.Parameter(torch.tensor(sigma1))
+        assert dim % num_q_heads == 0
+        assert num_q_heads % num_kv_heads == 0
+        self.num_q_heads = num_q_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = dim // num_q_heads
+        self.kv_group_size = num_q_heads // num_kv_heads
 
-    def forward(self, x):
-        return self.gamma * self.linear(x)
+        # QKV projections
+        self.wq = nn.Linear(dim, num_q_heads * self.head_dim, bias=False)
+        self.wk = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wv = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wo = nn.Linear(num_q_heads * self.head_dim, dim, bias=False)
 
-
-class TransformerBlock(nn.Module):
-    """Pre-norm Transformer++ block with sigma-Reparam on all projections.
-
-    sigma-Reparam bounds the spectral norm of each linear layer via
-    W_eff = gamma * W/sigma_1(W), preventing unbounded growth of layer
-    sensitivity during PPO multi-epoch updates.
-    """
-    def __init__(self, d_token=32, n_heads=4, ffn_hidden=64):
-        super().__init__()
-        self.n_heads = n_heads
-        self.head_dim = d_token // n_heads  # 8
-
-        # Pre-norm for attention
-        self.attn_norm = RMSNorm(d_token)
-        self.qkv = SigmaLinear(d_token, 3 * d_token)
-        self.o_proj = SigmaLinear(d_token, d_token, init_std=0.02)
-
-        # QK-norm: stabilizes attention logits, critical for small head_dim
+        # QK-norm: per-head RMSNorm on Q and K (critical for small head_dim)
         self.q_norm = RMSNorm(self.head_dim)
         self.k_norm = RMSNorm(self.head_dim)
 
-        # Pre-norm for FFN
-        self.ffn_norm = RMSNorm(d_token)
-        self.ffn_gate_value = SigmaLinear(d_token, 2 * ffn_hidden)
-        self.ffn_out = SigmaLinear(ffn_hidden, d_token, init_std=0.02)
+        # Post-norm (applied after residual addition)
+        self.attn_postnorm = RMSNorm(dim)
+        self.ffn_postnorm = RMSNorm(dim)
+
+        # Learnable residual scale (init 0.5 = equal mix)
+        self.attn_res_scale = nn.Parameter(torch.tensor(0.5))
+        self.ffn_res_scale = nn.Parameter(torch.tensor(0.5))
+
+        # SwiGLU FFN
+        ffn_dim = dim * ffn_mult
+        self.w1 = nn.Linear(dim, ffn_dim, bias=False)
+        self.w2 = nn.Linear(ffn_dim, dim, bias=False)
+        self.w3 = nn.Linear(dim, ffn_dim, bias=False)
+
+        # RoPE cache
+        self.register_buffer('rope_cos', torch.zeros(num_tokens, self.head_dim // 2))
+        self.register_buffer('rope_sin', torch.zeros(num_tokens, self.head_dim // 2))
+        self._rope_initialized = False
+
+        self._init_weights()
+
+    def _init_weights(self):
+        for module in [self.wq, self.wk, self.wv, self.wo, self.w1, self.w2, self.w3]:
+            nn.init.orthogonal_(module.weight, gain=1.0)
+
+    def _ensure_rope(self, device):
+        if not self._rope_initialized:
+            cos, sin = _build_rope_cache(self.rope_cos.shape[0], self.head_dim, device)
+            self.rope_cos.copy_(cos)
+            self.rope_sin.copy_(sin)
+            self._rope_initialized = True
 
     def forward(self, x):
-        # x: (batch, n_tokens, d_token)
         B, T, D = x.shape
+        self._ensure_rope(x.device)
 
-        # --- Multi-head self-attention ---
-        h = self.attn_norm(x)
-        qkv = self.qkv(h).reshape(B, T, 3, self.n_heads, self.head_dim)
-        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, B, n_heads, T, head_dim)
-        q, k, v = qkv.unbind(0)
-        q, k = self.q_norm(q), self.k_norm(k)
-        with torch.amp.autocast('cuda', dtype=torch.bfloat16):
-            attn_out = F.scaled_dot_product_attention(q, k, v)  # (B, n_heads, T, head_dim)
-        attn_out = attn_out.to(x.dtype).transpose(1, 2).reshape(B, T, D)
-        x = x + self.o_proj(attn_out)
+        # Attention (no pre-norm — post-norm instead)
+        q = self.wq(x).view(B, T, self.num_q_heads, self.head_dim).transpose(1, 2)
+        k = self.wk(x).view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = self.wv(x).view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)
 
-        # --- SwiGLU FFN ---
-        h = self.ffn_norm(x)
-        gate_value = self.ffn_gate_value(h)  # (B, T, 2*ffn_hidden)
-        gate, value = gate_value.chunk(2, dim=-1)
-        h = F.silu(gate) * value
-        x = x + self.ffn_out(h)
+        # QK-norm (normalize per-head before attention — stabilizes small head_dim)
+        q = self.q_norm(q)
+        k = self.k_norm(k)
+
+        # RoPE
+        q = _apply_rope(q, self.rope_cos, self.rope_sin)
+        k = _apply_rope(k, self.rope_cos, self.rope_sin)
+
+        # Expand KV heads for GQA
+        if self.kv_group_size > 1:
+            k = k.unsqueeze(2).expand(B, self.num_kv_heads, self.kv_group_size, T, self.head_dim)
+            k = k.reshape(B, self.num_q_heads, T, self.head_dim)
+            v = v.unsqueeze(2).expand(B, self.num_kv_heads, self.kv_group_size, T, self.head_dim)
+            v = v.reshape(B, self.num_q_heads, T, self.head_dim)
+
+        attn_out = F.scaled_dot_product_attention(q, k, v)
+        attn_out = attn_out.transpose(1, 2).reshape(B, T, D)
+        attn_out = self.wo(attn_out)
+
+        # Learnable residual + post-norm
+        alpha = self.attn_res_scale.sigmoid()
+        x = self.attn_postnorm(alpha * x + (1 - alpha) * attn_out)
+
+        # FFN
+        ffn_out = self.w2(F.silu(self.w1(x)) * self.w3(x))
+        beta = self.ffn_res_scale.sigmoid()
+        x = self.ffn_postnorm(beta * x + (1 - beta) * ffn_out)
 
         return x
 
@@ -231,58 +266,41 @@ class Agent(nn.Module):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         act_dim = np.prod(envs.single_action_space.shape)
-        hidden_dim = 64
-        n_tokens = 8
-        d_token = 32
+        hidden_dim = TOKEN_DIM
 
-        # === Actor backbone: obs → transformer → hidden features ===
-        # Layer 1: initial projection (same as original)
-        self.actor_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
-        self.actor_norm1 = RMSNorm(hidden_dim)
-        # Virtual tokenization
-        self.actor_tokenize = nn.Linear(hidden_dim, n_tokens * d_token)
-        # Transformer block
-        self.actor_transformer = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
-        # Aggregation: mean-pool → project back to hidden_dim
-        self.actor_agg = layer_init(nn.Linear(d_token, hidden_dim))
-        self.actor_agg_norm = RMSNorm(hidden_dim)
+        # Tokenizer: project obs to (NUM_TOKENS, TOKEN_DIM)
+        self.token_proj = layer_init(nn.Linear(obs_dim, NUM_TOKENS * TOKEN_DIM))
 
-        # Actor output head
+        # Transformer backbone (RoPE replaces pos_embed)
+        self.transformer = GQATransformerBlock(TOKEN_DIM, NUM_Q_HEADS, NUM_KV_HEADS, NUM_TOKENS, FFN_MULT)
+
+        # Hypersphere scale after L2-norm (learnable radius)
+        self.hsphere_scale = nn.Parameter(torch.tensor(float(TOKEN_DIM ** 0.5)))
+
+        # Actor mean head
         self.actor_out = layer_init(nn.Linear(hidden_dim, act_dim), std=1.0)
         self.mean_scale = nn.Parameter(torch.tensor(0.01))
 
-        # SDE noise with learned log_std_param (unchanged from lstd_linear_tanh)
+        # SDE noise head (from shared features)
         self.sde_fc = layer_init(nn.Linear(hidden_dim, hidden_dim), std=1.0)
         self.sde_norm = RMSNorm(hidden_dim)
         self.sde_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim), std=1.0)
         self.log_std_param = nn.Parameter(torch.zeros(hidden_dim, act_dim))
 
-        # === Critic backbone: same transformer architecture ===
-        self.critic_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
-        self.critic_norm1 = RMSNorm(hidden_dim)
-        self.critic_tokenize = nn.Linear(hidden_dim, n_tokens * d_token)
-        self.critic_transformer = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
-        self.critic_agg = layer_init(nn.Linear(d_token, hidden_dim))
-        self.critic_agg_norm = RMSNorm(hidden_dim)
-
-        # Scalar value head
+        # Critic value head
         self.value_out = layer_init(nn.Linear(hidden_dim, 1), std=1.0)
 
-        # Store dims for reshaping
-        self._n_tokens = n_tokens
-        self._d_token = d_token
-
-    def _actor_features(self, x):
+    def _shared_features(self, x):
         B = x.shape[0]
-        h = F.silu(self.actor_norm1(self.actor_fc1(x)))  # (B, 64)
-        tokens = self.actor_tokenize(h).reshape(B, self._n_tokens, self._d_token)  # (B, 8, 32)
-        tokens = self.actor_transformer(tokens)  # (B, 8, 32)
-        pooled = tokens.mean(dim=1)  # (B, 32)
-        h = F.silu(self.actor_agg_norm(self.actor_agg(pooled)))  # (B, 64)
+        tokens = self.token_proj(x).view(B, NUM_TOKENS, TOKEN_DIM)
+        tokens = self.transformer(tokens)
+        h = tokens.mean(dim=1)  # mean-pool -> (B, hidden_dim)
+        # Hypersphere: L2-normalize then scale — prevents magnitude drift
+        h = F.normalize(h, dim=-1) * self.hsphere_scale
         return h
 
     def _get_action_std(self, h):
-        """State-dependent action std via RMSNorm→tanh SDE + learned log_std_param."""
+        """State-dependent action std via RMSNorm->tanh SDE + learned log_std_param."""
         sde_raw = self.sde_fc(h)
         sde_latent = (self.sde_fc2(self.sde_norm(sde_raw)) / SDE_PRESCALE).tanh()
 
@@ -293,22 +311,12 @@ class Agent(nn.Module):
         action_std = (action_var + SDE_EPS).sqrt()
         return action_std
 
-    def _critic_features(self, x):
-        B = x.shape[0]
-        h = F.silu(self.critic_norm1(self.critic_fc1(x)))
-        tokens = self.critic_tokenize(h).reshape(B, self._n_tokens, self._d_token)
-        tokens = self.critic_transformer(tokens)
-        pooled = tokens.mean(dim=1)
-        h = F.silu(self.critic_agg_norm(self.critic_agg(pooled)))
-        return h
-
     def get_value(self, x):
-        h = self._critic_features(x)
+        h = self._shared_features(x)
         return self.value_out(h)
 
     def get_action_and_value(self, x, action=None):
-        # Actor
-        h = self._actor_features(x)
+        h = self._shared_features(x)
         action_mean = self.actor_out(h) * self.mean_scale
         action_std = self._get_action_std(h)
 
@@ -316,7 +324,7 @@ class Agent(nn.Module):
         if action is None:
             action = probs.sample()
 
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.get_value(x)
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.value_out(h)
 
 
 if __name__ == "__main__":
@@ -376,7 +384,6 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs).to(device)
 
     for iteration in range(1, args.num_iterations + 1):
-        # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
@@ -387,14 +394,12 @@ if __name__ == "__main__":
             obs[step] = next_obs
             dones[step] = next_done
 
-            # ALGO LOGIC: action logic
             with torch.no_grad():
                 action, logprob, _, value = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
 
-            # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
@@ -423,7 +428,6 @@ if __name__ == "__main__":
                 advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + values
 
-        # flatten the batch
         b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
@@ -431,7 +435,6 @@ if __name__ == "__main__":
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
-        # Optimizing the policy and value network
         b_inds = np.arange(args.batch_size)
         clipfracs = []
         for epoch in range(args.update_epochs):
@@ -460,12 +463,10 @@ if __name__ == "__main__":
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
-                # Policy loss
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef_low, 1 + args.clip_coef_high)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
                 newvalue = newvalue.view(-1)
                 if args.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
@@ -495,7 +496,6 @@ if __name__ == "__main__":
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-        # TRY NOT TO MODIFY: record rewards for plotting purposes
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
@@ -504,7 +504,6 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        # lstd-specific metrics
         log_std_eff = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
         writer.add_scalar("tbot/log_std_mean", log_std_eff.mean().item(), global_step)
         writer.add_scalar("tbot/log_std_std", log_std_eff.std().item(), global_step)

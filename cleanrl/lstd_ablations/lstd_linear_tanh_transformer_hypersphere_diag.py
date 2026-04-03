@@ -152,76 +152,70 @@ class RMSNorm(nn.Module):
         return x / rms * self.weight
 
 
-class SigmaLinear(nn.Module):
-    """Linear layer with sigma-Reparam (Zhai et al., ICML 2023).
-
-    W_eff = (gamma / sigma_1(W)) * W
-    gamma is initialized to sigma_1(W_init) so W_eff = W_init at start.
-    Spectral norm is recomputed each forward via power iteration.
-    """
-    def __init__(self, in_features, out_features, bias=False, init_std=None):
-        super().__init__()
-        self.linear = nn.Linear(in_features, out_features, bias=bias)
-        if init_std is not None:
-            nn.init.normal_(self.linear.weight, std=init_std)
-        # Register spectral norm (uses power iteration, no SVD at runtime)
-        nn.utils.parametrizations.spectral_norm(self.linear)
-        # gamma initialized to preserve original weight matrix
-        with torch.no_grad():
-            sigma1 = torch.linalg.svdvals(self.linear.weight)[0].item()
-        self.gamma = nn.Parameter(torch.tensor(sigma1))
-
-    def forward(self, x):
-        return self.gamma * self.linear(x)
+def _normalize(x, eps=1e-6):
+    """L2-normalize along last dim (project onto unit hypersphere)."""
+    return F.normalize(x, dim=-1, eps=eps)
 
 
 class TransformerBlock(nn.Module):
-    """Pre-norm Transformer++ block with sigma-Reparam on all projections.
+    """nGPT-style Transformer block: all representations on the unit hypersphere.
 
-    sigma-Reparam bounds the spectral norm of each linear layer via
-    W_eff = gamma * W/sigma_1(W), preventing unbounded growth of layer
-    sensitivity during PPO multi-epoch updates.
+    Key ideas from nGPT (NVIDIA, 2024):
+    - Hidden states are L2-normalized after each sublayer
+    - Weight matrix rows are normalized at each forward pass
+    - Residual update: x_new = normalize(x + α * (h - x)) where α is learned
+      This is a geodesic interpolation on the hypersphere — bounded step size
+    - QK-norm is implicit (q, k are slices of normalized states)
     """
     def __init__(self, d_token=32, n_heads=4, ffn_hidden=64):
         super().__init__()
         self.n_heads = n_heads
         self.head_dim = d_token // n_heads  # 8
+        self.d_token = d_token
 
-        # Pre-norm for attention
-        self.attn_norm = RMSNorm(d_token)
-        self.qkv = SigmaLinear(d_token, 3 * d_token)
-        self.o_proj = SigmaLinear(d_token, d_token, init_std=0.02)
+        # QKV and output projections
+        self.qkv = nn.Linear(d_token, 3 * d_token, bias=False)
+        self.o_proj = nn.Linear(d_token, d_token, bias=False)
 
-        # QK-norm: stabilizes attention logits, critical for small head_dim
-        self.q_norm = RMSNorm(self.head_dim)
-        self.k_norm = RMSNorm(self.head_dim)
+        # SwiGLU FFN
+        self.ffn_gate_value = nn.Linear(d_token, 2 * ffn_hidden, bias=False)
+        self.ffn_out = nn.Linear(ffn_hidden, d_token, bias=False)
 
-        # Pre-norm for FFN
-        self.ffn_norm = RMSNorm(d_token)
-        self.ffn_gate_value = SigmaLinear(d_token, 2 * ffn_hidden)
-        self.ffn_out = SigmaLinear(ffn_hidden, d_token, init_std=0.02)
+        # nGPT learned step sizes (α), one per sublayer, per-dim
+        # Small init → conservative updates at start
+        self.attn_alpha = nn.Parameter(torch.full((d_token,), 0.05))
+        self.ffn_alpha = nn.Parameter(torch.full((d_token,), 0.05))
+
+    def _normalize_weights(self):
+        """Normalize weight rows to unit norm (called each forward)."""
+        with torch.no_grad():
+            for layer in [self.qkv, self.o_proj, self.ffn_gate_value, self.ffn_out]:
+                layer.weight.div_(layer.weight.norm(dim=1, keepdim=True).clamp(min=1e-6))
 
     def forward(self, x):
-        # x: (batch, n_tokens, d_token)
+        # x: (batch, n_tokens, d_token) — assumed already on unit hypersphere
         B, T, D = x.shape
+        self._normalize_weights()
 
         # --- Multi-head self-attention ---
-        h = self.attn_norm(x)
-        qkv = self.qkv(h).reshape(B, T, 3, self.n_heads, self.head_dim)
+        qkv = self.qkv(_normalize(x))
+        qkv = qkv.reshape(B, T, 3, self.n_heads, self.head_dim)
         qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, B, n_heads, T, head_dim)
         q, k, v = qkv.unbind(0)
-        q, k = self.q_norm(q), self.k_norm(k)
+        # Q, K are already unit-scale from normalized input + normalized weights
         with torch.amp.autocast('cuda', dtype=torch.bfloat16):
-            attn_out = F.scaled_dot_product_attention(q, k, v)  # (B, n_heads, T, head_dim)
+            attn_out = F.scaled_dot_product_attention(q, k, v)
         attn_out = attn_out.to(x.dtype).transpose(1, 2).reshape(B, T, D)
-        x = x + self.o_proj(attn_out)
+        h_attn = _normalize(self.o_proj(attn_out))
+        # Geodesic step on hypersphere: x + α * (h - x)
+        x = _normalize(x + self.attn_alpha * (h_attn - x))
 
         # --- SwiGLU FFN ---
-        h = self.ffn_norm(x)
-        gate_value = self.ffn_gate_value(h)  # (B, T, 2*ffn_hidden)
+        gate_value = self.ffn_gate_value(_normalize(x))
         gate, value = gate_value.chunk(2, dim=-1)
         h = F.silu(gate) * value
-        x = x + self.ffn_out(h)
+        h_ffn = _normalize(self.ffn_out(h))
+        x = _normalize(x + self.ffn_alpha * (h_ffn - x))
 
         return x
 
@@ -248,14 +242,10 @@ class Agent(nn.Module):
         self.actor_agg_norm = RMSNorm(hidden_dim)
 
         # Actor output head
-        self.actor_out = layer_init(nn.Linear(hidden_dim, act_dim), std=1.0)
-        self.mean_scale = nn.Parameter(torch.tensor(0.01))
+        self.actor_out = layer_init(nn.Linear(hidden_dim, act_dim), std=0.01)
 
-        # SDE noise with learned log_std_param (unchanged from lstd_linear_tanh)
-        self.sde_fc = layer_init(nn.Linear(hidden_dim, hidden_dim), std=1.0)
-        self.sde_norm = RMSNorm(hidden_dim)
-        self.sde_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim), std=1.0)
-        self.log_std_param = nn.Parameter(torch.zeros(hidden_dim, act_dim))
+        # Diagonal Gaussian: learned per-action-dim log_std (state-independent)
+        self.log_std = nn.Parameter(torch.full((act_dim,), LOG_STD_INIT))
 
         # === Critic backbone: same transformer architecture ===
         self.critic_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
@@ -276,27 +266,17 @@ class Agent(nn.Module):
         B = x.shape[0]
         h = F.silu(self.actor_norm1(self.actor_fc1(x)))  # (B, 64)
         tokens = self.actor_tokenize(h).reshape(B, self._n_tokens, self._d_token)  # (B, 8, 32)
+        tokens = _normalize(tokens)  # project onto hypersphere before nGPT block
         tokens = self.actor_transformer(tokens)  # (B, 8, 32)
         pooled = tokens.mean(dim=1)  # (B, 32)
         h = F.silu(self.actor_agg_norm(self.actor_agg(pooled)))  # (B, 64)
         return h
 
-    def _get_action_std(self, h):
-        """State-dependent action std via RMSNorm→tanh SDE + learned log_std_param."""
-        sde_raw = self.sde_fc(h)
-        sde_latent = (self.sde_fc2(self.sde_norm(sde_raw)) / SDE_PRESCALE).tanh()
-
-        log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        std_sq = log_std.exp().pow(2)
-
-        action_var = (sde_latent.pow(2)) @ std_sq
-        action_std = (action_var + SDE_EPS).sqrt()
-        return action_std
-
     def _critic_features(self, x):
         B = x.shape[0]
         h = F.silu(self.critic_norm1(self.critic_fc1(x)))
         tokens = self.critic_tokenize(h).reshape(B, self._n_tokens, self._d_token)
+        tokens = _normalize(tokens)  # project onto hypersphere before nGPT block
         tokens = self.critic_transformer(tokens)
         pooled = tokens.mean(dim=1)
         h = F.silu(self.critic_agg_norm(self.critic_agg(pooled)))
@@ -309,8 +289,8 @@ class Agent(nn.Module):
     def get_action_and_value(self, x, action=None):
         # Actor
         h = self._actor_features(x)
-        action_mean = self.actor_out(h) * self.mean_scale
-        action_std = self._get_action_std(h)
+        action_mean = self.actor_out(h)
+        action_std = self.log_std.clamp(LOG_STD_MIN, LOG_STD_MAX).exp()
 
         probs = Normal(action_mean, action_std)
         if action is None:
@@ -504,11 +484,8 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        # lstd-specific metrics
-        log_std_eff = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        writer.add_scalar("tbot/log_std_mean", log_std_eff.mean().item(), global_step)
-        writer.add_scalar("tbot/log_std_std", log_std_eff.std().item(), global_step)
-        writer.add_scalar("tbot/mean_scale", agent.mean_scale.item(), global_step)
+        # diag noise metrics
+        writer.add_scalar("tbot/log_std_mean", agent.log_std.clamp(LOG_STD_MIN, LOG_STD_MAX).mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
