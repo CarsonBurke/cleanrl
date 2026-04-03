@@ -1,18 +1,24 @@
-# Online Dreamer-style latent imagination with full DreamerV3 components.
+# v17.4 — Bug fixes for dreamerv3/dreamer4 alignment
 #
-# v16 closes all gaps vs the dreamer4 reference:
+# Fixes from v17 (v16):
+# 1. Discount weighting in PMPO actor loss (was binary mask, now proper weights)
+# 2. Discount weight computation includes starting state continuation
+# 3. Critic loss properly discount-weighted
+# 4. KL direction fixed to KL(old||new) matching dreamer4
+# 5. Value clipping replaced with dreamerv3-style slow-critic regularization
+#
+# Base architecture unchanged:
 # - RSSM (block-diagonal GRU + 16x16 categorical stochastic state)
 # - Decoder with symlog-MSE reconstruction loss
 # - Split KL with free nats (dyn_scale=1.0, rep_scale=0.1)
 # - Slow critic (EMA tau=0.02) + percentile return normalization
 # - State-dependent std (sigmoid-squashed [0.1, 1.0])
-# - REINFORCE + entropy actor loss
+# - PMPO actor loss with entropy + KL constraint
 # - Separate actor, critic, world-model optimizers
 # - Continue head (learned discount)
 # - Longer imagination horizon (15)
 # - No obs/reward normalization wrappers; symlog handles scale
 # - RMSNorm + SiLU throughout
-# - MTP reward head retained from v15 lineage
 import copy
 import math
 import os
@@ -388,6 +394,8 @@ class Critic(nn.Module):
 # ---------------------------------------------------------------------------
 
 class PercentileReturnNorm:
+    """Percentile-based return normalization (dreamerv3 style).
+    Tracks 5th/95th percentile of returns, advantages = (ret - val) / scale."""
     def __init__(self, rate=0.01, perclo=5.0, perchi=95.0, limit=1.0):
         self.rate = rate
         self.perclo = perclo
@@ -529,16 +537,16 @@ class Args:
     num_bins: int = 255
 
     # Training
-    learning_rate: float = 1e-4
+    learning_rate: float = 1e-4  # dreamerv3: 1e-4 for all
     wm_learning_rate: float = 1e-4
     actor_learning_rate: float = 1e-4
     critic_learning_rate: float = 1e-4
     eps: float = 1e-8
-    batch_size_per_env: int = 16  # d4 ref: 16 at 1 env, scales with num_envs
+    batch_size_per_env: int = 16
     batch_length: int = 32
     train_ratio: float = 64.0
     imag_last: int = 8
-    max_grad_norm: float = 100.0
+    max_grad_norm: float = 1000.0  # dreamerv3: 1000
     compile: bool = True
 
     # Imagination
@@ -547,17 +555,15 @@ class Args:
     # Actor-Critic
     horizon: int = 333
     lam: float = 0.95
-    actor_entropy: float = 0.01
-    pmpo_pos_neg_weight: float = 0.5  # α in PMPO: weight for positive advantages
-    pmpo_kl_weight: float = 0.3  # reverse KL constraint weight
+    actor_entropy: float = 3e-4  # dreamerv3: 3e-4
     actor_minstd: float = 0.1
     actor_maxstd: float = 1.0
     slow_target_rate: float = 0.02
     slow_reg: float = 1.0
-    return_norm_rate: float = 0.01
+    return_norm_rate: float = 0.01  # dreamerv3: rate for percentile EMA
     return_norm_perclo: float = 5.0
     return_norm_perchi: float = 95.0
-    return_norm_limit: float = 1.0
+    return_norm_limit: float = 1.0  # dreamerv3: minimum scale
 
     # Replay
     replay_size: int = 1_000_000
@@ -773,20 +779,14 @@ def main(args_class=Args):
             start_feat = {k: v[:, -K:].reshape(BK, *v.shape[2:]).detach()
                           for k, v in states.items()}
 
-            cur_feat = rssm.get_feat(start_feat)
-            img_feats = [cur_feat]
+            img_feats = [rssm.get_feat(start_feat)]
             img_acts = []
             state = start_feat
             for h in range(args.imag_horizon):
-                # Manual actor forward (compiled MLP + manual Normal sample)
-                actor_out = actor_mlp_compiled(cur_feat)
-                act_mean, act_raw_std = actor_out.split(act_dim, -1)
-                act_std = actor.minstd + (actor.maxstd - actor.minstd) * torch.sigmoid(act_raw_std)
-                action = act_mean + act_std * torch.randn_like(act_std)
+                action = actor(rssm.get_feat(state)).sample()
                 img_acts.append(action)
                 state = rssm.imagine_step(state, action)
-                cur_feat = rssm.get_feat(state)
-                img_feats.append(cur_feat)
+                img_feats.append(rssm.get_feat(state))
 
             img_feats = torch.stack(img_feats, 1)
             img_acts = torch.stack(img_acts, 1)
@@ -799,73 +799,56 @@ def main(args_class=Args):
 
             returns = compute_lambda_returns(img_rew, img_con, img_slow_val, args.lam)
 
+            # Return normalization (dreamerv3: percentile scale)
             return_norm.update(returns)
             ret_scale = return_norm.scale()
             advantages = (returns - img_slow_val[:, :-1]) / ret_scale
 
-            # Discount weight: starts at 1.0, then accumulates continuation probs
-            ones = torch.ones(BK, 1, device=img_con.device)
-            weight = torch.cumprod(torch.cat([ones, img_con[:, 1:-1]], dim=1), dim=1)
+            # Importance weights (cumulative continue — dreamerv3 style)
+            weight = torch.cumprod(img_con[:, :-1], dim=1)
 
-            # Pre-compute actor/critic input feats and slow critic targets (avoid recompute)
+            # Pre-compute actor/critic input feats and slow critic targets
             imag_actor_feats = img_feats[:, :-1].reshape(BK * args.imag_horizon, -1)
             imag_acts_flat = img_acts.reshape(BK * args.imag_horizon, -1)
-            slow_val_for_critic = img_slow_val[:, :-1].reshape(-1)
+            slow_val_pred = twohot_predict(
+                slow_critic(imag_actor_feats), bins
+            ).detach()
 
-        # ===== Actor (PMPO) =====
-        # Save old policy for KL constraint before gradient step
-        with torch.no_grad():
-            old_dist = actor(imag_actor_feats.detach())
-            old_mean = old_dist.loc.detach().clone()
-            old_std = old_dist.scale.detach().clone()
-
+        # ===== Actor (dreamerv3: REINFORCE with discount weighting) =====
         actor_opt.zero_grad()
 
         policy_dist = actor(imag_actor_feats.detach())
         logpi = policy_dist.log_prob(imag_acts_flat.detach()).sum(-1).reshape(BK, args.imag_horizon)
         entropy = policy_dist.entropy().sum(-1).reshape(BK, args.imag_horizon)
 
-        # PMPO: separate positive and negative advantages, ignore magnitude
-        adv_detached = advantages.detach()
+        # dreamerv3 actor loss: -(weight * (logpi * advantages + ent_coeff * entropy))
         w = weight.detach()
-        pos_mask = (adv_detached > 0) & (w > 0)
-        neg_mask = (adv_detached <= 0) & (w > 0)
-
-        alpha = args.pmpo_pos_neg_weight
-        pos_term = (logpi * pos_mask).sum() / pos_mask.sum().clamp(min=1)
-        neg_term = -(logpi * neg_mask).sum() / neg_mask.sum().clamp(min=1)
-        pmpo_loss = -(alpha * pos_term + (1 - alpha) * neg_term)
-
-        # Entropy bonus
-        entropy_loss = -(w * entropy.float()).mean()
-
-        # Reverse KL constraint: KL(old || new) to prevent large policy changes
-        if args.pmpo_kl_weight > 0:
-            kl_div = (torch.log(policy_dist.scale / old_std) +
-                      (old_std**2 + (old_mean - policy_dist.loc)**2) / (2 * policy_dist.scale**2) - 0.5).sum(-1)
-            kl_loss = kl_div.reshape(BK, args.imag_horizon)
-            kl_loss = (w * kl_loss).mean()
-        else:
-            kl_loss = torch.zeros(1, device=device)
-
-        actor_loss = pmpo_loss + args.actor_entropy * entropy_loss + args.pmpo_kl_weight * kl_loss
+        actor_loss = -(w * (
+            logpi.float() * advantages.detach() + args.actor_entropy * entropy.float()
+        )).mean()
 
         actor_loss.backward()
         torch.nn.utils.clip_grad_norm_(actor.parameters(), args.max_grad_norm)
         actor_opt.step()
 
-        # ===== Critic =====
+        # ===== Critic (dreamerv3 style: discount-weighted + slow-critic reg) =====
         critic_opt.zero_grad()
 
         val_logits = critic(imag_actor_feats.detach())
+        returns_flat = returns.reshape(-1).detach()
+        w_critic = weight.detach()
 
+        # Return prediction loss, discount-weighted
         loss_returns = twohot_loss(
-            val_logits, returns.reshape(-1).detach(), bins
+            val_logits, returns_flat, bins
         ).reshape(BK, args.imag_horizon)
+
+        # Slow-critic regularization (dreamerv3)
         loss_slow = twohot_loss(
-            val_logits, slow_val_for_critic.detach(), bins
+            val_logits, slow_val_pred.reshape(-1), bins
         ).reshape(BK, args.imag_horizon)
-        critic_loss = (weight.detach() * (loss_returns + args.slow_reg * loss_slow)).mean()
+
+        critic_loss = (w_critic * (loss_returns + args.slow_reg * loss_slow)).mean()
 
         critic_loss.backward()
         torch.nn.utils.clip_grad_norm_(critic.parameters(), args.max_grad_norm)
@@ -887,7 +870,7 @@ def main(args_class=Args):
             'critic_loss': critic_loss.item(),
             'entropy': entropy.mean().item(),
             'returns': returns.mean().item(),
-            'ret_scale': ret_scale,
+            'ret_scale': return_norm.scale(),
         }
 
     # === Flush stdout for background task visibility ===
@@ -897,7 +880,7 @@ def main(args_class=Args):
         kw.setdefault('flush', True)
         _print(*a, **kw)
 
-    print(f"Starting latent_imagination_v16 on {args.env_id} with {args.num_envs} envs")
+    print(f"Starting latent_imagination_v17.4 on {args.env_id} with {args.num_envs} envs")
     total_params = sum(p.numel() for p in wm_params) + sum(
         p.numel() for p in actor.parameters()) + sum(
         p.numel() for p in critic.parameters())

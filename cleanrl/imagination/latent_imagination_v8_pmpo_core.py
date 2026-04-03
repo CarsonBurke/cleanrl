@@ -1,13 +1,14 @@
-# Dreamer-style imagination training with persistent prior, temporal context,
-# separate imagination policy, and a distributional imagination value head.
+# v8_pmpo: Fork of v8 that replaces PPO's clipped surrogate in the behavior
+# phase with PMPO (Policy Mirror Primal Optimization).
 #
-# v8 addresses the main mismatches identified in v7:
-# 1. the imagination prior is snapshotted once when imagination starts,
-# 2. policy improvement after warmup comes from imagination, not PPO,
-# 3. the world model and imagination policy receive temporal context via a
-#    recurrent context state, and
-# 4. the imagination value head uses a symexp-twohot target instead of plain
-#    squared error.
+# Changes from v8:
+# 1. Behavior policy loss uses PMPO sign-based advantage splitting instead of
+#    PPO clipping: maximize log_prob for positive advantages, minimize for
+#    negative, weighted by pmpo_alpha (default 0.5 = equal weight).
+# 2. KL divergence regularization between old and new behavior policy replaces
+#    the clipping mechanism as the trust region.
+# 3. Old policy mean/logstd stored per rollout step for exact KL computation.
+# 4. Imagination phase remains unchanged (already uses PMPO-style loss).
 import copy
 import os
 import random
@@ -109,6 +110,12 @@ class Args(v6.Args):
     """behavior-cloning weight on the imagination actor before imagination starts"""
     imagination_bc_after_start_coef: float = 0.05
     """behavior-cloning weight on the imagination actor after imagination starts"""
+    pmpo_alpha: float = 0.5
+    """PMPO positive/negative advantage weight for behavior policy (0.5 = equal)"""
+    pmpo_kl_coef: float = 0.3
+    """KL divergence regularization coefficient for behavior PMPO"""
+    pmpo_reverse_kl: bool = True
+    """use reverse KL (KL(old||new)) for behavior PMPO regularization"""
 
 
 @dataclass
@@ -297,17 +304,6 @@ def behavior_parameters(agent: Agent):
     return agent.behavior_parameters()
 
 
-def build_behavior_optimizer(agent: Agent, args: Args):
-    default_lr = resolve_learning_rate(args.behavior_learning_rate, args.learning_rate)
-    if hasattr(agent, "behavior_optimizer_groups"):
-        return optim.Adam(agent.behavior_optimizer_groups(args, default_lr), eps=1e-5)
-    return optim.Adam(
-        behavior_parameters(agent),
-        lr=default_lr,
-        eps=1e-5,
-    )
-
-
 def world_model_parameters(agent: Agent):
     return agent.world_model_parameters()
 
@@ -328,25 +324,8 @@ def current_imagination_phase_coef(args: Args, global_step: int) -> float:
     return args.imagination_loss_coef * progress
 
 
-def current_behavior_actor_coef(args: Args, global_step: int, explained_var: float | None = None) -> float:
-    warmup_fraction = max(0.0, float(getattr(args, "behavior_actor_warmup_fraction", 0.0)))
-    ramp_fraction = max(0.0, float(getattr(args, "behavior_actor_ramp_fraction", 0.0)))
-    warmup_steps = int(args.total_timesteps * warmup_fraction)
-    if global_step < warmup_steps:
-        return 0.0
-    if ramp_fraction <= 0.0:
-        base_coef = 1.0
-    else:
-        ramp_steps = max(1, int(args.total_timesteps * ramp_fraction))
-        progress = (global_step - warmup_steps) / ramp_steps
-        base_coef = min(1.0, max(0.0, progress))
-    ev_gate_target = float(getattr(args, "behavior_actor_ev_gate_target", 0.0))
-    if ev_gate_target <= 0.0 or explained_var is None or np.isnan(explained_var):
-        return base_coef
-    ev_gate_floor = float(getattr(args, "behavior_actor_ev_gate_floor", 0.0))
-    gate = explained_var / max(ev_gate_target, 1e-8)
-    gate = min(1.0, max(ev_gate_floor, gate))
-    return base_coef * gate
+def current_behavior_actor_coef(args: Args, global_step: int) -> float:
+    return 1.0
 
 
 def build_policy_prior(agent: Agent):
@@ -434,26 +413,55 @@ def compute_behavior_losses(
     mb_inds: np.ndarray,
     args: Args,
     actor_coef: float,
+    behavior_prior: Agent = None,
 ) -> BehaviorLosses:
     clip_lo = getattr(args, 'clip_coef_low', args.clip_coef)
     clip_hi = getattr(args, 'clip_coef_high', args.clip_coef)
-    actor_clip_coef = getattr(args, "actor_clip_coef", None)
-    actor_clip_lo = getattr(args, "actor_clip_coef_low", actor_clip_coef if actor_clip_coef is not None else clip_lo)
-    actor_clip_hi = getattr(args, "actor_clip_coef_high", actor_clip_coef if actor_clip_coef is not None else clip_hi)
     if actor_coef > 0.0:
-        _, newlogprob, entropy, newvalue = agent.get_action_and_value(batch.obs[mb_inds], batch.actions[mb_inds])
+        # Single forward pass: get per-dim log_probs and distribution for PMPO
+        latent = agent.encode(batch.obs[mb_inds])
+        new_dist = agent.get_dist_from_latent(latent)
+        log_prob_per_dim = new_dist.log_prob(batch.actions[mb_inds])  # (mb, act_dim)
+        newlogprob = log_prob_per_dim.sum(1)
+        entropy = new_dist.entropy().sum(1)
+        newvalue = agent.get_value_from_latent(latent)
+
         logratio = newlogprob - batch.logprobs[mb_inds]
         ratio = logratio.exp()
         with torch.no_grad():
             old_approx_kl = (-logratio).mean()
             approx_kl = ((ratio - 1) - logratio).mean()
-            clipfrac = ((ratio < (1 - actor_clip_lo)) | (ratio > (1 + actor_clip_hi))).float().mean().item()
+            clipfrac = ((ratio < (1 - clip_lo)) | (ratio > (1 + clip_hi))).float().mean().item()
+
         mb_advantages = batch.advantages[mb_inds]
         if args.norm_adv:
             mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
-        pg_loss1 = -mb_advantages * ratio
-        pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - actor_clip_lo, 1 + actor_clip_hi)
-        pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+
+        # PMPO: sign-based advantage splitting with per-dim masked mean
+        pos_mask = mb_advantages >= 0
+        neg_mask = ~pos_mask
+        pos_mask_expanded = pos_mask.unsqueeze(-1).expand_as(log_prob_per_dim)
+        neg_mask_expanded = neg_mask.unsqueeze(-1).expand_as(log_prob_per_dim)
+
+        alpha = args.pmpo_alpha
+        pos_count = pos_mask_expanded.sum()
+        neg_count = neg_mask_expanded.sum()
+
+        pos_loss = log_prob_per_dim[pos_mask_expanded].sum() / pos_count.clamp(min=1)
+        neg_loss = -log_prob_per_dim[neg_mask_expanded].sum() / neg_count.clamp(min=1)
+        pg_loss = -(alpha * pos_loss + (1.0 - alpha) * neg_loss)
+
+        # KL divergence regularization against frozen prior (d4-style)
+        if args.pmpo_kl_coef > 0.0 and behavior_prior is not None:
+            with torch.no_grad():
+                prior_latent = behavior_prior.encode(batch.obs[mb_inds])
+                prior_dist = behavior_prior.get_dist_from_latent(prior_latent)
+            if args.pmpo_reverse_kl:
+                kl = kl_divergence(prior_dist, new_dist).sum(-1).mean()
+            else:
+                kl = kl_divergence(new_dist, prior_dist).sum(-1).mean()
+            pg_loss = pg_loss + args.pmpo_kl_coef * kl
+
         entropy_loss = entropy.mean()
     else:
         newvalue = agent.get_value(batch.obs[mb_inds])
@@ -819,7 +827,11 @@ def main(args_class=Args, agent_class=None):
         imagination_num_bins=args.imagination_num_bins,
         imagination_bin_range=args.imagination_bin_range,
     ).to(device)
-    behavior_optimizer = build_behavior_optimizer(agent, args)
+    behavior_optimizer = optim.Adam(
+        behavior_parameters(agent),
+        lr=resolve_learning_rate(args.behavior_learning_rate, args.learning_rate),
+        eps=1e-5,
+    )
     world_model_optimizer = optim.Adam(
         world_model_parameters(agent),
         lr=resolve_learning_rate(args.world_model_learning_rate, args.learning_rate),
@@ -840,7 +852,6 @@ def main(args_class=Args, agent_class=None):
     next_obses = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
     next_dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
-
     global_step = 0
     start_time = time.time()
     next_obs, _ = envs.reset(seed=args.seed)
@@ -848,7 +859,6 @@ def main(args_class=Args, agent_class=None):
     next_done = torch.zeros(args.num_envs).to(device)
     online_context_state = agent.init_context_state(args.num_envs, device)
     imagination_prior = None
-    last_explained_var = None
 
     for iteration in range(1, args.num_iterations + 1):
         if args.anneal_lr:
@@ -932,7 +942,7 @@ def main(args_class=Args, agent_class=None):
         )
 
         imagination_coef = current_imagination_phase_coef(args, global_step)
-        actor_coef = current_behavior_actor_coef(args, global_step, last_explained_var)
+        actor_coef = current_behavior_actor_coef(args, global_step)
         if imagination_coef > 0.0 and imagination_prior is None:
             imagination_prior = build_policy_prior(agent)
             imagination_prior = (
@@ -944,13 +954,19 @@ def main(args_class=Args, agent_class=None):
         behavior_inds = np.arange(args.batch_size)
         clipfracs = []
         last_behavior_losses = None
+
+        # Frozen behavior prior for PMPO KL (d4-style: snapshot once before all epochs)
+        behavior_prior = copy.deepcopy(agent).eval()
+        for p in behavior_prior.parameters():
+            p.requires_grad = False
+
         for epoch in range(args.update_epochs):
             np.random.shuffle(behavior_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
                 end = start + args.minibatch_size
                 mb_inds = behavior_inds[start:end]
 
-                behavior_losses = compute_behavior_losses(agent, batch, mb_inds, args, actor_coef)
+                behavior_losses = compute_behavior_losses(agent, batch, mb_inds, args, actor_coef, behavior_prior)
                 behavior_optimizer.zero_grad()
                 behavior_losses.total_loss.backward()
                 nn.utils.clip_grad_norm_(behavior_parameters(agent), args.max_grad_norm)
@@ -963,52 +979,24 @@ def main(args_class=Args, agent_class=None):
             if actor_coef > 0.0 and args.target_kl is not None and last_behavior_losses.approx_kl > args.target_kl:
                 break
 
-        extra_critic_update_epochs = max(0, int(getattr(args, "extra_critic_update_epochs", 0)))
-        extra_critic_start_fraction = max(0.0, float(getattr(args, "extra_critic_start_fraction", 0.0)))
-        if extra_critic_update_epochs > 0 and global_step >= int(args.total_timesteps * extra_critic_start_fraction):
-            critic_inds = np.arange(args.batch_size)
-            for _ in range(extra_critic_update_epochs):
-                np.random.shuffle(critic_inds)
-                for start in range(0, args.batch_size, args.minibatch_size):
-                    end = start + args.minibatch_size
-                    mb_inds = critic_inds[start:end]
+        world_model_inds = np.arange(args.batch_size)
+        last_world_model_losses = None
+        for _ in range(args.world_model_update_epochs):
+            np.random.shuffle(world_model_inds)
+            for start in range(0, args.batch_size, args.minibatch_size):
+                end = start + args.minibatch_size
+                mb_inds = world_model_inds[start:end]
 
-                    critic_losses = compute_behavior_losses(agent, batch, mb_inds, args, actor_coef=0.0)
-                    behavior_optimizer.zero_grad()
-                    critic_losses.total_loss.backward()
-                    nn.utils.clip_grad_norm_(behavior_parameters(agent), args.max_grad_norm)
-                    behavior_optimizer.step()
-
-        zero = torch.zeros((), device=device)
-        run_world_model_updates = args.world_model_update_epochs > 0 and max(args.model_coef, args.model_coef_after_imag) > 0.0
-        last_world_model_losses = WorldModelLosses(
-            scaled_loss=zero,
-            raw_loss=zero,
-            transition_loss=zero,
-            reward_loss=zero,
-            value_consistency_loss=zero,
-            done_loss=zero,
-            model_coef=0.0,
-            transition_std=zero,
-        )
-        if run_world_model_updates:
-            world_model_inds = np.arange(args.batch_size)
-            for _ in range(args.world_model_update_epochs):
-                np.random.shuffle(world_model_inds)
-                for start in range(0, args.batch_size, args.minibatch_size):
-                    end = start + args.minibatch_size
-                    mb_inds = world_model_inds[start:end]
-
-                    world_model_losses = compute_world_model_losses(agent, batch, mb_inds, args, device, global_step)
-                    world_model_optimizer.zero_grad()
-                    world_model_losses.scaled_loss.backward()
-                    nn.utils.clip_grad_norm_(world_model_parameters(agent), args.world_model_max_grad_norm)
-                    world_model_optimizer.step()
-                    last_world_model_losses = world_model_losses
+                world_model_losses = compute_world_model_losses(agent, batch, mb_inds, args, device, global_step)
+                world_model_optimizer.zero_grad()
+                world_model_losses.scaled_loss.backward()
+                nn.utils.clip_grad_norm_(world_model_parameters(agent), args.world_model_max_grad_norm)
+                world_model_optimizer.step()
+                last_world_model_losses = world_model_losses
 
         bc_coef = args.imagination_bc_coef if imagination_coef <= 0.0 else args.imagination_bc_after_start_coef
-        last_bc_loss = zero
-        if bc_coef > 0.0 and args.imagination_num_contexts > 0:
+        last_bc_loss = torch.zeros((), device=device)
+        if bc_coef > 0.0:
             bc_inds = np.random.permutation(args.batch_size)[: min(args.imagination_num_contexts, args.batch_size)]
             bc_loss = compute_imagination_bc_loss(agent, batch.obs[bc_inds], batch.context_states[bc_inds], batch.actions[bc_inds])
             imagination_optimizer.zero_grad()
@@ -1017,6 +1005,7 @@ def main(args_class=Args, agent_class=None):
             imagination_optimizer.step()
             last_bc_loss = bc_loss.detach()
 
+        zero = torch.zeros((), device=device)
         last_imagination_losses = ImaginationPhaseLosses(
             total_loss=zero,
             policy_loss=zero,
@@ -1050,10 +1039,9 @@ def main(args_class=Args, agent_class=None):
         y_pred, y_true = batch.values.cpu().numpy(), batch.returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
-        last_explained_var = explained_var
 
-        if last_behavior_losses is None:
-            raise RuntimeError("behavior losses must be computed at least once per iteration")
+        if last_behavior_losses is None or last_world_model_losses is None:
+            raise RuntimeError("behavior and world model losses must be computed at least once per iteration")
 
         writer.add_scalar("charts/learning_rate", behavior_optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("charts/world_model_learning_rate", world_model_optimizer.param_groups[0]["lr"], global_step)

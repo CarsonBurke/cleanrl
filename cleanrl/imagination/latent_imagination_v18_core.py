@@ -1,19 +1,13 @@
-# Online Dreamer-style latent imagination with full DreamerV3 components.
+# Online Dreamer-style latent imagination with Dreamer4-inspired RL updates.
 #
-# v16 closes all gaps vs the dreamer4 reference:
-# - RSSM (block-diagonal GRU + 16x16 categorical stochastic state)
-# - Decoder with symlog-MSE reconstruction loss
-# - Split KL with free nats (dyn_scale=1.0, rep_scale=0.1)
-# - Slow critic (EMA tau=0.02) + percentile return normalization
-# - State-dependent std (sigmoid-squashed [0.1, 1.0])
-# - REINFORCE + entropy actor loss
-# - Separate actor, critic, world-model optimizers
-# - Continue head (learned discount)
-# - Longer imagination horizon (15)
-# - No obs/reward normalization wrappers; symlog handles scale
-# - RMSNorm + SiLU throughout
-# - MTP reward head retained from v15 lineage
-import copy
+# v18 keeps the RSSM world model architecture but aligns the actor-critic update
+# path more closely with dreamer4 where the designs are comparable:
+# - GAE over rollout-time critic values instead of lambda returns from a slow critic
+# - Optional EMA return normalization applied to returns and old values
+# - Value clipping around rollout-time old values
+# - Reverse KL in the PMPO regularizer computed as KL(old || new)
+# - Gaussian actor parameterized by mean and log-variance
+# - No extra action renormalization inside the RSSM transition
 import math
 import os
 import random
@@ -217,8 +211,6 @@ class RSSM(nn.Module):
 
     def _gru_core(self, deter, stoch, action):
         stoch_flat = stoch.reshape(stoch.shape[0], -1)
-        action = action / action.abs().clamp(min=1).detach()
-
         x0 = self.dyn_act0(self.dyn_norm0(self.dyn_in_deter(deter)))
         x1 = self.dyn_act1(self.dyn_norm1(self.dyn_in_stoch(stoch_flat)))
         x2 = self.dyn_act2(self.dyn_norm2(self.dyn_in_act(action)))
@@ -352,19 +344,23 @@ class ContinueHead(nn.Module):
 
 
 class Actor(nn.Module):
-    def __init__(self, feat_dim, act_dim, units, layers, act="silu",
-                 minstd=0.1, maxstd=1.0):
+    def __init__(self, feat_dim, act_dim, units, layers, act="silu"):
         super().__init__()
-        self.minstd = minstd
-        self.maxstd = maxstd
         self.mlp = MLP(feat_dim, 2 * act_dim, units, layers, act=act, out_scale=0.01)
         self.act_dim = act_dim
 
-    def forward(self, feat):
+    def stats(self, feat):
         out = self.mlp(feat)
-        mean, raw_std = out.split(self.act_dim, -1)
-        std = self.minstd + (self.maxstd - self.minstd) * torch.sigmoid(raw_std)
+        mean, log_var = out.split(self.act_dim, -1)
+        return mean, log_var
+
+    def dist_from_stats(self, mean, log_var):
+        std = (0.5 * log_var.clamp(-10, 4)).exp()  # clamp for numerical safety
         return Normal(mean, std)
+
+    def forward(self, feat):
+        mean, log_var = self.stats(feat)
+        return self.dist_from_stats(mean, log_var)
 
 
 class Critic(nn.Module):
@@ -387,44 +383,52 @@ class Critic(nn.Module):
 # Percentile Return Normalization
 # ---------------------------------------------------------------------------
 
-class PercentileReturnNorm:
-    def __init__(self, rate=0.01, perclo=5.0, perchi=95.0, limit=1.0):
-        self.rate = rate
+class EMAReturnNorm:
+    """EMA-based return normalization (dreamer4 style).
+    Tracks mean/std of returns via EMA, normalizes both returns and values."""
+    def __init__(self, decay=0.998, perclo=5.0, perchi=95.0):
+        self.decay = decay
         self.perclo = perclo
         self.perchi = perchi
-        self.limit = limit
-        self.lo = 0.0
-        self.hi = 0.0
+        self.mean = 0.0
+        self.var = 1.0
         self.initialized = False
 
     def update(self, returns):
-        flat = returns.detach().cpu().numpy().ravel()
-        lo = np.percentile(flat, self.perclo)
-        hi = np.percentile(flat, self.perchi)
+        flat = returns.detach().float()
+        # Quantile clamp (dreamer4 style) to reduce outlier influence
+        lo = torch.quantile(flat, self.perclo / 100.0)
+        hi = torch.quantile(flat, self.perchi / 100.0)
+        clamped = flat.clamp(lo, hi)
+        batch_mean = clamped.mean().item()
+        batch_var = clamped.var().item()
         if not self.initialized:
-            self.lo = lo
-            self.hi = hi
+            self.mean = batch_mean
+            self.var = max(batch_var, 1e-8)
             self.initialized = True
         else:
-            self.lo += self.rate * (lo - self.lo)
-            self.hi += self.rate * (hi - self.hi)
+            self.mean = self.decay * self.mean + (1 - self.decay) * batch_mean
+            self.var = self.decay * self.var + (1 - self.decay) * batch_var
 
-    def scale(self):
-        return max(self.limit, self.hi - self.lo)
+    def normalize(self, x):
+        std = max(self.var ** 0.5, 1e-4)
+        return (x - self.mean) / std
 
 
 # ---------------------------------------------------------------------------
-# Lambda Returns
+# GAE Returns
 # ---------------------------------------------------------------------------
 
-def compute_lambda_returns(rew, con, val, lam):
-    H = rew.shape[1] - 1
-    rets = [val[:, -1]]
-    for t in reversed(range(H)):
-        ret_t = rew[:, t + 1] + con[:, t + 1] * ((1 - lam) * val[:, t + 1] + lam * rets[-1])
-        rets.append(ret_t)
-    rets = list(reversed(rets[:-1]))
-    return torch.stack(rets, 1)
+def compute_gae_returns(rew, val, gamma, lam):
+    horizon = rew.shape[1]
+    gae = torch.zeros_like(rew[:, 0])
+    returns = []
+    for t in reversed(range(horizon)):
+        delta = rew[:, t] + gamma * val[:, t + 1] - val[:, t]
+        gae = delta + gamma * lam * gae
+        returns.append(gae + val[:, t])
+    returns.reverse()
+    return torch.stack(returns, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -529,10 +533,10 @@ class Args:
     num_bins: int = 255
 
     # Training
-    learning_rate: float = 1e-4
-    wm_learning_rate: float = 1e-4
-    actor_learning_rate: float = 1e-4
-    critic_learning_rate: float = 1e-4
+    learning_rate: float = 3e-4
+    wm_learning_rate: float = 3e-4
+    actor_learning_rate: float = 3e-4
+    critic_learning_rate: float = 3e-4
     eps: float = 1e-8
     batch_size_per_env: int = 16  # d4 ref: 16 at 1 env, scales with num_envs
     batch_length: int = 32
@@ -550,14 +554,12 @@ class Args:
     actor_entropy: float = 0.01
     pmpo_pos_neg_weight: float = 0.5  # α in PMPO: weight for positive advantages
     pmpo_kl_weight: float = 0.3  # reverse KL constraint weight
-    actor_minstd: float = 0.1
-    actor_maxstd: float = 1.0
-    slow_target_rate: float = 0.02
-    slow_reg: float = 1.0
-    return_norm_rate: float = 0.01
+    gae_discount: float = 0.997
+    keep_return_ema_stats: bool = False
+    return_norm_decay: float = 0.998
     return_norm_perclo: float = 5.0
     return_norm_perchi: float = 95.0
-    return_norm_limit: float = 1.0
+    value_clip: float = 0.4  # clipped value loss range (dreamer4)
 
     # Replay
     replay_size: int = 1_000_000
@@ -642,11 +644,8 @@ def main(args_class=Args):
     decoder = Decoder(feat_dim, obs_dim, args.mlp_units, args.mlp_layers).to(device)
     reward_head = RewardHead(feat_dim, args.mlp_units, args.num_bins).to(device)
     continue_head = ContinueHead(feat_dim, args.mlp_units).to(device)
-    actor = Actor(feat_dim, act_dim, args.mlp_units, args.mlp_layers,
-                  minstd=args.actor_minstd, maxstd=args.actor_maxstd).to(device)
+    actor = Actor(feat_dim, act_dim, args.mlp_units, args.mlp_layers).to(device)
     critic = Critic(feat_dim, args.mlp_units, args.mlp_layers, args.num_bins).to(device)
-    slow_critic = copy.deepcopy(critic).to(device)
-    slow_critic.requires_grad_(False)
 
     # Optimizers (separate for WM, actor, critic)
     wm_params = (list(encoder.parameters()) + list(rssm.parameters()) +
@@ -667,15 +666,13 @@ def main(args_class=Args):
         reward_head = torch.compile(reward_head)
         continue_head = torch.compile(continue_head)
         critic = torch.compile(critic)
-        slow_critic = torch.compile(slow_critic)
         actor_mlp_compiled = torch.compile(actor.mlp)
 
     bins = build_symexp_bins(args.num_bins).to(device)
-    return_norm = PercentileReturnNorm(
-        rate=args.return_norm_rate,
+    return_norm = EMAReturnNorm(
+        decay=args.return_norm_decay,
         perclo=args.return_norm_perclo,
         perchi=args.return_norm_perchi,
-        limit=args.return_norm_limit,
     )
 
     replay = EpisodeReplayBuffer(args.replay_size)
@@ -776,13 +773,17 @@ def main(args_class=Args):
             cur_feat = rssm.get_feat(start_feat)
             img_feats = [cur_feat]
             img_acts = []
+            img_old_means = []
+            img_old_logvars = []
             state = start_feat
             for h in range(args.imag_horizon):
-                # Manual actor forward (compiled MLP + manual Normal sample)
+                # Manual actor forward (compiled MLP + manual Normal sample).
                 actor_out = actor_mlp_compiled(cur_feat)
-                act_mean, act_raw_std = actor_out.split(act_dim, -1)
-                act_std = actor.minstd + (actor.maxstd - actor.minstd) * torch.sigmoid(act_raw_std)
+                act_mean, act_logvar = actor_out.split(act_dim, -1)
+                act_std = (0.5 * act_logvar).exp()
                 action = act_mean + act_std * torch.randn_like(act_std)
+                img_old_means.append(act_mean)
+                img_old_logvars.append(act_logvar)
                 img_acts.append(action)
                 state = rssm.imagine_step(state, action)
                 cur_feat = rssm.get_feat(state)
@@ -790,61 +791,58 @@ def main(args_class=Args):
 
             img_feats = torch.stack(img_feats, 1)
             img_acts = torch.stack(img_acts, 1)
+            img_old_means = torch.stack(img_old_means, 1)
+            img_old_logvars = torch.stack(img_old_logvars, 1)
 
             H1 = args.imag_horizon + 1
             img_feats_flat = img_feats.reshape(BK * H1, -1)
             img_rew = reward_head.predict(img_feats_flat).reshape(BK, H1).float()
-            img_con = continue_head.predict(img_feats_flat).reshape(BK, H1).float()
-            img_slow_val = twohot_predict(slow_critic(img_feats_flat), bins).reshape(BK, H1).float()
+            img_old_val = twohot_predict(critic(img_feats_flat), bins).reshape(BK, H1).float()
+            returns = compute_gae_returns(
+                img_rew[:, 1:], img_old_val, args.gae_discount, args.lam
+            )
 
-            returns = compute_lambda_returns(img_rew, img_con, img_slow_val, args.lam)
+            if args.keep_return_ema_stats:
+                return_norm.update(returns)
+                advantages = return_norm.normalize(returns) - return_norm.normalize(img_old_val[:, :-1])
+                ret_scale = return_norm.var ** 0.5 if return_norm.initialized else 1.0
+            else:
+                advantages = returns - img_old_val[:, :-1]
+                ret_scale = 1.0
 
-            return_norm.update(returns)
-            ret_scale = return_norm.scale()
-            advantages = (returns - img_slow_val[:, :-1]) / ret_scale
-
-            # Discount weight: starts at 1.0, then accumulates continuation probs
-            ones = torch.ones(BK, 1, device=img_con.device)
-            weight = torch.cumprod(torch.cat([ones, img_con[:, 1:-1]], dim=1), dim=1)
-
-            # Pre-compute actor/critic input feats and slow critic targets (avoid recompute)
             imag_actor_feats = img_feats[:, :-1].reshape(BK * args.imag_horizon, -1)
             imag_acts_flat = img_acts.reshape(BK * args.imag_horizon, -1)
-            slow_val_for_critic = img_slow_val[:, :-1].reshape(-1)
+            old_val_for_critic = img_old_val[:, :-1].reshape(-1)
 
         # ===== Actor (PMPO) =====
-        # Save old policy for KL constraint before gradient step
-        with torch.no_grad():
-            old_dist = actor(imag_actor_feats.detach())
-            old_mean = old_dist.loc.detach().clone()
-            old_std = old_dist.scale.detach().clone()
-
         actor_opt.zero_grad()
 
         policy_dist = actor(imag_actor_feats.detach())
-        logpi = policy_dist.log_prob(imag_acts_flat.detach()).sum(-1).reshape(BK, args.imag_horizon)
-        entropy = policy_dist.entropy().sum(-1).reshape(BK, args.imag_horizon)
+        logpi = policy_dist.log_prob(imag_acts_flat.detach()).reshape(BK, args.imag_horizon, act_dim)
+        entropy = policy_dist.entropy().reshape(BK, args.imag_horizon, act_dim).sum(-1)
 
-        # PMPO: separate positive and negative advantages, ignore magnitude
         adv_detached = advantages.detach()
-        w = weight.detach()
-        pos_mask = (adv_detached > 0) & (w > 0)
-        neg_mask = (adv_detached <= 0) & (w > 0)
+        pos_mask = adv_detached >= 0
+        neg_mask = adv_detached < 0
 
         alpha = args.pmpo_pos_neg_weight
-        pos_term = (logpi * pos_mask).sum() / pos_mask.sum().clamp(min=1)
-        neg_term = -(logpi * neg_mask).sum() / neg_mask.sum().clamp(min=1)
+        pos_term = (logpi * pos_mask.unsqueeze(-1)).sum() / (pos_mask.sum().clamp(min=1) * act_dim)
+        neg_term = -(logpi * neg_mask.unsqueeze(-1)).sum() / (neg_mask.sum().clamp(min=1) * act_dim)
         pmpo_loss = -(alpha * pos_term + (1 - alpha) * neg_term)
 
-        # Entropy bonus
-        entropy_loss = -(w * entropy.float()).mean()
+        entropy_loss = -entropy.float().mean()
 
-        # Reverse KL constraint: KL(old || new) to prevent large policy changes
         if args.pmpo_kl_weight > 0:
-            kl_div = (torch.log(policy_dist.scale / old_std) +
-                      (old_std**2 + (old_mean - policy_dist.loc)**2) / (2 * policy_dist.scale**2) - 0.5).sum(-1)
-            kl_loss = kl_div.reshape(BK, args.imag_horizon)
-            kl_loss = (w * kl_loss).mean()
+            old_mu = img_old_means.detach().reshape(BK * args.imag_horizon, -1)
+            old_logvar = img_old_logvars.detach().reshape(BK * args.imag_horizon, -1)
+            new_mu, new_logvar = actor.stats(imag_actor_feats.detach())
+            old_var = old_logvar.exp()
+            new_var = new_logvar.exp()
+            kl_div = 0.5 * (
+                new_logvar - old_logvar +
+                (old_var + (old_mu - new_mu).pow(2)) / new_var - 1.0
+            ).sum(-1)
+            kl_loss = kl_div.reshape(BK, args.imag_horizon).mean()
         else:
             kl_loss = torch.zeros(1, device=device)
 
@@ -854,27 +852,29 @@ def main(args_class=Args):
         torch.nn.utils.clip_grad_norm_(actor.parameters(), args.max_grad_norm)
         actor_opt.step()
 
-        # ===== Critic =====
+        # ===== Critic (clipped value loss, rollout-time baseline) =====
         critic_opt.zero_grad()
 
         val_logits = critic(imag_actor_feats.detach())
+        returns_flat = returns.reshape(-1).detach()
+        return_twohot = twohot_encode(returns_flat, bins)
+        loss_unclipped = -(return_twohot * F.log_softmax(val_logits, dim=-1)).sum(-1).reshape(
+            BK, args.imag_horizon
+        )
+        val_pred = twohot_predict(val_logits, bins).reshape(BK, args.imag_horizon)
+        old_val = old_val_for_critic.detach().reshape(BK, args.imag_horizon)
+        clipped_val = old_val + (val_pred - old_val).clamp(-args.value_clip, args.value_clip)
+        clipped_twohot = twohot_encode(clipped_val.reshape(-1), bins)
+        loss_clipped = -(return_twohot * F.log_softmax(clipped_twohot, dim=-1)).sum(-1).reshape(
+            BK, args.imag_horizon
+        )
 
-        loss_returns = twohot_loss(
-            val_logits, returns.reshape(-1).detach(), bins
-        ).reshape(BK, args.imag_horizon)
-        loss_slow = twohot_loss(
-            val_logits, slow_val_for_critic.detach(), bins
-        ).reshape(BK, args.imag_horizon)
-        critic_loss = (weight.detach() * (loss_returns + args.slow_reg * loss_slow)).mean()
+        loss_returns = torch.max(loss_unclipped, loss_clipped)
+        critic_loss = loss_returns.mean()
 
         critic_loss.backward()
         torch.nn.utils.clip_grad_norm_(critic.parameters(), args.max_grad_norm)
         critic_opt.step()
-
-        # Update slow critic
-        with torch.no_grad():
-            for p, sp in zip(critic.parameters(), slow_critic.parameters()):
-                sp.data.lerp_(p.data, args.slow_target_rate)
 
         return {
             'wm_loss': wm_loss.item(),
@@ -897,7 +897,7 @@ def main(args_class=Args):
         kw.setdefault('flush', True)
         _print(*a, **kw)
 
-    print(f"Starting latent_imagination_v16 on {args.env_id} with {args.num_envs} envs")
+    print(f"Starting latent_imagination_v18 on {args.env_id} with {args.num_envs} envs")
     total_params = sum(p.numel() for p in wm_params) + sum(
         p.numel() for p in actor.parameters()) + sum(
         p.numel() for p in critic.parameters())

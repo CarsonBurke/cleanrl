@@ -842,19 +842,19 @@ def main(args_class=Args):
         neg_term = -(logpi * neg_mask).sum() / neg_mask.sum().clamp(min=1)
         pmpo_loss = -(alpha * pos_term + (1 - alpha) * neg_term)
 
-        # Entropy bonus
-        entropy_loss = -(w * entropy.float()).mean()
+        # Entropy bonus (uniform mean, no discount weighting — matches dreamer4)
+        entropy_loss = -entropy.float().mean()
 
-        # Reverse KL constraint: analytical KL(old || new) for diagonal Gaussian
+        # Reverse KL constraint: KL(new || old) for diagonal Gaussian (dreamer4 convention)
         if args.pmpo_kl_weight > 0:
             old_mu = img_old_means.detach().reshape(BK * args.imag_horizon, -1)
             old_sig = img_old_stds.detach().reshape(BK * args.imag_horizon, -1)
             new_mu = policy_dist.loc
             new_sig = policy_dist.scale
-            # KL(old || new) = sum_d [log(sig_new/sig_old) + (sig_old^2 + (mu_old-mu_new)^2)/(2*sig_new^2) - 0.5]
-            kl_div = (torch.log(new_sig / old_sig) +
-                      (old_sig**2 + (old_mu - new_mu)**2) / (2 * new_sig**2) - 0.5).sum(-1)
-            kl_loss = (w * kl_div.reshape(BK, args.imag_horizon)).mean()
+            # KL(new || old) = sum_d [log(sig_old/sig_new) + (sig_new^2 + (new_mu-old_mu)^2)/(2*sig_old^2) - 0.5]
+            kl_div = (torch.log(old_sig / new_sig) +
+                      (new_sig**2 + (new_mu - old_mu)**2) / (2 * old_sig**2) - 0.5).sum(-1)
+            kl_loss = kl_div.reshape(BK, args.imag_horizon).mean()
         else:
             kl_loss = torch.zeros(1, device=device)
 
@@ -882,15 +882,11 @@ def main(args_class=Args):
         old_val = slow_val_for_critic.detach().reshape(BK, args.imag_horizon)
         clipped_val = old_val + (val_pred - old_val).clamp(-args.value_clip, args.value_clip)
         loss_clipped = twohot_loss(
-            val_logits, clipped_val.reshape(-1).detach(), bins
+            val_logits, clipped_val.reshape(-1), bins
         ).reshape(BK, args.imag_horizon)
 
         loss_returns = torch.max(loss_unclipped, loss_clipped)
-
-        loss_slow = twohot_loss(
-            val_logits, slow_val_for_critic.detach(), bins
-        ).reshape(BK, args.imag_horizon)
-        critic_loss = (weight.detach() * (loss_returns + args.slow_reg * loss_slow)).mean()
+        critic_loss = loss_returns.mean()
 
         critic_loss.backward()
         torch.nn.utils.clip_grad_norm_(critic.parameters(), args.max_grad_norm)

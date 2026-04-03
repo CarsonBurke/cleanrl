@@ -1,19 +1,10 @@
-# Online Dreamer-style latent imagination with full DreamerV3 components.
+# Online Dreamer-style latent imagination with a transformer world model.
 #
-# v16 closes all gaps vs the dreamer4 reference:
-# - RSSM (block-diagonal GRU + 16x16 categorical stochastic state)
-# - Decoder with symlog-MSE reconstruction loss
-# - Split KL with free nats (dyn_scale=1.0, rep_scale=0.1)
-# - Slow critic (EMA tau=0.02) + percentile return normalization
-# - State-dependent std (sigmoid-squashed [0.1, 1.0])
-# - REINFORCE + entropy actor loss
-# - Separate actor, critic, world-model optimizers
-# - Continue head (learned discount)
-# - Longer imagination horizon (15)
-# - No obs/reward normalization wrappers; symlog handles scale
-# - RMSNorm + SiLU throughout
-# - MTP reward head retained from v15 lineage
-import copy
+# v19 replaces the RSSM with a causal transformer latent model:
+# - observed latents are built from observation/action tokens plus a learned history
+# - imagined rollouts append autoregressive prior tokens instead of stepping an RSSM
+# - actor/critic still use Dreamer4-inspired GAE, PMPO, reverse KL, and value clipping
+# - the implementation stays single-file and practical for CleanRL experiments
 import math
 import os
 import random
@@ -139,156 +130,132 @@ class BlockLinear(nn.Module):
 
 
 # ---------------------------------------------------------------------------
-# RSSM World Model
+# Transformer World Model
 # ---------------------------------------------------------------------------
 
-class RSSM(nn.Module):
-    def __init__(self, act_dim, deter=256, hidden=128, stoch=16, classes=16,
-                 blocks=8, unimix=0.01, act="silu"):
+class TransformerBlock(nn.Module):
+    def __init__(self, dim, heads, mlp_ratio=4.0, act="silu"):
         super().__init__()
-        self.deter_dim = deter
-        self.hidden_dim = hidden
-        self.stoch = stoch
-        self.classes = classes
-        self.blocks = blocks
-        self.unimix = unimix
-        self.stoch_dim = stoch * classes
-        self.feat_dim = deter + self.stoch_dim
-        act_fn_cls = {"silu": nn.SiLU, "relu": nn.ReLU, "gelu": nn.GELU}[act]
-
-        self.dyn_in_deter = nn.Linear(deter, hidden)
-        self.dyn_in_stoch = nn.Linear(self.stoch_dim, hidden)
-        self.dyn_in_act = nn.Linear(act_dim, hidden)
-        self.dyn_norm0 = RMSNorm(hidden)
-        self.dyn_norm1 = RMSNorm(hidden)
-        self.dyn_norm2 = RMSNorm(hidden)
-        self.dyn_act0 = act_fn_cls()
-        self.dyn_act1 = act_fn_cls()
-        self.dyn_act2 = act_fn_cls()
-
-        self.core_in_per_block = deter // blocks + 3 * hidden
-        core_in_total = blocks * self.core_in_per_block
-        self.dyn_hidden = BlockLinear(core_in_total, deter, blocks)
-        self.dyn_hidden_norm = RMSNorm(deter)
-        self.dyn_hidden_act = act_fn_cls()
-        self.dyn_gru = BlockLinear(deter, 3 * deter, blocks)
-
-        self.prior = nn.Sequential(
-            nn.Linear(deter, hidden), RMSNorm(hidden), act_fn_cls(),
-            nn.Linear(hidden, hidden), RMSNorm(hidden), act_fn_cls(),
-            nn.Linear(hidden, stoch * classes),
-        )
-        # Posterior: input dim set via set_post_input_dim
-        self.post = nn.Sequential(
-            nn.Linear(deter + hidden, hidden),
-            RMSNorm(hidden), act_fn_cls(),
-            nn.Linear(hidden, stoch * classes),
+        act_fn = {"silu": nn.SiLU, "relu": nn.ReLU, "gelu": nn.GELU}[act]
+        self.norm1 = RMSNorm(dim)
+        self.attn = nn.MultiheadAttention(dim, heads, batch_first=True)
+        self.norm2 = RMSNorm(dim)
+        self.ff = nn.Sequential(
+            nn.Linear(dim, int(dim * mlp_ratio)),
+            act_fn(),
+            nn.Linear(int(dim * mlp_ratio), dim),
         )
 
-    def set_post_input_dim(self, token_dim):
-        hidden = self.hidden_dim
-        act_fn_cls = type(self.dyn_act0)
-        self.post = nn.Sequential(
-            nn.Linear(self.deter_dim + token_dim, hidden),
-            RMSNorm(hidden), act_fn_cls(),
-            nn.Linear(hidden, self.stoch * self.classes),
+    def forward(self, x, attn_mask=None, key_padding_mask=None):
+        h = self.norm1(x)
+        attn_out, _ = self.attn(
+            h, h, h,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask,
+            need_weights=False,
         )
+        x = x + attn_out
+        x = x + self.ff(self.norm2(x))
+        return x
+
+
+class TransformerWorldModel(nn.Module):
+    def __init__(self, token_dim, act_dim, dim=256, heads=4, layers=4, context_len=64, act="silu"):
+        super().__init__()
+        self.dim = dim
+        self.act_dim = act_dim
+        self.context_len = context_len
+        self.feat_dim = dim
+        self.obs_proj = nn.Linear(token_dim, dim)
+        self.act_proj = nn.Linear(act_dim, dim)
+        self.first_embed = nn.Embedding(2, dim)
+        self.pos_emb = nn.Parameter(torch.zeros(context_len, dim))
+        self.blocks = nn.ModuleList([TransformerBlock(dim, heads, act=act) for _ in range(layers)])
+        self.final_norm = RMSNorm(dim)
+        self.prior = MLP(dim + act_dim, dim, dim, 2, act=act, out_scale=0.0)
 
     def initial(self, batch_size, device):
         return {
-            'deter': torch.zeros(batch_size, self.deter_dim, device=device),
-            'stoch': torch.zeros(batch_size, self.stoch, self.classes, device=device),
+            'history': torch.zeros(batch_size, self.context_len, self.dim, device=device),
+            'lengths': torch.zeros(batch_size, dtype=torch.long, device=device),
+            'latent': torch.zeros(batch_size, self.dim, device=device),
         }
 
     def get_feat(self, state):
-        deter = state['deter']
-        stoch = state['stoch'].reshape(*state['stoch'].shape[:-2], -1)
-        return torch.cat([deter, stoch], -1)
+        return state['latent']
 
-    def _sample_categorical(self, logits):
-        probs = F.softmax(logits, dim=-1)
-        uniform = torch.ones_like(probs) / self.classes
-        probs = (1 - self.unimix) * probs + self.unimix * uniform
-        flat = probs.reshape(-1, self.classes)
-        indices = torch.multinomial(flat, 1).squeeze(-1)
-        indices = indices.reshape(logits.shape[:-1])
-        one_hot = F.one_hot(indices, self.classes).float()
-        return one_hot + probs - probs.detach()
+    def seed_from_features(self, feat_hist, lengths):
+        batch, hist_len, dim = feat_hist.shape
+        assert dim == self.dim
+        history = feat_hist.new_zeros(batch, self.context_len, dim)
+        clipped_lengths = lengths.clamp(max=self.context_len)
+        for i in range(batch):
+            length = int(clipped_lengths[i].item())
+            if length == 0:
+                continue
+            history[i, :length] = feat_hist[i, hist_len - length:hist_len]
+        latent = history[torch.arange(batch, device=history.device), (clipped_lengths - 1).clamp(min=0)]
+        latent = latent * (clipped_lengths > 0).unsqueeze(-1)
+        return {'history': history, 'lengths': clipped_lengths, 'latent': latent}
 
-    def _gru_core(self, deter, stoch, action):
-        stoch_flat = stoch.reshape(stoch.shape[0], -1)
-        action = action / action.abs().clamp(min=1).detach()
+    def _append(self, history, lengths, token, reset_mask=None):
+        new_history = history.clone()
+        new_lengths = lengths.clone()
+        batch = history.shape[0]
+        if reset_mask is None:
+            reset_mask = torch.zeros(batch, dtype=torch.bool, device=history.device)
+        for i in range(batch):
+            if reset_mask[i]:
+                new_history[i].zero_()
+                new_lengths[i] = 0
+            length = int(new_lengths[i].item())
+            if length < self.context_len:
+                new_history[i, length] = token[i]
+                new_lengths[i] = length + 1
+            else:
+                new_history[i, :-1] = new_history[i, 1:].clone()
+                new_history[i, -1] = token[i]
+        return new_history, new_lengths
 
-        x0 = self.dyn_act0(self.dyn_norm0(self.dyn_in_deter(deter)))
-        x1 = self.dyn_act1(self.dyn_norm1(self.dyn_in_stoch(stoch_flat)))
-        x2 = self.dyn_act2(self.dyn_norm2(self.dyn_in_act(action)))
-
-        combined = torch.cat([x0, x1, x2], -1)
-        combined = combined.unsqueeze(1).expand(-1, self.blocks, -1)
-
-        B = deter.shape[0]
-        deter_blocked = deter.reshape(B, self.blocks, self.deter_dim // self.blocks)
-        x = torch.cat([deter_blocked, combined], -1)
-        x = x.reshape(B, -1)
-
-        x = self.dyn_hidden_act(self.dyn_hidden_norm(self.dyn_hidden(x)))
-
-        gates = self.dyn_gru(x).reshape(B, 3, self.deter_dim)
-        reset_raw, cand_raw, update_raw = gates[:, 0], gates[:, 1], gates[:, 2]
-
-        reset = torch.sigmoid(reset_raw)
-        cand = torch.tanh(reset * cand_raw)
-        update = torch.sigmoid(update_raw - 1)
-        new_deter = update * cand + (1 - update) * deter
-        return new_deter
+    def _run_transformer(self, history, lengths):
+        seq_len = history.shape[1]
+        x = history + self.pos_emb[:seq_len].unsqueeze(0)
+        causal_mask = torch.triu(
+            torch.ones(seq_len, seq_len, device=history.device, dtype=torch.bool),
+            diagonal=1,
+        )
+        key_padding_mask = torch.arange(seq_len, device=history.device).unsqueeze(0) >= lengths.unsqueeze(1)
+        for block in self.blocks:
+            x = block(x, attn_mask=causal_mask, key_padding_mask=key_padding_mask)
+        return self.final_norm(x)
 
     def observe_step(self, state, token, action, is_first):
-        B = is_first.shape[0]
-        mask = (~is_first).float()
-
-        deter = state['deter'] * mask.unsqueeze(-1)
-        stoch = state['stoch'] * mask.unsqueeze(-1).unsqueeze(-1)
-        action = action * mask.unsqueeze(-1)
-
-        new_deter = self._gru_core(deter, stoch, action)
-
-        post_input = torch.cat([new_deter, token], -1)
-        post_logit = self.post(post_input).reshape(B, self.stoch, self.classes)
-        post_stoch = self._sample_categorical(post_logit)
-
-        prior_logit = self.prior(new_deter).reshape(B, self.stoch, self.classes)
-
-        new_state = {'deter': new_deter, 'stoch': post_stoch}
-        return new_state, prior_logit, post_logit
+        prev_latent = state['latent'] * (~is_first).unsqueeze(-1)
+        proposal = self.obs_proj(token) + self.act_proj(action) + self.first_embed(is_first.long())
+        history, lengths = self._append(state['history'], state['lengths'], proposal, reset_mask=is_first)
+        latent_seq = self._run_transformer(history, lengths)
+        latent = latent_seq[torch.arange(token.shape[0], device=token.device), lengths - 1]
+        new_state = {'history': latent_seq.detach(), 'lengths': lengths, 'latent': latent}
+        prior = self.prior(torch.cat([prev_latent, action], -1))
+        return new_state, prior, latent
 
     def observe(self, tokens, actions, is_first):
-        B, T, _ = tokens.shape
-        device = tokens.device
-        state = self.initial(B, device)
-
-        all_deter, all_stoch = [], []
-        all_prior, all_post = [], []
-
-        for t in range(T):
-            state, prior_logit, post_logit = self.observe_step(
-                state, tokens[:, t], actions[:, t], is_first[:, t])
-            all_deter.append(state['deter'])
-            all_stoch.append(state['stoch'])
-            all_prior.append(prior_logit)
-            all_post.append(post_logit)
-
-        states = {
-            'deter': torch.stack(all_deter, 1),
-            'stoch': torch.stack(all_stoch, 1),
-        }
-        return states, torch.stack(all_prior, 1), torch.stack(all_post, 1)
+        batch, time, _ = tokens.shape
+        state = self.initial(batch, tokens.device)
+        prior_preds = []
+        latents = []
+        for t in range(time):
+            state, prior_pred, latent = self.observe_step(state, tokens[:, t], actions[:, t], is_first[:, t])
+            prior_preds.append(prior_pred)
+            latents.append(latent)
+        return {'latent': torch.stack(latents, 1)}, torch.stack(prior_preds, 1), torch.stack(latents, 1)
 
     def imagine_step(self, state, action):
-        new_deter = self._gru_core(state['deter'], state['stoch'], action)
-        prior_logit = self.prior(new_deter).reshape(
-            new_deter.shape[0], self.stoch, self.classes)
-        prior_stoch = self._sample_categorical(prior_logit)
-        return {'deter': new_deter, 'stoch': prior_stoch}
+        proposal = self.prior(torch.cat([state['latent'], action], -1))
+        history, lengths = self._append(state['history'], state['lengths'], proposal)
+        latent_seq = self._run_transformer(history, lengths)
+        latent = latent_seq[torch.arange(action.shape[0], device=action.device), lengths - 1]
+        return {'history': latent_seq.detach(), 'lengths': lengths, 'latent': latent}
 
 
 # ---------------------------------------------------------------------------
@@ -352,19 +319,23 @@ class ContinueHead(nn.Module):
 
 
 class Actor(nn.Module):
-    def __init__(self, feat_dim, act_dim, units, layers, act="silu",
-                 minstd=0.1, maxstd=1.0):
+    def __init__(self, feat_dim, act_dim, units, layers, act="silu"):
         super().__init__()
-        self.minstd = minstd
-        self.maxstd = maxstd
         self.mlp = MLP(feat_dim, 2 * act_dim, units, layers, act=act, out_scale=0.01)
         self.act_dim = act_dim
 
-    def forward(self, feat):
+    def stats(self, feat):
         out = self.mlp(feat)
-        mean, raw_std = out.split(self.act_dim, -1)
-        std = self.minstd + (self.maxstd - self.minstd) * torch.sigmoid(raw_std)
+        mean, log_var = out.split(self.act_dim, -1)
+        return mean, log_var
+
+    def dist_from_stats(self, mean, log_var):
+        std = (0.5 * log_var.clamp(-10, 4)).exp()  # clamp for numerical safety
         return Normal(mean, std)
+
+    def forward(self, feat):
+        mean, log_var = self.stats(feat)
+        return self.dist_from_stats(mean, log_var)
 
 
 class Critic(nn.Module):
@@ -387,44 +358,52 @@ class Critic(nn.Module):
 # Percentile Return Normalization
 # ---------------------------------------------------------------------------
 
-class PercentileReturnNorm:
-    def __init__(self, rate=0.01, perclo=5.0, perchi=95.0, limit=1.0):
-        self.rate = rate
+class EMAReturnNorm:
+    """EMA-based return normalization (dreamer4 style).
+    Tracks mean/std of returns via EMA, normalizes both returns and values."""
+    def __init__(self, decay=0.998, perclo=5.0, perchi=95.0):
+        self.decay = decay
         self.perclo = perclo
         self.perchi = perchi
-        self.limit = limit
-        self.lo = 0.0
-        self.hi = 0.0
+        self.mean = 0.0
+        self.var = 1.0
         self.initialized = False
 
     def update(self, returns):
-        flat = returns.detach().cpu().numpy().ravel()
-        lo = np.percentile(flat, self.perclo)
-        hi = np.percentile(flat, self.perchi)
+        flat = returns.detach().float()
+        # Quantile clamp (dreamer4 style) to reduce outlier influence
+        lo = torch.quantile(flat, self.perclo / 100.0)
+        hi = torch.quantile(flat, self.perchi / 100.0)
+        clamped = flat.clamp(lo, hi)
+        batch_mean = clamped.mean().item()
+        batch_var = clamped.var().item()
         if not self.initialized:
-            self.lo = lo
-            self.hi = hi
+            self.mean = batch_mean
+            self.var = max(batch_var, 1e-8)
             self.initialized = True
         else:
-            self.lo += self.rate * (lo - self.lo)
-            self.hi += self.rate * (hi - self.hi)
+            self.mean = self.decay * self.mean + (1 - self.decay) * batch_mean
+            self.var = self.decay * self.var + (1 - self.decay) * batch_var
 
-    def scale(self):
-        return max(self.limit, self.hi - self.lo)
+    def normalize(self, x):
+        std = max(self.var ** 0.5, 1e-4)
+        return (x - self.mean) / std
 
 
 # ---------------------------------------------------------------------------
-# Lambda Returns
+# GAE Returns
 # ---------------------------------------------------------------------------
 
-def compute_lambda_returns(rew, con, val, lam):
-    H = rew.shape[1] - 1
-    rets = [val[:, -1]]
-    for t in reversed(range(H)):
-        ret_t = rew[:, t + 1] + con[:, t + 1] * ((1 - lam) * val[:, t + 1] + lam * rets[-1])
-        rets.append(ret_t)
-    rets = list(reversed(rets[:-1]))
-    return torch.stack(rets, 1)
+def compute_gae_returns(rew, val, gamma, lam):
+    horizon = rew.shape[1]
+    gae = torch.zeros_like(rew[:, 0])
+    returns = []
+    for t in reversed(range(horizon)):
+        delta = rew[:, t] + gamma * val[:, t + 1] - val[:, t]
+        gae = delta + gamma * lam * gae
+        returns.append(gae + val[:, t])
+    returns.reverse()
+    return torch.stack(returns, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -512,16 +491,13 @@ class Args:
     total_timesteps: int = 1_000_000
     num_envs: int = 8
 
-    # RSSM
-    rssm_deter: int = 256
-    rssm_hidden: int = 128
-    rssm_stoch: int = 16
-    rssm_classes: int = 16
-    rssm_blocks: int = 8
-    free_nats: float = 1.0
+    # Transformer world model
+    transformer_dim: int = 256
+    transformer_heads: int = 4
+    transformer_layers: int = 4
+    transformer_context: int = 64
     dyn_scale: float = 1.0
     rep_scale: float = 0.1
-    unimix: float = 0.01
 
     # Networks
     mlp_units: int = 256
@@ -529,10 +505,10 @@ class Args:
     num_bins: int = 255
 
     # Training
-    learning_rate: float = 1e-4
-    wm_learning_rate: float = 1e-4
-    actor_learning_rate: float = 1e-4
-    critic_learning_rate: float = 1e-4
+    learning_rate: float = 3e-4
+    wm_learning_rate: float = 3e-4
+    actor_learning_rate: float = 3e-4
+    critic_learning_rate: float = 3e-4
     eps: float = 1e-8
     batch_size_per_env: int = 16  # d4 ref: 16 at 1 env, scales with num_envs
     batch_length: int = 32
@@ -550,14 +526,12 @@ class Args:
     actor_entropy: float = 0.01
     pmpo_pos_neg_weight: float = 0.5  # α in PMPO: weight for positive advantages
     pmpo_kl_weight: float = 0.3  # reverse KL constraint weight
-    actor_minstd: float = 0.1
-    actor_maxstd: float = 1.0
-    slow_target_rate: float = 0.02
-    slow_reg: float = 1.0
-    return_norm_rate: float = 0.01
+    gae_discount: float = 0.997
+    keep_return_ema_stats: bool = False
+    return_norm_decay: float = 0.998
     return_norm_perclo: float = 5.0
     return_norm_perchi: float = 95.0
-    return_norm_limit: float = 1.0
+    value_clip: float = 0.4  # clipped value loss range (dreamer4)
 
     # Replay
     replay_size: int = 1_000_000
@@ -629,27 +603,25 @@ def main(args_class=Args):
     encoder = Encoder(obs_dim, args.mlp_units, args.mlp_layers).to(device)
     token_dim = args.mlp_units
 
-    rssm = RSSM(
-        act_dim, deter=args.rssm_deter, hidden=args.rssm_hidden,
-        stoch=args.rssm_stoch, classes=args.rssm_classes,
-        blocks=args.rssm_blocks, unimix=args.unimix,
+    world_model = TransformerWorldModel(
+        token_dim=token_dim,
+        act_dim=act_dim,
+        dim=args.transformer_dim,
+        heads=args.transformer_heads,
+        layers=args.transformer_layers,
+        context_len=args.transformer_context,
     ).to(device)
-    rssm.set_post_input_dim(token_dim)
-    rssm = rssm.to(device)
 
-    feat_dim = rssm.feat_dim
+    feat_dim = world_model.feat_dim
 
     decoder = Decoder(feat_dim, obs_dim, args.mlp_units, args.mlp_layers).to(device)
     reward_head = RewardHead(feat_dim, args.mlp_units, args.num_bins).to(device)
     continue_head = ContinueHead(feat_dim, args.mlp_units).to(device)
-    actor = Actor(feat_dim, act_dim, args.mlp_units, args.mlp_layers,
-                  minstd=args.actor_minstd, maxstd=args.actor_maxstd).to(device)
+    actor = Actor(feat_dim, act_dim, args.mlp_units, args.mlp_layers).to(device)
     critic = Critic(feat_dim, args.mlp_units, args.mlp_layers, args.num_bins).to(device)
-    slow_critic = copy.deepcopy(critic).to(device)
-    slow_critic.requires_grad_(False)
 
     # Optimizers (separate for WM, actor, critic)
-    wm_params = (list(encoder.parameters()) + list(rssm.parameters()) +
+    wm_params = (list(encoder.parameters()) + list(world_model.parameters()) +
                  list(decoder.parameters()) + list(reward_head.parameters()) +
                  list(continue_head.parameters()))
     wm_opt = optim.Adam(wm_params, lr=args.wm_learning_rate, eps=args.eps)
@@ -660,22 +632,18 @@ def main(args_class=Args):
     # Compile actor MLP separately (Normal distribution breaks torch.compile)
     actor_mlp_compiled = actor.mlp
     if args.compile:
-        rssm.observe_step = torch.compile(rssm.observe_step)
-        rssm.imagine_step = torch.compile(rssm.imagine_step)
         encoder = torch.compile(encoder)
         decoder = torch.compile(decoder)
         reward_head = torch.compile(reward_head)
         continue_head = torch.compile(continue_head)
         critic = torch.compile(critic)
-        slow_critic = torch.compile(slow_critic)
         actor_mlp_compiled = torch.compile(actor.mlp)
 
     bins = build_symexp_bins(args.num_bins).to(device)
-    return_norm = PercentileReturnNorm(
-        rate=args.return_norm_rate,
+    return_norm = EMAReturnNorm(
+        decay=args.return_norm_decay,
         perclo=args.return_norm_perclo,
         perchi=args.return_norm_perchi,
-        limit=args.return_norm_limit,
     )
 
     replay = EpisodeReplayBuffer(args.replay_size)
@@ -713,8 +681,6 @@ def main(args_class=Args):
         ep['is_terminal'].append(bool(is_terminal))
 
     # --- Training step ---
-    free_nats_t = torch.tensor(args.free_nats, device=device)
-
     def train_step():
         batch = replay.sample_tensors(args.batch_size, args.batch_length, device)
         obs = batch['obs']
@@ -731,8 +697,8 @@ def main(args_class=Args):
         wm_opt.zero_grad()
 
         tokens = encoder(obs.reshape(B * T, -1)).reshape(B, T, -1)
-        states, prior_logits, post_logits = rssm.observe(tokens, prev_act, is_first)
-        feat = rssm.get_feat(states)
+        states, prior_feat, post_feat = world_model.observe(tokens, prev_act, is_first)
+        feat = world_model.get_feat(states)
         feat_flat = feat.reshape(B * T, -1)
 
         rec_loss = decoder.loss(feat_flat, obs.reshape(B * T, -1)).reshape(B, T).mean()
@@ -742,23 +708,10 @@ def main(args_class=Args):
         con_logits = continue_head(feat_flat)
         con_loss = F.binary_cross_entropy_with_logits(con_logits, con_target.reshape(B * T)).mean()
 
-        # KL losses with free nats
-        prior_logits_f = prior_logits.float()
-        post_logits_f = post_logits.float()
-        prior_probs = F.softmax(prior_logits_f, -1)
-        post_probs = F.softmax(post_logits_f, -1)
-        prior_probs_um = (1 - args.unimix) * prior_probs + args.unimix / args.rssm_classes
-        post_probs_um = (1 - args.unimix) * post_probs + args.unimix / args.rssm_classes
-
-        dyn_kl = (post_probs_um.detach() * (
-            post_probs_um.detach().log() - prior_probs_um.log()
-        )).sum(-1).sum(-1)
-        dyn_loss = torch.maximum(dyn_kl, free_nats_t).mean()
-
-        rep_kl = (post_probs_um * (
-            post_probs_um.log() - prior_probs_um.detach().log()
-        )).sum(-1).sum(-1)
-        rep_loss = torch.maximum(rep_kl, free_nats_t).mean()
+        dyn_loss_t = 0.5 * (prior_feat - post_feat.detach()).pow(2).mean(-1)
+        rep_loss_t = 0.5 * (post_feat - prior_feat.detach()).pow(2).mean(-1)
+        dyn_loss = dyn_loss_t.mean()
+        rep_loss = rep_loss_t.mean()
 
         wm_loss = rec_loss + rew_loss + con_loss + args.dyn_scale * dyn_loss + args.rep_scale * rep_loss
 
@@ -770,81 +723,91 @@ def main(args_class=Args):
         with torch.no_grad():
             K = min(args.imag_last, T) if args.imag_last > 0 else T
             BK = B * K
-            start_feat = {k: v[:, -K:].reshape(BK, *v.shape[2:]).detach()
-                          for k, v in states.items()}
-
-            cur_feat = rssm.get_feat(start_feat)
+            feat_seq = feat.detach()
+            hist_len = min(args.transformer_context, T)
+            seed_hist = feat_seq.new_zeros(BK, hist_len, feat_dim)
+            seed_len = torch.zeros(BK, dtype=torch.long, device=device)
+            for b in range(B):
+                for k in range(K):
+                    t = T - K + k
+                    start = max(0, t - hist_len + 1)
+                    window = feat_seq[b, start:t + 1]
+                    idx = b * K + k
+                    seed_hist[idx, :window.shape[0]] = window
+                    seed_len[idx] = window.shape[0]
+            state = world_model.seed_from_features(seed_hist, seed_len)
+            cur_feat = world_model.get_feat(state)
             img_feats = [cur_feat]
             img_acts = []
-            state = start_feat
+            img_old_means = []
+            img_old_logvars = []
             for h in range(args.imag_horizon):
-                # Manual actor forward (compiled MLP + manual Normal sample)
+                # Manual actor forward (compiled MLP + manual Normal sample).
                 actor_out = actor_mlp_compiled(cur_feat)
-                act_mean, act_raw_std = actor_out.split(act_dim, -1)
-                act_std = actor.minstd + (actor.maxstd - actor.minstd) * torch.sigmoid(act_raw_std)
+                act_mean, act_logvar = actor_out.split(act_dim, -1)
+                act_std = (0.5 * act_logvar).exp()
                 action = act_mean + act_std * torch.randn_like(act_std)
+                img_old_means.append(act_mean)
+                img_old_logvars.append(act_logvar)
                 img_acts.append(action)
-                state = rssm.imagine_step(state, action)
-                cur_feat = rssm.get_feat(state)
+                state = world_model.imagine_step(state, action)
+                cur_feat = world_model.get_feat(state)
                 img_feats.append(cur_feat)
 
             img_feats = torch.stack(img_feats, 1)
             img_acts = torch.stack(img_acts, 1)
+            img_old_means = torch.stack(img_old_means, 1)
+            img_old_logvars = torch.stack(img_old_logvars, 1)
 
             H1 = args.imag_horizon + 1
             img_feats_flat = img_feats.reshape(BK * H1, -1)
             img_rew = reward_head.predict(img_feats_flat).reshape(BK, H1).float()
-            img_con = continue_head.predict(img_feats_flat).reshape(BK, H1).float()
-            img_slow_val = twohot_predict(slow_critic(img_feats_flat), bins).reshape(BK, H1).float()
+            img_old_val = twohot_predict(critic(img_feats_flat), bins).reshape(BK, H1).float()
+            returns = compute_gae_returns(
+                img_rew[:, 1:], img_old_val, args.gae_discount, args.lam
+            )
 
-            returns = compute_lambda_returns(img_rew, img_con, img_slow_val, args.lam)
+            if args.keep_return_ema_stats:
+                return_norm.update(returns)
+                advantages = return_norm.normalize(returns) - return_norm.normalize(img_old_val[:, :-1])
+                ret_scale = return_norm.var ** 0.5 if return_norm.initialized else 1.0
+            else:
+                advantages = returns - img_old_val[:, :-1]
+                ret_scale = 1.0
 
-            return_norm.update(returns)
-            ret_scale = return_norm.scale()
-            advantages = (returns - img_slow_val[:, :-1]) / ret_scale
-
-            # Discount weight: starts at 1.0, then accumulates continuation probs
-            ones = torch.ones(BK, 1, device=img_con.device)
-            weight = torch.cumprod(torch.cat([ones, img_con[:, 1:-1]], dim=1), dim=1)
-
-            # Pre-compute actor/critic input feats and slow critic targets (avoid recompute)
             imag_actor_feats = img_feats[:, :-1].reshape(BK * args.imag_horizon, -1)
             imag_acts_flat = img_acts.reshape(BK * args.imag_horizon, -1)
-            slow_val_for_critic = img_slow_val[:, :-1].reshape(-1)
+            old_val_for_critic = img_old_val[:, :-1].reshape(-1)
 
         # ===== Actor (PMPO) =====
-        # Save old policy for KL constraint before gradient step
-        with torch.no_grad():
-            old_dist = actor(imag_actor_feats.detach())
-            old_mean = old_dist.loc.detach().clone()
-            old_std = old_dist.scale.detach().clone()
-
         actor_opt.zero_grad()
 
         policy_dist = actor(imag_actor_feats.detach())
-        logpi = policy_dist.log_prob(imag_acts_flat.detach()).sum(-1).reshape(BK, args.imag_horizon)
-        entropy = policy_dist.entropy().sum(-1).reshape(BK, args.imag_horizon)
+        logpi = policy_dist.log_prob(imag_acts_flat.detach()).reshape(BK, args.imag_horizon, act_dim)
+        entropy = policy_dist.entropy().reshape(BK, args.imag_horizon, act_dim).sum(-1)
 
-        # PMPO: separate positive and negative advantages, ignore magnitude
         adv_detached = advantages.detach()
-        w = weight.detach()
-        pos_mask = (adv_detached > 0) & (w > 0)
-        neg_mask = (adv_detached <= 0) & (w > 0)
+        pos_mask = adv_detached >= 0
+        neg_mask = adv_detached < 0
 
         alpha = args.pmpo_pos_neg_weight
-        pos_term = (logpi * pos_mask).sum() / pos_mask.sum().clamp(min=1)
-        neg_term = -(logpi * neg_mask).sum() / neg_mask.sum().clamp(min=1)
+        pos_term = (logpi * pos_mask.unsqueeze(-1)).sum() / (pos_mask.sum().clamp(min=1) * act_dim)
+        neg_term = -(logpi * neg_mask.unsqueeze(-1)).sum() / (neg_mask.sum().clamp(min=1) * act_dim)
         pmpo_loss = -(alpha * pos_term + (1 - alpha) * neg_term)
 
-        # Entropy bonus
-        entropy_loss = -(w * entropy.float()).mean()
+        entropy_loss = -entropy.float().mean()
 
-        # Reverse KL constraint: KL(old || new) to prevent large policy changes
         if args.pmpo_kl_weight > 0:
-            kl_div = (torch.log(policy_dist.scale / old_std) +
-                      (old_std**2 + (old_mean - policy_dist.loc)**2) / (2 * policy_dist.scale**2) - 0.5).sum(-1)
-            kl_loss = kl_div.reshape(BK, args.imag_horizon)
-            kl_loss = (w * kl_loss).mean()
+            old_mu = img_old_means.detach().reshape(BK * args.imag_horizon, -1)
+            old_logvar = img_old_logvars.detach().reshape(BK * args.imag_horizon, -1)
+            new_mu, new_logvar = actor.stats(imag_actor_feats.detach())
+            old_var = old_logvar.exp()
+            new_var = new_logvar.exp()
+            kl_div = 0.5 * (
+                new_logvar - old_logvar +
+                (old_var + (old_mu - new_mu).pow(2)) / new_var - 1.0
+            ).sum(-1)
+            kl_loss = kl_div.reshape(BK, args.imag_horizon).mean()
         else:
             kl_loss = torch.zeros(1, device=device)
 
@@ -854,35 +817,37 @@ def main(args_class=Args):
         torch.nn.utils.clip_grad_norm_(actor.parameters(), args.max_grad_norm)
         actor_opt.step()
 
-        # ===== Critic =====
+        # ===== Critic (clipped value loss, rollout-time baseline) =====
         critic_opt.zero_grad()
 
         val_logits = critic(imag_actor_feats.detach())
+        returns_flat = returns.reshape(-1).detach()
+        return_twohot = twohot_encode(returns_flat, bins)
+        loss_unclipped = -(return_twohot * F.log_softmax(val_logits, dim=-1)).sum(-1).reshape(
+            BK, args.imag_horizon
+        )
+        val_pred = twohot_predict(val_logits, bins).reshape(BK, args.imag_horizon)
+        old_val = old_val_for_critic.detach().reshape(BK, args.imag_horizon)
+        clipped_val = old_val + (val_pred - old_val).clamp(-args.value_clip, args.value_clip)
+        clipped_twohot = twohot_encode(clipped_val.reshape(-1), bins)
+        loss_clipped = -(return_twohot * F.log_softmax(clipped_twohot, dim=-1)).sum(-1).reshape(
+            BK, args.imag_horizon
+        )
 
-        loss_returns = twohot_loss(
-            val_logits, returns.reshape(-1).detach(), bins
-        ).reshape(BK, args.imag_horizon)
-        loss_slow = twohot_loss(
-            val_logits, slow_val_for_critic.detach(), bins
-        ).reshape(BK, args.imag_horizon)
-        critic_loss = (weight.detach() * (loss_returns + args.slow_reg * loss_slow)).mean()
+        loss_returns = torch.max(loss_unclipped, loss_clipped)
+        critic_loss = loss_returns.mean()
 
         critic_loss.backward()
         torch.nn.utils.clip_grad_norm_(critic.parameters(), args.max_grad_norm)
         critic_opt.step()
-
-        # Update slow critic
-        with torch.no_grad():
-            for p, sp in zip(critic.parameters(), slow_critic.parameters()):
-                sp.data.lerp_(p.data, args.slow_target_rate)
 
         return {
             'wm_loss': wm_loss.item(),
             'rec_loss': rec_loss.item(),
             'rew_loss': rew_loss.item(),
             'con_loss': con_loss.item(),
-            'dyn_kl': dyn_kl.mean().item(),
-            'rep_kl': rep_kl.mean().item(),
+            'dyn_kl': dyn_loss.item(),
+            'rep_kl': rep_loss.item(),
             'actor_loss': actor_loss.item(),
             'critic_loss': critic_loss.item(),
             'entropy': entropy.mean().item(),
@@ -897,13 +862,13 @@ def main(args_class=Args):
         kw.setdefault('flush', True)
         _print(*a, **kw)
 
-    print(f"Starting latent_imagination_v16 on {args.env_id} with {args.num_envs} envs")
+    print(f"Starting latent_imagination_v19 on {args.env_id} with {args.num_envs} envs")
     total_params = sum(p.numel() for p in wm_params) + sum(
         p.numel() for p in actor.parameters()) + sum(
         p.numel() for p in critic.parameters())
     print(f"Total parameters: {total_params:,}")
-    print(f"RSSM: deter={args.rssm_deter}, stoch={args.rssm_stoch}x{args.rssm_classes}, "
-          f"feat_dim={feat_dim}")
+    print(f"Transformer WM: dim={args.transformer_dim}, heads={args.transformer_heads}, "
+          f"layers={args.transformer_layers}, ctx={args.transformer_context}, feat_dim={feat_dim}")
     print(f"Batch: {args.batch_size} ({args.batch_size_per_env}/env × {args.num_envs} envs), "
           f"length={args.batch_length}, train_ratio={args.train_ratio}")
 
@@ -911,7 +876,7 @@ def main(args_class=Args):
     for i in range(args.num_envs):
         init_ongoing(i, obs[i])
 
-    rssm_state = rssm.initial(args.num_envs, device)
+    wm_state = world_model.initial(args.num_envs, device)
     prev_action = torch.zeros(args.num_envs, act_dim, device=device)
     is_first_flag = np.ones(args.num_envs, dtype=bool)
 
@@ -935,9 +900,9 @@ def main(args_class=Args):
                 obs_tensor = torch.tensor(obs, device=device, dtype=torch.float32)
                 is_first_tensor = torch.tensor(is_first_flag, device=device, dtype=torch.bool)
                 tokens = encoder(obs_tensor)
-                rssm_state, _, _ = rssm.observe_step(
-                    rssm_state, tokens, prev_action, is_first_tensor)
-                feat = rssm.get_feat(rssm_state)
+                wm_state, _, _ = world_model.observe_step(
+                    wm_state, tokens, prev_action, is_first_tensor)
+                feat = world_model.get_feat(wm_state)
                 dist = actor(feat)
                 action_tensor = dist.sample().float().clamp(-1, 1)
                 actions_np = action_tensor.cpu().numpy()
@@ -1012,7 +977,7 @@ def main(args_class=Args):
         model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
         state_dict = {
             'encoder': encoder.state_dict() if not isinstance(encoder, torch._dynamo.eval_frame.OptimizedModule) else encoder._orig_mod.state_dict(),
-            'rssm': rssm.state_dict(),
+            'world_model': world_model.state_dict(),
             'decoder': decoder.state_dict() if not isinstance(decoder, torch._dynamo.eval_frame.OptimizedModule) else decoder._orig_mod.state_dict(),
             'reward_head': reward_head.state_dict() if not isinstance(reward_head, torch._dynamo.eval_frame.OptimizedModule) else reward_head._orig_mod.state_dict(),
             'continue_head': continue_head.state_dict() if not isinstance(continue_head, torch._dynamo.eval_frame.OptimizedModule) else continue_head._orig_mod.state_dict(),
