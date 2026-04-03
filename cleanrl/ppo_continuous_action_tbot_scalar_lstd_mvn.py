@@ -1,4 +1,22 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+"""PPO with Trading-Bot-Inspired Architecture — Learned Log-Std + Multivariate Normal (tbot_scalar_lstd_mvn)
+
+Cross-action correlated noise via MultivariateNormal distribution.
+
+Key change from tbot_scalar_lstd: instead of independent per-action-dim Gaussian sampling,
+we build a full covariance matrix Sigma = A^T @ A + eps*I where A is constructed from the
+SDE latent, learned std, and shared actor weights W. This creates correlated cross-action
+noise, allowing the policy to explore along directions that couple multiple actuators.
+
+The factor matrix A has shape (batch, hidden_dim, act_dim):
+    A = sde_latent.unsqueeze(-1) * (std * W.T).unsqueeze(0)
+So Sigma = A^T A captures cross-action correlations through shared hidden dimensions.
+
+Base architecture from tbot_scalar_lstd:
+- Separate covariance trunk (avoids gradient conflict with mean trunk)
+- Learned log_std_param [hidden_dim, act_dim] with offset init and clamping
+- tanh SDE latent bounding (with prescale divisor)
+- Asymmetric PPO clipping, scalar critic, mean_scale decoupling
+"""
 import os
 import random
 import time
@@ -8,10 +26,17 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import tyro
-from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
+
+
+LOG_STD_INIT = 0.0  # compensates for W^2 scaling (~1/hidden_dim per element)
+LOG_STD_MIN = -1.5
+LOG_STD_MAX = 1.5
+SDE_EPS = 1e-6
+SDE_PRESCALE = 1.5  # divisor before tanh, controls saturation
 
 
 @dataclass
@@ -42,7 +67,7 @@ class Args:
     # Algorithm specific arguments
     env_id: str = "HalfCheetah-v4"
     """the id of the environment"""
-    total_timesteps: int = 1000000
+    total_timesteps: int = 8000000
     """total timesteps of the experiments"""
     learning_rate: float = 3e-4
     """the learning rate of the optimizer"""
@@ -62,10 +87,10 @@ class Args:
     """the K epochs to update the policy"""
     norm_adv: bool = True
     """Toggles advantages normalization"""
-    clip_coef: float = 0.2
-    """the surrogate clipping coefficient"""
-    clip_vloss: bool = True
-    """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
+    clip_coef_low: float = 0.2
+    """the lower surrogate clipping coefficient (ratio floor = 1 - this)"""
+    clip_coef_high: float = 0.28
+    """the upper surrogate clipping coefficient (ratio ceiling = 1 + this)"""
     ent_coef: float = 0.0
     """coefficient of the entropy"""
     vf_coef: float = 0.5
@@ -74,6 +99,8 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
+    clip_vloss: bool = True
+    """Toggles whether or not to use a clipped loss for the value function"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -91,7 +118,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
-        env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
+        env = gym.wrappers.FlattenObservation(env)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
         env = gym.wrappers.NormalizeObservation(env)
@@ -109,36 +136,100 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-class Agent(nn.Module):
-    def __init__(self, envs):
+class RMSNorm(nn.Module):
+    def __init__(self, dim, eps=1e-6):
         super().__init__()
-        self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 1), std=1.0),
-        )
-        self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
-        )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.weight = nn.Parameter(torch.ones(dim))
+        self.eps = eps
+
+    def forward(self, x):
+        rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
+        return x / rms * self.weight
+
+
+class Agent(nn.Module):
+    def __init__(self, envs, args):
+        super().__init__()
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        act_dim = np.prod(envs.single_action_space.shape)
+        hidden_dim = 64
+
+        # Actor mean trunk: obs -> hidden features
+        self.actor_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
+        self.actor_norm1 = RMSNorm(hidden_dim)
+        self.actor_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.actor_norm2 = RMSNorm(hidden_dim)
+
+        # Actor output head -- init std=1.0 so weights are meaningful for noise modulation
+        self.actor_out = layer_init(nn.Linear(hidden_dim, act_dim), std=1.0)
+        # Separate learnable scale for the mean (starts small -> near-zero initial actions)
+        self.mean_scale = nn.Parameter(torch.tensor(0.01))
+
+        # Separate covariance trunk (avoids gradient conflict with mean trunk)
+        self.cov_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
+        self.cov_norm1 = RMSNorm(hidden_dim)
+        self.cov_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.cov_norm2 = RMSNorm(hidden_dim)
+
+        # Learned per-element noise magnitude: log_std = (param + LOG_STD_INIT).clamp(min, max)
+        self.log_std_param = nn.Parameter(torch.zeros(hidden_dim, act_dim))
+
+        # Critic backbone (separate from actor)
+        self.critic_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
+        self.critic_norm1 = RMSNorm(hidden_dim)
+        self.critic_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.critic_norm2 = RMSNorm(hidden_dim)
+
+        # Scalar value head
+        self.value_out = layer_init(nn.Linear(hidden_dim, 1), std=1.0)
+
+    def _actor_features(self, x):
+        h = F.silu(self.actor_norm1(self.actor_fc1(x)))
+        h = F.silu(self.actor_norm2(self.actor_fc2(h)))
+        return h
+
+    def _critic_features(self, x):
+        h = F.silu(self.critic_norm1(self.critic_fc1(x)))
+        h = F.silu(self.critic_norm2(self.critic_fc2(h)))
+        return h
 
     def get_value(self, x):
-        return self.critic(x)
+        h = self._critic_features(x)
+        return self.value_out(h)
 
     def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
-        probs = Normal(action_mean, action_std)
+        # Actor
+        h = self._actor_features(x)
+        action_mean = self.actor_out(h) * self.mean_scale
+
+        # Build cross-action covariance from noise path
+        cov_h = F.silu(self.cov_norm1(self.cov_fc1(x)))
+        cov_h = F.silu(self.cov_norm2(self.cov_fc2(cov_h)))
+        sde_latent = (cov_h / SDE_PRESCALE).tanh()  # (batch, hidden_dim)
+
+        log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
+        std = log_std.exp()  # (hidden_dim, act_dim)
+
+        W = self.actor_out.weight  # (act_dim, hidden_dim)
+
+        # Build factor matrix A: each row of A.T is sde_latent_i * std_i * W_i
+        # A has shape (batch, hidden_dim, act_dim)
+        A = sde_latent.unsqueeze(-1) * (std * W.t()).unsqueeze(0)  # (batch, hidden, act)
+
+        # Covariance: Sigma = A^T @ A + eps*I, shape (batch, act, act)
+        Sigma = torch.bmm(A.transpose(1, 2), A)  # (batch, act, act)
+        Sigma += SDE_EPS * torch.eye(Sigma.shape[-1], device=Sigma.device).unsqueeze(0)
+
+        # Use MultivariateNormal for sampling and log_prob
+        dist = torch.distributions.MultivariateNormal(action_mean, covariance_matrix=Sigma)
+
         if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+            action = dist.rsample()
+
+        log_prob = dist.log_prob(action)  # (batch,) — already summed across dims
+        entropy = dist.entropy()  # (batch,)
+
+        return action, log_prob, entropy, self.get_value(x)
 
 
 if __name__ == "__main__":
@@ -179,7 +270,7 @@ if __name__ == "__main__":
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(envs, args).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -262,7 +353,9 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(
+                    b_obs[mb_inds], b_actions[mb_inds]
+                )
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -270,7 +363,12 @@ if __name__ == "__main__":
                     # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
-                    clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+                    clipfracs += [
+                        ((ratio < (1 - args.clip_coef_low)) | (ratio > (1 + args.clip_coef_high)))
+                        .float()
+                        .mean()
+                        .item()
+                    ]
 
                 mb_advantages = b_advantages[mb_inds]
                 if args.norm_adv:
@@ -278,7 +376,7 @@ if __name__ == "__main__":
 
                 # Policy loss
                 pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
+                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef_low, 1 + args.clip_coef_high)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 # Value loss
@@ -287,8 +385,8 @@ if __name__ == "__main__":
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
                     v_clipped = b_values[mb_inds] + torch.clamp(
                         newvalue - b_values[mb_inds],
-                        -args.clip_coef,
-                        args.clip_coef,
+                        -args.clip_coef_low,
+                        args.clip_coef_high,
                     )
                     v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
                     v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
@@ -320,6 +418,11 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        # lstd-specific metrics
+        log_std_eff = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
+        writer.add_scalar("tbot/log_std_mean", log_std_eff.mean().item(), global_step)
+        writer.add_scalar("tbot/log_std_std", log_std_eff.std().item(), global_step)
+        writer.add_scalar("tbot/mean_scale", agent.mean_scale.item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

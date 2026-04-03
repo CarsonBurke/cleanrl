@@ -1,16 +1,14 @@
-# PPO with a shared axial space-time transformer backbone and true backbone CLS
-# slots for actor, critic, and SDE std.
+# PPO + SDE + Dreamer4-style state prediction entropy bonus.
 #
-# Dreamer4-style axial attention:
-# - spatial blocks treat observation features as an unordered set
-# - temporal blocks alone receive RoPE
-# - learned feature embeddings provide observation-identity information
+# Fork of ststs_shared_cls_sde with a 4th CLS token: state_pred.
+# The state_pred CLS predicts the next-step backbone latent as a Gaussian
+# (mean, log_var). The log_var is summed and added to the reward as an
+# intrinsic exploration bonus — the agent is rewarded for visiting states
+# where the backbone is uncertain about the next state.
 #
-# Ablation:
-# - one shared STSTS backbone
-# - actor, critic, and SDE CLS slots are present through every STSTS stage
-# - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# The state prediction head is trained with Gaussian NLL loss during PPO
+# updates, using fresh next_obs_seq encodes as targets. This gives a
+# well-calibrated uncertainty estimate without needing a world model.
 import os
 import random
 import time
@@ -33,10 +31,14 @@ FFN_MULT = 2
 CONTEXT_LEN = 5
 NUM_SPATIAL_BLOCKS = 3
 NUM_TEMPORAL_BLOCKS = 2
-NUM_CLS_TOKENS = 3
+NUM_CLS_TOKENS = 4
 LOG_STD_INIT = -2.0
 LOG_STD_MIN = -3.0
 LOG_STD_MAX = -0.5
+STATE_ENT_COEF = 0.01
+STATE_PRED_LOSS_COEF = 0.1
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +55,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -192,6 +194,7 @@ class STSTSCLSBackbone(nn.Module):
         self.actor_cls_index = obs_dim
         self.critic_cls_index = obs_dim + 1
         self.sde_cls_index = obs_dim + 2
+        self.state_pred_cls_index = obs_dim + 3
 
         self.value_proj = layer_init(nn.Linear(1, EMBED_DIM), std=1.0)
         self.input_norm = RMSNorm(EMBED_DIM)
@@ -201,9 +204,11 @@ class STSTSCLSBackbone(nn.Module):
         self.actor_cls = nn.Parameter(torch.empty(EMBED_DIM))
         self.critic_cls = nn.Parameter(torch.empty(EMBED_DIM))
         self.sde_cls = nn.Parameter(torch.empty(EMBED_DIM))
+        self.state_pred_cls = nn.Parameter(torch.empty(EMBED_DIM))
         nn.init.trunc_normal_(self.actor_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
         nn.init.trunc_normal_(self.critic_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
         nn.init.trunc_normal_(self.sde_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
+        nn.init.trunc_normal_(self.state_pred_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
 
         init_scale = 1.0 / (2 * (NUM_SPATIAL_BLOCKS + NUM_TEMPORAL_BLOCKS)) ** 0.5
         self.s_blocks = nn.ModuleList(
@@ -237,7 +242,7 @@ class STSTSCLSBackbone(nn.Module):
         obs_tokens = self.value_proj(obs_seq.unsqueeze(-1))
         obs_tokens = obs_tokens + self.dim_id_embed(self.dim_indices).view(1, 1, self.obs_dim, EMBED_DIM)
 
-        cls_tokens = torch.stack([self.actor_cls, self.critic_cls, self.sde_cls], dim=0)
+        cls_tokens = torch.stack([self.actor_cls, self.critic_cls, self.sde_cls, self.state_pred_cls], dim=0)
         cls_tokens = cls_tokens.view(1, 1, NUM_CLS_TOKENS, EMBED_DIM).expand(batch, time_steps, -1, -1)
         tokens = torch.cat([obs_tokens, cls_tokens], dim=2)
         tokens = self.input_norm(tokens)
@@ -252,7 +257,8 @@ class STSTSCLSBackbone(nn.Module):
         actor_cls = tokens[:, -1, self.actor_cls_index]
         critic_cls = tokens[:, -1, self.critic_cls_index]
         sde_cls = tokens[:, -1, self.sde_cls_index]
-        return actor_cls, critic_cls, sde_cls
+        state_pred_cls = tokens[:, -1, self.state_pred_cls_index]
+        return actor_cls, critic_cls, sde_cls, state_pred_cls
 
 
 class Agent(nn.Module):
@@ -267,6 +273,13 @@ class Agent(nn.Module):
         self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
         self.critic = layer_init(nn.Linear(EMBED_DIM, 1), std=1.0)
 
+        # State prediction head: predicts next-step latent as Gaussian (mean, log_var)
+        # Target is the actor_cls of the next obs_seq (EMBED_DIM)
+        self.to_state_pred = nn.Sequential(
+            RMSNorm(EMBED_DIM),
+            nn.Linear(EMBED_DIM, EMBED_DIM * 2),  # mean + log_var
+        )
+
         self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
 
     def reset_history(self, env_mask=None):
@@ -279,8 +292,7 @@ class Agent(nn.Module):
         self.obs_history = torch.cat([self.obs_history[:, 1:], obs.unsqueeze(1)], dim=1)
 
     def _encode(self, obs_seq):
-        actor_cls, critic_cls, sde_cls = self.backbone(obs_seq)
-        return actor_cls, critic_cls, sde_cls
+        return self.backbone(obs_seq)
 
     def _get_action_std(self, sde_latent):
         sde_latent = torch.tanh(sde_latent)
@@ -289,18 +301,31 @@ class Agent(nn.Module):
         action_var = sde_latent.pow(2) @ std_sq
         return (action_var + 1e-6).sqrt()
 
+    def get_state_entropy_bonus(self, state_pred_latent):
+        """Compute intrinsic reward from state prediction uncertainty."""
+        pred = self.to_state_pred(state_pred_latent)
+        log_var = pred[:, EMBED_DIM:]  # second half is log_var
+        return log_var.mean(dim=-1) * STATE_ENT_COEF
+
     def get_value(self, obs_seq):
-        _, critic_latent, _ = self._encode(obs_seq)
+        _, critic_latent, _, _ = self._encode(obs_seq)
         return self.critic(critic_latent)
 
     def get_action_and_value(self, obs_seq, action=None):
-        actor_latent, critic_latent, sde_latent = self._encode(obs_seq)
+        actor_latent, critic_latent, sde_latent, state_pred_latent = self._encode(obs_seq)
         action_mean = self.actor_mean(actor_latent)
         action_std = self._get_action_std(sde_latent)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent)
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent), state_pred_latent
+
+    def get_action_and_value_for_update(self, obs_seq, action):
+        actor_latent, critic_latent, sde_latent, state_pred_latent = self._encode(obs_seq)
+        action_mean = self.actor_mean(actor_latent)
+        action_std = self._get_action_std(sde_latent)
+        probs = Normal(action_mean, action_std)
+        return probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent), state_pred_latent
 
 
 if __name__ == "__main__":
@@ -338,6 +363,7 @@ if __name__ == "__main__":
 
     obs_dim = int(np.array(envs.single_observation_space.shape).prod())
     obs_seqs = torch.zeros((args.num_steps, args.num_envs, agent.context_len, obs_dim), device=device)
+    next_obs_seqs = torch.zeros((args.num_steps, args.num_envs, agent.context_len, obs_dim), device=device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape, device=device)
     logprobs = torch.zeros((args.num_steps, args.num_envs), device=device)
     rewards = torch.zeros((args.num_steps, args.num_envs), device=device)
@@ -361,19 +387,23 @@ if __name__ == "__main__":
             obs_seqs[step] = agent.obs_history.clone()
             dones[step] = next_done
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(agent.obs_history)
+                action, logprob, _, value, state_pred_latent = agent.get_action_and_value(agent.obs_history)
                 values[step] = value.flatten()
+                # Add state entropy bonus to reward
+                ent_bonus = agent.get_state_entropy_bonus(state_pred_latent)
             actions[step] = action
             logprobs[step] = logprob
 
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
             next_done_np = np.logical_or(terminations, truncations)
-            rewards[step] = torch.as_tensor(reward, device=device).view(-1)
+            reward_tensor = torch.as_tensor(reward, device=device).view(-1)
+            rewards[step] = reward_tensor + ent_bonus
             next_obs = torch.as_tensor(next_obs, device=device, dtype=torch.float32)
             next_done = torch.as_tensor(next_done_np, device=device, dtype=torch.float32)
             if next_done.any():
                 agent.reset_history(next_done.bool())
             agent.update_history(next_obs)
+            next_obs_seqs[step] = agent.obs_history.clone()
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -398,11 +428,17 @@ if __name__ == "__main__":
             returns = advantages + values
 
         b_obs_seqs = obs_seqs.reshape(-1, agent.context_len, obs_dim)
+        b_next_obs_seqs = next_obs_seqs.reshape(-1, agent.context_len, obs_dim)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
         b_advantages = advantages.reshape(-1)
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
+
+        # Validity mask for state pred: invalid if next step is new episode
+        wm_valid = torch.ones(args.num_steps, args.num_envs, device=device)
+        wm_valid[:-1] = 1.0 - dones[1:]
+        b_wm_valid = wm_valid.reshape(-1)
 
         b_inds = np.arange(args.batch_size)
         clipfracs = []
@@ -412,7 +448,7 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs_seqs[mb_inds], b_actions[mb_inds])
+                newlogprob, entropy, newvalue, state_pred_latent = agent.get_action_and_value_for_update(b_obs_seqs[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -438,7 +474,18 @@ if __name__ == "__main__":
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + args.vf_coef * v_loss
+
+                # State prediction loss: Gaussian NLL on next-step actor latent
+                with torch.no_grad():
+                    next_actor_latent, _, _, _ = agent._encode(b_next_obs_seqs[mb_inds])
+                pred = agent.to_state_pred(state_pred_latent)
+                pred_mean, pred_log_var = pred[:, :EMBED_DIM], pred[:, EMBED_DIM:]
+                pred_var = pred_log_var.exp()
+                mb_valid = b_wm_valid[mb_inds]
+                state_pred_loss_raw = F.gaussian_nll_loss(pred_mean, next_actor_latent, var=pred_var, reduction='none')
+                state_pred_loss = (state_pred_loss_raw.mean(-1) * mb_valid).sum() / (mb_valid.sum() + 1e-8)
+
+                loss = pg_loss - args.ent_coef * entropy_loss + args.vf_coef * v_loss + STATE_PRED_LOSS_COEF * state_pred_loss
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -460,14 +507,16 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("state_pred/loss", state_pred_loss.item(), global_step)
         with torch.no_grad():
-            _, _, sde_latent = agent._encode(agent.obs_history)
-            base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
+            _, _, sde_latent, sp_latent = agent._encode(agent.obs_history)
             action_std = agent._get_action_std(sde_latent)
-            writer.add_scalar("sde/base_log_std_mean", base_log_std.mean().item(), global_step)
-            writer.add_scalar("sde/base_log_std_std", base_log_std.std().item(), global_step)
             writer.add_scalar("sde/action_std_mean", action_std.mean().item(), global_step)
             writer.add_scalar("sde/action_std_std", action_std.std().item(), global_step)
+            sp_pred = agent.to_state_pred(sp_latent)
+            sp_log_var = sp_pred[:, EMBED_DIM:]
+            writer.add_scalar("state_pred/log_var_mean", sp_log_var.mean().item(), global_step)
+            writer.add_scalar("state_pred/entropy_bonus_mean", (sp_log_var.sum(-1) * STATE_ENT_COEF).mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

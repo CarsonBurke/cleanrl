@@ -1,18 +1,15 @@
-# Log-Cholesky PPO with Fixed-Determinant Covariance (v6)
+# Gram-Scaled PPO (v8b)
 #
-# Key idea: Direct Cholesky with zero-sum log-diagonal constraint.
-#   log_diag = log_diag_raw - mean(log_diag_raw) → det(L) = 1 always
-# This makes log_det gradient exactly zero by construction, so all covariance
-# signal flows through Mahalanobis only ("which noise was good/bad per state").
+# Covariance: Σ = D @ (tanh(L)@tanh(L)^T/k + εI) @ D
+#   - L: [B, ad, k] Gram factor with tanh bounding (correlations)
+#   - D = diag(d): per-dim scale from exp(zero-sum log_diag)
+#   - d SCALES the Gram, doesn't add to it (no noise inflation)
 #
-# v6 improvements over v3:
-#   - Higher head init (std=0.5): richer initial noise diversity and correlations
-#   - Asymmetric PPO clipping (0.2/0.28): already in template
-#
-# Architecture:
-#   Actor mean:  obs → trunk(64) → mean_head → action_mean
-#   Actor cov:   obs → cov_trunk(64) → {log_diag_head, offdiag_head} → Cholesky L
-#   Critic:      obs → trunk → Linear(num_bins) → softmax → symexp-twohot decode
+# Gradient routing (structural):
+#   det(Σ) = det(D²) * det(Gram/k + εI) = 1 * det(Gram/k + εI)
+#   → d: ZERO log_det gradient (det(D²) = 1), Mahalanobis-only
+#   → L: full gradient (Mahalanobis + log_det for correlation strength)
+#   chol(Σ) = D @ chol(Gram/k + εI) — simple factorization
 
 import os
 import random
@@ -185,6 +182,10 @@ class Args:
     rpo_alpha: float = 0.0
     """RPO noise alpha -- adds bounded uniform noise to action mean during training"""
 
+    # Covariance structure
+    sde_dim: int = 64
+    """rank of Gram correlation factor (Σ = tanh(L)@tanh(L)^T/k + diag(d²))"""
+
     # Twohot critic arguments
     num_bins: int = 255
     """number of bins for symexp-twohot value head"""
@@ -230,12 +231,13 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 # ---------------------------------------------------------------------------
 
 class Agent(nn.Module):
-    def __init__(self, envs, rpo_alpha=0.05, num_bins=255, bin_range=8.0):
+    def __init__(self, envs, rpo_alpha=0.05, sde_dim=64, num_bins=255, bin_range=8.0):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
         self.action_dim = action_dim
         self.rpo_alpha = rpo_alpha
+        self.sde_dim = sde_dim
         self._log2pi = np.log(2 * np.pi)
 
         # Critic: outputs logits over symexp-twohot bins instead of a scalar
@@ -270,15 +272,10 @@ class Agent(nn.Module):
             nn.SiLU(),
         )
 
-        # Cholesky heads: log-diagonal (zero-sum for fixed det) and off-diagonal
-        self.log_diag_head = layer_init(nn.Linear(64, action_dim), std=0.5)
-        n_offdiag = action_dim * (action_dim - 1) // 2
-        self.offdiag_head = layer_init(nn.Linear(64, n_offdiag), std=0.5)
-
-        # Pre-compute strict lower triangular indices
-        tril_idx = torch.tril_indices(action_dim, action_dim, offset=-1)
-        self.register_buffer('_tril_row', tril_idx[0])
-        self.register_buffer('_tril_col', tril_idx[1])
+        # Fixed-det diagonal head (zero-sum log parameterization)
+        self.log_diag_head = layer_init(nn.Linear(64, action_dim), std=0.01)
+        # Gram correlation factor: [B, ad, k] with tanh bounding
+        self.sde_fc = layer_init(nn.Linear(64, action_dim * sde_dim), std=1.0)
 
     def get_value(self, x):
         """Return scalar value predictions (symexp-twohot decoded)."""
@@ -288,47 +285,48 @@ class Agent(nn.Module):
     def get_action_and_value(self, x, action=None):
         B = x.shape[0]
         ad = self.action_dim
+        k = self.sde_dim
 
-        # Mean path (own trunk)
+        # Mean path
         mean_latent = self.actor_mean_trunk(x)
         action_mean = self.actor_mean(mean_latent)
 
-        # Covariance path: zero-sum log-diagonal + free off-diagonal
-        cov_latent = self.actor_cov_trunk(x)           # [B, 64]
-        log_diag_raw = self.log_diag_head(cov_latent)   # [B, ad]
-        offdiag = self.offdiag_head(cov_latent)         # [B, n_offdiag]
+        # Covariance path: Gram correlations + fixed-det diagonal
+        cov_latent = self.actor_cov_trunk(x)                # [B, 64]
+        log_diag_raw = self.log_diag_head(cov_latent)        # [B, ad]
+        L = torch.tanh(self.sde_fc(cov_latent).view(B, ad, k))  # [B, ad, k]
 
-        # Fixed-determinant: zero-sum log-diagonal → det(L) = 1 always
+        # Fixed-det diagonal scale: zero-sum → det(D²) = 1
         log_diag = log_diag_raw - log_diag_raw.mean(dim=-1, keepdim=True)
-        diag = torch.exp(log_diag)
+        d = torch.exp(log_diag)                              # [B, ad]
 
-        # Build lower triangular Cholesky factor
-        chol = torch.zeros(B, ad, ad, device=x.device)
-        chol[:, self._tril_row, self._tril_col] = offdiag
-        chol.diagonal(dim1=-2, dim2=-1).copy_(diag)
+        # Gram core: tanh(L)@tanh(L)^T/k + εI
+        gram = torch.bmm(L, L.transpose(1, 2)) / k          # [B, ad, ad]
+        gram.diagonal(dim1=-2, dim2=-1).add_(1e-6)           # + εI
 
-        # RPO: add bounded uniform noise to mean during training only
+        # chol(Σ) = D @ chol(Gram_core) — D scales, doesn't add
+        chol_gram = torch.linalg.cholesky(gram)              # [B, ad, ad]
+        chol = d.unsqueeze(-1) * chol_gram                   # [B, ad, ad]
+
+        # RPO
         if action is not None and self.rpo_alpha > 0:
             z = torch.empty_like(action_mean).uniform_(-self.rpo_alpha, self.rpo_alpha)
             action_mean = action_mean + z
 
         if action is None:
-            # Sample: action = mean + chol @ z
-            z = torch.randn(B, ad, 1, device=x.device)
-            action = action_mean + torch.bmm(chol, z).squeeze(-1)
+            eps = torch.randn(B, ad, 1, device=x.device)
+            action = action_mean + torch.bmm(chol, eps).squeeze(-1)
 
-        # Log prob via Cholesky: -0.5 * (k*log(2pi) + 2*sum(log(diag(chol))) + ||chol^-1(x-mu)||^2)
-        diff = (action - action_mean).unsqueeze(-1)        # [B, ad, 1]
-        solved = torch.linalg.solve_triangular(chol, diff, upper=False)  # [B, ad, 1]
-        mahal = solved.squeeze(-1).pow(2).sum(dim=-1)      # [B]
+        # Log prob via Cholesky of Σ
+        diff = (action - action_mean).unsqueeze(-1)          # [B, ad, 1]
+        solved = torch.linalg.solve_triangular(chol, diff, upper=False)
+        mahal = solved.squeeze(-1).pow(2).sum(dim=-1)        # [B]
+        log_det = chol.diagonal(dim1=-2, dim2=-1).log().sum(dim=-1)
 
-        # Fixed-det: log_det = sum(log_diag) = 0 by construction (zero-sum).
-        # All covariance gradient comes through Mahalanobis only.
-        log_det = log_diag.sum(dim=-1)  # ≈ 0 always
         log_prob = -0.5 * (ad * self._log2pi + 2 * log_det + mahal)
         entropy = 0.5 * (ad * (1.0 + self._log2pi) + 2 * log_det)
 
-        # Critic: twohot logits + decoded scalar
+        # Critic
         value_logits = self.critic(x)
         value = twohot_predict(value_logits, self.bins)
 
@@ -376,6 +374,7 @@ if __name__ == "__main__":
     agent = Agent(
         envs,
         rpo_alpha=args.rpo_alpha,
+        sde_dim=args.sde_dim,
         num_bins=args.num_bins,
         bin_range=args.bin_range,
     ).to(device)
@@ -516,9 +515,9 @@ if __name__ == "__main__":
             cov_lat = agent.actor_cov_trunk(b_obs[mb_inds])
             log_diag_raw = agent.log_diag_head(cov_lat)
             log_diag = log_diag_raw - log_diag_raw.mean(dim=-1, keepdim=True)
-            offdiag = agent.offdiag_head(cov_lat)
+            L = torch.tanh(agent.sde_fc(cov_lat).view(-1, agent.action_dim, agent.sde_dim))
             writer.add_scalar("losses/effective_logstd_mean", log_diag.mean().item(), global_step)
-            writer.add_scalar("losses/offdiag_abs_mean", offdiag.abs().mean().item(), global_step)
+            writer.add_scalar("losses/gram_frob_mean", L.norm(dim=(1, 2)).mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

@@ -1,16 +1,22 @@
-# PPO with a shared axial space-time transformer backbone and true backbone CLS
-# slots for actor, critic, and SDE std.
+# PPO with Hindsight Credit Assignment (v5)
 #
-# Dreamer4-style axial attention:
-# - spatial blocks treat observation features as an unordered set
-# - temporal blocks alone receive RoPE
-# - learned feature embeddings provide observation-identity information
+# Fork of ststs_shared_cls. Instead of distilling action targets from a teacher,
+# the teacher acts as a CREDIT ASSIGNER — it sees the full trajectory
+# bidirectionally and outputs per-timestep weights that modulate the GAE
+# advantages. This sharpens credit assignment: amplify advantage at timesteps
+# the teacher identifies as causally important, dampen noise elsewhere.
 #
-# Ablation:
-# - one shared STSTS backbone
-# - actor, critic, and SDE CLS slots are present through every STSTS stage
-# - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# Architecture:
+#   Backbone (causal STSTS): [actor_cls, critic_cls, teacher_cls]
+#   Teacher: bidirectional transformer → per-step credit weight w_t ∈ (0, 2)
+#   Actor: standard PPO with teacher-weighted advantages: Â_t * w_t
+#   Critic: standard value regression
+#
+# Teacher training: the teacher's weights are trained to minimize the actor's
+# policy gradient variance while preserving the correct expected gradient.
+# Concretely: w_t is trained so that Var(w_t * Â_t * ∇log π) is minimized
+# subject to E[w_t] = 1 (unbiased). Approximated as encouraging w_t to be
+# high when |Â_t| is high and the action was decisive, low when Â_t is noisy.
 import os
 import random
 import time
@@ -33,10 +39,15 @@ FFN_MULT = 2
 CONTEXT_LEN = 5
 NUM_SPATIAL_BLOCKS = 3
 NUM_TEMPORAL_BLOCKS = 2
-NUM_CLS_TOKENS = 3
-LOG_STD_INIT = -2.0
-LOG_STD_MIN = -3.0
-LOG_STD_MAX = -0.5
+NUM_CLS_TOKENS = 3  # actor, critic, teacher
+
+# Teacher config
+TEACHER_LAYERS = 2
+TEACHER_INPUT_DIM = EMBED_DIM + 1  # teacher_cls + return-to-go (action is projected separately)
+TEACHER_COEF = 0.1          # weight of teacher's credit assignment loss
+CREDIT_WARMUP_ITERS = 5     # iterations before teacher weights are used (let teacher calibrate)
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +64,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -161,7 +172,7 @@ class SelfAttentionBlock(nn.Module):
         std = init_scale / fan_in**0.5
         nn.init.trunc_normal_(self.ffn_out.weight, std=std, a=-2 * std, b=2 * std)
 
-    def forward(self, x, rope_cos=None, rope_sin=None):
+    def forward(self, x, rope_cos=None, rope_sin=None, is_causal=False):
         batch, steps, width = x.shape
         h = self.attn_pre_norm(x)
         q = self.q_proj(h).view(batch, steps, self.num_heads, self.head_dim).transpose(1, 2)
@@ -174,7 +185,7 @@ class SelfAttentionBlock(nn.Module):
             q = apply_rope(q, rope_cos, rope_sin)
             k = apply_rope(k, rope_cos, rope_sin)
 
-        attn = F.scaled_dot_product_attention(q, k, v)
+        attn = F.scaled_dot_product_attention(q, k, v, is_causal=is_causal)
         attn = attn.transpose(1, 2).reshape(batch, steps, width)
         x = x + self.attn_post_norm(self.out_proj(attn))
 
@@ -191,7 +202,7 @@ class STSTSCLSBackbone(nn.Module):
         self.context_len = context_len
         self.actor_cls_index = obs_dim
         self.critic_cls_index = obs_dim + 1
-        self.sde_cls_index = obs_dim + 2
+        self.teacher_cls_index = obs_dim + 2
 
         self.value_proj = layer_init(nn.Linear(1, EMBED_DIM), std=1.0)
         self.input_norm = RMSNorm(EMBED_DIM)
@@ -200,10 +211,10 @@ class STSTSCLSBackbone(nn.Module):
         cls_std = 1.0 / EMBED_DIM**0.5
         self.actor_cls = nn.Parameter(torch.empty(EMBED_DIM))
         self.critic_cls = nn.Parameter(torch.empty(EMBED_DIM))
-        self.sde_cls = nn.Parameter(torch.empty(EMBED_DIM))
+        self.teacher_cls = nn.Parameter(torch.empty(EMBED_DIM))
         nn.init.trunc_normal_(self.actor_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
         nn.init.trunc_normal_(self.critic_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
-        nn.init.trunc_normal_(self.sde_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
+        nn.init.trunc_normal_(self.teacher_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
 
         init_scale = 1.0 / (2 * (NUM_SPATIAL_BLOCKS + NUM_TEMPORAL_BLOCKS)) ** 0.5
         self.s_blocks = nn.ModuleList(
@@ -237,7 +248,7 @@ class STSTSCLSBackbone(nn.Module):
         obs_tokens = self.value_proj(obs_seq.unsqueeze(-1))
         obs_tokens = obs_tokens + self.dim_id_embed(self.dim_indices).view(1, 1, self.obs_dim, EMBED_DIM)
 
-        cls_tokens = torch.stack([self.actor_cls, self.critic_cls, self.sde_cls], dim=0)
+        cls_tokens = torch.stack([self.actor_cls, self.critic_cls, self.teacher_cls], dim=0)
         cls_tokens = cls_tokens.view(1, 1, NUM_CLS_TOKENS, EMBED_DIM).expand(batch, time_steps, -1, -1)
         tokens = torch.cat([obs_tokens, cls_tokens], dim=2)
         tokens = self.input_norm(tokens)
@@ -251,8 +262,69 @@ class STSTSCLSBackbone(nn.Module):
 
         actor_cls = tokens[:, -1, self.actor_cls_index]
         critic_cls = tokens[:, -1, self.critic_cls_index]
-        sde_cls = tokens[:, -1, self.sde_cls_index]
-        return actor_cls, critic_cls, sde_cls
+        teacher_cls = tokens[:, -1, self.teacher_cls_index]
+        return actor_cls, critic_cls, teacher_cls
+
+    def forward_all_steps(self, obs_seq):
+        """Return CLS tokens at ALL timesteps (not just last), for teacher."""
+        batch, time_steps, _ = obs_seq.shape
+        obs_tokens = self.value_proj(obs_seq.unsqueeze(-1))
+        obs_tokens = obs_tokens + self.dim_id_embed(self.dim_indices).view(1, 1, self.obs_dim, EMBED_DIM)
+
+        cls_tokens = torch.stack([self.actor_cls, self.critic_cls, self.teacher_cls], dim=0)
+        cls_tokens = cls_tokens.view(1, 1, NUM_CLS_TOKENS, EMBED_DIM).expand(batch, time_steps, -1, -1)
+        tokens = torch.cat([obs_tokens, cls_tokens], dim=2)
+        tokens = self.input_norm(tokens)
+
+        tokens = self._spatial(tokens, self.s_blocks[0])
+        tokens = self._temporal(tokens, self.t_blocks[0])
+        tokens = self._spatial(tokens, self.s_blocks[1])
+        tokens = self._temporal(tokens, self.t_blocks[1])
+        tokens = self._spatial(tokens, self.s_blocks[2])
+        tokens = self.final_norm(tokens)
+
+        # Return teacher CLS at all timesteps
+        teacher_cls_all = tokens[:, :, self.teacher_cls_index]  # (batch, time_steps, EMBED_DIM)
+        return teacher_cls_all
+
+
+class CreditAssigner(nn.Module):
+    """Bidirectional transformer that sees full trajectories and outputs
+    per-timestep credit weights for advantage modulation.
+
+    Input per timestep: (teacher_cls, action_taken, reward, advantage)
+    Output: w_t ∈ (0, 2) — credit weight. w_t > 1 amplifies, w_t < 1 dampens.
+    """
+    def __init__(self, action_dim):
+        super().__init__()
+        # Input: teacher_cls + action + reward + advantage
+        self.input_proj = layer_init(nn.Linear(EMBED_DIM + action_dim + 2, EMBED_DIM))
+        self.input_norm = RMSNorm(EMBED_DIM)
+
+        init_scale = 1.0 / (2 * TEACHER_LAYERS) ** 0.5
+        self.layers = nn.ModuleList(
+            [SelfAttentionBlock(EMBED_DIM, NUM_HEADS, FFN_MULT, init_scale) for _ in range(TEACHER_LAYERS)]
+        )
+        self.output_norm = RMSNorm(EMBED_DIM)
+
+        # Scalar credit weight per timestep, initialized near 1.0 (neutral)
+        self.weight_head = layer_init(nn.Linear(EMBED_DIM, 1), std=0.01)
+
+    def forward(self, teacher_latents, actions, rewards, advantages):
+        """
+        Returns:
+            weights: (batch, seq_len) credit weights in (0, 2) via 2*sigmoid
+        """
+        x = torch.cat([teacher_latents, actions, rewards.unsqueeze(-1), advantages.unsqueeze(-1)], dim=-1)
+        x = self.input_proj(x)
+        x = self.input_norm(x)
+
+        for layer in self.layers:
+            x = layer(x, is_causal=False)
+
+        x = self.output_norm(x)
+        # 2 * sigmoid → range (0, 2), initialized near 1.0
+        return 2.0 * torch.sigmoid(self.weight_head(x).squeeze(-1))
 
 
 class Agent(nn.Module):
@@ -260,12 +332,21 @@ class Agent(nn.Module):
         super().__init__()
         obs_dim = int(np.array(envs.single_observation_space.shape).prod())
         action_dim = int(np.prod(envs.single_action_space.shape))
+        self.action_dim = action_dim
         self.context_len = CONTEXT_LEN
 
         self.backbone = STSTSCLSBackbone(obs_dim, self.context_len)
         self.actor_mean = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
-        self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
+        self.actor_logstd = nn.Parameter(torch.zeros(1, action_dim))
         self.critic = layer_init(nn.Linear(EMBED_DIM, 1), std=1.0)
+
+        self.credit_assigner = CreditAssigner(action_dim)
+
+        # Trainable projection for teacher backbone features (backbone is detached for memory)
+        self.teacher_proj = nn.Sequential(
+            nn.Linear(EMBED_DIM, EMBED_DIM),
+            RMSNorm(EMBED_DIM),
+        )
 
         self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
 
@@ -278,29 +359,58 @@ class Agent(nn.Module):
     def update_history(self, obs):
         self.obs_history = torch.cat([self.obs_history[:, 1:], obs.unsqueeze(1)], dim=1)
 
-    def _encode(self, obs_seq):
-        actor_cls, critic_cls, sde_cls = self.backbone(obs_seq)
-        return actor_cls, critic_cls, sde_cls
-
-    def _get_action_std(self, sde_latent):
-        sde_latent = torch.tanh(sde_latent)
-        log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        std_sq = log_std.exp().pow(2)
-        action_var = sde_latent.pow(2) @ std_sq
-        return (action_var + 1e-6).sqrt()
-
     def get_value(self, obs_seq):
-        _, critic_latent, _ = self._encode(obs_seq)
+        _, critic_latent, _ = self.backbone(obs_seq)
         return self.critic(critic_latent)
 
     def get_action_and_value(self, obs_seq, action=None):
-        actor_latent, critic_latent, sde_latent = self._encode(obs_seq)
+        actor_latent, critic_latent, _ = self.backbone(obs_seq)
         action_mean = self.actor_mean(actor_latent)
-        action_std = self._get_action_std(sde_latent)
-        probs = Normal(action_mean, action_std)
+        action_logstd = self.actor_logstd.expand_as(action_mean)
+        probs = Normal(action_mean, torch.exp(action_logstd))
         if action is None:
             action = probs.sample()
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent)
+
+    def get_actor_logits(self, obs_seq):
+        """Get actor's current μ and log_σ for distillation loss."""
+        actor_latent, _, _ = self.backbone(obs_seq)
+        action_mean = self.actor_mean(actor_latent)
+        action_logstd = self.actor_logstd.expand_as(action_mean)
+        return action_mean, action_logstd
+
+    def get_credit_weights(self, obs_seq_trajectory, actions_trajectory, rewards_trajectory, advantages_trajectory):
+        """
+        Run credit assigner on full trajectories. Returns per-timestep weights.
+
+        Args:
+            obs_seq_trajectory: (num_envs, num_steps, context_len, obs_dim)
+            actions_trajectory: (num_envs, num_steps, action_dim)
+            rewards_trajectory: (num_envs, num_steps)
+            advantages_trajectory: (num_envs, num_steps)
+        Returns:
+            weights: (num_envs, num_steps) credit weights in (0, 2)
+        """
+        num_envs, num_steps = actions_trajectory.shape[:2]
+        obs_flat = obs_seq_trajectory.reshape(num_envs * num_steps, self.context_len, -1)
+
+        # Backbone forward (detached for memory)
+        CHUNK = 512
+        teacher_latent_chunks = []
+        with torch.no_grad():
+            for i in range(0, obs_flat.shape[0], CHUNK):
+                _, _, chunk_teacher = self.backbone(obs_flat[i:i + CHUNK])
+                teacher_latent_chunks.append(chunk_teacher)
+        teacher_latents = torch.cat(teacher_latent_chunks, dim=0).reshape(num_envs, num_steps, EMBED_DIM)
+
+        # Trainable projection
+        teacher_latents = self.teacher_proj(teacher_latents)
+
+        # Credit assigner: bidirectional attention over trajectory
+        weights = self.credit_assigner(
+            teacher_latents, actions_trajectory, rewards_trajectory, advantages_trajectory.detach()
+        )
+        return weights
 
 
 if __name__ == "__main__":
@@ -337,6 +447,7 @@ if __name__ == "__main__":
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     obs_dim = int(np.array(envs.single_observation_space.shape).prod())
+    action_dim = int(np.prod(envs.single_action_space.shape))
     obs_seqs = torch.zeros((args.num_steps, args.num_envs, agent.context_len, obs_dim), device=device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape, device=device)
     logprobs = torch.zeros((args.num_steps, args.num_envs), device=device)
@@ -382,6 +493,7 @@ if __name__ == "__main__":
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
+        # GAE
         with torch.no_grad():
             next_value = agent.get_value(agent.obs_history).reshape(1, -1)
             advantages = torch.zeros_like(rewards, device=device)
@@ -397,6 +509,46 @@ if __name__ == "__main__":
                 advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + values
 
+        # Reshape to (num_envs, num_steps, ...) for per-env trajectory processing
+        obs_seqs_by_env = obs_seqs.permute(1, 0, 2, 3)  # (num_envs, num_steps, ctx, obs_dim)
+        actions_by_env = actions.permute(1, 0, 2)         # (num_envs, num_steps, act_dim)
+
+        # === Credit assignment phase ===
+        # Teacher sees full trajectory bidirectionally, outputs per-step credit weights
+        rewards_by_env = rewards.permute(1, 0)     # (num_envs, num_steps)
+        adv_by_env = advantages.permute(1, 0)       # (num_envs, num_steps)
+
+        credit_weights = agent.get_credit_weights(
+            obs_seqs_by_env, actions_by_env.detach(), rewards_by_env, adv_by_env
+        )  # (num_envs, num_steps) in (0, 2)
+
+        # Teacher loss: encourage weights to be useful for credit assignment
+        # Train weights so that weighted advantages have lower variance while
+        # preserving the mean (unbiased). Approximate: minimize variance of w*A
+        # with a soft constraint that E[w] ≈ 1.
+        with torch.no_grad():
+            # Normalize advantages per env for stable training
+            adv_normed = (adv_by_env - adv_by_env.mean(1, keepdim=True)) / (adv_by_env.std(1, keepdim=True) + 1e-8)
+
+        weighted_adv = credit_weights * adv_normed
+        # Variance reduction: minimize variance of weighted advantages
+        var_loss = weighted_adv.var(dim=1).mean()
+        # Mean preservation: E[w] should be close to 1
+        mean_penalty = ((credit_weights.mean(dim=1) - 1.0) ** 2).mean()
+        teacher_loss = var_loss + 10.0 * mean_penalty
+
+        # Teacher backward
+        optimizer.zero_grad()
+        (TEACHER_COEF * teacher_loss).backward()
+        nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
+        optimizer.step()
+
+        # Flatten credit weights for use in PPO loop
+        # credit_weights is (num_envs, num_steps), need to match b_advantages layout (steps*envs flattened)
+        # obs_seqs is (num_steps, num_envs, ...) so flat index i: step=i//num_envs, env=i%num_envs
+        b_credit_weights = credit_weights.permute(1, 0).reshape(-1).detach()  # (num_steps * num_envs)
+
+        # === Standard PPO update with credit-weighted advantages ===
         b_obs_seqs = obs_seqs.reshape(-1, agent.context_len, obs_dim)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
@@ -421,14 +573,19 @@ if __name__ == "__main__":
                     approx_kl = ((ratio - 1.0) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
 
+                # Apply credit weights to advantages
                 mb_advantages = b_advantages[mb_inds]
+                if iteration > CREDIT_WARMUP_ITERS:
+                    mb_advantages = mb_advantages * b_credit_weights[mb_inds]
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
+                # Standard PPO policy loss
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
+                # Value loss (unchanged)
                 newvalue = newvalue.view(-1)
                 if args.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
@@ -460,14 +617,14 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("losses/teacher_loss", teacher_loss.item(), global_step)
+        writer.add_scalar("losses/credit_var_loss", var_loss.item(), global_step)
+        writer.add_scalar("losses/credit_mean_penalty", mean_penalty.item(), global_step)
         with torch.no_grad():
-            _, _, sde_latent = agent._encode(agent.obs_history)
-            base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-            action_std = agent._get_action_std(sde_latent)
-            writer.add_scalar("sde/base_log_std_mean", base_log_std.mean().item(), global_step)
-            writer.add_scalar("sde/base_log_std_std", base_log_std.std().item(), global_step)
-            writer.add_scalar("sde/action_std_mean", action_std.mean().item(), global_step)
-            writer.add_scalar("sde/action_std_std", action_std.std().item(), global_step)
+            writer.add_scalar("credit/weight_mean", credit_weights.mean().item(), global_step)
+            writer.add_scalar("credit/weight_std", credit_weights.std().item(), global_step)
+            writer.add_scalar("credit/weight_min", credit_weights.min().item(), global_step)
+            writer.add_scalar("credit/weight_max", credit_weights.max().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

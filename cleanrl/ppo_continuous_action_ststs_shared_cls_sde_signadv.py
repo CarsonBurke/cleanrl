@@ -6,11 +6,12 @@
 # - temporal blocks alone receive RoPE
 # - learned feature embeddings provide observation-identity information
 #
-# Ablation:
+# Variant:
 # - one shared STSTS backbone
 # - actor, critic, and SDE CLS slots are present through every STSTS stage
 # - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# - direct linear heads for mean, value, and state-dependent std
+# - PPO policy loss uses sign(advantage) only, ignoring advantage magnitude
 import os
 import random
 import time
@@ -37,6 +38,8 @@ NUM_CLS_TOKENS = 3
 LOG_STD_INIT = -2.0
 LOG_STD_MIN = -3.0
 LOG_STD_MAX = -0.5
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +56,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -421,12 +424,9 @@ if __name__ == "__main__":
                     approx_kl = ((ratio - 1.0) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
 
-                mb_advantages = b_advantages[mb_inds]
-                if args.norm_adv:
-                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
-
-                pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
+                mb_adv_sign = torch.sign(b_advantages[mb_inds])
+                pg_loss1 = -mb_adv_sign * ratio
+                pg_loss2 = -mb_adv_sign * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 newvalue = newvalue.view(-1)
@@ -460,6 +460,7 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("losses/adv_sign_mean", b_advantages.sign().float().mean().item(), global_step)
         with torch.no_grad():
             _, _, sde_latent = agent._encode(agent.obs_history)
             base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)

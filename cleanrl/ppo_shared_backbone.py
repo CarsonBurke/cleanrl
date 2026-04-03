@@ -1,4 +1,12 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# PPO with shared encoder backbone.
+#
+# The only difference from ppo_continuous_action.py is the Agent architecture:
+# - Baseline: separate obs→64→64→output networks for actor and critic
+# - This:     shared obs→128→64 encoder, then separate 64→64→output heads
+#
+# This isolates whether a shared latent bottleneck (rather than world models,
+# imagination training, or target encoders) explains the performance and
+# explained-variance improvements seen in latent_imagination_v8.
 import os
 import random
 import time
@@ -112,33 +120,46 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 class Agent(nn.Module):
     def __init__(self, envs):
         super().__init__()
-        self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        action_dim = np.prod(envs.single_action_space.shape)
+
+        # Shared encoder: obs → 128 → 64 (matches v8's encoder architecture)
+        self.encoder = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 128)),
+            nn.Tanh(),
+            layer_init(nn.Linear(128, 64)),
+            nn.Tanh(),
+        )
+
+        # Separate heads on top of 64-dim latent (2 hidden layers each, matching v8)
+        self.critic_head = nn.Sequential(
+            layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
-        self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+        self.actor_head = nn.Sequential(
+            layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
+            layer_init(nn.Linear(64, action_dim), std=0.01),
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_logstd = nn.Parameter(torch.zeros(1, action_dim))
 
     def get_value(self, x):
-        return self.critic(x)
+        return self.critic_head(self.encoder(x))
 
     def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
+        latent = self.encoder(x)
+        action_mean = self.actor_head(latent)
         action_logstd = self.actor_logstd.expand_as(action_mean)
         action_std = torch.exp(action_logstd)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic_head(latent)
 
 
 if __name__ == "__main__":
@@ -322,32 +343,6 @@ if __name__ == "__main__":
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
-
-    if args.save_model:
-        model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
-        torch.save(agent.state_dict(), model_path)
-        print(f"model saved to {model_path}")
-        from cleanrl_utils.evals.ppo_eval import evaluate
-
-        episodic_returns = evaluate(
-            model_path,
-            make_env,
-            args.env_id,
-            eval_episodes=10,
-            run_name=f"{run_name}-eval",
-            Model=Agent,
-            device=device,
-            gamma=args.gamma,
-        )
-        for idx, episodic_return in enumerate(episodic_returns):
-            writer.add_scalar("eval/episodic_return", episodic_return, idx)
-
-        if args.upload_model:
-            from cleanrl_utils.huggingface import push_to_hub
-
-            repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-            repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-            push_to_hub(args, episodic_returns, repo_id, "PPO", f"runs/{run_name}", f"videos/{run_name}-eval")
 
     envs.close()
     writer.close()

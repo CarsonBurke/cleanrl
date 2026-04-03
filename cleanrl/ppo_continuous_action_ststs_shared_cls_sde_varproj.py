@@ -10,7 +10,9 @@
 # - one shared STSTS backbone
 # - actor, critic, and SDE CLS slots are present through every STSTS stage
 # - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# - direct linear heads for mean and value
+# - direct variance projection from squared SDE CLS with positive weights:
+#   action_var = softplus(W_pos @ sde_cls^2 + b), action_std = sqrt(action_var)
 import os
 import random
 import time
@@ -34,9 +36,9 @@ CONTEXT_LEN = 5
 NUM_SPATIAL_BLOCKS = 3
 NUM_TEMPORAL_BLOCKS = 2
 NUM_CLS_TOKENS = 3
-LOG_STD_INIT = -2.0
-LOG_STD_MIN = -3.0
-LOG_STD_MAX = -0.5
+SDE_EPS = 1e-6
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +55,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -264,7 +266,7 @@ class Agent(nn.Module):
 
         self.backbone = STSTSCLSBackbone(obs_dim, self.context_len)
         self.actor_mean = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
-        self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
+        self.std_proj = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01, bias_const=-2.0)
         self.critic = layer_init(nn.Linear(EMBED_DIM, 1), std=1.0)
 
         self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
@@ -283,11 +285,9 @@ class Agent(nn.Module):
         return actor_cls, critic_cls, sde_cls
 
     def _get_action_std(self, sde_latent):
-        sde_latent = torch.tanh(sde_latent)
-        log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        std_sq = log_std.exp().pow(2)
-        action_var = sde_latent.pow(2) @ std_sq
-        return (action_var + 1e-6).sqrt()
+        pos_weight = F.softplus(self.std_proj.weight)
+        action_var = F.softplus(F.linear(sde_latent.pow(2), pos_weight, self.std_proj.bias)) + SDE_EPS
+        return action_var.sqrt()
 
     def get_value(self, obs_seq):
         _, critic_latent, _ = self._encode(obs_seq)
@@ -462,10 +462,10 @@ if __name__ == "__main__":
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         with torch.no_grad():
             _, _, sde_latent = agent._encode(agent.obs_history)
-            base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
+            pos_weight = F.softplus(agent.std_proj.weight)
             action_std = agent._get_action_std(sde_latent)
-            writer.add_scalar("sde/base_log_std_mean", base_log_std.mean().item(), global_step)
-            writer.add_scalar("sde/base_log_std_std", base_log_std.std().item(), global_step)
+            writer.add_scalar("sde/std_bias_mean", agent.std_proj.bias.mean().item(), global_step)
+            writer.add_scalar("sde/std_pos_weight_mean", pos_weight.mean().item(), global_step)
             writer.add_scalar("sde/action_std_mean", action_std.mean().item(), global_step)
             writer.add_scalar("sde/action_std_std", action_std.std().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))

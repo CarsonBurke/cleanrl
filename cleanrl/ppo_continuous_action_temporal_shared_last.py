@@ -1,4 +1,12 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# PPO temporal shared-backbone ablation: a single transformer processes a short
+# observation history, and the final timestep token is reused for actor, critic,
+# and state-dependent exploration heads.
+#
+# This is the lowest-decoupling temporal baseline in the ablation ladder:
+# - shared temporal transformer backbone
+# - one token per history step
+# - read out the most recent token
+# - actor, critic, and SDE heads all optimize from the same feature
 import os
 import random
 import time
@@ -8,10 +16,24 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import tyro
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
+
+
+LOG_STD_INIT = -2.0
+LOG_STD_MIN = -3.0
+LOG_STD_MAX = -0.5
+SDE_EPS = 1e-6
+SDE_PRESCALE = 1.5
+EMBED_DIM = 32
+NUM_Q_HEADS = 4
+NUM_KV_HEADS = 2
+FFN_MULT = 2
+NUM_LAYERS = 2
+CONTEXT_LEN = 5
 
 
 @dataclass
@@ -31,7 +53,7 @@ class Args:
     wandb_entity: str = None
     """the entity (team) of wandb's project"""
     capture_video: bool = False
-    """whether to capture videos of the agent performances (check out `videos` folder)"""
+    """whether to capture videos of the agent performances"""
     save_model: bool = False
     """whether to save model into the `runs/{run_name}` folder"""
     upload_model: bool = False
@@ -39,10 +61,9 @@ class Args:
     hf_entity: str = ""
     """the user or org name of the model repository from the Hugging Face Hub"""
 
-    # Algorithm specific arguments
     env_id: str = "HalfCheetah-v4"
     """the id of the environment"""
-    total_timesteps: int = 1000000
+    total_timesteps: int = 8000000
     """total timesteps of the experiments"""
     learning_rate: float = 3e-4
     """the learning rate of the optimizer"""
@@ -65,7 +86,7 @@ class Args:
     clip_coef: float = 0.2
     """the surrogate clipping coefficient"""
     clip_vloss: bool = True
-    """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
+    """Toggles whether or not to use a clipped loss for the value function"""
     ent_coef: float = 0.0
     """coefficient of the entropy"""
     vf_coef: float = 0.5
@@ -75,7 +96,6 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
-    # to be filled in runtime
     batch_size: int = 0
     """the batch size (computed in runtime)"""
     minibatch_size: int = 0
@@ -91,7 +111,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
-        env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
+        env = gym.wrappers.FlattenObservation(env)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
         env = gym.wrappers.NormalizeObservation(env)
@@ -109,36 +129,160 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-class Agent(nn.Module):
-    def __init__(self, envs):
+class RMSNorm(nn.Module):
+    def __init__(self, dim, eps=1e-6):
         super().__init__()
-        self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 1), std=1.0),
-        )
-        self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
-        )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.weight = nn.Parameter(torch.ones(dim))
+        self.eps = eps
 
-    def get_value(self, x):
-        return self.critic(x)
+    def forward(self, x):
+        rms = torch.sqrt(torch.mean(x * x, dim=-1, keepdim=True) + self.eps)
+        return x / rms * self.weight
 
-    def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
+
+def build_rope_cache(seq_len, head_dim, device):
+    assert head_dim % 2 == 0
+    theta = 1.0 / (10000.0 ** (torch.arange(0, head_dim, 2, device=device).float() / head_dim))
+    positions = torch.arange(seq_len, device=device).float()
+    freqs = torch.outer(positions, theta)
+    return torch.cos(freqs), torch.sin(freqs)
+
+
+def apply_rope(x, cos, sin):
+    d2 = x.shape[-1] // 2
+    x1, x2 = x[..., :d2], x[..., d2:]
+    return torch.cat([x1 * cos - x2 * sin, x2 * cos + x1 * sin], dim=-1)
+
+
+class GQATransformerBlock(nn.Module):
+    def __init__(self, dim, num_q_heads, num_kv_heads, ffn_mult=2, init_scale=1.0):
+        super().__init__()
+        assert dim % num_q_heads == 0
+        assert num_q_heads % num_kv_heads == 0
+        self.num_q_heads = num_q_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = dim // num_q_heads
+        self.kv_group_size = num_q_heads // num_kv_heads
+
+        self.wq = nn.Linear(dim, num_q_heads * self.head_dim, bias=False)
+        self.wk = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wv = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wo = nn.Linear(num_q_heads * self.head_dim, dim, bias=False)
+
+        self.q_norm = RMSNorm(self.head_dim)
+        self.k_norm = RMSNorm(self.head_dim)
+        self.attn_pre_norm = RMSNorm(dim)
+        self.attn_post_norm = RMSNorm(dim)
+        self.ffn_pre_norm = RMSNorm(dim)
+        self.ffn_post_norm = RMSNorm(dim)
+
+        ffn_dim = dim * ffn_mult
+        self.w1 = nn.Linear(dim, ffn_dim, bias=False)
+        self.w2 = nn.Linear(ffn_dim, dim, bias=False)
+        self.w3 = nn.Linear(dim, ffn_dim, bias=False)
+
+        for module in [self.wq, self.wk, self.wv, self.w1, self.w3]:
+            fan_in = module.weight.shape[1]
+            std = 1.0 / fan_in**0.5
+            nn.init.trunc_normal_(module.weight, std=std, a=-2 * std, b=2 * std)
+        for module in [self.wo, self.w2]:
+            fan_in = module.weight.shape[1]
+            std = init_scale / fan_in**0.5
+            nn.init.trunc_normal_(module.weight, std=std, a=-2 * std, b=2 * std)
+
+    def forward(self, x, rope_cos, rope_sin):
+        batch, steps, width = x.shape
+        h = self.attn_pre_norm(x)
+        q = self.wq(h).view(batch, steps, self.num_q_heads, self.head_dim).transpose(1, 2)
+        k = self.wk(h).view(batch, steps, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = self.wv(h).view(batch, steps, self.num_kv_heads, self.head_dim).transpose(1, 2)
+
+        q = apply_rope(self.q_norm(q), rope_cos, rope_sin)
+        k = apply_rope(self.k_norm(k), rope_cos, rope_sin)
+
+        if self.kv_group_size > 1:
+            k = k.unsqueeze(2).expand(batch, self.num_kv_heads, self.kv_group_size, steps, self.head_dim)
+            k = k.reshape(batch, self.num_q_heads, steps, self.head_dim)
+            v = v.unsqueeze(2).expand(batch, self.num_kv_heads, self.kv_group_size, steps, self.head_dim)
+            v = v.reshape(batch, self.num_q_heads, steps, self.head_dim)
+
+        attn_out = F.scaled_dot_product_attention(q, k, v)
+        attn_out = attn_out.transpose(1, 2).reshape(batch, steps, width)
+        x = x + self.attn_post_norm(self.wo(attn_out))
+
+        h = self.ffn_pre_norm(x)
+        ffn_out = self.w2(F.silu(self.w1(h)) * self.w3(h))
+        x = x + self.ffn_post_norm(ffn_out)
+        return x
+
+
+class Agent(nn.Module):
+    def __init__(self, envs, num_envs):
+        super().__init__()
+        obs_dim = int(np.array(envs.single_observation_space.shape).prod())
+        action_dim = int(np.prod(envs.single_action_space.shape))
+        self.context_len = CONTEXT_LEN
+
+        self.embed_fc1 = layer_init(nn.Linear(obs_dim, EMBED_DIM))
+        self.embed_fc2 = layer_init(nn.Linear(EMBED_DIM, EMBED_DIM))
+        self.embed_norm = RMSNorm(EMBED_DIM)
+
+        head_dim = EMBED_DIM // NUM_Q_HEADS
+        rope_cos, rope_sin = build_rope_cache(self.context_len, head_dim, torch.device("cpu"))
+        self.register_buffer("rope_cos", rope_cos)
+        self.register_buffer("rope_sin", rope_sin)
+
+        init_scale = 1.0 / (2 * NUM_LAYERS) ** 0.5
+        self.layers = nn.ModuleList(
+            [GQATransformerBlock(EMBED_DIM, NUM_Q_HEADS, NUM_KV_HEADS, FFN_MULT, init_scale) for _ in range(NUM_LAYERS)]
+        )
+        self.final_norm = RMSNorm(EMBED_DIM)
+
+        self.actor_mean = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
+        self.critic = layer_init(nn.Linear(EMBED_DIM, 1), std=1.0)
+        self.sde_proj = layer_init(nn.Linear(EMBED_DIM, EMBED_DIM), std=1.0)
+        self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
+        self.log_std_offset_proj = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
+
+        self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
+
+    def reset_history(self, env_mask=None):
+        if env_mask is None:
+            self.obs_history.zero_()
+        else:
+            self.obs_history[env_mask] = 0.0
+
+    def update_history(self, obs):
+        self.obs_history = torch.cat([self.obs_history[:, 1:], obs.unsqueeze(1)], dim=1)
+
+    def _encode(self, obs_seq):
+        tokens = F.silu(self.embed_fc1(obs_seq))
+        tokens = self.embed_fc2(tokens)
+        tokens = self.embed_norm(tokens)
+        for layer in self.layers:
+            tokens = layer(tokens, self.rope_cos, self.rope_sin)
+        tokens = self.final_norm(tokens)
+        return tokens[:, -1]
+
+    def _action_std(self, sde_features):
+        sde_latent = torch.tanh(self.sde_proj(sde_features) / SDE_PRESCALE)
+        log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
+        action_var = (sde_latent.pow(2)) @ log_std.exp().pow(2)
+        log_std_state = (self.log_std_offset_proj(sde_features) + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
+        action_var = action_var + log_std_state.exp().pow(2)
+        return (action_var + SDE_EPS).sqrt()
+
+    def get_value(self, obs_seq):
+        return self.critic(self._encode(obs_seq))
+
+    def get_action_and_value(self, obs_seq, action=None):
+        features = self._encode(obs_seq)
+        action_mean = self.actor_mean(features)
+        action_std = self._action_std(features)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(features)
 
 
 if __name__ == "__main__":
@@ -165,62 +309,60 @@ if __name__ == "__main__":
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
-    # TRY NOT TO MODIFY: seeding
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
-
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
-    # env setup
     envs = gym.vector.SyncVectorEnv(
         [make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)]
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(envs, args.num_envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
-    # ALGO Logic: Storage setup
-    obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
-    actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
-    logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    values = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    obs_dim = int(np.array(envs.single_observation_space.shape).prod())
+    obs_seqs = torch.zeros((args.num_steps, args.num_envs, agent.context_len, obs_dim), device=device)
+    actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape, device=device)
+    logprobs = torch.zeros((args.num_steps, args.num_envs), device=device)
+    rewards = torch.zeros((args.num_steps, args.num_envs), device=device)
+    dones = torch.zeros((args.num_steps, args.num_envs), device=device)
+    values = torch.zeros((args.num_steps, args.num_envs), device=device)
 
-    # TRY NOT TO MODIFY: start the game
     global_step = 0
     start_time = time.time()
     next_obs, _ = envs.reset(seed=args.seed)
-    next_obs = torch.Tensor(next_obs).to(device)
-    next_done = torch.zeros(args.num_envs).to(device)
+    next_obs = torch.as_tensor(next_obs, device=device, dtype=torch.float32)
+    next_done = torch.zeros(args.num_envs, device=device)
+    agent.reset_history()
+    agent.update_history(next_obs)
 
     for iteration in range(1, args.num_iterations + 1):
-        # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
-            lrnow = frac * args.learning_rate
-            optimizer.param_groups[0]["lr"] = lrnow
+            optimizer.param_groups[0]["lr"] = frac * args.learning_rate
 
-        for step in range(0, args.num_steps):
+        for step in range(args.num_steps):
             global_step += args.num_envs
-            obs[step] = next_obs
+            obs_seqs[step] = agent.obs_history.clone()
             dones[step] = next_done
 
-            # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                action, logprob, _, value = agent.get_action_and_value(agent.obs_history)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
 
-            # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
-            next_done = np.logical_or(terminations, truncations)
-            rewards[step] = torch.tensor(reward).to(device).view(-1)
-            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+            next_done_np = np.logical_or(terminations, truncations)
+            rewards[step] = torch.as_tensor(reward, device=device).view(-1)
+            next_obs = torch.as_tensor(next_obs, device=device, dtype=torch.float32)
+            next_done = torch.as_tensor(next_done_np, device=device, dtype=torch.float32)
+            if next_done.any():
+                agent.reset_history(next_done.bool())
+            agent.update_history(next_obs)
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -229,10 +371,9 @@ if __name__ == "__main__":
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
-        # bootstrap value if not done
         with torch.no_grad():
-            next_value = agent.get_value(next_obs).reshape(1, -1)
-            advantages = torch.zeros_like(rewards).to(device)
+            next_value = agent.get_value(agent.obs_history).reshape(1, -1)
+            advantages = torch.zeros_like(rewards, device=device)
             lastgaelam = 0
             for t in reversed(range(args.num_steps)):
                 if t == args.num_steps - 1:
@@ -245,15 +386,13 @@ if __name__ == "__main__":
                 advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + values
 
-        # flatten the batch
-        b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
+        b_obs_seqs = obs_seqs.reshape(-1, agent.context_len, obs_dim)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
         b_advantages = advantages.reshape(-1)
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
-        # Optimizing the policy and value network
         b_inds = np.arange(args.batch_size)
         clipfracs = []
         for epoch in range(args.update_epochs):
@@ -262,12 +401,11 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs_seqs[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
                 with torch.no_grad():
-                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
@@ -276,23 +414,15 @@ if __name__ == "__main__":
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
-                # Policy loss
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
                 newvalue = newvalue.view(-1)
                 if args.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
-                    v_clipped = b_values[mb_inds] + torch.clamp(
-                        newvalue - b_values[mb_inds],
-                        -args.clip_coef,
-                        args.clip_coef,
-                    )
-                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
-                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
+                    v_clipped = b_values[mb_inds] + torch.clamp(newvalue - b_values[mb_inds], -args.clip_coef, args.clip_coef)
+                    v_loss = 0.5 * torch.max(v_loss_unclipped, (v_clipped - b_returns[mb_inds]) ** 2).mean()
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
@@ -311,7 +441,6 @@ if __name__ == "__main__":
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-        # TRY NOT TO MODIFY: record rewards for plotting purposes
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
@@ -323,31 +452,14 @@ if __name__ == "__main__":
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
+        log_std_eff = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
+        writer.add_scalar("sde/log_std_mean", log_std_eff.mean().item(), global_step)
+        writer.add_scalar("sde/log_std_std", log_std_eff.std().item(), global_step)
+
     if args.save_model:
         model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
         torch.save(agent.state_dict(), model_path)
         print(f"model saved to {model_path}")
-        from cleanrl_utils.evals.ppo_eval import evaluate
-
-        episodic_returns = evaluate(
-            model_path,
-            make_env,
-            args.env_id,
-            eval_episodes=10,
-            run_name=f"{run_name}-eval",
-            Model=Agent,
-            device=device,
-            gamma=args.gamma,
-        )
-        for idx, episodic_return in enumerate(episodic_returns):
-            writer.add_scalar("eval/episodic_return", episodic_return, idx)
-
-        if args.upload_model:
-            from cleanrl_utils.huggingface import push_to_hub
-
-            repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-            repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-            push_to_hub(args, episodic_returns, repo_id, "PPO", f"runs/{run_name}", f"videos/{run_name}-eval")
 
     envs.close()
     writer.close()

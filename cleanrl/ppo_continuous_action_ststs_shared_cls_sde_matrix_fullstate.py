@@ -1,16 +1,19 @@
 # PPO with a shared axial space-time transformer backbone and true backbone CLS
-# slots for actor, critic, and SDE std.
+# slots for actor, critic, and SDE exploration.
 #
 # Dreamer4-style axial attention:
 # - spatial blocks treat observation features as an unordered set
 # - temporal blocks alone receive RoPE
 # - learned feature embeddings provide observation-identity information
 #
-# Ablation:
+# Variant:
 # - one shared STSTS backbone
 # - actor, critic, and SDE CLS slots are present through every STSTS stage
 # - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# - direct linear heads for mean and value
+# - true gSDE-style sampled exploration matrix from the SDE CLS
+# - per-step resampling by default
+# - the full latent-action log-std matrix is predicted from state each step
 import os
 import random
 import time
@@ -35,8 +38,11 @@ NUM_SPATIAL_BLOCKS = 3
 NUM_TEMPORAL_BLOCKS = 2
 NUM_CLS_TOKENS = 3
 LOG_STD_INIT = -2.0
-LOG_STD_MIN = -3.0
-LOG_STD_MAX = -0.5
+LOG_STD_RADIUS = 1.25
+SDE_EPS = 1e-6
+SDE_SAMPLE_FREQ = 1
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +59,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -255,6 +261,37 @@ class STSTSCLSBackbone(nn.Module):
         return actor_cls, critic_cls, sde_cls
 
 
+class MatrixSDEDistribution:
+    def __init__(self, action_dim, latent_dim, epsilon=1e-6):
+        self.action_dim = action_dim
+        self.latent_dim = latent_dim
+        self.epsilon = epsilon
+
+    def get_std(self, log_std):
+        below_threshold = torch.exp(log_std) * (log_std <= 0)
+        safe_log_std = torch.where(log_std > 0, log_std, torch.zeros_like(log_std)) + self.epsilon
+        above_threshold = (torch.log1p(safe_log_std) + 1.0) * (log_std > 0)
+        return below_threshold + above_threshold
+
+    def get_distribution(self, mean_actions, log_std, latent_sde):
+        std = self.get_std(log_std)
+        if std.dim() == 2:
+            variance = torch.mm(latent_sde.pow(2), std.pow(2))
+        else:
+            variance = torch.bmm(latent_sde.pow(2).unsqueeze(1), std.pow(2)).squeeze(1)
+        return Normal(mean_actions, torch.sqrt(variance + self.epsilon))
+
+    def sample(self, mean_actions, log_std, latent_sde):
+        std = self.get_std(log_std)
+        weights_dist = Normal(torch.zeros_like(std), std)
+        exploration = weights_dist.rsample()
+        if std.dim() == 2:
+            noise = torch.mm(latent_sde, exploration)
+        else:
+            noise = torch.bmm(latent_sde.unsqueeze(1), exploration).squeeze(1)
+        return mean_actions + noise
+
+
 class Agent(nn.Module):
     def __init__(self, envs, num_envs):
         super().__init__()
@@ -264,8 +301,13 @@ class Agent(nn.Module):
 
         self.backbone = STSTSCLSBackbone(obs_dim, self.context_len)
         self.actor_mean = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
-        self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
         self.critic = layer_init(nn.Linear(EMBED_DIM, 1), std=1.0)
+        self.sde_norm = RMSNorm(EMBED_DIM)
+        self.std_proj = layer_init(nn.Linear(EMBED_DIM, EMBED_DIM * action_dim), std=0.01)
+        nn.init.zeros_(self.std_proj.weight)
+        nn.init.zeros_(self.std_proj.bias)
+        self.action_dim = action_dim
+        self.gsde = MatrixSDEDistribution(action_dim, EMBED_DIM, epsilon=SDE_EPS)
 
         self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
 
@@ -278,29 +320,35 @@ class Agent(nn.Module):
     def update_history(self, obs):
         self.obs_history = torch.cat([self.obs_history[:, 1:], obs.unsqueeze(1)], dim=1)
 
+    def reset_noise(self, batch_size=1):
+        return
+
     def _encode(self, obs_seq):
         actor_cls, critic_cls, sde_cls = self.backbone(obs_seq)
         return actor_cls, critic_cls, sde_cls
 
-    def _get_action_std(self, sde_latent):
-        sde_latent = torch.tanh(sde_latent)
-        log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        std_sq = log_std.exp().pow(2)
-        action_var = sde_latent.pow(2) @ std_sq
-        return (action_var + 1e-6).sqrt()
+    def _sde_features(self, sde_cls):
+        return self.sde_norm(sde_cls)
+
+    def _effective_log_std(self, latent_sde):
+        raw_log_std = self.std_proj(latent_sde).view(-1, EMBED_DIM, self.action_dim)
+        return LOG_STD_INIT + LOG_STD_RADIUS * torch.tanh(raw_log_std)
 
     def get_value(self, obs_seq):
         _, critic_latent, _ = self._encode(obs_seq)
         return self.critic(critic_latent)
 
     def get_action_and_value(self, obs_seq, action=None):
-        actor_latent, critic_latent, sde_latent = self._encode(obs_seq)
-        action_mean = self.actor_mean(actor_latent)
-        action_std = self._get_action_std(sde_latent)
-        probs = Normal(action_mean, action_std)
+        actor_latent, critic_latent, sde_cls = self._encode(obs_seq)
+        mean_actions = self.actor_mean(actor_latent)
+        latent_sde = self._sde_features(sde_cls)
+        effective_log_std = self._effective_log_std(latent_sde)
+        distribution = self.gsde.get_distribution(mean_actions, effective_log_std, latent_sde)
         if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent)
+            action = self.gsde.sample(mean_actions, effective_log_std, latent_sde)
+        log_prob = distribution.log_prob(action).sum(-1)
+        entropy = distribution.entropy().sum(-1)
+        return action, log_prob, entropy, self.critic(critic_latent)
 
 
 if __name__ == "__main__":
@@ -351,12 +399,16 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs, device=device)
     agent.reset_history()
     agent.update_history(next_obs)
+
     for iteration in range(1, args.num_iterations + 1):
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             optimizer.param_groups[0]["lr"] = frac * args.learning_rate
 
         for step in range(args.num_steps):
+            if SDE_SAMPLE_FREQ > 0 and step % SDE_SAMPLE_FREQ == 0:
+                agent.reset_noise(batch_size=args.num_envs)
+
             global_step += args.num_envs
             obs_seqs[step] = agent.obs_history.clone()
             dones[step] = next_done
@@ -380,6 +432,7 @@ if __name__ == "__main__":
                     if info and "episode" in info:
                         print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+                        writer.add_scalar("charts/episodic_return_time", info["episode"]["r"], int(time.time() - start_time))
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
         with torch.no_grad():
@@ -461,11 +514,17 @@ if __name__ == "__main__":
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         with torch.no_grad():
-            _, _, sde_latent = agent._encode(agent.obs_history)
-            base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-            action_std = agent._get_action_std(sde_latent)
-            writer.add_scalar("sde/base_log_std_mean", base_log_std.mean().item(), global_step)
-            writer.add_scalar("sde/base_log_std_std", base_log_std.std().item(), global_step)
+            _, _, sde_cls = agent._encode(agent.obs_history)
+            latent_sde = agent._sde_features(sde_cls)
+            effective_log_std = agent._effective_log_std(latent_sde)
+            action_std = agent.gsde.get_distribution(
+                torch.zeros(args.num_envs, envs.single_action_space.shape[0], device=device),
+                effective_log_std,
+                latent_sde,
+            ).scale
+            writer.add_scalar("sde/latent_rms", latent_sde.pow(2).mean().sqrt().item(), global_step)
+            writer.add_scalar("sde/log_std_mean", effective_log_std.mean().item(), global_step)
+            writer.add_scalar("sde/log_std_std", effective_log_std.std().item(), global_step)
             writer.add_scalar("sde/action_std_mean", action_std.mean().item(), global_step)
             writer.add_scalar("sde/action_std_std", action_std.std().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))

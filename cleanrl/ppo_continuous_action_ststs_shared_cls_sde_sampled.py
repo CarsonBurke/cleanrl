@@ -1,16 +1,19 @@
 # PPO with a shared axial space-time transformer backbone and true backbone CLS
-# slots for actor, critic, and SDE std.
+# slots for actor, critic, and SDE exploration.
 #
 # Dreamer4-style axial attention:
 # - spatial blocks treat observation features as an unordered set
 # - temporal blocks alone receive RoPE
 # - learned feature embeddings provide observation-identity information
 #
-# Ablation:
+# Variant:
 # - one shared STSTS backbone
 # - actor, critic, and SDE CLS slots are present through every STSTS stage
 # - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# - direct linear heads for mean and value
+# - sampled diagonal + low-rank exploration driven by the SDE CLS
+# - exact Gaussian log-prob via LowRankMultivariateNormal
+import math
 import os
 import random
 import time
@@ -23,6 +26,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import tyro
+from torch.distributions.lowrank_multivariate_normal import LowRankMultivariateNormal
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
@@ -34,9 +38,14 @@ CONTEXT_LEN = 5
 NUM_SPATIAL_BLOCKS = 3
 NUM_TEMPORAL_BLOCKS = 2
 NUM_CLS_TOKENS = 3
-LOG_STD_INIT = -2.0
-LOG_STD_MIN = -3.0
-LOG_STD_MAX = -0.5
+CORR_RANK = 2
+STD_CLIP_MIN = 1e-3
+STD_CLIP_MAX = 10.0
+CORR_ALPHA = 1.0
+SDE_SAMPLE_FREQ = 4
+SDE_EPS = 1e-6
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +62,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -255,6 +264,62 @@ class STSTSCLSBackbone(nn.Module):
         return actor_cls, critic_cls, sde_cls
 
 
+class SampledExploration(nn.Module):
+    def __init__(self, embed_dim, action_dim, rank, num_envs):
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.action_dim = action_dim
+        self.rank = rank
+        self.log_min = math.log(STD_CLIP_MIN)
+        self.log_max = math.log(STD_CLIP_MAX)
+        self.log_dim_correction = 0.5 * math.log(embed_dim)
+
+        self.ind_log_std = nn.Parameter(torch.zeros(embed_dim, action_dim))
+        self.corr_log_std = nn.Parameter(torch.zeros(embed_dim, rank))
+        self.corr_u = nn.Parameter(torch.empty(action_dim, rank))
+        nn.init.orthogonal_(self.corr_u)
+
+        self.register_buffer("ind_exploration_matrices", torch.zeros(num_envs, embed_dim, action_dim))
+        self.register_buffer("corr_exploration_matrices", torch.zeros(num_envs, embed_dim, rank))
+
+    def _normalize_features(self, sde_latent):
+        phi = torch.tanh(sde_latent)
+        rms = torch.sqrt(torch.mean(phi.pow(2), dim=-1, keepdim=True) + SDE_EPS)
+        return phi / rms
+
+    def _get_stds(self):
+        ind_log_std = self.ind_log_std.clamp(self.log_min, self.log_max) - self.log_dim_correction
+        corr_log_std = self.corr_log_std.clamp(self.log_min, self.log_max) - self.log_dim_correction
+        return ind_log_std.exp(), corr_log_std.exp()
+
+    def _normalized_u(self):
+        return self.corr_u / (self.corr_u.norm(dim=0, keepdim=True) + SDE_EPS)
+
+    def sample_noise(self, batch_size):
+        ind_std, corr_std = self._get_stds()
+        ind_dist = Normal(torch.zeros_like(ind_std), ind_std)
+        corr_dist = Normal(torch.zeros_like(corr_std), corr_std)
+        self.ind_exploration_matrices = ind_dist.rsample((batch_size,))
+        self.corr_exploration_matrices = corr_dist.rsample((batch_size,))
+
+    def get_distribution(self, action_mean, sde_latent):
+        phi = self._normalize_features(sde_latent)
+        ind_std, corr_std = self._get_stds()
+        cov_diag = phi.pow(2) @ ind_std.pow(2) + SDE_EPS
+        corr_var = phi.pow(2) @ corr_std.pow(2)
+        cov_factor = CORR_ALPHA * self._normalized_u().unsqueeze(0) * corr_var.sqrt().unsqueeze(1)
+        return LowRankMultivariateNormal(action_mean, cov_factor=cov_factor, cov_diag=cov_diag), phi
+
+    def sample_action(self, action_mean, phi):
+        batch_size = phi.shape[0]
+        if self.ind_exploration_matrices.shape[0] != batch_size:
+            self.sample_noise(batch_size)
+        ind_noise = torch.einsum("be,bea->ba", phi, self.ind_exploration_matrices[:batch_size])
+        corr_latent_noise = torch.einsum("be,ber->br", phi, self.corr_exploration_matrices[:batch_size])
+        corr_noise = CORR_ALPHA * (corr_latent_noise @ self._normalized_u().T)
+        return action_mean + ind_noise + corr_noise
+
+
 class Agent(nn.Module):
     def __init__(self, envs, num_envs):
         super().__init__()
@@ -264,8 +329,8 @@ class Agent(nn.Module):
 
         self.backbone = STSTSCLSBackbone(obs_dim, self.context_len)
         self.actor_mean = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
-        self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
         self.critic = layer_init(nn.Linear(EMBED_DIM, 1), std=1.0)
+        self.exploration = SampledExploration(EMBED_DIM, action_dim, CORR_RANK, num_envs)
 
         self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
 
@@ -278,16 +343,12 @@ class Agent(nn.Module):
     def update_history(self, obs):
         self.obs_history = torch.cat([self.obs_history[:, 1:], obs.unsqueeze(1)], dim=1)
 
+    def sample_noise(self, batch_size):
+        self.exploration.sample_noise(batch_size)
+
     def _encode(self, obs_seq):
         actor_cls, critic_cls, sde_cls = self.backbone(obs_seq)
         return actor_cls, critic_cls, sde_cls
-
-    def _get_action_std(self, sde_latent):
-        sde_latent = torch.tanh(sde_latent)
-        log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        std_sq = log_std.exp().pow(2)
-        action_var = sde_latent.pow(2) @ std_sq
-        return (action_var + 1e-6).sqrt()
 
     def get_value(self, obs_seq):
         _, critic_latent, _ = self._encode(obs_seq)
@@ -296,11 +357,10 @@ class Agent(nn.Module):
     def get_action_and_value(self, obs_seq, action=None):
         actor_latent, critic_latent, sde_latent = self._encode(obs_seq)
         action_mean = self.actor_mean(actor_latent)
-        action_std = self._get_action_std(sde_latent)
-        probs = Normal(action_mean, action_std)
+        dist, phi = self.exploration.get_distribution(action_mean, sde_latent)
         if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent)
+            action = self.exploration.sample_action(action_mean, phi)
+        return action, dist.log_prob(action), dist.entropy(), self.critic(critic_latent)
 
 
 if __name__ == "__main__":
@@ -351,12 +411,16 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs, device=device)
     agent.reset_history()
     agent.update_history(next_obs)
+    agent.sample_noise(args.num_envs)
     for iteration in range(1, args.num_iterations + 1):
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             optimizer.param_groups[0]["lr"] = frac * args.learning_rate
 
         for step in range(args.num_steps):
+            if SDE_SAMPLE_FREQ > 0 and step % SDE_SAMPLE_FREQ == 0:
+                agent.sample_noise(args.num_envs)
+
             global_step += args.num_envs
             obs_seqs[step] = agent.obs_history.clone()
             dones[step] = next_done
@@ -462,12 +526,14 @@ if __name__ == "__main__":
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         with torch.no_grad():
             _, _, sde_latent = agent._encode(agent.obs_history)
-            base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-            action_std = agent._get_action_std(sde_latent)
-            writer.add_scalar("sde/base_log_std_mean", base_log_std.mean().item(), global_step)
-            writer.add_scalar("sde/base_log_std_std", base_log_std.std().item(), global_step)
-            writer.add_scalar("sde/action_std_mean", action_std.mean().item(), global_step)
-            writer.add_scalar("sde/action_std_std", action_std.std().item(), global_step)
+            dist, phi = agent.exploration.get_distribution(torch.zeros(args.num_envs, envs.single_action_space.shape[0], device=device), sde_latent)
+            diag_std = dist.cov_diag.sqrt()
+            writer.add_scalar("sde/phi_rms", phi.pow(2).mean().sqrt().item(), global_step)
+            writer.add_scalar("sde/ind_log_std_mean", (agent.exploration.ind_log_std - agent.exploration.log_dim_correction).mean().item(), global_step)
+            writer.add_scalar("sde/corr_log_std_mean", (agent.exploration.corr_log_std - agent.exploration.log_dim_correction).mean().item(), global_step)
+            writer.add_scalar("sde/action_std_mean", diag_std.mean().item(), global_step)
+            writer.add_scalar("sde/action_std_std", diag_std.std().item(), global_step)
+            writer.add_scalar("sde/corr_u_rms", agent.exploration._normalized_u().pow(2).mean().sqrt().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

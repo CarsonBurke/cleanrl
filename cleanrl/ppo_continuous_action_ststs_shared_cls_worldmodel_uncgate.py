@@ -1,16 +1,15 @@
-# PPO with a shared axial space-time transformer backbone and true backbone CLS
-# slots for actor, critic, and SDE std.
+# PPO + World model + Uncertainty-gated SDE exploration.
 #
-# Dreamer4-style axial attention:
-# - spatial blocks treat observation features as an unordered set
-# - temporal blocks alone receive RoPE
-# - learned feature embeddings provide observation-identity information
+# Option 3: World-model-aware exploration. The dynamics CLS feeds an
+# uncertainty head that modulates SDE exploration noise. Where the world
+# model is uncertain, exploration is amplified; where it's confident,
+# noise is suppressed for tighter control.
 #
-# Ablation:
-# - one shared STSTS backbone
-# - actor, critic, and SDE CLS slots are present through every STSTS stage
-# - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# Architecture: 4 CLS tokens (actor, critic, dynamics, SDE).
+# The SDE provides base state-dependent variance via the learned matrix.
+# The dynamics CLS feeds an uncertainty gate that scales the SDE variance.
+# During imagination rollouts, the uncertainty gate is computed from the
+# imagined latent z, so exploration-aware planning happens naturally.
 import os
 import random
 import time
@@ -33,10 +32,19 @@ FFN_MULT = 2
 CONTEXT_LEN = 5
 NUM_SPATIAL_BLOCKS = 3
 NUM_TEMPORAL_BLOCKS = 2
-NUM_CLS_TOKENS = 3
+NUM_CLS_TOKENS = 4
 LOG_STD_INIT = -2.0
 LOG_STD_MIN = -3.0
 LOG_STD_MAX = -0.5
+IMAGINATION_HORIZON = 15
+WM_COEF = 1.0
+IMAGINE_COEF = 0.1
+IMAGINE_CRITIC_COEF = 0.5
+N_IMAGINE_SEEDS = 256
+# Uncertainty gate range: std is scaled by [1-UNC_RANGE, 1+UNC_RANGE]
+UNC_RANGE = 0.5
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +61,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -191,7 +199,8 @@ class STSTSCLSBackbone(nn.Module):
         self.context_len = context_len
         self.actor_cls_index = obs_dim
         self.critic_cls_index = obs_dim + 1
-        self.sde_cls_index = obs_dim + 2
+        self.dynamics_cls_index = obs_dim + 2
+        self.sde_cls_index = obs_dim + 3
 
         self.value_proj = layer_init(nn.Linear(1, EMBED_DIM), std=1.0)
         self.input_norm = RMSNorm(EMBED_DIM)
@@ -200,9 +209,11 @@ class STSTSCLSBackbone(nn.Module):
         cls_std = 1.0 / EMBED_DIM**0.5
         self.actor_cls = nn.Parameter(torch.empty(EMBED_DIM))
         self.critic_cls = nn.Parameter(torch.empty(EMBED_DIM))
+        self.dynamics_cls = nn.Parameter(torch.empty(EMBED_DIM))
         self.sde_cls = nn.Parameter(torch.empty(EMBED_DIM))
         nn.init.trunc_normal_(self.actor_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
         nn.init.trunc_normal_(self.critic_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
+        nn.init.trunc_normal_(self.dynamics_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
         nn.init.trunc_normal_(self.sde_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
 
         init_scale = 1.0 / (2 * (NUM_SPATIAL_BLOCKS + NUM_TEMPORAL_BLOCKS)) ** 0.5
@@ -237,7 +248,7 @@ class STSTSCLSBackbone(nn.Module):
         obs_tokens = self.value_proj(obs_seq.unsqueeze(-1))
         obs_tokens = obs_tokens + self.dim_id_embed(self.dim_indices).view(1, 1, self.obs_dim, EMBED_DIM)
 
-        cls_tokens = torch.stack([self.actor_cls, self.critic_cls, self.sde_cls], dim=0)
+        cls_tokens = torch.stack([self.actor_cls, self.critic_cls, self.dynamics_cls, self.sde_cls], dim=0)
         cls_tokens = cls_tokens.view(1, 1, NUM_CLS_TOKENS, EMBED_DIM).expand(batch, time_steps, -1, -1)
         tokens = torch.cat([obs_tokens, cls_tokens], dim=2)
         tokens = self.input_norm(tokens)
@@ -251,8 +262,9 @@ class STSTSCLSBackbone(nn.Module):
 
         actor_cls = tokens[:, -1, self.actor_cls_index]
         critic_cls = tokens[:, -1, self.critic_cls_index]
+        dynamics_cls = tokens[:, -1, self.dynamics_cls_index]
         sde_cls = tokens[:, -1, self.sde_cls_index]
-        return actor_cls, critic_cls, sde_cls
+        return actor_cls, critic_cls, dynamics_cls, sde_cls
 
 
 class Agent(nn.Module):
@@ -260,12 +272,40 @@ class Agent(nn.Module):
         super().__init__()
         obs_dim = int(np.array(envs.single_observation_space.shape).prod())
         action_dim = int(np.prod(envs.single_action_space.shape))
+        self.action_dim = action_dim
         self.context_len = CONTEXT_LEN
 
         self.backbone = STSTSCLSBackbone(obs_dim, self.context_len)
         self.actor_mean = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
-        self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
         self.critic = layer_init(nn.Linear(EMBED_DIM, 1), std=1.0)
+
+        # SDE: learned exploration matrix
+        self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
+
+        # Uncertainty gate: dynamics latent -> per-action-dim scale factor
+        # Initialized to output ~0 (sigmoid(0)=0.5 -> scale=1.0) so it starts neutral
+        self.uncertainty_head = nn.Sequential(
+            nn.Linear(EMBED_DIM, 64), nn.SiLU(),
+            nn.Linear(64, action_dim),
+        )
+        # Initialize last layer near zero for neutral start
+        nn.init.zeros_(self.uncertainty_head[-1].weight)
+        nn.init.zeros_(self.uncertainty_head[-1].bias)
+
+        # World model heads
+        self.transition = nn.Sequential(
+            nn.Linear(EMBED_DIM + action_dim, 256), nn.SiLU(),
+            nn.Linear(256, 256), nn.SiLU(),
+            nn.Linear(256, EMBED_DIM),
+        )
+        self.reward_head = nn.Sequential(
+            nn.Linear(EMBED_DIM + action_dim, 128), nn.SiLU(),
+            nn.Linear(128, 1),
+        )
+        self.continue_head = nn.Sequential(
+            nn.Linear(EMBED_DIM + action_dim, 128), nn.SiLU(),
+            nn.Linear(128, 1),
+        )
 
         self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
 
@@ -279,28 +319,82 @@ class Agent(nn.Module):
         self.obs_history = torch.cat([self.obs_history[:, 1:], obs.unsqueeze(1)], dim=1)
 
     def _encode(self, obs_seq):
-        actor_cls, critic_cls, sde_cls = self.backbone(obs_seq)
-        return actor_cls, critic_cls, sde_cls
+        return self.backbone(obs_seq)
 
-    def _get_action_std(self, sde_latent):
+    def _get_action_std(self, sde_latent, dynamics_latent):
+        """Compute uncertainty-gated SDE std."""
         sde_latent = torch.tanh(sde_latent)
         log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
         std_sq = log_std.exp().pow(2)
-        action_var = sde_latent.pow(2) @ std_sq
-        return (action_var + 1e-6).sqrt()
+        base_var = sde_latent.pow(2) @ std_sq
+
+        # Uncertainty gate: sigmoid outputs in [0,1], mapped to [1-R, 1+R]
+        unc_raw = self.uncertainty_head(dynamics_latent)
+        unc_gate = 1.0 - UNC_RANGE + 2.0 * UNC_RANGE * torch.sigmoid(unc_raw)
+
+        return (base_var * unc_gate.pow(2) + 1e-6).sqrt()
+
+    def _get_action_std_from_dynamics(self, dynamics_latent):
+        """For imagination: no SDE CLS available, use uncertainty gate on mean SDE variance."""
+        log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
+        # Mean variance across latent dims (assumes uniform activation ~0.46 for tanh of normal)
+        mean_var = log_std.exp().pow(2).mean(0) * 0.21  # E[tanh(x)^2] ≈ 0.21 for std-normal x
+
+        unc_raw = self.uncertainty_head(dynamics_latent)
+        unc_gate = 1.0 - UNC_RANGE + 2.0 * UNC_RANGE * torch.sigmoid(unc_raw)
+
+        return (mean_var * unc_gate.pow(2) + 1e-6).sqrt()
 
     def get_value(self, obs_seq):
-        _, critic_latent, _ = self._encode(obs_seq)
+        _, critic_latent, _, _ = self._encode(obs_seq)
         return self.critic(critic_latent)
 
     def get_action_and_value(self, obs_seq, action=None):
-        actor_latent, critic_latent, sde_latent = self._encode(obs_seq)
+        actor_latent, critic_latent, dynamics_latent, sde_latent = self._encode(obs_seq)
         action_mean = self.actor_mean(actor_latent)
-        action_std = self._get_action_std(sde_latent)
+        action_std = self._get_action_std(sde_latent, dynamics_latent)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent)
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent), dynamics_latent
+
+    def get_action_and_value_for_update(self, obs_seq, action):
+        """For PPO update: needs SDE + dynamics latent for correct log_prob."""
+        actor_latent, critic_latent, dynamics_latent, sde_latent = self._encode(obs_seq)
+        action_mean = self.actor_mean(actor_latent)
+        action_std = self._get_action_std(sde_latent, dynamics_latent)
+        probs = Normal(action_mean, action_std)
+        return probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent)
+
+    def imagine(self, z_start, horizon, gamma, gae_lambda):
+        """Differentiable imagination with uncertainty-aware exploration."""
+        z = z_start
+        rewards = []
+        values = []
+        continues = []
+
+        for _ in range(horizon):
+            a_mean = self.actor_mean(z)
+            action_std = self._get_action_std_from_dynamics(z)
+            a = Normal(a_mean, action_std).rsample()
+            za = torch.cat([z, a], dim=-1)
+            rewards.append(self.reward_head(za).squeeze(-1))
+            continues.append(self.continue_head(za).sigmoid().squeeze(-1))
+            values.append(self.critic(z).squeeze(-1))
+            z = self.transition(za)
+
+        values.append(self.critic(z).squeeze(-1))
+
+        imagine_return = values[-1]
+        lambda_returns = []
+        for t in reversed(range(horizon)):
+            imagine_return = rewards[t] + gamma * continues[t] * (
+                gae_lambda * imagine_return + (1.0 - gae_lambda) * values[t + 1]
+            )
+            lambda_returns.append(imagine_return)
+        lambda_returns.reverse()
+
+        return lambda_returns, values[:-1]
 
 
 if __name__ == "__main__":
@@ -337,12 +431,14 @@ if __name__ == "__main__":
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     obs_dim = int(np.array(envs.single_observation_space.shape).prod())
+    action_dim = int(np.prod(envs.single_action_space.shape))
     obs_seqs = torch.zeros((args.num_steps, args.num_envs, agent.context_len, obs_dim), device=device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape, device=device)
     logprobs = torch.zeros((args.num_steps, args.num_envs), device=device)
     rewards = torch.zeros((args.num_steps, args.num_envs), device=device)
     dones = torch.zeros((args.num_steps, args.num_envs), device=device)
     values = torch.zeros((args.num_steps, args.num_envs), device=device)
+    latents = torch.zeros((args.num_steps, args.num_envs, EMBED_DIM), device=device)
 
     global_step = 0
     start_time = time.time()
@@ -361,8 +457,9 @@ if __name__ == "__main__":
             obs_seqs[step] = agent.obs_history.clone()
             dones[step] = next_done
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(agent.obs_history)
+                action, logprob, _, value, dynamics_latent = agent.get_action_and_value(agent.obs_history)
                 values[step] = value.flatten()
+                latents[step] = dynamics_latent
             actions[step] = action
             logprobs[step] = logprob
 
@@ -382,6 +479,7 @@ if __name__ == "__main__":
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
+        # GAE
         with torch.no_grad():
             next_value = agent.get_value(agent.obs_history).reshape(1, -1)
             advantages = torch.zeros_like(rewards, device=device)
@@ -403,7 +501,22 @@ if __name__ == "__main__":
         b_advantages = advantages.reshape(-1)
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
+        b_latents = latents.reshape(-1, EMBED_DIM)
+        b_rewards = rewards.reshape(-1)
+        b_dones = dones.reshape(-1)
 
+        # Build next-latent targets and validity mask for world model
+        next_latents = torch.zeros_like(latents)
+        next_latents[:-1] = latents[1:]
+        with torch.no_grad():
+            _, _, final_dynamics, _ = agent._encode(agent.obs_history)
+            next_latents[-1] = final_dynamics
+        wm_valid = torch.ones(args.num_steps, args.num_envs, device=device)
+        wm_valid[:-1] = 1.0 - dones[1:]
+        b_next_latents = next_latents.reshape(-1, EMBED_DIM)
+        b_wm_valid = wm_valid.reshape(-1)
+
+        # PPO update with world model loss
         b_inds = np.arange(args.batch_size)
         clipfracs = []
         for epoch in range(args.update_epochs):
@@ -412,7 +525,7 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs_seqs[mb_inds], b_actions[mb_inds])
+                newlogprob, entropy, newvalue = agent.get_action_and_value_for_update(b_obs_seqs[mb_inds], b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -438,7 +551,21 @@ if __name__ == "__main__":
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + args.vf_coef * v_loss
+
+                # World model loss
+                mb_za = torch.cat([b_latents[mb_inds], b_actions[mb_inds]], dim=-1)
+                mb_z_pred = agent.transition(mb_za)
+                mb_r_pred = agent.reward_head(mb_za).squeeze(-1)
+                mb_c_pred = agent.continue_head(mb_za).squeeze(-1)
+                mb_valid = b_wm_valid[mb_inds]
+
+                transition_loss = (((mb_z_pred - b_next_latents[mb_inds].detach()) ** 2).mean(-1) * mb_valid).sum() / (mb_valid.sum() + 1e-8)
+                reward_loss = ((mb_r_pred - b_rewards[mb_inds]) ** 2 * mb_valid).sum() / (mb_valid.sum() + 1e-8)
+                continue_target = mb_valid
+                continue_loss = F.binary_cross_entropy_with_logits(mb_c_pred, continue_target, reduction="mean")
+                wm_loss = transition_loss + reward_loss + continue_loss
+
+                loss = pg_loss - args.ent_coef * entropy_loss + args.vf_coef * v_loss + WM_COEF * wm_loss
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -448,6 +575,30 @@ if __name__ == "__main__":
             if args.target_kl is not None and approx_kl > args.target_kl:
                 break
 
+        # Imagination phase
+        n_seeds = min(N_IMAGINE_SEEDS, args.batch_size)
+        seed_inds = torch.randperm(args.batch_size, device=device)[:n_seeds]
+        z_seeds = b_latents[seed_inds].detach()
+
+        lambda_returns, imagined_values = agent.imagine(
+            z_seeds, IMAGINATION_HORIZON, args.gamma, args.gae_lambda
+        )
+
+        imagine_actor_loss = -torch.stack(lambda_returns).mean()
+
+        imagine_critic_loss = 0.0
+        for t in range(IMAGINATION_HORIZON):
+            imagine_critic_loss = imagine_critic_loss + ((imagined_values[t] - lambda_returns[t].detach()) ** 2).mean()
+        imagine_critic_loss = imagine_critic_loss / IMAGINATION_HORIZON
+
+        imagine_loss = IMAGINE_COEF * imagine_actor_loss + IMAGINE_CRITIC_COEF * imagine_critic_loss
+
+        optimizer.zero_grad()
+        imagine_loss.backward()
+        nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
+        optimizer.step()
+
+        # Logging
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
@@ -460,14 +611,22 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("worldmodel/transition_loss", transition_loss.item(), global_step)
+        writer.add_scalar("worldmodel/reward_loss", reward_loss.item(), global_step)
+        writer.add_scalar("worldmodel/continue_loss", continue_loss.item(), global_step)
+        writer.add_scalar("worldmodel/total_loss", wm_loss.item(), global_step)
+        writer.add_scalar("imagination/actor_loss", imagine_actor_loss.item(), global_step)
+        writer.add_scalar("imagination/critic_loss", imagine_critic_loss.item() if isinstance(imagine_critic_loss, torch.Tensor) else imagine_critic_loss, global_step)
         with torch.no_grad():
-            _, _, sde_latent = agent._encode(agent.obs_history)
-            base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-            action_std = agent._get_action_std(sde_latent)
-            writer.add_scalar("sde/base_log_std_mean", base_log_std.mean().item(), global_step)
-            writer.add_scalar("sde/base_log_std_std", base_log_std.std().item(), global_step)
-            writer.add_scalar("sde/action_std_mean", action_std.mean().item(), global_step)
-            writer.add_scalar("sde/action_std_std", action_std.std().item(), global_step)
+            writer.add_scalar("imagination/mean_return", torch.stack(lambda_returns).mean().item(), global_step)
+            # Log uncertainty gate stats
+            _, _, dyn_sample, sde_sample = agent._encode(agent.obs_history)
+            unc_raw = agent.uncertainty_head(dyn_sample)
+            unc_gate = 1.0 - UNC_RANGE + 2.0 * UNC_RANGE * torch.sigmoid(unc_raw)
+            writer.add_scalar("exploration/unc_gate_mean", unc_gate.mean().item(), global_step)
+            writer.add_scalar("exploration/unc_gate_std", unc_gate.std().item(), global_step)
+            action_std = agent._get_action_std(sde_sample, dyn_sample)
+            writer.add_scalar("policy/action_std_mean", action_std.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

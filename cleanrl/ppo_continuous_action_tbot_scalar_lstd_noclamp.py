@@ -1,4 +1,24 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+"""PPO with Trading-Bot-Inspired Architecture — No Clamp Ablation (tbot_scalar_lstd_noclamp)
+
+Ablation of tbot_scalar_lstd: removes the hard bounds (clamp) on log_std.
+
+In tbot_scalar_lstd, log_std is computed as:
+    log_std = (log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
+where LOG_STD_MIN=-3.0 and LOG_STD_MAX=-0.5 provide implicit noise floor/ceiling.
+
+THIS ABLATION removes the clamp:
+    log_std = log_std_param + LOG_STD_INIT
+allowing log_std to be unbounded. This tests whether the hard bounds on per-element
+std are important for stability, or whether the optimizer naturally keeps log_std in
+a reasonable range.
+
+Everything else is identical to tbot_scalar_lstd:
+- Learned log_std_param [hidden_dim, act_dim] matrix
+- RMSNorm + tanh SDE latent pipeline
+- Shared actor_out.weight W for mean projection AND noise modulation
+- Asymmetric PPO clipping (clip_coef_low=0.2, clip_coef_high=0.28)
+- RMSNorm + SiLU backbone, scalar critic, mean_scale decoupling
+"""
 import os
 import random
 import time
@@ -8,10 +28,16 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import tyro
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
+
+
+LOG_STD_INIT = -2.0
+SDE_EPS = 1e-6
+SDE_PRESCALE = 1.5  # divisor before tanh, controls saturation
 
 
 @dataclass
@@ -42,7 +68,7 @@ class Args:
     # Algorithm specific arguments
     env_id: str = "HalfCheetah-v4"
     """the id of the environment"""
-    total_timesteps: int = 1000000
+    total_timesteps: int = 8000000
     """total timesteps of the experiments"""
     learning_rate: float = 3e-4
     """the learning rate of the optimizer"""
@@ -62,10 +88,10 @@ class Args:
     """the K epochs to update the policy"""
     norm_adv: bool = True
     """Toggles advantages normalization"""
-    clip_coef: float = 0.2
-    """the surrogate clipping coefficient"""
-    clip_vloss: bool = True
-    """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
+    clip_coef_low: float = 0.2
+    """the lower surrogate clipping coefficient (ratio floor = 1 - this)"""
+    clip_coef_high: float = 0.28
+    """the upper surrogate clipping coefficient (ratio ceiling = 1 + this)"""
     ent_coef: float = 0.0
     """coefficient of the entropy"""
     vf_coef: float = 0.5
@@ -74,6 +100,8 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
+    clip_vloss: bool = True
+    """Toggles whether or not to use a clipped loss for the value function"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -91,7 +119,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
-        env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
+        env = gym.wrappers.FlattenObservation(env)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
         env = gym.wrappers.NormalizeObservation(env)
@@ -109,36 +137,90 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-class Agent(nn.Module):
-    def __init__(self, envs):
+class RMSNorm(nn.Module):
+    def __init__(self, dim, eps=1e-6):
         super().__init__()
-        self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 1), std=1.0),
-        )
-        self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
-        )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.weight = nn.Parameter(torch.ones(dim))
+        self.eps = eps
+
+    def forward(self, x):
+        rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
+        return x / rms * self.weight
+
+
+class Agent(nn.Module):
+    def __init__(self, envs, args):
+        super().__init__()
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        act_dim = np.prod(envs.single_action_space.shape)
+        hidden_dim = 64
+
+        # Actor backbone: obs -> hidden features
+        self.actor_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
+        self.actor_norm1 = RMSNorm(hidden_dim)
+        self.actor_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.actor_norm2 = RMSNorm(hidden_dim)
+
+        # Actor output head -- init std=1.0 so weights are meaningful for noise modulation
+        self.actor_out = layer_init(nn.Linear(hidden_dim, act_dim), std=1.0)
+        # Separate learnable scale for the mean (starts small -> near-zero initial actions)
+        self.mean_scale = nn.Parameter(torch.tensor(0.01))
+
+        # SDE noise with learned log_std_param (trading bot approach)
+        self.sde_fc = layer_init(nn.Linear(hidden_dim, hidden_dim), std=1.0)
+        self.sde_norm = RMSNorm(hidden_dim)
+        # Learned per-element noise magnitude: log_std = param + LOG_STD_INIT (NO clamp)
+        self.log_std_param = nn.Parameter(torch.zeros(hidden_dim, act_dim))
+
+        # Critic backbone (separate from actor)
+        self.critic_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
+        self.critic_norm1 = RMSNorm(hidden_dim)
+        self.critic_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.critic_norm2 = RMSNorm(hidden_dim)
+
+        # Scalar value head
+        self.value_out = layer_init(nn.Linear(hidden_dim, 1), std=1.0)
+
+    def _actor_features(self, x):
+        h = F.silu(self.actor_norm1(self.actor_fc1(x)))
+        h = F.silu(self.actor_norm2(self.actor_fc2(h)))
+        return h
+
+    def _get_action_std(self, h):
+        """State-dependent action std via RMSNorm->tanh SDE + learned log_std_param (no clamp)."""
+        sde_raw = self.sde_fc(h)  # (batch, hidden_dim)
+        # RMSNorm -> scale -> tanh: bounded in [-1, 1] with stable gradients
+        sde_latent = (self.sde_norm(sde_raw) / SDE_PRESCALE).tanh()  # (batch, hidden_dim)
+
+        # Learned per-element log-std with offset initialization — NO clamping
+        log_std = self.log_std_param + LOG_STD_INIT
+        std_sq = log_std.exp().pow(2)  # (hidden_dim, act_dim)
+
+        # SDE variance: sum over hidden dim of (latent^2 * std^2)
+        action_var = (sde_latent.pow(2)) @ std_sq  # (batch, act_dim)
+        action_std = (action_var + SDE_EPS).sqrt()
+        return action_std
+
+    def _critic_features(self, x):
+        h = F.silu(self.critic_norm1(self.critic_fc1(x)))
+        h = F.silu(self.critic_norm2(self.critic_fc2(h)))
+        return h
 
     def get_value(self, x):
-        return self.critic(x)
+        h = self._critic_features(x)
+        return self.value_out(h)
 
     def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
+        # Actor
+        h = self._actor_features(x)
+        action_mean = self.actor_out(h) * self.mean_scale
+        action_std = self._get_action_std(h)
+
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.get_value(x)
 
 
 if __name__ == "__main__":
@@ -179,7 +261,7 @@ if __name__ == "__main__":
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(envs, args).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -262,7 +344,9 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(
+                    b_obs[mb_inds], b_actions[mb_inds]
+                )
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -270,7 +354,12 @@ if __name__ == "__main__":
                     # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
-                    clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+                    clipfracs += [
+                        ((ratio < (1 - args.clip_coef_low)) | (ratio > (1 + args.clip_coef_high)))
+                        .float()
+                        .mean()
+                        .item()
+                    ]
 
                 mb_advantages = b_advantages[mb_inds]
                 if args.norm_adv:
@@ -278,7 +367,7 @@ if __name__ == "__main__":
 
                 # Policy loss
                 pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
+                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef_low, 1 + args.clip_coef_high)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 # Value loss
@@ -287,8 +376,8 @@ if __name__ == "__main__":
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
                     v_clipped = b_values[mb_inds] + torch.clamp(
                         newvalue - b_values[mb_inds],
-                        -args.clip_coef,
-                        args.clip_coef,
+                        -args.clip_coef_low,
+                        args.clip_coef_high,
                     )
                     v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
                     v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
@@ -320,6 +409,13 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        # lstd noclamp metrics (log unclamped values)
+        log_std_eff = agent.log_std_param + LOG_STD_INIT
+        writer.add_scalar("tbot/log_std_mean", log_std_eff.mean().item(), global_step)
+        writer.add_scalar("tbot/log_std_std", log_std_eff.std().item(), global_step)
+        writer.add_scalar("tbot/log_std_min", log_std_eff.min().item(), global_step)
+        writer.add_scalar("tbot/log_std_max", log_std_eff.max().item(), global_step)
+        writer.add_scalar("tbot/mean_scale", agent.mean_scale.item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

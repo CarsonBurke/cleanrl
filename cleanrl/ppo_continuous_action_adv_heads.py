@@ -1,4 +1,31 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# PPO with Advantage Decomposition Heads (V3: Directional Policy Shaping)
+#
+# Key idea: Add two auxiliary heads that provide directional gradient signal
+# to the policy, decomposing the advantage into mean-direction and
+# exploration-magnitude components.
+#
+# Architecture (shared encoder → 4 heads):
+#   1. V(s)          — standard critic for GAE (unchanged PPO)
+#   2. A_μ(s)        — "mean advantage" head: predicts which direction the
+#                      mean should move, trained via advantage-weighted
+#                      action residuals
+#   3. A_σ(s)        — "exploration advantage" head: predicts per-dimension
+#                      whether to explore more or less, trained via
+#                      advantage-weighted variance signal
+#   4. Actor          — standard policy (mean + logstd)
+#
+# The auxiliary heads provide soft gradient signal to the shared encoder
+# and an optional auxiliary policy loss that pulls the mean toward the
+# predicted improvement direction.
+#
+# Training targets:
+#   A_μ target:  Â · (a - μ) / σ²  (the empirical policy gradient direction)
+#   A_σ target:  Â · ((a - μ)² / σ² - 1)  (score function for variance)
+#
+# The actor receives an auxiliary loss:
+#   L_aux = -λ_μ · cos_sim(∂μ, A_μ(s)) - λ_σ · (A_σ(s) · log σ).mean()
+# This gently steers the policy in the direction the heads predict.
+
 import os
 import random
 import time
@@ -8,6 +35,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import tyro
 from torch.distributions.normal import Normal
@@ -75,6 +103,16 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
+    # Advantage head specific
+    adv_head_coef: float = 0.25
+    """coefficient for advantage head prediction losses"""
+    mean_shaping_coef: float = 0.05
+    """coefficient for mean-direction shaping auxiliary loss on actor"""
+    std_shaping_coef: float = 0.02
+    """coefficient for exploration-direction shaping auxiliary loss on actor"""
+    shaping_warmup_frac: float = 0.1
+    """fraction of training before shaping losses reach full strength"""
+
     # to be filled in runtime
     batch_size: int = 0
     """the batch size (computed in runtime)"""
@@ -91,7 +129,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
-        env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
+        env = gym.wrappers.FlattenObservation(env)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
         env = gym.wrappers.NormalizeObservation(env)
@@ -112,33 +150,65 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 class Agent(nn.Module):
     def __init__(self, envs):
         super().__init__()
-        self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        act_dim = np.prod(envs.single_action_space.shape)
+
+        # Shared encoder for critic heads
+        self.critic_encoder = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 1), std=1.0),
         )
+
+        # Head 1: V(s) — standard value function
+        self.value_head = layer_init(nn.Linear(64, 1), std=1.0)
+
+        # Head 2: A_μ(s) — mean advantage direction (per action dimension)
+        self.mean_adv_head = layer_init(nn.Linear(64, act_dim), std=0.01)
+
+        # Head 3: A_σ(s) — exploration advantage (per action dimension)
+        self.std_adv_head = layer_init(nn.Linear(64, act_dim), std=0.01)
+
+        # Actor (separate encoder, as in standard PPO)
         self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
+            layer_init(nn.Linear(64, act_dim), std=0.01),
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_logstd = nn.Parameter(torch.zeros(1, act_dim))
 
     def get_value(self, x):
-        return self.critic(x)
+        features = self.critic_encoder(x)
+        return self.value_head(features)
 
     def get_action_and_value(self, x, action=None):
+        # Actor forward
         action_mean = self.actor_mean(x)
         action_logstd = self.actor_logstd.expand_as(action_mean)
         action_std = torch.exp(action_logstd)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+
+        # Critic forward (shared encoder, multiple heads)
+        features = self.critic_encoder(x)
+        value = self.value_head(features)
+        mean_adv = self.mean_adv_head(features)
+        std_adv = self.std_adv_head(features)
+
+        return (
+            action,
+            probs.log_prob(action).sum(1),
+            probs.entropy().sum(1),
+            value,
+            mean_adv,
+            std_adv,
+            action_mean,
+            action_std,
+        )
 
 
 if __name__ == "__main__":
@@ -204,6 +274,10 @@ if __name__ == "__main__":
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
+        # Shaping coefficient warmup
+        progress = iteration / args.num_iterations
+        shaping_scale = min(1.0, progress / max(args.shaping_warmup_frac, 1e-8))
+
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
@@ -211,7 +285,7 @@ if __name__ == "__main__":
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                action, logprob, _, value, _, _, _, _ = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -262,12 +336,21 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                (
+                    _,
+                    newlogprob,
+                    entropy,
+                    newvalue,
+                    pred_mean_adv,
+                    pred_std_adv,
+                    action_mean,
+                    action_std,
+                ) = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
                 with torch.no_grad():
-                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
@@ -276,12 +359,12 @@ if __name__ == "__main__":
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
-                # Policy loss
+                # Policy loss (standard PPO)
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
+                # Value loss (standard)
                 newvalue = newvalue.view(-1)
                 if args.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
@@ -296,8 +379,66 @@ if __name__ == "__main__":
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
+                # === Advantage head losses ===
+                # Compute targets for the advantage heads
+                mb_actions = b_actions[mb_inds]
+                with torch.no_grad():
+                    action_residual = mb_actions - action_mean.detach()
+                    action_var = (action_std.detach()) ** 2 + 1e-8
+
+                    # Target for mean advantage: Â · (a - μ) / σ²
+                    # This is the direction the score function points for the mean
+                    mean_adv_target = mb_advantages.unsqueeze(-1) * action_residual / action_var
+
+                    # Target for std advantage: Â · ((a - μ)² / σ² - 1)
+                    # This is the score function for the log-std
+                    std_adv_target = mb_advantages.unsqueeze(-1) * (
+                        action_residual ** 2 / action_var - 1.0
+                    )
+
+                # Advantage head prediction losses (regression)
+                mean_adv_loss = F.mse_loss(pred_mean_adv, mean_adv_target)
+                std_adv_loss = F.mse_loss(pred_std_adv, std_adv_target)
+                adv_head_loss = args.adv_head_coef * (mean_adv_loss + std_adv_loss)
+
+                # === Shaping losses on the actor ===
+                # Mean shaping: encourage the mean to move in the predicted direction
+                # Use cosine similarity to be scale-invariant
+                mean_shaping_loss = torch.zeros(1, device=device)
+                if args.mean_shaping_coef > 0 and shaping_scale > 0:
+                    # Detach the head predictions — we don't want actor gradients
+                    # flowing back through the critic encoder
+                    pred_dir = pred_mean_adv.detach()
+                    # Dot product: ∂loss/∂action_mean = -pred_dir, pushing mean
+                    # in the direction the advantage head predicts is beneficial.
+                    mean_shaping_loss = -shaping_scale * args.mean_shaping_coef * (
+                        pred_dir * action_mean
+                    ).sum(-1).mean()
+
+                # Std shaping: encourage std to adjust based on exploration advantage
+                std_shaping_loss = torch.zeros(1, device=device)
+                if args.std_shaping_coef > 0 and shaping_scale > 0:
+                    pred_std_dir = pred_std_adv.detach()
+                    # If pred_std_dir > 0 for a dimension, we want more exploration (larger std)
+                    # If pred_std_dir < 0, we want less exploration (smaller std)
+                    # Loss = -coef * pred_std_dir * logstd
+                    # ∂loss/∂logstd = -coef * pred_std_dir
+                    # Optimizer: logstd -= lr * (-coef * pred_std_dir) = logstd += lr * coef * pred_std_dir
+                    # So positive pred_std_dir → increase logstd ✓
+                    action_logstd = agent.actor_logstd.expand_as(action_mean)
+                    std_shaping_loss = -shaping_scale * args.std_shaping_coef * (
+                        pred_std_dir * action_logstd
+                    ).mean()
+
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                loss = (
+                    pg_loss
+                    - args.ent_coef * entropy_loss
+                    + v_loss * args.vf_coef
+                    + adv_head_loss
+                    + mean_shaping_loss
+                    + std_shaping_loss
+                )
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -320,6 +461,11 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("losses/mean_adv_head_loss", mean_adv_loss.item(), global_step)
+        writer.add_scalar("losses/std_adv_head_loss", std_adv_loss.item(), global_step)
+        writer.add_scalar("losses/mean_shaping_loss", mean_shaping_loss.item(), global_step)
+        writer.add_scalar("losses/std_shaping_loss", std_shaping_loss.item(), global_step)
+        writer.add_scalar("charts/shaping_scale", shaping_scale, global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

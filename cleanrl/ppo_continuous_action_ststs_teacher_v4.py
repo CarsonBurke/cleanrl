@@ -1,16 +1,28 @@
-# PPO with a shared axial space-time transformer backbone and true backbone CLS
-# slots for actor, critic, and SDE std.
+# PPO with Hindsight Teacher — Bidirectional trajectory reasoning for actor training.
 #
-# Dreamer4-style axial attention:
-# - spatial blocks treat observation features as an unordered set
-# - temporal blocks alone receive RoPE
-# - learned feature embeddings provide observation-identity information
+# Fork of ststs_shared_cls. Adds a "teacher" that sees complete trajectories
+# with full hindsight (bidirectional attention) and produces per-step target
+# logits (μ*, σ*) for the actor to distill from.
 #
-# Ablation:
-# - one shared STSTS backbone
-# - actor, critic, and SDE CLS slots are present through every STSTS stage
-# - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# Architecture:
+#   Backbone (causal STSTS): [actor_cls, critic_cls, teacher_cls] → per-step latents
+#   Teacher: bidirectional transformer over (teacher_latent_t, a_t, R_t) for t=1..T
+#            → μ*_t, log_σ*_t at each timestep
+#   Actor: trains via distillation from teacher targets (NO policy gradient)
+#   Critic: standard value regression for computing returns
+#
+# Training loop per iteration:
+#   1. Rollout with actor (collect obs, actions, rewards)
+#   2. Compute returns/advantages with critic (standard GAE)
+#   3. PPO update for critic only (value regression)
+#   4. Teacher processes full trajectories bidirectionally → μ*, σ* targets
+#   5. Actor trains: ||μ_actor - μ*||² + ||log_σ_actor - log_σ*||²
+#   6. Teacher trains: return-weighted regression on same data
+#   Both teacher and actor losses flow back through backbone (unfrozen).
+#
+# The teacher's advantage over the causal actor: it can see future outcomes
+# and reason about which actions led to good/bad results. It amortizes
+# cross-timestep credit assignment into per-step action targets.
 import os
 import random
 import time
@@ -33,10 +45,17 @@ FFN_MULT = 2
 CONTEXT_LEN = 5
 NUM_SPATIAL_BLOCKS = 3
 NUM_TEMPORAL_BLOCKS = 2
-NUM_CLS_TOKENS = 3
-LOG_STD_INIT = -2.0
-LOG_STD_MIN = -3.0
-LOG_STD_MAX = -0.5
+NUM_CLS_TOKENS = 3  # actor, critic, teacher
+
+# Teacher config
+TEACHER_LAYERS = 2
+TEACHER_INPUT_DIM = EMBED_DIM + 1  # teacher_cls + return-to-go (action is projected separately)
+TEACHER_COEF = 0.5          # moderate teacher training signal
+DISTILL_COEF = 0.1          # gentle distillation from the start
+DISTILL_WARMUP_ITERS = 0    # no warmup — teacher and actor co-learn
+PG_COEF = 1.0               # full PG always
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +72,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -161,7 +180,7 @@ class SelfAttentionBlock(nn.Module):
         std = init_scale / fan_in**0.5
         nn.init.trunc_normal_(self.ffn_out.weight, std=std, a=-2 * std, b=2 * std)
 
-    def forward(self, x, rope_cos=None, rope_sin=None):
+    def forward(self, x, rope_cos=None, rope_sin=None, is_causal=False):
         batch, steps, width = x.shape
         h = self.attn_pre_norm(x)
         q = self.q_proj(h).view(batch, steps, self.num_heads, self.head_dim).transpose(1, 2)
@@ -174,7 +193,7 @@ class SelfAttentionBlock(nn.Module):
             q = apply_rope(q, rope_cos, rope_sin)
             k = apply_rope(k, rope_cos, rope_sin)
 
-        attn = F.scaled_dot_product_attention(q, k, v)
+        attn = F.scaled_dot_product_attention(q, k, v, is_causal=is_causal)
         attn = attn.transpose(1, 2).reshape(batch, steps, width)
         x = x + self.attn_post_norm(self.out_proj(attn))
 
@@ -191,7 +210,7 @@ class STSTSCLSBackbone(nn.Module):
         self.context_len = context_len
         self.actor_cls_index = obs_dim
         self.critic_cls_index = obs_dim + 1
-        self.sde_cls_index = obs_dim + 2
+        self.teacher_cls_index = obs_dim + 2
 
         self.value_proj = layer_init(nn.Linear(1, EMBED_DIM), std=1.0)
         self.input_norm = RMSNorm(EMBED_DIM)
@@ -200,10 +219,10 @@ class STSTSCLSBackbone(nn.Module):
         cls_std = 1.0 / EMBED_DIM**0.5
         self.actor_cls = nn.Parameter(torch.empty(EMBED_DIM))
         self.critic_cls = nn.Parameter(torch.empty(EMBED_DIM))
-        self.sde_cls = nn.Parameter(torch.empty(EMBED_DIM))
+        self.teacher_cls = nn.Parameter(torch.empty(EMBED_DIM))
         nn.init.trunc_normal_(self.actor_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
         nn.init.trunc_normal_(self.critic_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
-        nn.init.trunc_normal_(self.sde_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
+        nn.init.trunc_normal_(self.teacher_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
 
         init_scale = 1.0 / (2 * (NUM_SPATIAL_BLOCKS + NUM_TEMPORAL_BLOCKS)) ** 0.5
         self.s_blocks = nn.ModuleList(
@@ -237,7 +256,7 @@ class STSTSCLSBackbone(nn.Module):
         obs_tokens = self.value_proj(obs_seq.unsqueeze(-1))
         obs_tokens = obs_tokens + self.dim_id_embed(self.dim_indices).view(1, 1, self.obs_dim, EMBED_DIM)
 
-        cls_tokens = torch.stack([self.actor_cls, self.critic_cls, self.sde_cls], dim=0)
+        cls_tokens = torch.stack([self.actor_cls, self.critic_cls, self.teacher_cls], dim=0)
         cls_tokens = cls_tokens.view(1, 1, NUM_CLS_TOKENS, EMBED_DIM).expand(batch, time_steps, -1, -1)
         tokens = torch.cat([obs_tokens, cls_tokens], dim=2)
         tokens = self.input_norm(tokens)
@@ -251,8 +270,80 @@ class STSTSCLSBackbone(nn.Module):
 
         actor_cls = tokens[:, -1, self.actor_cls_index]
         critic_cls = tokens[:, -1, self.critic_cls_index]
-        sde_cls = tokens[:, -1, self.sde_cls_index]
-        return actor_cls, critic_cls, sde_cls
+        teacher_cls = tokens[:, -1, self.teacher_cls_index]
+        return actor_cls, critic_cls, teacher_cls
+
+    def forward_all_steps(self, obs_seq):
+        """Return CLS tokens at ALL timesteps (not just last), for teacher."""
+        batch, time_steps, _ = obs_seq.shape
+        obs_tokens = self.value_proj(obs_seq.unsqueeze(-1))
+        obs_tokens = obs_tokens + self.dim_id_embed(self.dim_indices).view(1, 1, self.obs_dim, EMBED_DIM)
+
+        cls_tokens = torch.stack([self.actor_cls, self.critic_cls, self.teacher_cls], dim=0)
+        cls_tokens = cls_tokens.view(1, 1, NUM_CLS_TOKENS, EMBED_DIM).expand(batch, time_steps, -1, -1)
+        tokens = torch.cat([obs_tokens, cls_tokens], dim=2)
+        tokens = self.input_norm(tokens)
+
+        tokens = self._spatial(tokens, self.s_blocks[0])
+        tokens = self._temporal(tokens, self.t_blocks[0])
+        tokens = self._spatial(tokens, self.s_blocks[1])
+        tokens = self._temporal(tokens, self.t_blocks[1])
+        tokens = self._spatial(tokens, self.s_blocks[2])
+        tokens = self.final_norm(tokens)
+
+        # Return teacher CLS at all timesteps
+        teacher_cls_all = tokens[:, :, self.teacher_cls_index]  # (batch, time_steps, EMBED_DIM)
+        return teacher_cls_all
+
+
+class BidirectionalTeacher(nn.Module):
+    """Bidirectional teacher that sees full trajectories + actor's current policy
+    and outputs improvement deltas for the actor.
+
+    Input per timestep: (teacher_cls, action_taken, return_to_go, actor_mu)
+    Output: delta_mu (direction to move actor's mean), log_std (confidence)
+
+    The teacher's "action" is the delta — trained via REINFORCE where the
+    reward is the advantage. The teacher learns: "given where the actor is
+    and what happened in this trajectory, which direction should the actor move?"
+    """
+    def __init__(self, action_dim):
+        super().__init__()
+        # Input: teacher_cls + action + RTG + actor_mu
+        self.input_proj = layer_init(nn.Linear(EMBED_DIM + action_dim + 1 + action_dim, EMBED_DIM))
+        self.input_norm = RMSNorm(EMBED_DIM)
+
+        # Bidirectional self-attention layers (NO causal mask)
+        init_scale = 1.0 / (2 * TEACHER_LAYERS) ** 0.5
+        self.layers = nn.ModuleList(
+            [SelfAttentionBlock(EMBED_DIM, NUM_HEADS, FFN_MULT, init_scale) for _ in range(TEACHER_LAYERS)]
+        )
+        self.output_norm = RMSNorm(EMBED_DIM)
+
+        # Output: delta to apply to actor's mean, and log_std for REINFORCE
+        self.delta_head = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
+        self.log_std_head = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
+
+    def forward(self, teacher_latents, actions, returns_to_go, actor_mu):
+        """
+        Args:
+            teacher_latents: (batch, seq_len, EMBED_DIM) from backbone teacher CLS
+            actions: (batch, seq_len, action_dim) actions taken during rollout
+            returns_to_go: (batch, seq_len, 1)
+            actor_mu: (batch, seq_len, action_dim) actor's current mean (detached)
+        Returns:
+            delta_mu: (batch, seq_len, action_dim) improvement direction
+            log_std: (batch, seq_len, action_dim) teacher's confidence
+        """
+        x = torch.cat([teacher_latents, actions, returns_to_go, actor_mu], dim=-1)
+        x = self.input_proj(x)
+        x = self.input_norm(x)
+
+        for layer in self.layers:
+            x = layer(x, is_causal=False)  # bidirectional!
+
+        x = self.output_norm(x)
+        return self.delta_head(x), self.log_std_head(x)
 
 
 class Agent(nn.Module):
@@ -260,12 +351,23 @@ class Agent(nn.Module):
         super().__init__()
         obs_dim = int(np.array(envs.single_observation_space.shape).prod())
         action_dim = int(np.prod(envs.single_action_space.shape))
+        self.action_dim = action_dim
         self.context_len = CONTEXT_LEN
 
         self.backbone = STSTSCLSBackbone(obs_dim, self.context_len)
         self.actor_mean = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
-        self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
+        self.actor_logstd = nn.Parameter(torch.zeros(1, action_dim))
         self.critic = layer_init(nn.Linear(EMBED_DIM, 1), std=1.0)
+
+        self.teacher = BidirectionalTeacher(action_dim)
+
+        # Small trainable projection for teacher's backbone input
+        # Since backbone is detached during teacher forward (for memory),
+        # this gives the teacher a learnable transform on the frozen features
+        self.teacher_proj = nn.Sequential(
+            nn.Linear(EMBED_DIM, EMBED_DIM),
+            RMSNorm(EMBED_DIM),
+        )
 
         self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
 
@@ -278,29 +380,67 @@ class Agent(nn.Module):
     def update_history(self, obs):
         self.obs_history = torch.cat([self.obs_history[:, 1:], obs.unsqueeze(1)], dim=1)
 
-    def _encode(self, obs_seq):
-        actor_cls, critic_cls, sde_cls = self.backbone(obs_seq)
-        return actor_cls, critic_cls, sde_cls
-
-    def _get_action_std(self, sde_latent):
-        sde_latent = torch.tanh(sde_latent)
-        log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        std_sq = log_std.exp().pow(2)
-        action_var = sde_latent.pow(2) @ std_sq
-        return (action_var + 1e-6).sqrt()
-
     def get_value(self, obs_seq):
-        _, critic_latent, _ = self._encode(obs_seq)
+        _, critic_latent, _ = self.backbone(obs_seq)
         return self.critic(critic_latent)
 
     def get_action_and_value(self, obs_seq, action=None):
-        actor_latent, critic_latent, sde_latent = self._encode(obs_seq)
+        actor_latent, critic_latent, _ = self.backbone(obs_seq)
         action_mean = self.actor_mean(actor_latent)
-        action_std = self._get_action_std(sde_latent)
-        probs = Normal(action_mean, action_std)
+        action_logstd = self.actor_logstd.expand_as(action_mean)
+        probs = Normal(action_mean, torch.exp(action_logstd))
         if action is None:
             action = probs.sample()
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent)
+
+    def get_actor_logits(self, obs_seq):
+        """Get actor's current μ and log_σ for distillation loss."""
+        actor_latent, _, _ = self.backbone(obs_seq)
+        action_mean = self.actor_mean(actor_latent)
+        action_logstd = self.actor_logstd.expand_as(action_mean)
+        return action_mean, action_logstd
+
+    def get_teacher_output(self, obs_seq_trajectory, actions_trajectory, returns_to_go):
+        """
+        Run the teacher on full trajectories. Also computes actor's current μ
+        at each step (detached) so the teacher can see where the actor is.
+
+        Args:
+            obs_seq_trajectory: (num_envs, num_steps, context_len, obs_dim)
+            actions_trajectory: (num_envs, num_steps, action_dim)
+            returns_to_go: (num_envs, num_steps, 1)
+        Returns:
+            delta_mu: (num_envs, num_steps, action_dim) improvement direction
+            log_std: (num_envs, num_steps, action_dim) teacher confidence
+            actor_mu: (num_envs, num_steps, action_dim) actor's current mean (detached)
+        """
+        num_envs, num_steps = actions_trajectory.shape[:2]
+        obs_flat = obs_seq_trajectory.reshape(num_envs * num_steps, self.context_len, -1)
+
+        # Get teacher CLS and actor mu for all steps.
+        # Backbone outputs are DETACHED — teacher gradients only flow through
+        # the bidirectional teacher layers (not the full backbone graph).
+        # The backbone still gets gradients from the PPO critic/actor loop.
+        CHUNK = 512
+        teacher_latent_chunks = []
+        actor_mu_chunks = []
+        with torch.no_grad():
+            for i in range(0, obs_flat.shape[0], CHUNK):
+                actor_latent, _, chunk_teacher = self.backbone(obs_flat[i:i + CHUNK])
+                teacher_latent_chunks.append(chunk_teacher)
+                actor_mu_chunks.append(self.actor_mean(actor_latent))
+        teacher_latents = torch.cat(teacher_latent_chunks, dim=0).reshape(num_envs, num_steps, EMBED_DIM)
+        actor_mu = torch.cat(actor_mu_chunks, dim=0).reshape(num_envs, num_steps, self.action_dim)
+
+        # Trainable projection on detached backbone features
+        # This gives the teacher a learnable transform it can adapt
+        teacher_latents = self.teacher_proj(teacher_latents)
+
+        # Run bidirectional teacher: sees trajectory + where actor currently is
+        delta_mu, log_std = self.teacher(
+            teacher_latents, actions_trajectory, returns_to_go, actor_mu
+        )
+        return delta_mu, log_std, actor_mu
 
 
 if __name__ == "__main__":
@@ -337,6 +477,7 @@ if __name__ == "__main__":
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     obs_dim = int(np.array(envs.single_observation_space.shape).prod())
+    action_dim = int(np.prod(envs.single_action_space.shape))
     obs_seqs = torch.zeros((args.num_steps, args.num_envs, agent.context_len, obs_dim), device=device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape, device=device)
     logprobs = torch.zeros((args.num_steps, args.num_envs), device=device)
@@ -382,6 +523,7 @@ if __name__ == "__main__":
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
+        # GAE
         with torch.no_grad():
             next_value = agent.get_value(agent.obs_history).reshape(1, -1)
             advantages = torch.zeros_like(rewards, device=device)
@@ -397,6 +539,65 @@ if __name__ == "__main__":
                 advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + values
 
+        # Compute returns-to-go for teacher input (per env, per step)
+        # returns_to_go[t] = sum of discounted rewards from t to end
+        with torch.no_grad():
+            returns_to_go = torch.zeros_like(rewards)
+            rtg = torch.zeros(args.num_envs, device=device)
+            for t in reversed(range(args.num_steps)):
+                # Reset RTG at episode boundaries: dones[t+1] means episode ended after step t
+                if t < args.num_steps - 1:
+                    mask = 1.0 - dones[t + 1]
+                else:
+                    mask = 1.0 - next_done
+                rtg = rewards[t] + args.gamma * rtg * mask
+                returns_to_go[t] = rtg
+
+        # === Teacher phase: process full trajectories bidirectionally ===
+        # Reshape to (num_envs, num_steps, ...) for per-env trajectory processing
+        obs_seqs_by_env = obs_seqs.permute(1, 0, 2, 3)  # (num_envs, num_steps, ctx, obs_dim)
+        actions_by_env = actions.permute(1, 0, 2)         # (num_envs, num_steps, act_dim)
+        rtg_by_env = returns_to_go.permute(1, 0).unsqueeze(-1)  # (num_envs, num_steps, 1)
+
+        # Normalize returns-to-go per env for stable teacher input
+        with torch.no_grad():
+            rtg_mean = rtg_by_env.mean(dim=1, keepdim=True)
+            rtg_std = rtg_by_env.std(dim=1, keepdim=True) + 1e-8
+            rtg_normed = (rtg_by_env - rtg_mean) / rtg_std
+
+        # Get teacher output: delta_mu (improvement direction) + log_std + actor's current mu
+        delta_mu, teacher_log_std, actor_mu_by_env = agent.get_teacher_output(
+            obs_seqs_by_env, actions_by_env.detach(), rtg_normed
+        )
+        # Teacher's proposed target: actor's current mean + delta
+        mu_target = actor_mu_by_env + delta_mu
+
+        # Teacher loss: advantage-weighted regression.
+        # The teacher's proposed target (actor_mu + delta) should be close to
+        # high-advantage actions. This trains the teacher to point the actor
+        # toward actions that worked well, using its bidirectional hindsight
+        # to identify which actions at which timesteps were responsible.
+        with torch.no_grad():
+            adv_by_env = advantages.permute(1, 0)  # (num_envs, num_steps)
+            # Use positive advantages only — pull toward good actions, ignore bad ones
+            teacher_weights = torch.clamp(adv_by_env, min=0.0)
+            w_sum = teacher_weights.sum(dim=1, keepdim=True) + 1e-8
+            teacher_weights = teacher_weights / w_sum * args.num_steps
+
+        # MSE between teacher's proposed target and the observed high-advantage actions
+        target_error = (mu_target - actions_by_env.detach()) ** 2  # (num_envs, num_steps, act_dim)
+        teacher_loss = (teacher_weights.unsqueeze(-1) * target_error).mean()
+
+        # Teacher backward immediately (fresh graph, no staleness)
+        optimizer.zero_grad()
+        (TEACHER_COEF * teacher_loss).backward()
+        nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
+        optimizer.step()
+
+        # Detach mu_target for use in distillation (teacher already updated)
+        mu_target = mu_target.detach()
+
+        # === Critic + actor distillation update ===
         b_obs_seqs = obs_seqs.reshape(-1, agent.context_len, obs_dim)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
@@ -425,10 +626,12 @@ if __name__ == "__main__":
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
+                # Policy gradient loss (can be blended with distillation via PG_COEF)
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
+                # Value loss
                 newvalue = newvalue.view(-1)
                 if args.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
@@ -437,8 +640,29 @@ if __name__ == "__main__":
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
+                # Actor distillation loss: pull actor mean toward teacher targets
+                # Only distill mean — let actor learn its own exploration via log_std
+                distill_loss = torch.zeros(1, device=device)
+                if iteration > DISTILL_WARMUP_ITERS and DISTILL_COEF > 0:
+                    actor_mu, _ = agent.get_actor_logits(b_obs_seqs[mb_inds])
+                    # Map flat indices back to (env, step) for teacher targets
+                    # obs_seqs is (num_steps, num_envs, ...) → flat index i: step=i//num_envs, env=i%num_envs
+                    env_idx = mb_inds % args.num_envs
+                    step_idx = mb_inds // args.num_envs
+                    mb_mu_target = mu_target[env_idx, step_idx].detach()
+                    distill_loss = ((actor_mu - mb_mu_target) ** 2).mean()
+
+                # During warmup, use PG so actor isn't frozen; after warmup, blend or use pure distillation
+                warmup = iteration <= DISTILL_WARMUP_ITERS
+                pg_weight = 1.0 if warmup else PG_COEF
+
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + args.vf_coef * v_loss
+                loss = (
+                    pg_weight * pg_loss
+                    - args.ent_coef * entropy_loss
+                    + args.vf_coef * v_loss
+                    + DISTILL_COEF * distill_loss
+                )
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -460,14 +684,19 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("losses/teacher_loss", teacher_loss.item(), global_step)
+        writer.add_scalar("losses/distill_loss", distill_loss.item(), global_step)
         with torch.no_grad():
-            _, _, sde_latent = agent._encode(agent.obs_history)
-            base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-            action_std = agent._get_action_std(sde_latent)
-            writer.add_scalar("sde/base_log_std_mean", base_log_std.mean().item(), global_step)
-            writer.add_scalar("sde/base_log_std_std", base_log_std.std().item(), global_step)
-            writer.add_scalar("sde/action_std_mean", action_std.mean().item(), global_step)
-            writer.add_scalar("sde/action_std_std", action_std.std().item(), global_step)
+            # Log teacher delta magnitude and target distance
+            delta_mag = delta_mu.abs().mean()
+            writer.add_scalar("teacher/delta_magnitude", delta_mag.item(), global_step)
+            n_sample = min(256, args.batch_size)
+            actor_mu_sample, _ = agent.get_actor_logits(b_obs_seqs[:n_sample])
+            sample_env_idx = torch.arange(n_sample, device=device) % args.num_envs
+            sample_step_idx = torch.arange(n_sample, device=device) // args.num_envs
+            teacher_mu_sample = mu_target[sample_env_idx, sample_step_idx]
+            target_dist = (actor_mu_sample - teacher_mu_sample).abs().mean()
+            writer.add_scalar("teacher/mean_target_distance", target_dist.item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

@@ -1,4 +1,35 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# PPO with Logits-Aware Critic (Distribution-Conditioned Value Function)
+#
+# Key idea: The critic sees the policy's distribution parameters (μ, σ)
+# alongside the state, giving V(s, μ(s), σ(s)). This means:
+#
+# 1. The critic can predict value more accurately because value genuinely
+#    depends on future behavior (which depends on current policy params)
+# 2. Gradients ∂V/∂μ and ∂V/∂σ naturally fall out — providing directional
+#    signal to the actor about how to reshape its distribution
+# 3. Unlike Q(s,a) which only tells you about one sampled action, this
+#    evaluates the entire distribution the policy is proposing
+#
+# Architecture:
+#   - Actor: standard (separate encoder → μ, logstd)
+#   - Critic: takes (state, μ.detach(), σ.detach()) for standard V loss
+#   - Actor auxiliary: gradients from V(s, μ, σ) w.r.t. μ and σ provide
+#     a soft shaping signal (small coefficient, warmup schedule)
+#
+# Gradient routing:
+#   - For critic loss: μ, σ are DETACHED (critic learns to predict value
+#     given any policy params, not to change the policy)
+#   - For shaping loss: μ, σ are ATTACHED (actor receives ∂V/∂μ, ∂V/∂σ)
+#   - Since actor and critic are fully separate networks (no shared backbone),
+#     the shaping loss's effect on critic weights is a small additive term
+#     dominated by the proper value loss (vf_coef >> shaping_coef)
+#
+# This is more promising than Q(s,a) because:
+#   - Q(s,a) evaluates a single action; this evaluates the full distribution
+#   - The directional gradients are richer (per-dimension for both μ and σ)
+#   - It directly answers "how should I change my policy?" not just
+#     "was this particular action good?"
+
 import os
 import random
 import time
@@ -75,6 +106,14 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
+    # Logits-critic specific
+    shaping_coef: float = 0.05
+    """coefficient for ∂V/∂logits shaping loss on actor"""
+    shaping_warmup_frac: float = 0.1
+    """fraction of training before shaping loss reaches full strength"""
+    shaping_decay_frac: float = 0.8
+    """fraction of training after which shaping decays to zero (let PG take over)"""
+
     # to be filled in runtime
     batch_size: int = 0
     """the batch size (computed in runtime)"""
@@ -91,7 +130,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
-        env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
+        env = gym.wrappers.FlattenObservation(env)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
         env = gym.wrappers.NormalizeObservation(env)
@@ -112,33 +151,79 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 class Agent(nn.Module):
     def __init__(self, envs):
         super().__init__()
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        act_dim = np.prod(envs.single_action_space.shape)
+
+        # Logits-aware critic: V(s, μ, σ)
+        # Input: state concatenated with policy's mean and std
+        critic_input_dim = obs_dim + act_dim * 2  # obs + μ + σ
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(critic_input_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
+
+        # Actor
         self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
+            layer_init(nn.Linear(64, act_dim), std=0.01),
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_logstd = nn.Parameter(torch.zeros(1, act_dim))
 
-    def get_value(self, x):
-        return self.critic(x)
-
-    def get_action_and_value(self, x, action=None):
+    def _get_policy_params(self, x):
+        """Get policy distribution parameters."""
         action_mean = self.actor_mean(x)
         action_logstd = self.actor_logstd.expand_as(action_mean)
         action_std = torch.exp(action_logstd)
+        return action_mean, action_std
+
+    def get_value(self, x):
+        """V(s, μ(s), σ(s)) with detached policy params (for rollout/bootstrap)."""
+        with torch.no_grad():
+            action_mean, action_std = self._get_policy_params(x)
+        critic_input = torch.cat([x, action_mean, action_std], dim=-1)
+        return self.critic(critic_input)
+
+    def get_action_and_value(self, x, action=None):
+        """Returns action, logprob, entropy, value (detached logits), and policy params."""
+        action_mean, action_std = self._get_policy_params(x)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+
+        # Critic with DETACHED policy params (for critic loss — don't let
+        # critic loss change the actor)
+        critic_input_detached = torch.cat([x, action_mean.detach(), action_std.detach()], dim=-1)
+        value = self.critic(critic_input_detached)
+
+        return (
+            action,
+            probs.log_prob(action).sum(1),
+            probs.entropy().sum(1),
+            value,
+            action_mean,
+            action_std,
+        )
+
+    def get_shaping_value(self, x, action_mean, action_std):
+        """V(s, μ, σ) with ATTACHED policy params but FROZEN critic.
+        Used for computing ∂V/∂μ and ∂V/∂σ shaping gradients.
+        Critic params are temporarily frozen so the shaping loss only
+        updates the actor (which produces μ, σ), not the critic."""
+        critic_input = torch.cat([x, action_mean, action_std], dim=-1)
+        # Freeze critic to prevent shaping loss from sending "maximize output"
+        # gradients that would corrupt the value regression
+        for p in self.critic.parameters():
+            p.requires_grad_(False)
+        value = self.critic(critic_input)
+        for p in self.critic.parameters():
+            p.requires_grad_(True)
+        return value
 
 
 if __name__ == "__main__":
@@ -204,6 +289,15 @@ if __name__ == "__main__":
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
 
+        # Shaping schedule: warmup then decay
+        progress = iteration / args.num_iterations
+        if progress < args.shaping_warmup_frac:
+            shaping_scale = progress / max(args.shaping_warmup_frac, 1e-8)
+        elif progress > args.shaping_decay_frac:
+            shaping_scale = max(0.0, 1.0 - (progress - args.shaping_decay_frac) / max(1.0 - args.shaping_decay_frac, 1e-8))
+        else:
+            shaping_scale = 1.0
+
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
@@ -211,7 +305,7 @@ if __name__ == "__main__":
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                action, logprob, _, value, _, _ = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -262,12 +356,19 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                (
+                    _,
+                    newlogprob,
+                    entropy,
+                    newvalue,
+                    action_mean,
+                    action_std,
+                ) = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
                 with torch.no_grad():
-                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
@@ -276,12 +377,12 @@ if __name__ == "__main__":
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
-                # Policy loss
+                # Policy loss (standard PPO)
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
+                # Value loss (critic with detached policy params)
                 newvalue = newvalue.view(-1)
                 if args.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
@@ -296,8 +397,29 @@ if __name__ == "__main__":
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
+                # === Shaping loss: ∂V/∂μ and ∂V/∂σ ===
+                # Compute V with ATTACHED policy params to get gradients
+                # We maximize V w.r.t. policy params (the critic says "if you
+                # moved μ/σ this way, value would increase")
+                shaping_loss = torch.zeros(1, device=device)
+                if args.shaping_coef > 0 and shaping_scale > 0:
+                    # Forward through critic with attached policy params
+                    # Detach obs to avoid double-counting state encoder gradients
+                    shaping_value = agent.get_shaping_value(
+                        b_obs[mb_inds].detach(), action_mean, action_std
+                    )
+                    # Maximize value by minimizing negative value.
+                    # Critic params are frozen during get_shaping_value, so
+                    # gradients only flow to actor params (which produce μ, σ).
+                    shaping_loss = -shaping_scale * args.shaping_coef * shaping_value.mean()
+
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                loss = (
+                    pg_loss
+                    - args.ent_coef * entropy_loss
+                    + v_loss * args.vf_coef
+                    + shaping_loss
+                )
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -320,6 +442,8 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("losses/shaping_loss", shaping_loss.item(), global_step)
+        writer.add_scalar("charts/shaping_scale", shaping_scale, global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

@@ -1,17 +1,25 @@
-# Direct Log-Cholesky + entropy ceiling (v2)
+# Latent-Space Noise + Shared W + Entropy Band (v3c)
 #
-# Replaces Gram-tanh-Cholesky with direct Cholesky parameterization:
-#   - Network outputs ad*(ad+1)/2 values → lower triangular Cholesky factor
-#   - Diagonal goes through softplus for positivity (log-Cholesky)
-#   - No tanh, no Gram, no sde_dim — network learns Cholesky directly
+# Moves noise from action space to latent space. Instead of learning a full
+# Cholesky factor directly (v2), we learn per-latent-dim noise scales σ(s)
+# and derive cross-actuator correlations from the normalized mean weight W_dir.
 #
-# Why: Gram-tanh was the bottleneck. Multiple entropy/noise variants all
-# converged to ~6k on HC. The indirection (384 params → 21 cov values →
-# Cholesky) and tanh quantization limited expressiveness.
+# Why: Action-space Cholesky has a signal problem — off-diagonal elements get
+# competing gradients from entropy (grow |Σ|) and advantages (noisy). Entropy
+# wins → off-diags blow up. Bounding (tanh) fixes stability but caps performance.
 #
-# Entropy ceiling (not SAC-α) for control — SAC dual gradient can't penalize
-# high entropy, only remove bonus. PPO's entropy naturally drifts up, needs
-# active downward pressure.
+# Architecture:
+#   Mean:  obs → trunk → latent → W @ latent + b → action_mean
+#   Noise: obs → noise_trunk → noise_fc → log_σ → σ = exp(clamp(log_σ))
+#   Corr:  W_dir = W / ||W|| (row-normalized mean weight, NOT detached)
+#   Cov:   WS = W_dir * σ; Σ = WS @ WS^T + εI
+#   Sample: action = mean + chol(Σ) @ z
+#
+# Key design:
+#   - σ_j has independent per-dim gradient (no coupled off-diagonal mess)
+#   - W_dir not detached → PG shapes correlation structure through W direction
+#   - Cholesky used only for log_prob math, not as learned parameterization
+#   - 64 independent σ params vs 21 coupled Cholesky params for 6 actions
 
 import os
 import random
@@ -89,11 +97,19 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
-    # Entropy ceiling
+    # Entropy band (floor + ceiling)
     target_ent_per_dim: float = 0.6
     """target entropy per action dimension (ceiling)"""
+    ent_floor_per_dim: float = 0.4
+    """minimum entropy per action dimension (floor) — prevents exploration collapse"""
     ent_ceiling_coef: float = 0.5
     """coefficient for entropy ceiling penalty"""
+    ent_floor_coef: float = 0.5
+    """coefficient for entropy floor penalty"""
+
+    # Latent noise
+    sigma_clamp_max: float = 5.0
+    """max value for log_sigma (exp(5)≈148, safety ceiling)"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -130,20 +146,17 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, envs, sigma_clamp_max=5.0):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         action_dim = np.prod(envs.single_action_space.shape)
         self.action_dim = action_dim
+        self.hidden_dim = 64
+        self.sigma_clamp_max = sigma_clamp_max
         self._log2pi = np.log(2 * np.pi)
 
-        # Number of elements in lower-triangular Cholesky factor
-        self.chol_size = action_dim * (action_dim + 1) // 2
-
-        # Precompute tril indices
-        self.register_buffer("tril_row", torch.tril_indices(action_dim, action_dim)[0])
-        self.register_buffer("tril_col", torch.tril_indices(action_dim, action_dim)[1])
-        self.register_buffer("diag_idx", torch.arange(action_dim))
+        # Identity buffer for jitter
+        self.register_buffer("eye", torch.eye(action_dim))
 
         # Critic
         self.critic = nn.Sequential(
@@ -155,7 +168,7 @@ class Agent(nn.Module):
             layer_init(nn.Linear(64, 1), std=1.0),
         )
 
-        # Actor mean
+        # Actor mean pathway
         self.actor_mean_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
             nn.SiLU(),
@@ -164,8 +177,8 @@ class Agent(nn.Module):
         )
         self.actor_mean = layer_init(nn.Linear(64, action_dim), std=0.01)
 
-        # Actor covariance → outputs Cholesky elements directly
-        self.actor_chol_trunk = nn.Sequential(
+        # Noise pathway — separate trunk for state-dependent noise scale
+        self.noise_trunk = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
             nn.SiLU(),
             nn.RMSNorm(64),
@@ -173,8 +186,11 @@ class Agent(nn.Module):
             nn.SiLU(),
             nn.RMSNorm(64),
         )
-        # Small init so initial covariance is small (softplus(~0) ≈ 0.69 → std ~0.69)
-        self.chol_fc = layer_init(nn.Linear(64, self.chol_size), std=0.01)
+        # Outputs log_σ per latent dim (64 dims)
+        self.noise_fc = layer_init(nn.Linear(64, 64), std=0.01)
+        # Init bias: want initial effective action std ≈ 0.5
+        # W_dir is row-normalized to unit norm, so effective std ≈ σ directly
+        self.noise_fc.bias.data.fill_(np.log(0.5))
 
     def get_value(self, x):
         return self.critic(x)
@@ -183,27 +199,36 @@ class Agent(nn.Module):
         B = x.shape[0]
         ad = self.action_dim
 
-        # Mean
-        action_mean = self.actor_mean(self.actor_mean_trunk(x))
+        # Mean pathway
+        latent = self.actor_mean_trunk(x)
+        action_mean = self.actor_mean(latent)
 
-        # Cholesky factor: network → lower triangular with positive diagonal
-        chol_raw = self.chol_fc(self.actor_chol_trunk(x))  # [B, chol_size]
-        chol = torch.zeros(B, ad, ad, device=x.device)
-        chol[:, self.tril_row, self.tril_col] = chol_raw
-        chol[:, self.diag_idx, self.diag_idx] = F.softplus(chol[:, self.diag_idx, self.diag_idx])
+        # Per-latent-dim noise scale (state-dependent)
+        log_sigma = self.noise_fc(self.noise_trunk(x))  # [B, 64]
+        sigma = torch.exp(log_sigma.clamp(max=self.sigma_clamp_max))  # [B, 64]
+
+        # Correlation structure from normalized mean weight
+        W = self.actor_mean.weight  # [ad, 64]
+        W_dir = W / (W.norm(dim=1, keepdim=True) + 1e-8)  # [ad, 64] row-normalized
+
+        # Gram covariance: Σ = (W_dir · diag(σ)) @ (W_dir · diag(σ))^T + εI
+        WS = W_dir.unsqueeze(0) * sigma.unsqueeze(1)  # [B, ad, 64]
+        gram = torch.bmm(WS, WS.transpose(1, 2))  # [B, ad, ad]
+        cov = gram + 1e-4 * self.eye  # [B, ad, ad]
+        chol = torch.linalg.cholesky(cov)  # [B, ad, ad]
 
         if action is None:
             z = torch.randn(B, ad, 1, device=x.device)
             action = action_mean + torch.bmm(chol, z).squeeze(-1)
 
-        # Log prob
-        diff = (action - action_mean).unsqueeze(-1)
+        # Log prob via Cholesky
+        diff = (action - action_mean).unsqueeze(-1)  # [B, ad, 1]
         solved = torch.linalg.solve_triangular(chol, diff, upper=False)
-        mahal = solved.squeeze(-1).pow(2).sum(dim=-1)
-        log_diag = chol[:, self.diag_idx, self.diag_idx].log().sum(dim=-1)
+        mahal = solved.squeeze(-1).pow(2).sum(dim=-1)  # [B]
+        log_diag = chol.diagonal(dim1=-2, dim2=-1).log().sum(dim=-1)  # [B]
         log_prob = -0.5 * (ad * self._log2pi + 2 * log_diag + mahal)
 
-        # Entropy
+        # Entropy = 0.5 * (d * (1 + log2π) + 2 * Σ log(L_ii))
         entropy = 0.5 * (ad * (1.0 + self._log2pi) + 2 * log_diag)
 
         return action, log_prob, entropy, self.critic(x)
@@ -247,8 +272,9 @@ if __name__ == "__main__":
 
     action_dim = np.prod(envs.single_action_space.shape)
     target_entropy = args.target_ent_per_dim * action_dim
+    floor_entropy = args.ent_floor_per_dim * action_dim
 
-    agent = Agent(envs).to(device)
+    agent = Agent(envs, sigma_clamp_max=args.sigma_clamp_max).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # Storage
@@ -364,8 +390,10 @@ if __name__ == "__main__":
                 entropy_loss = entropy.mean()
                 ent_excess = F.relu(entropy_loss - target_entropy)
                 ent_ceiling_loss = ent_excess ** 2
+                ent_deficit = F.relu(floor_entropy - entropy_loss)
+                ent_floor_loss = ent_deficit ** 2
 
-                loss = pg_loss + v_loss * args.vf_coef + args.ent_ceiling_coef * ent_ceiling_loss
+                loss = pg_loss + v_loss * args.vf_coef + args.ent_ceiling_coef * ent_ceiling_loss + args.ent_floor_coef * ent_floor_loss
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -389,17 +417,28 @@ if __name__ == "__main__":
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         writer.add_scalar("ent_ceiling/penalty", ent_ceiling_loss.item(), global_step)
         writer.add_scalar("ent_ceiling/target", target_entropy, global_step)
+        writer.add_scalar("ent_floor/penalty", ent_floor_loss.item(), global_step)
+        writer.add_scalar("ent_floor/target", floor_entropy, global_step)
         with torch.no_grad():
-            # Cholesky diagnostics from last minibatch
-            chol_raw = agent.chol_fc(agent.actor_chol_trunk(b_obs[mb_inds]))
-            ad = agent.action_dim
-            chol_diag_raw = torch.zeros(chol_raw.shape[0], ad, ad, device=device)
-            chol_diag_raw[:, agent.tril_row, agent.tril_col] = chol_raw
-            chol_diag_vals = F.softplus(chol_diag_raw[:, agent.diag_idx, agent.diag_idx])
-            writer.add_scalar("chol/diag_mean", chol_diag_vals.mean().item(), global_step)
-            writer.add_scalar("chol/diag_min", chol_diag_vals.min().item(), global_step)
-            writer.add_scalar("chol/diag_max", chol_diag_vals.max().item(), global_step)
-            writer.add_scalar("chol/offdiag_absmax", chol_diag_raw[:, agent.tril_row[ad:], agent.tril_col[ad:]].abs().max().item(), global_step)
+            # Latent noise diagnostics from last minibatch
+            log_sigma = agent.noise_fc(agent.noise_trunk(b_obs[mb_inds]))
+            sigma = torch.exp(log_sigma.clamp(max=args.sigma_clamp_max))
+            writer.add_scalar("sigma/mean", sigma.mean().item(), global_step)
+            writer.add_scalar("sigma/min", sigma.min().item(), global_step)
+            writer.add_scalar("sigma/max", sigma.max().item(), global_step)
+            writer.add_scalar("sigma/log_mean", log_sigma.mean().item(), global_step)
+            # W norm diagnostics
+            W = agent.actor_mean.weight
+            W_row_norms = W.norm(dim=1)
+            writer.add_scalar("W_norm/mean", W_row_norms.mean().item(), global_step)
+            writer.add_scalar("W_norm/max", W_row_norms.max().item(), global_step)
+            # Effective covariance diagonal
+            W_dir = W / (W.norm(dim=1, keepdim=True) + 1e-8)
+            WS = W_dir.unsqueeze(0) * sigma.unsqueeze(1)
+            cov_diag = (WS ** 2).sum(dim=-1)  # [B, ad]
+            writer.add_scalar("cov/diag_mean", cov_diag.mean().item(), global_step)
+            effective_logstd = 0.5 * cov_diag.mean(dim=0).log()
+            writer.add_scalar("losses/effective_logstd_mean", effective_logstd.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

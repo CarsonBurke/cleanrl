@@ -1,4 +1,7 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# Separate Optimizers PPO — actor and critic train independently
+# Actor optimizer: policy loss + entropy bonus
+# Critic optimizer: MSE value loss (with optional clipping)
+# No shared loss, no vf_coef coupling
 import os
 import random
 import time
@@ -180,7 +183,10 @@ if __name__ == "__main__":
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
     agent = Agent(envs).to(device)
-    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    actor_params = list(agent.actor_mean.parameters()) + [agent.actor_logstd]
+    critic_params = list(agent.critic.parameters())
+    actor_optimizer = optim.Adam(actor_params, lr=args.learning_rate, eps=1e-5)
+    critic_optimizer = optim.Adam(critic_params, lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
@@ -202,7 +208,8 @@ if __name__ == "__main__":
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
-            optimizer.param_groups[0]["lr"] = lrnow
+            actor_optimizer.param_groups[0]["lr"] = lrnow
+            critic_optimizer.param_groups[0]["lr"] = lrnow
 
         for step in range(0, args.num_steps):
             global_step += args.num_envs
@@ -297,12 +304,19 @@ if __name__ == "__main__":
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
-                optimizer.zero_grad()
-                loss.backward()
-                nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
-                optimizer.step()
+                # Actor update: policy loss + entropy bonus
+                actor_loss = pg_loss - args.ent_coef * entropy_loss
+                actor_optimizer.zero_grad()
+                actor_loss.backward(retain_graph=True)
+                nn.utils.clip_grad_norm_(actor_params, args.max_grad_norm)
+                actor_optimizer.step()
+
+                # Critic update: value loss only
+                critic_optimizer.zero_grad()
+                v_loss.backward()
+                nn.utils.clip_grad_norm_(critic_params, args.max_grad_norm)
+                critic_optimizer.step()
 
             if args.target_kl is not None and approx_kl > args.target_kl:
                 break
@@ -312,7 +326,7 @@ if __name__ == "__main__":
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
-        writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
+        writer.add_scalar("charts/learning_rate", actor_optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
         writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)

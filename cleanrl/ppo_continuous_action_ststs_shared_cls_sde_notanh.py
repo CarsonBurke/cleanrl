@@ -10,7 +10,8 @@
 # - one shared STSTS backbone
 # - actor, critic, and SDE CLS slots are present through every STSTS stage
 # - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# - direct linear heads for mean, value, and state-dependent std
+# - no tanh on the SDE CLS before variance computation
 import os
 import random
 import time
@@ -37,6 +38,8 @@ NUM_CLS_TOKENS = 3
 LOG_STD_INIT = -2.0
 LOG_STD_MIN = -3.0
 LOG_STD_MAX = -0.5
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +56,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -283,7 +286,6 @@ class Agent(nn.Module):
         return actor_cls, critic_cls, sde_cls
 
     def _get_action_std(self, sde_latent):
-        sde_latent = torch.tanh(sde_latent)
         log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
         std_sq = log_std.exp().pow(2)
         action_var = sde_latent.pow(2) @ std_sq

@@ -1,5 +1,5 @@
 # PPO with a shared axial space-time transformer backbone and true backbone CLS
-# slots for actor, critic, and SDE std.
+# slots for actor, critic, and SDE covariance.
 #
 # Dreamer4-style axial attention:
 # - spatial blocks treat observation features as an unordered set
@@ -10,7 +10,8 @@
 # - one shared STSTS backbone
 # - actor, critic, and SDE CLS slots are present through every STSTS stage
 # - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# - direct linear heads for mean and value
+# - SDE CLS drives a diagonal + low-rank action covariance
 import os
 import random
 import time
@@ -23,7 +24,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import tyro
-from torch.distributions.normal import Normal
+from torch.distributions.lowrank_multivariate_normal import LowRankMultivariateNormal
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -37,6 +38,8 @@ NUM_CLS_TOKENS = 3
 LOG_STD_INIT = -2.0
 LOG_STD_MIN = -3.0
 LOG_STD_MAX = -0.5
+LOWRANK_RANK = 2
+LOWRANK_INIT = 0.01
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +56,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -265,6 +268,8 @@ class Agent(nn.Module):
         self.backbone = STSTSCLSBackbone(obs_dim, self.context_len)
         self.actor_mean = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
         self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
+        self.lowrank_param = nn.Parameter(torch.empty(EMBED_DIM, action_dim, LOWRANK_RANK))
+        nn.init.trunc_normal_(self.lowrank_param, std=LOWRANK_INIT, a=-2 * LOWRANK_INIT, b=2 * LOWRANK_INIT)
         self.critic = layer_init(nn.Linear(EMBED_DIM, 1), std=1.0)
 
         self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
@@ -282,12 +287,14 @@ class Agent(nn.Module):
         actor_cls, critic_cls, sde_cls = self.backbone(obs_seq)
         return actor_cls, critic_cls, sde_cls
 
-    def _get_action_std(self, sde_latent):
+    def _get_covariance(self, sde_latent):
         sde_latent = torch.tanh(sde_latent)
         log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
         std_sq = log_std.exp().pow(2)
-        action_var = sde_latent.pow(2) @ std_sq
-        return (action_var + 1e-6).sqrt()
+        cov_diag = sde_latent.pow(2) @ std_sq
+        cov_diag = cov_diag + 1e-6
+        cov_factor = torch.einsum("be,ear->bar", sde_latent, self.lowrank_param)
+        return cov_factor, cov_diag
 
     def get_value(self, obs_seq):
         _, critic_latent, _ = self._encode(obs_seq)
@@ -296,11 +303,11 @@ class Agent(nn.Module):
     def get_action_and_value(self, obs_seq, action=None):
         actor_latent, critic_latent, sde_latent = self._encode(obs_seq)
         action_mean = self.actor_mean(actor_latent)
-        action_std = self._get_action_std(sde_latent)
-        probs = Normal(action_mean, action_std)
+        cov_factor, cov_diag = self._get_covariance(sde_latent)
+        probs = LowRankMultivariateNormal(action_mean, cov_factor=cov_factor, cov_diag=cov_diag)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent)
+        return action, probs.log_prob(action), probs.entropy(), self.critic(critic_latent)
 
 
 if __name__ == "__main__":
@@ -463,11 +470,12 @@ if __name__ == "__main__":
         with torch.no_grad():
             _, _, sde_latent = agent._encode(agent.obs_history)
             base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-            action_std = agent._get_action_std(sde_latent)
+            cov_factor, cov_diag = agent._get_covariance(sde_latent)
             writer.add_scalar("sde/base_log_std_mean", base_log_std.mean().item(), global_step)
             writer.add_scalar("sde/base_log_std_std", base_log_std.std().item(), global_step)
-            writer.add_scalar("sde/action_std_mean", action_std.mean().item(), global_step)
-            writer.add_scalar("sde/action_std_std", action_std.std().item(), global_step)
+            writer.add_scalar("sde/cov_diag_mean", cov_diag.mean().item(), global_step)
+            writer.add_scalar("sde/cov_diag_std", cov_diag.std().item(), global_step)
+            writer.add_scalar("sde/cov_factor_rms", cov_factor.pow(2).mean().sqrt().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

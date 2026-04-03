@@ -1,4 +1,26 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+"""PPO with Trading-Bot-Inspired Architecture (tbot)
+
+Key innovations adapted from a trading bot's torch architecture for MuJoCo:
+
+1. **Soft-sign bounded SDE noise**: sigma = |x / (|x| + 1)| * scale
+   - Better gradient flow than tanh (no saturation zones)
+   - Naturally bounded, fully state-dependent noise
+   - Actor output weights modulate noise: std = sqrt(sigma^2 @ W^2)
+   - Couples exploration structure with policy structure
+
+2. **Distributional critic**: symlog two-hot value head (DreamerV3-style)
+   - 255-bin categorical over symlog-spaced buckets
+   - Cross-entropy loss instead of MSE — better for heavy-tailed returns
+
+3. **RMSNorm + SiLU activations**: modern alternatives to Tanh
+   - RMSNorm: simpler than LayerNorm, stabilizes hidden features
+   - SiLU: smooth, non-saturating activation with self-gating
+
+4. **Mean-scale decoupling**: actor output weights initialized at normal scale
+   (for effective noise modulation via SDE) with a learnable mean_scale factor
+   controlling initial action magnitude separately.
+
+"""
 import os
 import random
 import time
@@ -8,6 +30,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import tyro
 from torch.distributions.normal import Normal
@@ -42,7 +65,7 @@ class Args:
     # Algorithm specific arguments
     env_id: str = "HalfCheetah-v4"
     """the id of the environment"""
-    total_timesteps: int = 1000000
+    total_timesteps: int = 8000000
     """total timesteps of the experiments"""
     learning_rate: float = 3e-4
     """the learning rate of the optimizer"""
@@ -62,10 +85,10 @@ class Args:
     """the K epochs to update the policy"""
     norm_adv: bool = True
     """Toggles advantages normalization"""
-    clip_coef: float = 0.2
-    """the surrogate clipping coefficient"""
-    clip_vloss: bool = True
-    """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
+    clip_coef_low: float = 0.2
+    """the lower surrogate clipping coefficient (ratio floor = 1 - this)"""
+    clip_coef_high: float = 0.28
+    """the upper surrogate clipping coefficient (ratio ceiling = 1 + this)"""
     ent_coef: float = 0.0
     """coefficient of the entropy"""
     vf_coef: float = 0.5
@@ -74,6 +97,17 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
+
+    # tbot-specific
+    sde_noise_scale_init: float = 1.0
+    """initial value for raw_noise_scale (softplus maps this to actual scale)"""
+    noise_floor: float = 0.01
+    """minimum action std to prevent degenerate distributions"""
+    num_value_buckets: int = 255
+    """number of buckets for distributional value head"""
+    value_bucket_range: float = 10.0
+    """range of symlog bucket centers [-range, range]"""
+
 
     # to be filled in runtime
     batch_size: int = 0
@@ -91,7 +125,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
-        env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
+        env = gym.wrappers.FlattenObservation(env)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
         env = gym.wrappers.NormalizeObservation(env)
@@ -109,36 +143,130 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-class Agent(nn.Module):
-    def __init__(self, envs):
+class RMSNorm(nn.Module):
+    def __init__(self, dim, eps=1e-6):
         super().__init__()
-        self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 1), std=1.0),
-        )
-        self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
-        )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.weight = nn.Parameter(torch.ones(dim))
+        self.eps = eps
+
+    def forward(self, x):
+        rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
+        return x / rms * self.weight
+
+
+def symlog(x):
+    return torch.sign(x) * torch.log1p(torch.abs(x))
+
+
+def symexp(x):
+    return torch.sign(x) * (torch.exp(torch.abs(x)) - 1.0)
+
+
+class Agent(nn.Module):
+    def __init__(self, envs, args):
+        super().__init__()
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        act_dim = np.prod(envs.single_action_space.shape)
+        hidden_dim = 64
+
+        # Actor backbone: obs -> hidden features
+        self.actor_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
+        self.actor_norm1 = RMSNorm(hidden_dim)
+        self.actor_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.actor_norm2 = RMSNorm(hidden_dim)
+
+        # Actor output head -- init std=1.0 so weights are meaningful for noise modulation
+        self.actor_out = layer_init(nn.Linear(hidden_dim, act_dim), std=1.0)
+        # Separate learnable scale for the mean (starts small -> near-zero initial actions)
+        self.mean_scale = nn.Parameter(torch.tensor(0.01))
+
+        # SDE noise: state-dependent, soft-sign bounded
+        self.sde_fc = layer_init(nn.Linear(hidden_dim, hidden_dim), std=1.0)
+        self.raw_noise_scale = nn.Parameter(torch.tensor(args.sde_noise_scale_init))
+        self.noise_floor = args.noise_floor
+
+        # Critic backbone (separate from actor)
+        self.critic_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
+        self.critic_norm1 = RMSNorm(hidden_dim)
+        self.critic_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.critic_norm2 = RMSNorm(hidden_dim)
+
+        # Distributional value head: symlog two-hot
+        self.num_buckets = args.num_value_buckets
+        self.bucket_range = args.value_bucket_range
+        self.value_out = layer_init(nn.Linear(hidden_dim, self.num_buckets), std=0.01)
+        bucket_centers = torch.linspace(-self.bucket_range, self.bucket_range, self.num_buckets)
+        self.register_buffer("bucket_centers", bucket_centers)
+
+
+    def _actor_features(self, x):
+        h = F.silu(self.actor_norm1(self.actor_fc1(x)))
+        h = F.silu(self.actor_norm2(self.actor_fc2(h)))
+        return h
+
+    def _get_action_std(self, h):
+        """State-dependent action std via soft-sign SDE + actor weight modulation."""
+        sde_raw = self.sde_fc(h)  # (batch, hidden_dim)
+        noise_scale = F.softplus(self.raw_noise_scale)
+        # Soft-sign abs: bounded in [0, noise_scale], gradient never saturates
+        sde_sigma = (sde_raw / (sde_raw.abs() + 1.0)).abs() * noise_scale  # (batch, hidden_dim)
+
+        # Noise std modulated by actor output weights -- couples exploration with policy
+        W = self.actor_out.weight  # (act_dim, hidden_dim)
+        action_var = (sde_sigma ** 2) @ (W.t() ** 2)  # (batch, act_dim)
+        action_std = torch.sqrt(action_var + self.noise_floor ** 2)
+        return action_std
+
+    def _critic_features(self, x):
+        h = F.silu(self.critic_norm1(self.critic_fc1(x)))
+        h = F.silu(self.critic_norm2(self.critic_fc2(h)))
+        return h
+
+    def _value_from_logits(self, logits):
+        """Convert distributional logits to scalar value via symexp."""
+        probs = F.softmax(logits, dim=-1)
+        symlog_val = (probs * self.bucket_centers).sum(-1, keepdim=True)
+        return symexp(symlog_val)
 
     def get_value(self, x):
-        return self.critic(x)
+        h = self._critic_features(x)
+        logits = self.value_out(h)
+        return self._value_from_logits(logits)
 
     def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
+        # Actor
+        h = self._actor_features(x)
+        action_mean = self.actor_out(h) * self.mean_scale
+        action_std = self._get_action_std(h)
+
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+
+        # Critic
+        ch = self._critic_features(x)
+        value_logits = self.value_out(ch)
+        value = self._value_from_logits(value_logits)
+
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), value, value_logits
+
+    def twohot_encode(self, target):
+        """Two-hot encode target values into symlog bucket space."""
+        target_sl = symlog(target)
+        target_sl = target_sl.clamp(-self.bucket_range, self.bucket_range)
+
+        bucket_width = (2 * self.bucket_range) / (self.num_buckets - 1)
+        idx_float = (target_sl + self.bucket_range) / bucket_width
+        idx_low = idx_float.long().clamp(0, self.num_buckets - 2)
+        idx_high = idx_low + 1
+
+        weight_high = idx_float - idx_low.float()
+        weight_low = 1.0 - weight_high
+
+        twohot = torch.zeros(target.shape[0], self.num_buckets, device=target.device)
+        twohot.scatter_(1, idx_low.unsqueeze(1), weight_low.unsqueeze(1))
+        twohot.scatter_(1, idx_high.unsqueeze(1), weight_high.unsqueeze(1))
+        return twohot
 
 
 if __name__ == "__main__":
@@ -179,7 +307,7 @@ if __name__ == "__main__":
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(envs, args).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -211,7 +339,7 @@ if __name__ == "__main__":
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                action, logprob, _, value, _ = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -262,7 +390,9 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, newlogprob, entropy, newvalue, value_logits = agent.get_action_and_value(
+                    b_obs[mb_inds], b_actions[mb_inds]
+                )
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -270,7 +400,12 @@ if __name__ == "__main__":
                     # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
-                    clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+                    clipfracs += [
+                        ((ratio < (1 - args.clip_coef_low)) | (ratio > (1 + args.clip_coef_high)))
+                        .float()
+                        .mean()
+                        .item()
+                    ]
 
                 mb_advantages = b_advantages[mb_inds]
                 if args.norm_adv:
@@ -278,23 +413,12 @@ if __name__ == "__main__":
 
                 # Policy loss
                 pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
+                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef_low, 1 + args.clip_coef_high)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
-                newvalue = newvalue.view(-1)
-                if args.clip_vloss:
-                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
-                    v_clipped = b_values[mb_inds] + torch.clamp(
-                        newvalue - b_values[mb_inds],
-                        -args.clip_coef,
-                        args.clip_coef,
-                    )
-                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
-                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
-                else:
-                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+                # Value loss: distributional cross-entropy with two-hot symlog targets
+                twohot_targets = agent.twohot_encode(b_returns[mb_inds])
+                v_loss = -(twohot_targets * F.log_softmax(value_logits, dim=-1)).sum(-1).mean()
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
@@ -320,6 +444,9 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        # tbot-specific metrics
+        writer.add_scalar("tbot/noise_scale", F.softplus(agent.raw_noise_scale).item(), global_step)
+        writer.add_scalar("tbot/mean_scale", agent.mean_scale.item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

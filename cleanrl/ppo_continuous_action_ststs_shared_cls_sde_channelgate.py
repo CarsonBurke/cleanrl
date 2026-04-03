@@ -6,11 +6,13 @@
 # - temporal blocks alone receive RoPE
 # - learned feature embeddings provide observation-identity information
 #
-# Ablation:
+# Variant:
 # - one shared STSTS backbone
 # - actor, critic, and SDE CLS slots are present through every STSTS stage
 # - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# - direct linear heads for mean, value, and state-dependent std
+# - learned per-channel sigmoid gates on attention and FFN residual branches
+import math
 import os
 import random
 import time
@@ -37,6 +39,9 @@ NUM_CLS_TOKENS = 3
 LOG_STD_INIT = -2.0
 LOG_STD_MIN = -3.0
 LOG_STD_MAX = -0.5
+RESID_GATE_INIT = 0.12
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +58,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -150,12 +155,16 @@ class SelfAttentionBlock(nn.Module):
         self.ffn_value = nn.Linear(dim, ffn_dim, bias=False)
         self.ffn_out = nn.Linear(ffn_dim, dim, bias=False)
 
+        gate_logit = math.log(RESID_GATE_INIT / (1.0 - RESID_GATE_INIT))
+        self.attn_resid_logit = nn.Parameter(torch.full((dim,), gate_logit))
+        self.ffn_resid_logit = nn.Parameter(torch.full((dim,), gate_logit))
+
         for module in [self.q_proj, self.k_proj, self.v_proj, self.ffn_gate, self.ffn_value]:
             fan_in = module.weight.shape[1]
             std = 1.0 / fan_in**0.5
             nn.init.trunc_normal_(module.weight, std=std, a=-2 * std, b=2 * std)
         fan_in = self.out_proj.weight.shape[1]
-        std = 0.1 * init_scale / fan_in**0.5
+        std = init_scale / fan_in**0.5
         nn.init.trunc_normal_(self.out_proj.weight, std=std, a=-2 * std, b=2 * std)
         fan_in = self.ffn_out.weight.shape[1]
         std = init_scale / fan_in**0.5
@@ -176,11 +185,13 @@ class SelfAttentionBlock(nn.Module):
 
         attn = F.scaled_dot_product_attention(q, k, v)
         attn = attn.transpose(1, 2).reshape(batch, steps, width)
-        x = x + self.attn_post_norm(self.out_proj(attn))
+        attn_resid = self.attn_post_norm(self.out_proj(attn))
+        x = x + torch.sigmoid(self.attn_resid_logit) * attn_resid
 
         h = self.ffn_pre_norm(x)
         ffn = F.silu(self.ffn_gate(h)) * self.ffn_value(h)
-        x = x + self.ffn_post_norm(self.ffn_out(ffn))
+        ffn_resid = self.ffn_post_norm(self.ffn_out(ffn))
+        x = x + torch.sigmoid(self.ffn_resid_logit) * ffn_resid
         return x
 
 
@@ -464,10 +475,18 @@ if __name__ == "__main__":
             _, _, sde_latent = agent._encode(agent.obs_history)
             base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
             action_std = agent._get_action_std(sde_latent)
+            attn_gate_mean = torch.stack(
+                [torch.sigmoid(block.attn_resid_logit).mean() for block in list(agent.backbone.s_blocks) + list(agent.backbone.t_blocks)]
+            ).mean()
+            ffn_gate_mean = torch.stack(
+                [torch.sigmoid(block.ffn_resid_logit).mean() for block in list(agent.backbone.s_blocks) + list(agent.backbone.t_blocks)]
+            ).mean()
             writer.add_scalar("sde/base_log_std_mean", base_log_std.mean().item(), global_step)
             writer.add_scalar("sde/base_log_std_std", base_log_std.std().item(), global_step)
             writer.add_scalar("sde/action_std_mean", action_std.mean().item(), global_step)
             writer.add_scalar("sde/action_std_std", action_std.std().item(), global_step)
+            writer.add_scalar("backbone/attn_gate_mean", attn_gate_mean.item(), global_step)
+            writer.add_scalar("backbone/ffn_gate_mean", ffn_gate_mean.item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

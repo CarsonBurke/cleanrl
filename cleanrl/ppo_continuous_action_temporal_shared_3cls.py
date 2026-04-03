@@ -1,16 +1,12 @@
-# PPO with a shared axial space-time transformer backbone and true backbone CLS
-# slots for actor, critic, and SDE std.
+# PPO temporal shared-backbone ablation: a single transformer processes the
+# observation history plus three learned query tokens, one each for actor,
+# critic, and state-dependent exploration.
 #
-# Dreamer4-style axial attention:
-# - spatial blocks treat observation features as an unordered set
-# - temporal blocks alone receive RoPE
-# - learned feature embeddings provide observation-identity information
-#
-# Ablation:
-# - one shared STSTS backbone
-# - actor, critic, and SDE CLS slots are present through every STSTS stage
-# - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# Key idea:
+# - shared temporal transformer backbone
+# - one token per history step
+# - separate CLS tokens for actor, critic, and SDE
+# - discard the history token outputs and use only CLS readouts
 import os
 import random
 import time
@@ -27,16 +23,20 @@ from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
 
-EMBED_DIM = 32
-NUM_HEADS = 4
-FFN_MULT = 2
-CONTEXT_LEN = 5
-NUM_SPATIAL_BLOCKS = 3
-NUM_TEMPORAL_BLOCKS = 2
-NUM_CLS_TOKENS = 3
 LOG_STD_INIT = -2.0
 LOG_STD_MIN = -3.0
 LOG_STD_MAX = -0.5
+SDE_EPS = 1e-6
+SDE_PRESCALE = 1.5
+EMBED_DIM = 32
+NUM_Q_HEADS = 4
+NUM_KV_HEADS = 2
+FFN_MULT = 2
+NUM_LAYERS = 2
+CONTEXT_LEN = 5
+NUM_SPECIAL_TOKENS = 3
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,14 +53,14 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
     gamma: float = 0.99
     gae_lambda: float = 0.95
     num_minibatches: int = 32
-    update_epochs: int = 4
+    update_epochs: int = 10
     norm_adv: bool = True
     clip_coef: float = 0.2
     clip_vloss: bool = True
@@ -93,12 +93,9 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
     return thunk
 
 
-def layer_init(layer, std=None, bias_const=0.0):
-    fan_in = layer.weight.shape[1]
-    if std is None:
-        std = 1.0 / fan_in**0.5
-    nn.init.trunc_normal_(layer.weight, std=std, a=-2 * std, b=2 * std)
-    nn.init.constant_(layer.bias, bias_const)
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
     return layer
 
 
@@ -122,137 +119,71 @@ def build_rope_cache(seq_len, head_dim, device):
 
 
 def apply_rope(x, cos, sin):
-    half = x.shape[-1] // 2
-    x1, x2 = x[..., :half], x[..., half:]
+    d2 = x.shape[-1] // 2
+    x1, x2 = x[..., :d2], x[..., d2:]
     return torch.cat([x1 * cos - x2 * sin, x2 * cos + x1 * sin], dim=-1)
 
 
-class SelfAttentionBlock(nn.Module):
-    def __init__(self, dim, num_heads, ffn_mult=2, init_scale=1.0):
+class GQATransformerBlock(nn.Module):
+    def __init__(self, dim, num_q_heads, num_kv_heads, ffn_mult=2, init_scale=1.0):
         super().__init__()
-        assert dim % num_heads == 0
-        self.num_heads = num_heads
-        self.head_dim = dim // num_heads
+        assert dim % num_q_heads == 0
+        assert num_q_heads % num_kv_heads == 0
+        self.num_q_heads = num_q_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = dim // num_q_heads
+        self.kv_group_size = num_q_heads // num_kv_heads
 
-        self.attn_pre_norm = RMSNorm(dim)
-        self.attn_post_norm = RMSNorm(dim)
-        self.q_proj = nn.Linear(dim, dim, bias=False)
-        self.k_proj = nn.Linear(dim, dim, bias=False)
-        self.v_proj = nn.Linear(dim, dim, bias=False)
-        self.out_proj = nn.Linear(dim, dim, bias=False)
+        self.wq = nn.Linear(dim, num_q_heads * self.head_dim, bias=False)
+        self.wk = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wv = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wo = nn.Linear(num_q_heads * self.head_dim, dim, bias=False)
+
         self.q_norm = RMSNorm(self.head_dim)
         self.k_norm = RMSNorm(self.head_dim)
-
+        self.attn_pre_norm = RMSNorm(dim)
+        self.attn_post_norm = RMSNorm(dim)
         self.ffn_pre_norm = RMSNorm(dim)
         self.ffn_post_norm = RMSNorm(dim)
-        ffn_dim = dim * ffn_mult
-        self.ffn_gate = nn.Linear(dim, ffn_dim, bias=False)
-        self.ffn_value = nn.Linear(dim, ffn_dim, bias=False)
-        self.ffn_out = nn.Linear(ffn_dim, dim, bias=False)
 
-        for module in [self.q_proj, self.k_proj, self.v_proj, self.ffn_gate, self.ffn_value]:
+        ffn_dim = dim * ffn_mult
+        self.w1 = nn.Linear(dim, ffn_dim, bias=False)
+        self.w2 = nn.Linear(ffn_dim, dim, bias=False)
+        self.w3 = nn.Linear(dim, ffn_dim, bias=False)
+
+        for module in [self.wq, self.wk, self.wv, self.w1, self.w3]:
             fan_in = module.weight.shape[1]
             std = 1.0 / fan_in**0.5
             nn.init.trunc_normal_(module.weight, std=std, a=-2 * std, b=2 * std)
-        fan_in = self.out_proj.weight.shape[1]
-        std = 0.1 * init_scale / fan_in**0.5
-        nn.init.trunc_normal_(self.out_proj.weight, std=std, a=-2 * std, b=2 * std)
-        fan_in = self.ffn_out.weight.shape[1]
-        std = init_scale / fan_in**0.5
-        nn.init.trunc_normal_(self.ffn_out.weight, std=std, a=-2 * std, b=2 * std)
+        for module in [self.wo, self.w2]:
+            fan_in = module.weight.shape[1]
+            std = init_scale / fan_in**0.5
+            nn.init.trunc_normal_(module.weight, std=std, a=-2 * std, b=2 * std)
 
-    def forward(self, x, rope_cos=None, rope_sin=None):
+    def forward(self, x, rope_cos, rope_sin):
         batch, steps, width = x.shape
         h = self.attn_pre_norm(x)
-        q = self.q_proj(h).view(batch, steps, self.num_heads, self.head_dim).transpose(1, 2)
-        k = self.k_proj(h).view(batch, steps, self.num_heads, self.head_dim).transpose(1, 2)
-        v = self.v_proj(h).view(batch, steps, self.num_heads, self.head_dim).transpose(1, 2)
+        q = self.wq(h).view(batch, steps, self.num_q_heads, self.head_dim).transpose(1, 2)
+        k = self.wk(h).view(batch, steps, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = self.wv(h).view(batch, steps, self.num_kv_heads, self.head_dim).transpose(1, 2)
 
-        q = self.q_norm(q)
-        k = self.k_norm(k)
-        if rope_cos is not None and rope_sin is not None:
-            q = apply_rope(q, rope_cos, rope_sin)
-            k = apply_rope(k, rope_cos, rope_sin)
+        q = apply_rope(self.q_norm(q), rope_cos, rope_sin)
+        k = apply_rope(self.k_norm(k), rope_cos, rope_sin)
 
-        attn = F.scaled_dot_product_attention(q, k, v)
-        attn = attn.transpose(1, 2).reshape(batch, steps, width)
-        x = x + self.attn_post_norm(self.out_proj(attn))
+        if self.kv_group_size > 1:
+            k = k.unsqueeze(2).expand(batch, self.num_kv_heads, self.kv_group_size, steps, self.head_dim)
+            k = k.reshape(batch, self.num_q_heads, steps, self.head_dim)
+            v = v.unsqueeze(2).expand(batch, self.num_kv_heads, self.kv_group_size, steps, self.head_dim)
+            v = v.reshape(batch, self.num_q_heads, steps, self.head_dim)
+
+        attn_out = F.scaled_dot_product_attention(q, k, v)
+        attn_out = attn_out.transpose(1, 2).reshape(batch, steps, width)
+        x = x + self.attn_post_norm(self.wo(attn_out))
 
         h = self.ffn_pre_norm(x)
-        ffn = F.silu(self.ffn_gate(h)) * self.ffn_value(h)
-        x = x + self.ffn_post_norm(self.ffn_out(ffn))
+        ffn_out = self.w2(F.silu(self.w1(h)) * self.w3(h))
+        x = x + self.ffn_post_norm(ffn_out)
         return x
-
-
-class STSTSCLSBackbone(nn.Module):
-    def __init__(self, obs_dim, context_len):
-        super().__init__()
-        self.obs_dim = obs_dim
-        self.context_len = context_len
-        self.actor_cls_index = obs_dim
-        self.critic_cls_index = obs_dim + 1
-        self.sde_cls_index = obs_dim + 2
-
-        self.value_proj = layer_init(nn.Linear(1, EMBED_DIM), std=1.0)
-        self.input_norm = RMSNorm(EMBED_DIM)
-        self.dim_id_embed = nn.Embedding(obs_dim, EMBED_DIM)
-        self.register_buffer("dim_indices", torch.arange(obs_dim))
-        cls_std = 1.0 / EMBED_DIM**0.5
-        self.actor_cls = nn.Parameter(torch.empty(EMBED_DIM))
-        self.critic_cls = nn.Parameter(torch.empty(EMBED_DIM))
-        self.sde_cls = nn.Parameter(torch.empty(EMBED_DIM))
-        nn.init.trunc_normal_(self.actor_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
-        nn.init.trunc_normal_(self.critic_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
-        nn.init.trunc_normal_(self.sde_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
-
-        init_scale = 1.0 / (2 * (NUM_SPATIAL_BLOCKS + NUM_TEMPORAL_BLOCKS)) ** 0.5
-        self.s_blocks = nn.ModuleList(
-            [SelfAttentionBlock(EMBED_DIM, NUM_HEADS, FFN_MULT, init_scale) for _ in range(NUM_SPATIAL_BLOCKS)]
-        )
-        self.t_blocks = nn.ModuleList(
-            [SelfAttentionBlock(EMBED_DIM, NUM_HEADS, FFN_MULT, init_scale) for _ in range(NUM_TEMPORAL_BLOCKS)]
-        )
-        self.final_norm = RMSNorm(EMBED_DIM)
-
-        head_dim = EMBED_DIM // NUM_HEADS
-        temporal_cos, temporal_sin = build_rope_cache(context_len, head_dim, torch.device("cpu"))
-        self.register_buffer("temporal_cos", temporal_cos)
-        self.register_buffer("temporal_sin", temporal_sin)
-
-    def _spatial(self, tokens, block):
-        batch, time_steps, slots, width = tokens.shape
-        x = tokens.reshape(batch * time_steps, slots, width)
-        x = block(x)
-        return x.reshape(batch, time_steps, slots, width)
-
-    def _temporal(self, tokens, block):
-        batch, time_steps, slots, width = tokens.shape
-        x = tokens.permute(0, 2, 1, 3).reshape(batch * slots, time_steps, width)
-        x = block(x, rope_cos=self.temporal_cos, rope_sin=self.temporal_sin)
-        x = x.reshape(batch, slots, time_steps, width).permute(0, 2, 1, 3)
-        return x
-
-    def forward(self, obs_seq):
-        batch, time_steps, _ = obs_seq.shape
-        obs_tokens = self.value_proj(obs_seq.unsqueeze(-1))
-        obs_tokens = obs_tokens + self.dim_id_embed(self.dim_indices).view(1, 1, self.obs_dim, EMBED_DIM)
-
-        cls_tokens = torch.stack([self.actor_cls, self.critic_cls, self.sde_cls], dim=0)
-        cls_tokens = cls_tokens.view(1, 1, NUM_CLS_TOKENS, EMBED_DIM).expand(batch, time_steps, -1, -1)
-        tokens = torch.cat([obs_tokens, cls_tokens], dim=2)
-        tokens = self.input_norm(tokens)
-
-        tokens = self._spatial(tokens, self.s_blocks[0])
-        tokens = self._temporal(tokens, self.t_blocks[0])
-        tokens = self._spatial(tokens, self.s_blocks[1])
-        tokens = self._temporal(tokens, self.t_blocks[1])
-        tokens = self._spatial(tokens, self.s_blocks[2])
-        tokens = self.final_norm(tokens)
-
-        actor_cls = tokens[:, -1, self.actor_cls_index]
-        critic_cls = tokens[:, -1, self.critic_cls_index]
-        sde_cls = tokens[:, -1, self.sde_cls_index]
-        return actor_cls, critic_cls, sde_cls
 
 
 class Agent(nn.Module):
@@ -262,10 +193,31 @@ class Agent(nn.Module):
         action_dim = int(np.prod(envs.single_action_space.shape))
         self.context_len = CONTEXT_LEN
 
-        self.backbone = STSTSCLSBackbone(obs_dim, self.context_len)
+        self.embed_fc1 = layer_init(nn.Linear(obs_dim, EMBED_DIM))
+        self.embed_fc2 = layer_init(nn.Linear(EMBED_DIM, EMBED_DIM))
+        self.embed_norm = RMSNorm(EMBED_DIM)
+
+        cls_std = 1.0 / EMBED_DIM**0.5
+        self.actor_cls = nn.Parameter(torch.randn(1, 1, EMBED_DIM) * cls_std)
+        self.critic_cls = nn.Parameter(torch.randn(1, 1, EMBED_DIM) * cls_std)
+        self.sde_cls = nn.Parameter(torch.randn(1, 1, EMBED_DIM) * cls_std)
+
+        head_dim = EMBED_DIM // NUM_Q_HEADS
+        rope_cos, rope_sin = build_rope_cache(self.context_len + NUM_SPECIAL_TOKENS, head_dim, torch.device("cpu"))
+        self.register_buffer("rope_cos", rope_cos)
+        self.register_buffer("rope_sin", rope_sin)
+
+        init_scale = 1.0 / (2 * NUM_LAYERS) ** 0.5
+        self.layers = nn.ModuleList(
+            [GQATransformerBlock(EMBED_DIM, NUM_Q_HEADS, NUM_KV_HEADS, FFN_MULT, init_scale) for _ in range(NUM_LAYERS)]
+        )
+        self.final_norm = RMSNorm(EMBED_DIM)
+
         self.actor_mean = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
-        self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
         self.critic = layer_init(nn.Linear(EMBED_DIM, 1), std=1.0)
+        self.sde_proj = layer_init(nn.Linear(EMBED_DIM, EMBED_DIM), std=1.0)
+        self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
+        self.log_std_offset_proj = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
 
         self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
 
@@ -279,28 +231,44 @@ class Agent(nn.Module):
         self.obs_history = torch.cat([self.obs_history[:, 1:], obs.unsqueeze(1)], dim=1)
 
     def _encode(self, obs_seq):
-        actor_cls, critic_cls, sde_cls = self.backbone(obs_seq)
-        return actor_cls, critic_cls, sde_cls
+        batch = obs_seq.shape[0]
+        tokens = F.silu(self.embed_fc1(obs_seq))
+        tokens = self.embed_fc2(tokens)
+        tokens = self.embed_norm(tokens)
+        special = torch.cat(
+            [
+                self.actor_cls.expand(batch, -1, -1),
+                self.critic_cls.expand(batch, -1, -1),
+                self.sde_cls.expand(batch, -1, -1),
+            ],
+            dim=1,
+        )
+        tokens = torch.cat([special, tokens], dim=1)
+        for layer in self.layers:
+            tokens = layer(tokens, self.rope_cos, self.rope_sin)
+        tokens = self.final_norm(tokens)
+        return tokens[:, 0], tokens[:, 1], tokens[:, 2]
 
-    def _get_action_std(self, sde_latent):
-        sde_latent = torch.tanh(sde_latent)
+    def _action_std(self, sde_features):
+        sde_latent = torch.tanh(self.sde_proj(sde_features) / SDE_PRESCALE)
         log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        std_sq = log_std.exp().pow(2)
-        action_var = sde_latent.pow(2) @ std_sq
-        return (action_var + 1e-6).sqrt()
+        action_var = (sde_latent.pow(2)) @ log_std.exp().pow(2)
+        log_std_state = (self.log_std_offset_proj(sde_features) + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
+        action_var = action_var + log_std_state.exp().pow(2)
+        return (action_var + SDE_EPS).sqrt()
 
     def get_value(self, obs_seq):
-        _, critic_latent, _ = self._encode(obs_seq)
-        return self.critic(critic_latent)
+        _, critic_features, _ = self._encode(obs_seq)
+        return self.critic(critic_features)
 
     def get_action_and_value(self, obs_seq, action=None):
-        actor_latent, critic_latent, sde_latent = self._encode(obs_seq)
-        action_mean = self.actor_mean(actor_latent)
-        action_std = self._get_action_std(sde_latent)
+        actor_features, critic_features, sde_features = self._encode(obs_seq)
+        action_mean = self.actor_mean(actor_features)
+        action_std = self._action_std(sde_features)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent)
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_features)
 
 
 if __name__ == "__main__":
@@ -322,7 +290,10 @@ if __name__ == "__main__":
             save_code=True,
         )
     writer = SummaryWriter(f"runs/{run_name}")
-    writer.add_text("hyperparameters", "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{k}|{v}|" for k, v in vars(args).items()])))
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+    )
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -330,7 +301,9 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
-    envs = gym.vector.SyncVectorEnv([make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)])
+    envs = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)]
+    )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
     agent = Agent(envs, args.num_envs).to(device)
@@ -351,6 +324,7 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs, device=device)
     agent.reset_history()
     agent.update_history(next_obs)
+
     for iteration in range(1, args.num_iterations + 1):
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
@@ -360,6 +334,7 @@ if __name__ == "__main__":
             global_step += args.num_envs
             obs_seqs[step] = agent.obs_history.clone()
             dones[step] = next_done
+
             with torch.no_grad():
                 action, logprob, _, value = agent.get_action_and_value(agent.obs_history)
                 values[step] = value.flatten()
@@ -418,7 +393,7 @@ if __name__ == "__main__":
 
                 with torch.no_grad():
                     old_approx_kl = (-logratio).mean()
-                    approx_kl = ((ratio - 1.0) - logratio).mean()
+                    approx_kl = ((ratio - 1) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
 
                 mb_advantages = b_advantages[mb_inds]
@@ -438,7 +413,7 @@ if __name__ == "__main__":
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + args.vf_coef * v_loss
+                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -460,16 +435,12 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        with torch.no_grad():
-            _, _, sde_latent = agent._encode(agent.obs_history)
-            base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-            action_std = agent._get_action_std(sde_latent)
-            writer.add_scalar("sde/base_log_std_mean", base_log_std.mean().item(), global_step)
-            writer.add_scalar("sde/base_log_std_std", base_log_std.std().item(), global_step)
-            writer.add_scalar("sde/action_std_mean", action_std.mean().item(), global_step)
-            writer.add_scalar("sde/action_std_std", action_std.std().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+
+        log_std_eff = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
+        writer.add_scalar("sde/log_std_mean", log_std_eff.mean().item(), global_step)
+        writer.add_scalar("sde/log_std_std", log_std_eff.std().item(), global_step)
 
     if args.save_model:
         model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"

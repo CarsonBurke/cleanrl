@@ -1,4 +1,10 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# HL-Gauss + Direct Log-Std + Separate Optimizers for PPO
+#
+# Combines three modifications:
+#   - HL-Gauss categorical value head (no value clipping)
+#   - State-dependent log_std (Dreamer4-style)
+#   - Separate actor/critic optimizers (no shared loss, no vf_coef)
+
 import os
 import random
 import time
@@ -75,6 +81,16 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
+    # HL-Gauss specific arguments
+    num_bins: int = 51
+    """number of bins for the categorical value head"""
+    v_min: float = -10.0
+    """minimum value of the support"""
+    v_max: float = 10.0
+    """maximum value of the support"""
+    sigma_ratio: float = 0.75
+    """sigma / bin_width ratio for HL-Gauss target smoothing"""
+
     # to be filled in runtime
     batch_size: int = 0
     """the batch size (computed in runtime)"""
@@ -109,36 +125,88 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-class Agent(nn.Module):
-    def __init__(self, envs):
-        super().__init__()
-        self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 1), std=1.0),
-        )
-        self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
-        )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+class HLGaussSupport:
+    """Manages the discretized support for HL-Gauss categorical value head."""
 
-    def get_value(self, x):
+    def __init__(self, num_bins, v_min, v_max, sigma_ratio, device):
+        self.num_bins = num_bins
+        self.v_min = v_min
+        self.v_max = v_max
+        self.bin_width = (v_max - v_min) / (num_bins - 1)
+        self.sigma = sigma_ratio * self.bin_width
+        # bin centers: evenly spaced from v_min to v_max
+        self.support = torch.linspace(v_min, v_max, num_bins, device=device)
+
+    def to_scalar(self, logits):
+        """Convert logits to scalar value via E[z] = sum(softmax(logits) * support)."""
+        probs = torch.softmax(logits, dim=-1)
+        return (probs * self.support).sum(dim=-1)
+
+    def project(self, targets):
+        """Project scalar targets onto HL-Gauss categorical distribution.
+
+        For each target, compute P(bin_i) = Phi((z_i + w/2 - target) / sigma)
+                                           - Phi((z_i - w/2 - target) / sigma)
+        where Phi is the standard normal CDF, z_i are bin centers, and w is bin width.
+        """
+        # Clamp targets to support range
+        targets = targets.clamp(self.v_min, self.v_max)
+        # targets: (batch,) -> (batch, 1), support: (num_bins,) -> (1, num_bins)
+        targets = targets.unsqueeze(-1)
+        support = self.support.unsqueeze(0)
+        half_w = self.bin_width / 2.0
+        # CDF of standard normal evaluated at bin edges relative to target
+        upper = (support + half_w - targets) / self.sigma
+        lower = (support - half_w - targets) / self.sigma
+        # Use torch.erf for normal CDF: Phi(x) = 0.5 * (1 + erf(x / sqrt(2)))
+        probs = 0.5 * (torch.erf(upper / np.sqrt(2)) - torch.erf(lower / np.sqrt(2)))
+        # Normalize to ensure valid probability distribution (handles edge bins)
+        probs = probs / probs.sum(dim=-1, keepdim=True)
+        return probs
+
+
+class Agent(nn.Module):
+    def __init__(self, envs, num_bins):
+        super().__init__()
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        act_dim = np.prod(envs.single_action_space.shape)
+        self.critic = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, num_bins), std=1.0),
+        )
+        # Shared actor trunk outputs both mean and log_std
+        self.actor_trunk = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+        )
+        self.actor_mean_head = layer_init(nn.Linear(64, act_dim), std=0.01)
+        self.actor_logstd_head = layer_init(nn.Linear(64, act_dim), std=0.01)
+
+    def get_value_logits(self, x):
+        """Return raw logits from the critic head."""
         return self.critic(x)
 
-    def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
+    def get_value(self, x, hl_support):
+        """Return scalar value via expectation over categorical distribution."""
+        return hl_support.to_scalar(self.critic(x))
+
+    def get_action_and_value(self, x, hl_support, action=None):
+        trunk = self.actor_trunk(x)
+        action_mean = self.actor_mean_head(trunk)
+        action_logstd = self.actor_logstd_head(trunk)
+        # Clamp log_std to prevent numerical issues (similar to SAC convention)
+        action_logstd = torch.clamp(action_logstd, -5.0, 2.0)
         action_std = torch.exp(action_logstd)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+        value = hl_support.to_scalar(self.critic(x))
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), value
 
 
 if __name__ == "__main__":
@@ -179,8 +247,14 @@ if __name__ == "__main__":
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
-    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    # HL-Gauss support
+    hl_support = HLGaussSupport(args.num_bins, args.v_min, args.v_max, args.sigma_ratio, device)
+
+    agent = Agent(envs, args.num_bins).to(device)
+    actor_params = list(agent.actor_trunk.parameters()) + list(agent.actor_mean_head.parameters()) + list(agent.actor_logstd_head.parameters())
+    critic_params = list(agent.critic.parameters())
+    actor_optimizer = optim.Adam(actor_params, lr=args.learning_rate, eps=1e-5)
+    critic_optimizer = optim.Adam(critic_params, lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
@@ -202,7 +276,8 @@ if __name__ == "__main__":
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
-            optimizer.param_groups[0]["lr"] = lrnow
+            actor_optimizer.param_groups[0]["lr"] = lrnow
+            critic_optimizer.param_groups[0]["lr"] = lrnow
 
         for step in range(0, args.num_steps):
             global_step += args.num_envs
@@ -211,7 +286,7 @@ if __name__ == "__main__":
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                action, logprob, _, value = agent.get_action_and_value(next_obs, hl_support)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -231,7 +306,7 @@ if __name__ == "__main__":
 
         # bootstrap value if not done
         with torch.no_grad():
-            next_value = agent.get_value(next_obs).reshape(1, -1)
+            next_value = agent.get_value(next_obs, hl_support).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
             lastgaelam = 0
             for t in reversed(range(args.num_steps)):
@@ -262,7 +337,7 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], hl_support, b_actions[mb_inds])
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -281,28 +356,45 @@ if __name__ == "__main__":
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
-                newvalue = newvalue.view(-1)
+                # Value loss: HL-Gauss cross-entropy
+                newvalue_logits = agent.get_value_logits(b_obs[mb_inds])
                 if args.clip_vloss:
-                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
+                    # Clip expected value, then use clipped target for HL-Gauss projection
+                    newvalue_expected = hl_support.to_scalar(newvalue_logits)
                     v_clipped = b_values[mb_inds] + torch.clamp(
-                        newvalue - b_values[mb_inds],
+                        newvalue_expected - b_values[mb_inds],
                         -args.clip_coef,
                         args.clip_coef,
                     )
-                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
-                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
+                    # Use the target that gives higher loss (pessimistic clipping)
+                    target_unclipped = b_returns[mb_inds]
+                    target_clipped = v_clipped + (b_returns[mb_inds] - b_values[mb_inds])
+                    # Compute both losses and take the max
+                    target_probs_unclipped = hl_support.project(target_unclipped)
+                    target_probs_clipped = hl_support.project(target_clipped)
+                    log_probs = torch.log_softmax(newvalue_logits, dim=-1)
+                    v_loss_unclipped = -(target_probs_unclipped * log_probs).sum(dim=-1)
+                    v_loss_clipped = -(target_probs_clipped * log_probs).sum(dim=-1)
+                    v_loss = torch.max(v_loss_unclipped, v_loss_clipped).mean()
                 else:
-                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+                    target_probs = hl_support.project(b_returns[mb_inds])
+                    log_probs = torch.log_softmax(newvalue_logits, dim=-1)
+                    v_loss = -(target_probs * log_probs).sum(dim=-1).mean()
 
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
-                optimizer.zero_grad()
-                loss.backward()
-                nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
-                optimizer.step()
+                # Actor update: policy loss + entropy bonus
+                actor_loss = pg_loss - args.ent_coef * entropy_loss
+                actor_optimizer.zero_grad()
+                actor_loss.backward(retain_graph=True)
+                nn.utils.clip_grad_norm_(actor_params, args.max_grad_norm)
+                actor_optimizer.step()
+
+                # Critic update: HL-Gauss cross-entropy value loss
+                critic_optimizer.zero_grad()
+                v_loss.backward()
+                nn.utils.clip_grad_norm_(critic_params, args.max_grad_norm)
+                critic_optimizer.step()
 
             if args.target_kl is not None and approx_kl > args.target_kl:
                 break
@@ -312,7 +404,7 @@ if __name__ == "__main__":
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
-        writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
+        writer.add_scalar("charts/learning_rate", actor_optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
         writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)

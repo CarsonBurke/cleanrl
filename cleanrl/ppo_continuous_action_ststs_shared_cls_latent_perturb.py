@@ -1,16 +1,22 @@
-# PPO with a shared axial space-time transformer backbone and true backbone CLS
-# slots for actor, critic, and SDE std.
+# PPO with STSTS backbone + Latent Perturbation Exploration (LPE)
 #
-# Dreamer4-style axial attention:
-# - spatial blocks treat observation features as an unordered set
-# - temporal blocks alone receive RoPE
-# - learned feature embeddings provide observation-identity information
+# Key idea: instead of parameterizing noise in action space (gSDE, matrix SDE),
+# perturb the actor's latent representation directly. The actor head's learned
+# weight matrix W naturally induces cross-actuator correlation:
 #
-# Ablation:
-# - one shared STSTS backbone
-# - actor, critic, and SDE CLS slots are present through every STSTS stage
-# - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+#   action = W @ (actor_cls + z) + b,  where z ~ N(0, diag(σ²))
+#   => action ~ N(W @ actor_cls + b,  W @ diag(σ²) @ W^T + floor·I)
+#
+# Advantages over prior approaches:
+# - vs. original SDE: σ is state-dependent (predicted from SDE CLS), bounded
+#   by softplus, no unbounded growth. Cross-actuator correlation is free.
+# - vs. matrix_fullstate: EMBED_DIM params per step instead of EMBED_DIM×action_dim.
+#   No tight tanh bounding needed — softplus is naturally stable.
+#   Full covariance log_prob via MultivariateNormal (action_dim ≤ 6, trivial).
+#
+# The exploration structure evolves WITH the policy: as the actor head learns
+# which latent dimensions map to which action modes, the same perturbation
+# in latent space automatically adapts its action-space effect.
 import os
 import random
 import time
@@ -23,7 +29,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import tyro
-from torch.distributions.normal import Normal
+from torch.distributions import MultivariateNormal
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -34,9 +40,13 @@ CONTEXT_LEN = 5
 NUM_SPATIAL_BLOCKS = 3
 NUM_TEMPORAL_BLOCKS = 2
 NUM_CLS_TOKENS = 3
-LOG_STD_INIT = -2.0
-LOG_STD_MIN = -3.0
-LOG_STD_MAX = -0.5
+
+# Perturbation hyperparameters
+PERTURB_INIT_SCALE = 0.05   # initial softplus output ≈ this
+ACTION_NOISE_FLOOR = -4.0   # log of diagonal floor std in action space
+PERTURB_SCALE_CAP = 0.5     # max per-dim latent perturbation std
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +63,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -261,11 +271,23 @@ class Agent(nn.Module):
         obs_dim = int(np.array(envs.single_observation_space.shape).prod())
         action_dim = int(np.prod(envs.single_action_space.shape))
         self.context_len = CONTEXT_LEN
+        self.action_dim = action_dim
 
         self.backbone = STSTSCLSBackbone(obs_dim, self.context_len)
         self.actor_mean = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
-        self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
         self.critic = layer_init(nn.Linear(EMBED_DIM, 1), std=1.0)
+
+        # Latent perturbation: SDE CLS → per-dim scale in EMBED_DIM space
+        # Initialize so softplus(output) ≈ PERTURB_INIT_SCALE
+        # softplus(x) ≈ x for x >> 0; softplus(x) ≈ exp(x) for x << 0
+        # We want softplus(bias) ≈ 0.05, so bias ≈ log(exp(0.05) - 1) ≈ -2.94
+        init_bias = float(np.log(np.exp(PERTURB_INIT_SCALE) - 1.0))
+        self.perturb_proj = nn.Linear(EMBED_DIM, EMBED_DIM)
+        nn.init.zeros_(self.perturb_proj.weight)
+        nn.init.constant_(self.perturb_proj.bias, init_bias)
+
+        # Small diagonal noise floor in action space (learnable)
+        self.action_log_std_floor = nn.Parameter(torch.full((action_dim,), ACTION_NOISE_FLOOR))
 
         self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
 
@@ -278,29 +300,50 @@ class Agent(nn.Module):
     def update_history(self, obs):
         self.obs_history = torch.cat([self.obs_history[:, 1:], obs.unsqueeze(1)], dim=1)
 
-    def _encode(self, obs_seq):
-        actor_cls, critic_cls, sde_cls = self.backbone(obs_seq)
-        return actor_cls, critic_cls, sde_cls
+    def reset_noise(self, batch_size=1):
+        return
 
-    def _get_action_std(self, sde_latent):
-        sde_latent = torch.tanh(sde_latent)
-        log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        std_sq = log_std.exp().pow(2)
-        action_var = sde_latent.pow(2) @ std_sq
-        return (action_var + 1e-6).sqrt()
+    def _encode(self, obs_seq):
+        return self.backbone(obs_seq)
+
+    def _latent_scale(self, sde_cls):
+        """State-dependent perturbation scale in latent space."""
+        raw = self.perturb_proj(sde_cls)
+        scale = F.softplus(raw).clamp(max=PERTURB_SCALE_CAP)
+        return scale  # (batch, EMBED_DIM)
+
+    def _build_action_covariance(self, latent_scale):
+        """Build full action-space covariance from latent perturbation + floor.
+
+        Cov = W @ diag(σ²_latent) @ W^T + diag(σ²_floor)
+
+        For action_dim ≤ 6 this is a tiny matrix.
+        """
+        W = self.actor_mean.weight  # (action_dim, EMBED_DIM)
+        # W @ diag(scale²) @ W^T via: (W * scale) @ (W * scale)^T
+        Ws = W.unsqueeze(0) * latent_scale.unsqueeze(1)  # (batch, action_dim, EMBED_DIM)
+        cov = torch.bmm(Ws, Ws.transpose(1, 2))  # (batch, action_dim, action_dim)
+        # Add diagonal floor
+        floor_var = self.action_log_std_floor.exp().pow(2)
+        cov = cov + torch.diag(floor_var).unsqueeze(0)
+        return cov
 
     def get_value(self, obs_seq):
-        _, critic_latent, _ = self._encode(obs_seq)
-        return self.critic(critic_latent)
+        _, critic_cls, _ = self._encode(obs_seq)
+        return self.critic(critic_cls)
 
     def get_action_and_value(self, obs_seq, action=None):
-        actor_latent, critic_latent, sde_latent = self._encode(obs_seq)
-        action_mean = self.actor_mean(actor_latent)
-        action_std = self._get_action_std(sde_latent)
-        probs = Normal(action_mean, action_std)
+        actor_cls, critic_cls, sde_cls = self._encode(obs_seq)
+        mean = self.actor_mean(actor_cls)
+        latent_scale = self._latent_scale(sde_cls)
+        cov = self._build_action_covariance(latent_scale)
+
+        dist = MultivariateNormal(mean, covariance_matrix=cov)
         if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent)
+            action = dist.rsample()
+        log_prob = dist.log_prob(action)
+        entropy = dist.entropy()
+        return action, log_prob, entropy, self.critic(critic_cls)
 
 
 if __name__ == "__main__":
@@ -351,6 +394,7 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs, device=device)
     agent.reset_history()
     agent.update_history(next_obs)
+
     for iteration in range(1, args.num_iterations + 1):
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
@@ -461,13 +505,19 @@ if __name__ == "__main__":
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         with torch.no_grad():
-            _, _, sde_latent = agent._encode(agent.obs_history)
-            base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-            action_std = agent._get_action_std(sde_latent)
-            writer.add_scalar("sde/base_log_std_mean", base_log_std.mean().item(), global_step)
-            writer.add_scalar("sde/base_log_std_std", base_log_std.std().item(), global_step)
-            writer.add_scalar("sde/action_std_mean", action_std.mean().item(), global_step)
-            writer.add_scalar("sde/action_std_std", action_std.std().item(), global_step)
+            _, _, sde_cls = agent._encode(agent.obs_history)
+            latent_scale = agent._latent_scale(sde_cls)
+            cov = agent._build_action_covariance(latent_scale)
+            action_std = cov.diagonal(dim1=-2, dim2=-1).sqrt()
+            writer.add_scalar("lpe/latent_scale_mean", latent_scale.mean().item(), global_step)
+            writer.add_scalar("lpe/latent_scale_max", latent_scale.max().item(), global_step)
+            writer.add_scalar("lpe/action_std_mean", action_std.mean().item(), global_step)
+            writer.add_scalar("lpe/action_std_std", action_std.std().item(), global_step)
+            writer.add_scalar("lpe/floor_std_mean", agent.action_log_std_floor.exp().mean().item(), global_step)
+            # Log off-diagonal correlation strength
+            corr = cov / (action_std.unsqueeze(-1) * action_std.unsqueeze(-2) + 1e-8)
+            mask = ~torch.eye(agent.action_dim, device=cov.device, dtype=torch.bool).unsqueeze(0).expand_as(corr)
+            writer.add_scalar("lpe/cross_corr_mean", corr[mask].abs().mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

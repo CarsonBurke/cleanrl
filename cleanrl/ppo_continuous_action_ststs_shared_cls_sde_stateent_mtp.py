@@ -1,16 +1,10 @@
-# PPO with a shared axial space-time transformer backbone and true backbone CLS
-# slots for actor, critic, and SDE std.
+# PPO + SDE + state entropy + register tokens + causal temporal + multi-token pred.
 #
-# Dreamer4-style axial attention:
-# - spatial blocks treat observation features as an unordered set
-# - temporal blocks alone receive RoPE
-# - learned feature embeddings provide observation-identity information
-#
-# Ablation:
-# - one shared STSTS backbone
-# - actor, critic, and SDE CLS slots are present through every STSTS stage
-# - extract the final CLS vectors at the end of the backbone
-# - direct linear heads for mean, value, and state-dependent log-std
+# Fork of sde_stateent with D4-inspired improvements:
+# - 8 register tokens in spatial attention (scratch memory, outputs discarded)
+# - Causal temporal attention (each timestep only sees past)
+# - Multi-token prediction: state_pred CLS predicts next K=4 latents as Gaussians
+# - Entropy bonus is mean log_var across all K horizons
 import os
 import random
 import time
@@ -33,10 +27,16 @@ FFN_MULT = 2
 CONTEXT_LEN = 5
 NUM_SPATIAL_BLOCKS = 3
 NUM_TEMPORAL_BLOCKS = 2
-NUM_CLS_TOKENS = 3
+NUM_CLS_TOKENS = 4
+N_REGISTER = 8
 LOG_STD_INIT = -2.0
 LOG_STD_MIN = -3.0
 LOG_STD_MAX = -0.5
+STATE_ENT_COEF = 0.01
+STATE_PRED_LOSS_COEF = 0.1
+MTP_K = 4
+
+
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -53,7 +53,7 @@ class Args:
 
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     num_envs: int = 1
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -89,7 +89,6 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
         env = gym.wrappers.NormalizeReward(env, gamma=gamma)
         env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
         return env
-
     return thunk
 
 
@@ -107,17 +106,13 @@ class RMSNorm(nn.Module):
         super().__init__()
         self.weight = nn.Parameter(torch.ones(dim))
         self.eps = eps
-
     def forward(self, x):
-        rms = torch.sqrt(torch.mean(x * x, dim=-1, keepdim=True) + self.eps)
-        return x / rms * self.weight
+        return x / torch.sqrt(torch.mean(x * x, dim=-1, keepdim=True) + self.eps) * self.weight
 
 
 def build_rope_cache(seq_len, head_dim, device):
-    assert head_dim % 2 == 0
     theta = 1.0 / (10000.0 ** (torch.arange(0, head_dim, 2, device=device).float() / head_dim))
-    positions = torch.arange(seq_len, device=device).float()
-    freqs = torch.outer(positions, theta)
+    freqs = torch.outer(torch.arange(seq_len, device=device).float(), theta)
     return torch.cos(freqs), torch.sin(freqs)
 
 
@@ -130,10 +125,8 @@ def apply_rope(x, cos, sin):
 class SelfAttentionBlock(nn.Module):
     def __init__(self, dim, num_heads, ffn_mult=2, init_scale=1.0):
         super().__init__()
-        assert dim % num_heads == 0
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
-
         self.attn_pre_norm = RMSNorm(dim)
         self.attn_post_norm = RMSNorm(dim)
         self.q_proj = nn.Linear(dim, dim, bias=False)
@@ -142,45 +135,32 @@ class SelfAttentionBlock(nn.Module):
         self.out_proj = nn.Linear(dim, dim, bias=False)
         self.q_norm = RMSNorm(self.head_dim)
         self.k_norm = RMSNorm(self.head_dim)
-
         self.ffn_pre_norm = RMSNorm(dim)
         self.ffn_post_norm = RMSNorm(dim)
         ffn_dim = dim * ffn_mult
         self.ffn_gate = nn.Linear(dim, ffn_dim, bias=False)
         self.ffn_value = nn.Linear(dim, ffn_dim, bias=False)
         self.ffn_out = nn.Linear(ffn_dim, dim, bias=False)
+        for m in [self.q_proj, self.k_proj, self.v_proj, self.ffn_gate, self.ffn_value]:
+            nn.init.trunc_normal_(m.weight, std=(1.0/m.weight.shape[1]**0.5))
+        nn.init.trunc_normal_(self.out_proj.weight, std=0.1*init_scale/self.out_proj.weight.shape[1]**0.5)
+        nn.init.trunc_normal_(self.ffn_out.weight, std=init_scale/self.ffn_out.weight.shape[1]**0.5)
 
-        for module in [self.q_proj, self.k_proj, self.v_proj, self.ffn_gate, self.ffn_value]:
-            fan_in = module.weight.shape[1]
-            std = 1.0 / fan_in**0.5
-            nn.init.trunc_normal_(module.weight, std=std, a=-2 * std, b=2 * std)
-        fan_in = self.out_proj.weight.shape[1]
-        std = 0.1 * init_scale / fan_in**0.5
-        nn.init.trunc_normal_(self.out_proj.weight, std=std, a=-2 * std, b=2 * std)
-        fan_in = self.ffn_out.weight.shape[1]
-        std = init_scale / fan_in**0.5
-        nn.init.trunc_normal_(self.ffn_out.weight, std=std, a=-2 * std, b=2 * std)
-
-    def forward(self, x, rope_cos=None, rope_sin=None):
+    def forward(self, x, rope_cos=None, rope_sin=None, is_causal=False):
         batch, steps, width = x.shape
         h = self.attn_pre_norm(x)
         q = self.q_proj(h).view(batch, steps, self.num_heads, self.head_dim).transpose(1, 2)
         k = self.k_proj(h).view(batch, steps, self.num_heads, self.head_dim).transpose(1, 2)
         v = self.v_proj(h).view(batch, steps, self.num_heads, self.head_dim).transpose(1, 2)
-
-        q = self.q_norm(q)
-        k = self.k_norm(k)
-        if rope_cos is not None and rope_sin is not None:
+        q, k = self.q_norm(q), self.k_norm(k)
+        if rope_cos is not None:
             q = apply_rope(q, rope_cos, rope_sin)
             k = apply_rope(k, rope_cos, rope_sin)
-
-        attn = F.scaled_dot_product_attention(q, k, v)
+        attn = F.scaled_dot_product_attention(q, k, v, is_causal=is_causal)
         attn = attn.transpose(1, 2).reshape(batch, steps, width)
         x = x + self.attn_post_norm(self.out_proj(attn))
-
         h = self.ffn_pre_norm(x)
-        ffn = F.silu(self.ffn_gate(h)) * self.ffn_value(h)
-        x = x + self.ffn_post_norm(self.ffn_out(ffn))
+        x = x + self.ffn_post_norm(self.ffn_out(F.silu(self.ffn_gate(h)) * self.ffn_value(h)))
         return x
 
 
@@ -189,9 +169,13 @@ class STSTSCLSBackbone(nn.Module):
         super().__init__()
         self.obs_dim = obs_dim
         self.context_len = context_len
-        self.actor_cls_index = obs_dim
-        self.critic_cls_index = obs_dim + 1
-        self.sde_cls_index = obs_dim + 2
+        # Indices after obs + register tokens
+        base = obs_dim + N_REGISTER
+        self.actor_cls_index = base
+        self.critic_cls_index = base + 1
+        self.sde_cls_index = base + 2
+        self.state_pred_cls_index = base + 3
+        self.total_slots = base + NUM_CLS_TOKENS
 
         self.value_proj = layer_init(nn.Linear(1, EMBED_DIM), std=1.0)
         self.input_norm = RMSNorm(EMBED_DIM)
@@ -201,58 +185,47 @@ class STSTSCLSBackbone(nn.Module):
         self.actor_cls = nn.Parameter(torch.empty(EMBED_DIM))
         self.critic_cls = nn.Parameter(torch.empty(EMBED_DIM))
         self.sde_cls = nn.Parameter(torch.empty(EMBED_DIM))
-        nn.init.trunc_normal_(self.actor_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
-        nn.init.trunc_normal_(self.critic_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
-        nn.init.trunc_normal_(self.sde_cls, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
+        self.state_pred_cls = nn.Parameter(torch.empty(EMBED_DIM))
+        for p in [self.actor_cls, self.critic_cls, self.sde_cls, self.state_pred_cls]:
+            nn.init.trunc_normal_(p, std=cls_std, a=-2*cls_std, b=2*cls_std)
+        self.register_tokens = nn.Parameter(torch.randn(N_REGISTER, EMBED_DIM) * 1e-2)
 
         init_scale = 1.0 / (2 * (NUM_SPATIAL_BLOCKS + NUM_TEMPORAL_BLOCKS)) ** 0.5
-        self.s_blocks = nn.ModuleList(
-            [SelfAttentionBlock(EMBED_DIM, NUM_HEADS, FFN_MULT, init_scale) for _ in range(NUM_SPATIAL_BLOCKS)]
-        )
-        self.t_blocks = nn.ModuleList(
-            [SelfAttentionBlock(EMBED_DIM, NUM_HEADS, FFN_MULT, init_scale) for _ in range(NUM_TEMPORAL_BLOCKS)]
-        )
+        self.s_blocks = nn.ModuleList([SelfAttentionBlock(EMBED_DIM, NUM_HEADS, FFN_MULT, init_scale) for _ in range(NUM_SPATIAL_BLOCKS)])
+        self.t_blocks = nn.ModuleList([SelfAttentionBlock(EMBED_DIM, NUM_HEADS, FFN_MULT, init_scale) for _ in range(NUM_TEMPORAL_BLOCKS)])
         self.final_norm = RMSNorm(EMBED_DIM)
-
         head_dim = EMBED_DIM // NUM_HEADS
-        temporal_cos, temporal_sin = build_rope_cache(context_len, head_dim, torch.device("cpu"))
-        self.register_buffer("temporal_cos", temporal_cos)
-        self.register_buffer("temporal_sin", temporal_sin)
+        tc, ts = build_rope_cache(context_len, head_dim, torch.device("cpu"))
+        self.register_buffer("temporal_cos", tc)
+        self.register_buffer("temporal_sin", ts)
 
     def _spatial(self, tokens, block):
-        batch, time_steps, slots, width = tokens.shape
-        x = tokens.reshape(batch * time_steps, slots, width)
-        x = block(x)
-        return x.reshape(batch, time_steps, slots, width)
+        b, t, s, w = tokens.shape
+        return block(tokens.reshape(b*t, s, w)).reshape(b, t, s, w)
 
     def _temporal(self, tokens, block):
-        batch, time_steps, slots, width = tokens.shape
-        x = tokens.permute(0, 2, 1, 3).reshape(batch * slots, time_steps, width)
-        x = block(x, rope_cos=self.temporal_cos, rope_sin=self.temporal_sin)
-        x = x.reshape(batch, slots, time_steps, width).permute(0, 2, 1, 3)
-        return x
+        b, t, s, w = tokens.shape
+        x = tokens.permute(0,2,1,3).reshape(b*s, t, w)
+        x = block(x, rope_cos=self.temporal_cos, rope_sin=self.temporal_sin, is_causal=True)
+        return x.reshape(b, s, t, w).permute(0,2,1,3)
 
     def forward(self, obs_seq):
         batch, time_steps, _ = obs_seq.shape
         obs_tokens = self.value_proj(obs_seq.unsqueeze(-1))
         obs_tokens = obs_tokens + self.dim_id_embed(self.dim_indices).view(1, 1, self.obs_dim, EMBED_DIM)
-
-        cls_tokens = torch.stack([self.actor_cls, self.critic_cls, self.sde_cls], dim=0)
-        cls_tokens = cls_tokens.view(1, 1, NUM_CLS_TOKENS, EMBED_DIM).expand(batch, time_steps, -1, -1)
-        tokens = torch.cat([obs_tokens, cls_tokens], dim=2)
+        reg = self.register_tokens.view(1, 1, N_REGISTER, EMBED_DIM).expand(batch, time_steps, -1, -1)
+        cls = torch.stack([self.actor_cls, self.critic_cls, self.sde_cls, self.state_pred_cls], dim=0)
+        cls = cls.view(1, 1, NUM_CLS_TOKENS, EMBED_DIM).expand(batch, time_steps, -1, -1)
+        tokens = torch.cat([obs_tokens, reg, cls], dim=2)
         tokens = self.input_norm(tokens)
-
         tokens = self._spatial(tokens, self.s_blocks[0])
         tokens = self._temporal(tokens, self.t_blocks[0])
         tokens = self._spatial(tokens, self.s_blocks[1])
         tokens = self._temporal(tokens, self.t_blocks[1])
         tokens = self._spatial(tokens, self.s_blocks[2])
         tokens = self.final_norm(tokens)
-
-        actor_cls = tokens[:, -1, self.actor_cls_index]
-        critic_cls = tokens[:, -1, self.critic_cls_index]
-        sde_cls = tokens[:, -1, self.sde_cls_index]
-        return actor_cls, critic_cls, sde_cls
+        return (tokens[:, -1, self.actor_cls_index], tokens[:, -1, self.critic_cls_index],
+                tokens[:, -1, self.sde_cls_index], tokens[:, -1, self.state_pred_cls_index])
 
 
 class Agent(nn.Module):
@@ -261,46 +234,56 @@ class Agent(nn.Module):
         obs_dim = int(np.array(envs.single_observation_space.shape).prod())
         action_dim = int(np.prod(envs.single_action_space.shape))
         self.context_len = CONTEXT_LEN
-
         self.backbone = STSTSCLSBackbone(obs_dim, self.context_len)
         self.actor_mean = layer_init(nn.Linear(EMBED_DIM, action_dim), std=0.01)
         self.log_std_param = nn.Parameter(torch.zeros(EMBED_DIM, action_dim))
         self.critic = layer_init(nn.Linear(EMBED_DIM, 1), std=1.0)
-
+        # Multi-token state prediction: K Gaussians over next latents
+        self.to_state_pred = nn.Sequential(
+            RMSNorm(EMBED_DIM),
+            nn.Linear(EMBED_DIM, MTP_K * EMBED_DIM * 2),
+        )
         self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
 
     def reset_history(self, env_mask=None):
-        if env_mask is None:
-            self.obs_history.zero_()
-        else:
-            self.obs_history[env_mask] = 0.0
+        if env_mask is None: self.obs_history.zero_()
+        else: self.obs_history[env_mask] = 0.0
 
     def update_history(self, obs):
         self.obs_history = torch.cat([self.obs_history[:, 1:], obs.unsqueeze(1)], dim=1)
 
     def _encode(self, obs_seq):
-        actor_cls, critic_cls, sde_cls = self.backbone(obs_seq)
-        return actor_cls, critic_cls, sde_cls
+        return self.backbone(obs_seq)
 
     def _get_action_std(self, sde_latent):
         sde_latent = torch.tanh(sde_latent)
         log_std = (self.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-        std_sq = log_std.exp().pow(2)
-        action_var = sde_latent.pow(2) @ std_sq
-        return (action_var + 1e-6).sqrt()
+        return (sde_latent.pow(2) @ log_std.exp().pow(2) + 1e-6).sqrt()
+
+    def get_state_entropy_bonus(self, state_pred_latent):
+        pred = self.to_state_pred(state_pred_latent)  # (batch, MTP_K * EMBED_DIM * 2)
+        pred = pred.view(-1, MTP_K, EMBED_DIM, 2)
+        log_var = pred[..., 1]  # (batch, MTP_K, EMBED_DIM)
+        return log_var.mean(dim=(-1, -2)) * STATE_ENT_COEF
 
     def get_value(self, obs_seq):
-        _, critic_latent, _ = self._encode(obs_seq)
-        return self.critic(critic_latent)
+        _, c, _, _ = self._encode(obs_seq)
+        return self.critic(c)
 
     def get_action_and_value(self, obs_seq, action=None):
-        actor_latent, critic_latent, sde_latent = self._encode(obs_seq)
-        action_mean = self.actor_mean(actor_latent)
-        action_std = self._get_action_std(sde_latent)
-        probs = Normal(action_mean, action_std)
-        if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(critic_latent)
+        a, c, s, sp = self._encode(obs_seq)
+        mean = self.actor_mean(a)
+        std = self._get_action_std(s)
+        probs = Normal(mean, std)
+        if action is None: action = probs.sample()
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(c), sp
+
+    def get_action_and_value_for_update(self, obs_seq, action):
+        a, c, s, sp = self._encode(obs_seq)
+        mean = self.actor_mean(a)
+        std = self._get_action_std(s)
+        probs = Normal(mean, std)
+        return probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(c), sp
 
 
 if __name__ == "__main__":
@@ -311,27 +294,15 @@ if __name__ == "__main__":
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     if args.track:
         import wandb
-
-        wandb.init(
-            project=args.wandb_project_name,
-            entity=args.wandb_entity,
-            sync_tensorboard=True,
-            config=vars(args),
-            name=run_name,
-            monitor_gym=True,
-            save_code=True,
-        )
+        wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, sync_tensorboard=True,
+                   config=vars(args), name=run_name, monitor_gym=True, save_code=True)
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text("hyperparameters", "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{k}|{v}|" for k, v in vars(args).items()])))
 
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
+    random.seed(args.seed); np.random.seed(args.seed); torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
-
     envs = gym.vector.SyncVectorEnv([make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)])
-    assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
     agent = Agent(envs, args.num_envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
@@ -344,35 +315,32 @@ if __name__ == "__main__":
     dones = torch.zeros((args.num_steps, args.num_envs), device=device)
     values = torch.zeros((args.num_steps, args.num_envs), device=device)
 
-    global_step = 0
-    start_time = time.time()
+    global_step = 0; start_time = time.time()
     next_obs, _ = envs.reset(seed=args.seed)
     next_obs = torch.as_tensor(next_obs, device=device, dtype=torch.float32)
     next_done = torch.zeros(args.num_envs, device=device)
-    agent.reset_history()
-    agent.update_history(next_obs)
+    agent.reset_history(); agent.update_history(next_obs)
+
     for iteration in range(1, args.num_iterations + 1):
         if args.anneal_lr:
-            frac = 1.0 - (iteration - 1.0) / args.num_iterations
-            optimizer.param_groups[0]["lr"] = frac * args.learning_rate
+            optimizer.param_groups[0]["lr"] = (1.0 - (iteration - 1.0) / args.num_iterations) * args.learning_rate
 
         for step in range(args.num_steps):
             global_step += args.num_envs
             obs_seqs[step] = agent.obs_history.clone()
             dones[step] = next_done
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(agent.obs_history)
+                action, logprob, _, value, sp = agent.get_action_and_value(agent.obs_history)
                 values[step] = value.flatten()
-            actions[step] = action
-            logprobs[step] = logprob
+                ent_bonus = agent.get_state_entropy_bonus(sp)
+            actions[step] = action; logprobs[step] = logprob
 
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
             next_done_np = np.logical_or(terminations, truncations)
-            rewards[step] = torch.as_tensor(reward, device=device).view(-1)
+            rewards[step] = torch.as_tensor(reward, device=device).view(-1) + ent_bonus
             next_obs = torch.as_tensor(next_obs, device=device, dtype=torch.float32)
             next_done = torch.as_tensor(next_done_np, device=device, dtype=torch.float32)
-            if next_done.any():
-                agent.reset_history(next_done.bool())
+            if next_done.any(): agent.reset_history(next_done.bool())
             agent.update_history(next_obs)
 
             if "final_info" in infos:
@@ -382,20 +350,42 @@ if __name__ == "__main__":
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
+        # GAE
         with torch.no_grad():
             next_value = agent.get_value(agent.obs_history).reshape(1, -1)
-            advantages = torch.zeros_like(rewards, device=device)
-            lastgaelam = 0
+            advantages = torch.zeros_like(rewards); lastgaelam = 0
             for t in reversed(range(args.num_steps)):
-                if t == args.num_steps - 1:
-                    nextnonterminal = 1.0 - next_done
-                    nextvalues = next_value
-                else:
-                    nextnonterminal = 1.0 - dones[t + 1]
-                    nextvalues = values[t + 1]
+                nextnonterminal = (1.0 - next_done) if t == args.num_steps - 1 else (1.0 - dones[t + 1])
+                nextvalues = next_value if t == args.num_steps - 1 else values[t + 1]
                 delta = rewards[t] + args.gamma * nextvalues * nextnonterminal - values[t]
                 advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + values
+
+        # Build multi-token prediction targets: obs_seqs shifted by k=1..MTP_K
+        # mtp_targets[k]: obs_seqs at t+k, mtp_valid[k]: cumulative validity
+        mtp_targets = []
+        mtp_valid = []
+        cum_valid = torch.ones(args.num_steps, args.num_envs, device=device)
+        for k in range(1, MTP_K + 1):
+            # Cumulative: invalid if any done between t+1 and t+k
+            if k == 1:
+                cum_valid = cum_valid.clone()
+                cum_valid[:-1] *= (1.0 - dones[1:])
+                cum_valid[-1] = 0.0
+            else:
+                shifted_done = torch.zeros(args.num_steps, args.num_envs, device=device)
+                if k <= args.num_steps:
+                    shifted_done[:-k] = dones[k:]
+                cum_valid = cum_valid * (1.0 - shifted_done)
+            step_valid = torch.zeros(args.num_steps, args.num_envs, device=device)
+            if k < args.num_steps:
+                step_valid[:args.num_steps - k] = 1.0
+            valid = cum_valid * step_valid
+            target = torch.zeros_like(obs_seqs)
+            if k < args.num_steps:
+                target[:args.num_steps - k] = obs_seqs[k:]
+            mtp_targets.append(target.reshape(-1, agent.context_len, obs_dim))
+            mtp_valid.append(valid.reshape(-1))
 
         b_obs_seqs = obs_seqs.reshape(-1, agent.context_len, obs_dim)
         b_logprobs = logprobs.reshape(-1)
@@ -404,77 +394,69 @@ if __name__ == "__main__":
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
-        b_inds = np.arange(args.batch_size)
-        clipfracs = []
+        b_inds = np.arange(args.batch_size); clipfracs = []
         for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
-                end = start + args.minibatch_size
-                mb_inds = b_inds[start:end]
+                mb_inds = b_inds[start:start + args.minibatch_size]
 
-                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs_seqs[mb_inds], b_actions[mb_inds])
-                logratio = newlogprob - b_logprobs[mb_inds]
-                ratio = logratio.exp()
-
+                newlogprob, entropy, newvalue, sp_latent = agent.get_action_and_value_for_update(b_obs_seqs[mb_inds], b_actions[mb_inds])
+                logratio = newlogprob - b_logprobs[mb_inds]; ratio = logratio.exp()
                 with torch.no_grad():
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1.0) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
 
-                mb_advantages = b_advantages[mb_inds]
-                if args.norm_adv:
-                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
-
-                pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
-                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+                mb_adv = b_advantages[mb_inds]
+                if args.norm_adv: mb_adv = (mb_adv - mb_adv.mean()) / (mb_adv.std() + 1e-8)
+                pg_loss = torch.max(-mb_adv * ratio, -mb_adv * ratio.clamp(1-args.clip_coef, 1+args.clip_coef)).mean()
 
                 newvalue = newvalue.view(-1)
                 if args.clip_vloss:
-                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
-                    v_clipped = b_values[mb_inds] + torch.clamp(newvalue - b_values[mb_inds], -args.clip_coef, args.clip_coef)
-                    v_loss = 0.5 * torch.max(v_loss_unclipped, (v_clipped - b_returns[mb_inds]) ** 2).mean()
+                    v_clipped = b_values[mb_inds] + (newvalue - b_values[mb_inds]).clamp(-args.clip_coef, args.clip_coef)
+                    v_loss = 0.5 * torch.max((newvalue - b_returns[mb_inds])**2, (v_clipped - b_returns[mb_inds])**2).mean()
                 else:
-                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
-
+                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds])**2).mean()
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + args.vf_coef * v_loss
 
-                optimizer.zero_grad()
-                loss.backward()
-                nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
-                optimizer.step()
+                # Multi-token state prediction loss
+                pred = agent.to_state_pred(sp_latent).view(-1, MTP_K, EMBED_DIM, 2)
+                sp_loss = torch.tensor(0.0, device=device)
+                for k_idx in range(MTP_K):
+                    with torch.no_grad():
+                        target_latent, _, _, _ = agent._encode(mtp_targets[k_idx][mb_inds])
+                    pred_mean = pred[:, k_idx, :, 0]
+                    pred_var = pred[:, k_idx, :, 1].exp()
+                    valid = mtp_valid[k_idx][mb_inds]
+                    raw = F.gaussian_nll_loss(pred_mean, target_latent, var=pred_var, reduction='none')
+                    sp_loss = sp_loss + (raw.mean(-1) * valid).sum() / (valid.sum() + 1e-8)
+                sp_loss = sp_loss / MTP_K
 
-            if args.target_kl is not None and approx_kl > args.target_kl:
-                break
+                loss = pg_loss - args.ent_coef * entropy_loss + args.vf_coef * v_loss + STATE_PRED_LOSS_COEF * sp_loss
+                optimizer.zero_grad(); loss.backward()
+                nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm); optimizer.step()
+
+            if args.target_kl is not None and approx_kl > args.target_kl: break
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
-
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
         writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
-        writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("state_pred/loss", sp_loss.item(), global_step)
         with torch.no_grad():
-            _, _, sde_latent = agent._encode(agent.obs_history)
-            base_log_std = (agent.log_std_param + LOG_STD_INIT).clamp(LOG_STD_MIN, LOG_STD_MAX)
-            action_std = agent._get_action_std(sde_latent)
-            writer.add_scalar("sde/base_log_std_mean", base_log_std.mean().item(), global_step)
-            writer.add_scalar("sde/base_log_std_std", base_log_std.std().item(), global_step)
-            writer.add_scalar("sde/action_std_mean", action_std.mean().item(), global_step)
-            writer.add_scalar("sde/action_std_std", action_std.std().item(), global_step)
+            _, _, _, sp_l = agent._encode(agent.obs_history)
+            sp_p = agent.to_state_pred(sp_l).view(-1, MTP_K, EMBED_DIM, 2)
+            writer.add_scalar("state_pred/log_var_mean", sp_p[..., 1].mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
     if args.save_model:
         model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
         torch.save(agent.state_dict(), model_path)
-        print(f"model saved to {model_path}")
-
-    envs.close()
-    writer.close()
+    envs.close(); writer.close()

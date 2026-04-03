@@ -1,4 +1,22 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# QL-SDE v24: Direct Lower-Triangular + Deep Conditional Normalizing Flow
+#
+# Evolution from v23 (Gram-Tanh + 2-layer flow). Replaces the overparameterized
+# Gram-Tanh covariance pipeline (384 params, O(ad³) Cholesky) with:
+#   1. Direct lower-triangular matrix L from a small network (21 params for ad=6)
+#      - Softplus diagonal for positivity, unconstrained off-diagonal
+#      - L IS the Cholesky factor — no Gram construction or decomposition needed
+#   2. Deeper 4-layer coupling flow (2 full passes through all dims)
+#      - Handles both nonlinear shaping AND residual correlation refinement
+#
+# Pipeline:
+#   z ~ N(0, I) → L(obs) @ z → Flow(·; obs) → + mean(obs) → action
+#                 ^^^^^^^^^^   ^^^^^^^^^^^^^^^
+#                 LINEAR prior  NONLINEAR shaping
+#                 21 params     ~3K params (4 layers)
+#
+# Log-prob exact: log N(z;0,I) - sum(log(diag(L))) - sum(s_flow)
+# Zero-initialized flow → starts as identity → begins as MVN with learned L
+
 import os
 import random
 import time
@@ -8,9 +26,9 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import tyro
-from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -42,7 +60,7 @@ class Args:
     # Algorithm specific arguments
     env_id: str = "HalfCheetah-v4"
     """the id of the environment"""
-    total_timesteps: int = 1000000
+    total_timesteps: int = 8000000
     """total timesteps of the experiments"""
     learning_rate: float = 3e-4
     """the learning rate of the optimizer"""
@@ -62,8 +80,10 @@ class Args:
     """the K epochs to update the policy"""
     norm_adv: bool = True
     """Toggles advantages normalization"""
-    clip_coef: float = 0.2
-    """the surrogate clipping coefficient"""
+    clip_coef_low: float = 0.2
+    """the lower surrogate clipping coefficient (ratio floor = 1 - this)"""
+    clip_coef_high: float = 0.28
+    """the upper surrogate clipping coefficient (ratio ceiling = 1 + this)"""
     clip_vloss: bool = True
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
     ent_coef: float = 0.0
@@ -74,6 +94,16 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
+
+    # RPO
+    rpo_alpha: float = 0.1
+    """RPO noise alpha — adds bounded uniform noise to action mean during training"""
+
+    # Flow specific arguments
+    flow_hidden: int = 32
+    """hidden dimension for coupling flow networks"""
+    num_flow_layers: int = 4
+    """number of affine coupling layers in the flow"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -91,7 +121,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
-        env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
+        env = gym.wrappers.FlattenObservation(env)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
         env = gym.wrappers.NormalizeObservation(env)
@@ -109,36 +139,199 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-class Agent(nn.Module):
-    def __init__(self, envs):
+# ---------------------------------------------------------------------------
+# Conditional Normalizing Flow (RealNVP-style affine coupling)
+# ---------------------------------------------------------------------------
+
+class AffineCouplingLayer(nn.Module):
+    """Affine coupling: transforms x_transform conditioned on (x_cond, obs)."""
+
+    def __init__(self, cond_dim, transform_dim, obs_dim, hidden=32):
         super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(cond_dim + obs_dim, hidden),
+            nn.SiLU(),
+            nn.Linear(hidden, 2 * transform_dim),
+        )
+        # Zero-init last layer → identity transform at initialization
+        nn.init.zeros_(self.net[-1].weight)
+        nn.init.zeros_(self.net[-1].bias)
+
+    def _get_scale_shift(self, x_cond, obs):
+        st = self.net(torch.cat([x_cond, obs], dim=-1))
+        s_raw, t = st.chunk(2, dim=-1)
+        s = torch.tanh(s_raw) * 2.0  # clamp: exp(s) in [0.14, 7.39]
+        return s, t
+
+    def forward(self, x_cond, x_transform, obs):
+        """Forward: x_transform → y, returns (y, log_scale)."""
+        s, t = self._get_scale_shift(x_cond, obs)
+        y = x_transform * torch.exp(s) + t
+        return y, s
+
+    def inverse(self, x_cond, y, obs):
+        """Inverse: y → x_transform, returns (x_transform, log_scale)."""
+        s, t = self._get_scale_shift(x_cond, obs)
+        x = (y - t) * torch.exp(-s)
+        return x, s
+
+
+class CouplingFlow(nn.Module):
+    """N-layer affine coupling flow conditioned on observation.
+
+    Even layers: transform dims [d1:] conditioned on (dims [:d1], obs)
+    Odd layers:  transform dims [:d1] conditioned on (dims [d1:], obs)
+    """
+
+    def __init__(self, action_dim, obs_dim, hidden=32, num_layers=4):
+        super().__init__()
+        self.d1 = action_dim // 2
+        d2 = action_dim - self.d1
+        self.layers = nn.ModuleList()
+        for i in range(num_layers):
+            if i % 2 == 0:
+                self.layers.append(AffineCouplingLayer(self.d1, d2, obs_dim, hidden))
+            else:
+                self.layers.append(AffineCouplingLayer(d2, self.d1, obs_dim, hidden))
+
+    def forward(self, x, obs):
+        """Forward: x → y, returns (y, log_det_jacobian)."""
+        log_det = torch.zeros(x.shape[0], device=x.device)
+        x1, x2 = x[..., :self.d1], x[..., self.d1:]
+        for i, layer in enumerate(self.layers):
+            if i % 2 == 0:
+                x2, s = layer.forward(x1, x2, obs)
+            else:
+                x1, s = layer.forward(x2, x1, obs)
+            log_det = log_det + s.sum(-1)
+        return torch.cat([x1, x2], dim=-1), log_det
+
+    def inverse(self, y, obs):
+        """Inverse: y → x, returns (x, forward_log_det_jacobian)."""
+        log_det = torch.zeros(y.shape[0], device=y.device)
+        x1, x2 = y[..., :self.d1], y[..., self.d1:]
+        for i in reversed(range(len(self.layers))):
+            layer = self.layers[i]
+            if i % 2 == 0:
+                x2, s = layer.inverse(x1, x2, obs)
+            else:
+                x1, s = layer.inverse(x2, x1, obs)
+            log_det = log_det + s.sum(-1)
+        return torch.cat([x1, x2], dim=-1), log_det
+
+
+class Agent(nn.Module):
+    def __init__(self, envs, rpo_alpha=0.1, flow_hidden=32, num_flow_layers=4):
+        super().__init__()
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        action_dim = np.prod(envs.single_action_space.shape)
+        self.action_dim = action_dim
+        self.rpo_alpha = rpo_alpha
+        self._log2pi = np.log(2 * np.pi)
+
+        # Critic: scalar value head with SiLU+RMSNorm
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
+            layer_init(nn.Linear(obs_dim, 64)),
+            nn.SiLU(),
+            nn.RMSNorm(64),
             layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
+            nn.SiLU(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
-        self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
-            nn.Tanh(),
+
+        # Actor mean trunk (separate from covariance)
+        self.actor_mean_trunk = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
+            nn.SiLU(),
             layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
+            nn.SiLU(),
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_mean = layer_init(nn.Linear(64, action_dim), std=0.01)
+
+        # Direct lower-triangular covariance factor
+        # Outputs ad*(ad+1)/2 values → fills lower-triangular L with softplus diagonal
+        tril_size = action_dim * (action_dim + 1) // 2
+        self.tril_trunk = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
+            nn.SiLU(),
+            nn.RMSNorm(64),
+            layer_init(nn.Linear(64, 64)),
+            nn.SiLU(),
+            nn.RMSNorm(64),
+        )
+        self.tril_head = layer_init(nn.Linear(64, tril_size), std=0.01)
+
+        # Pre-compute tril indices and diagonal mask
+        tril_idx = torch.tril_indices(action_dim, action_dim)
+        self.register_buffer('tril_row', tril_idx[0])
+        self.register_buffer('tril_col', tril_idx[1])
+        self.register_buffer('diag_mask', tril_idx[0] == tril_idx[1])
+
+        # Conditional normalizing flow (after linear correlation)
+        self.flow = CouplingFlow(action_dim, obs_dim, hidden=flow_hidden,
+                                 num_layers=num_flow_layers)
 
     def get_value(self, x):
         return self.critic(x)
 
+    def _build_tril(self, x):
+        """Build state-dependent lower-triangular matrix from observation."""
+        B = x.shape[0]
+        ad = self.action_dim
+        tril_latent = self.tril_trunk(x)
+        tril_raw = self.tril_head(tril_latent)                # [B, tril_size]
+
+        # Softplus on diagonal entries, unconstrained off-diagonal
+        processed = tril_raw.clone()
+        processed[:, self.diag_mask] = F.softplus(tril_raw[:, self.diag_mask])
+
+        # Fill lower-triangular matrix
+        L = torch.zeros(B, ad, ad, device=x.device)
+        L[:, self.tril_row, self.tril_col] = processed
+
+        # log|det(L)| = sum(log(diag(L))) = sum(log(softplus(diag_raw)))
+        log_det_L = processed[:, self.diag_mask].log().sum(dim=-1)  # [B]
+        return L, log_det_L
+
     def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
-        probs = Normal(action_mean, action_std)
+        B = x.shape[0]
+        ad = self.action_dim
+
+        # Mean path
+        mean_latent = self.actor_mean_trunk(x)
+        action_mean = self.actor_mean(mean_latent)
+
+        # Lower-triangular covariance factor
+        L, log_det_L = self._build_tril(x)
+
+        # RPO: bounded uniform noise on mean (training only)
+        if action is not None and self.rpo_alpha > 0:
+            z_rpo = torch.empty_like(action_mean).uniform_(-self.rpo_alpha, self.rpo_alpha)
+            action_mean = action_mean + z_rpo
+
         if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+            # Forward: z → L @ z → flow → + mean
+            z = torch.randn(B, ad, 1, device=x.device)
+            correlated = torch.bmm(L, z).squeeze(-1)             # [B, ad]
+            noise, flow_log_det = self.flow.forward(correlated, x)
+            action = action_mean + noise
+            mahal = z.squeeze(-1).pow(2).sum(dim=-1)              # [B]
+        else:
+            # Inverse: action → noise → flow⁻¹ → correlated → L⁻¹ → z
+            noise = action - action_mean
+            correlated, flow_log_det = self.flow.inverse(noise, x)
+            z_col = torch.linalg.solve_triangular(
+                L, correlated.unsqueeze(-1), upper=False
+            )
+            mahal = z_col.squeeze(-1).pow(2).sum(dim=-1)          # [B]
+
+        # log p(action) = log N(z;0,I) - log|det(L)| - flow_log_det
+        log_prob = -0.5 * (ad * self._log2pi + mahal) - log_det_L - flow_log_det
+
+        # Entropy estimate: base Gaussian entropy + Jacobian volume change
+        entropy = 0.5 * (ad * (1.0 + self._log2pi)) + log_det_L + flow_log_det
+
+        return action, log_prob, entropy, self.critic(x)
 
 
 if __name__ == "__main__":
@@ -179,7 +372,12 @@ if __name__ == "__main__":
     )
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(
+        envs,
+        rpo_alpha=args.rpo_alpha,
+        flow_hidden=args.flow_hidden,
+        num_flow_layers=args.num_flow_layers,
+    ).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -198,7 +396,6 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs).to(device)
 
     for iteration in range(1, args.num_iterations + 1):
-        # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
@@ -209,14 +406,12 @@ if __name__ == "__main__":
             obs[step] = next_obs
             dones[step] = next_done
 
-            # ALGO LOGIC: action logic
             with torch.no_grad():
                 action, logprob, _, value = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
 
-            # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
@@ -267,10 +462,9 @@ if __name__ == "__main__":
                 ratio = logratio.exp()
 
                 with torch.no_grad():
-                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
-                    clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+                    clipfracs += [((ratio < (1 - args.clip_coef_low)) | (ratio > (1 + args.clip_coef_high))).float().mean().item()]
 
                 mb_advantages = b_advantages[mb_inds]
                 if args.norm_adv:
@@ -278,7 +472,7 @@ if __name__ == "__main__":
 
                 # Policy loss
                 pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
+                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef_low, 1 + args.clip_coef_high)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 # Value loss
@@ -287,8 +481,8 @@ if __name__ == "__main__":
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
                     v_clipped = b_values[mb_inds] + torch.clamp(
                         newvalue - b_values[mb_inds],
-                        -args.clip_coef,
-                        args.clip_coef,
+                        -args.clip_coef_low,
+                        args.clip_coef_high,
                     )
                     v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
                     v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
@@ -311,7 +505,6 @@ if __name__ == "__main__":
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-        # TRY NOT TO MODIFY: record rewards for plotting purposes
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
@@ -320,6 +513,19 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        with torch.no_grad():
+            ad = agent.action_dim
+            # Log effective covariance from direct L
+            tril_lat = agent.tril_trunk(b_obs[mb_inds])
+            tril_raw = agent.tril_head(tril_lat)
+            diag_vals = F.softplus(tril_raw[:, agent.diag_mask])
+            writer.add_scalar("losses/effective_logstd_mean", diag_vals.log().mean().item(), global_step)
+            # Log flow contribution
+            L_log, _ = agent._build_tril(b_obs[mb_inds])
+            z_probe = torch.randn(b_obs[mb_inds].shape[0], ad, 1, device=device)
+            corr_probe = torch.bmm(L_log, z_probe).squeeze(-1)
+            _, flow_ld = agent.flow.forward(corr_probe, b_obs[mb_inds])
+            writer.add_scalar("losses/flow_log_det_mean", flow_ld.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

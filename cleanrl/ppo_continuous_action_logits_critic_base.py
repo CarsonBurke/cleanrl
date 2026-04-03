@@ -1,4 +1,18 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_continuous_actionpy
+# PPO with Logits-Aware Critic — No Shaping (Ablation Baseline)
+#
+# The critic sees the policy's distribution parameters (μ, σ) alongside
+# the state: V(s, μ(s), σ(s)). This gives the critic strictly more
+# information for value prediction — value genuinely depends on future
+# behavior, which depends on current policy params.
+#
+# Unlike logits_critic.py, this variant has NO shaping loss. The only
+# change from baseline PPO is that the critic input is (s, μ, σ) instead
+# of just (s). This isolates the effect of better value prediction from
+# the effect of ∂V/∂logits shaping.
+#
+# μ and σ are always DETACHED when passed to the critic — no gradients
+# flow from the critic loss into the actor.
+
 import os
 import random
 import time
@@ -91,7 +105,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
-        env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
+        env = gym.wrappers.FlattenObservation(env)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
         env = gym.wrappers.NormalizeObservation(env)
@@ -112,33 +126,50 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 class Agent(nn.Module):
     def __init__(self, envs):
         super().__init__()
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        act_dim = np.prod(envs.single_action_space.shape)
+
+        # Logits-aware critic: V(s, μ, σ)
+        critic_input_dim = obs_dim + act_dim * 2  # obs + μ + σ
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(critic_input_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
+
+        # Actor
         self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(obs_dim, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
+            layer_init(nn.Linear(64, act_dim), std=0.01),
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_logstd = nn.Parameter(torch.zeros(1, act_dim))
 
-    def get_value(self, x):
-        return self.critic(x)
-
-    def get_action_and_value(self, x, action=None):
+    def _get_policy_params(self, x):
         action_mean = self.actor_mean(x)
         action_logstd = self.actor_logstd.expand_as(action_mean)
         action_std = torch.exp(action_logstd)
+        return action_mean, action_std
+
+    def get_value(self, x):
+        with torch.no_grad():
+            action_mean, action_std = self._get_policy_params(x)
+        critic_input = torch.cat([x, action_mean, action_std], dim=-1)
+        return self.critic(critic_input)
+
+    def get_action_and_value(self, x, action=None):
+        action_mean, action_std = self._get_policy_params(x)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+        # Always detach μ, σ — critic loss never touches actor
+        critic_input = torch.cat([x, action_mean.detach(), action_std.detach()], dim=-1)
+        value = self.critic(critic_input)
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), value
 
 
 if __name__ == "__main__":
@@ -198,7 +229,6 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs).to(device)
 
     for iteration in range(1, args.num_iterations + 1):
-        # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
@@ -209,14 +239,12 @@ if __name__ == "__main__":
             obs[step] = next_obs
             dones[step] = next_done
 
-            # ALGO LOGIC: action logic
             with torch.no_grad():
                 action, logprob, _, value = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
 
-            # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
@@ -267,7 +295,6 @@ if __name__ == "__main__":
                 ratio = logratio.exp()
 
                 with torch.no_grad():
-                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
@@ -311,7 +338,6 @@ if __name__ == "__main__":
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-        # TRY NOT TO MODIFY: record rewards for plotting purposes
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
