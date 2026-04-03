@@ -1,23 +1,30 @@
-"""PPO Transformer with Attention-Native Correlated Noise (v4)
+"""PPO Transformer with Coupled Action-Manifold Factors (v29).
 
-Self-attention produces a state-dependent lower-triangular scale matrix L:
-  1. Cross-attention: per-actuator queries attend to policy tokens
-  2. Self-attention: actuator tokens share cross-dim information
-  3. Each token outputs one row of L (lower-triangular, positive diagonal)
-  4. noise = L @ eps where eps ~ N(0,I)
+Goal: improve learnability and KL stability by coupling mean/covariance heads
+through a shared per-action manifold, instead of loosely coupled direct heads.
 
-Exact log_prob: log N(eps;0,I) - sum(log(diag(L))). No Jacobian needed.
-Cheap inversion: eps = L^{-1} @ noise via triangular solve.
-Entropy is emergent (ent_coef=0).
+Distribution:
+  u = mu(s) + F(s) z + sigma_diag(s) ⊙ eps
+  a = tanh(u)
+  z ~ N(0, I_R), eps ~ N(0, I_A)
 
-Key innovation over MVN variant: the scale matrix L is produced by
-self-attention, so each actuator's noise row is informed by what ALL
-other actuators see in the state — learned cross-dim coordination
-of both noise magnitude (diagonal) and correlation (off-diagonal).
+Covariance:
+  Cov[u|s] = F(s) F(s)^T + diag(sigma_diag^2)
+
+Where:
+  - action tokens are mapped into a shared action manifold
+  - mean, diagonal scale, and factor residuals are all decoded from that manifold
+  - action<->source attention mixes source-basis vectors into per-action factors
+  - a direct manifold factor residual path avoids dead attention factors
+  - per-action and per-source gains control factor magnitudes
+
+Exact pre-tanh Gaussian log_prob uses Woodbury + determinant lemma; action-space
+log_prob adds tanh Jacobian correction.
 """
 import os
 import random
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 
 import gymnasium as gym
@@ -30,9 +37,6 @@ import tyro
 from torch.utils.tensorboard import SummaryWriter
 
 
-LOG_STD_INIT = -2.0
-
-
 @dataclass
 class Args:
     exp_name: str = os.path.basename(__file__)[: -len(".py")]
@@ -43,6 +47,8 @@ class Args:
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
     cuda: bool = True
     """if toggled, cuda will be enabled by default"""
+    use_bf16_attn: bool = False
+    """use bf16 autocast inside attention (disabled by default for stability parity)"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
     wandb_project_name: str = "cleanRL"
@@ -85,7 +91,7 @@ class Args:
     """the lower surrogate clipping coefficient (ratio floor = 1 - this)"""
     clip_coef_high: float = 0.28
     """the upper surrogate clipping coefficient (ratio ceiling = 1 + this)"""
-    ent_coef: float = 0.0
+    ent_coef: float = 1e-3
     """coefficient of the entropy"""
     vf_coef: float = 0.5
     """coefficient of the value function"""
@@ -95,6 +101,24 @@ class Args:
     """the target KL divergence threshold"""
     clip_vloss: bool = True
     """Toggles whether or not to use a clipped loss for the value function"""
+    log_std_init: float = -0.5
+    """initial offset for diagonal/factor gain std heads"""
+    use_expln: bool = True
+    """use gSDE-style expln positive mapping for std"""
+    explore_rank: int = 4
+    """rank R of transformer-selected latent exploration sources"""
+    n_source_tokens: int = 4
+    """number of source tokens decoded for latent exploration"""
+    diag_std_floor: float = 0.05
+    """minimum per-dimension residual std"""
+    source_std_floor: float = 0.05
+    """minimum per-source factor magnitude"""
+    action_gain_floor: float = 0.03
+    """minimum per-action factor gain"""
+    manifold_dim: int = 16
+    """shared per-action manifold width for coupled mean/cov heads"""
+    mean_scale_init: float = -2.3
+    """initial log-parameter for softplus mean scale"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -142,175 +166,52 @@ class RMSNorm(nn.Module):
 
 
 def _normalize(x, eps=1e-6):
-    """L2-normalize along last dim (project onto unit hypersphere)."""
     return F.normalize(x, dim=-1, eps=eps)
 
 
-class TransformerBlock(nn.Module):
-    """nGPT-style Transformer block: all representations on the unit hypersphere.
+def _expln(x, eps=1e-6):
+    below = torch.exp(x) * (x <= 0)
+    safe_x = x * (x > 0) + eps
+    above = (torch.log1p(safe_x) + 1.0) * (x > 0)
+    return below + above
 
-    Key ideas from nGPT (NVIDIA, 2024):
-    - Hidden states are L2-normalized after each sublayer
-    - Weight matrix rows are normalized at each forward pass
-    - Residual update: x_new = normalize(x + α * (h - x)) where α is learned
-      This is a geodesic interpolation on the hypersphere — bounded step size
-    - QK-norm is implicit (q, k are slices of normalized states)
-    """
-    def __init__(self, d_token=32, n_heads=4, ffn_hidden=64):
+
+class TransformerBlock(nn.Module):
+    """nGPT-style block with optional attention mask."""
+    def __init__(self, d_token=32, n_heads=4, ffn_hidden=64, use_bf16_attn=False):
         super().__init__()
         self.n_heads = n_heads
-        self.head_dim = d_token // n_heads  # 8
+        self.head_dim = d_token // n_heads
         self.d_token = d_token
+        self.use_bf16_attn = use_bf16_attn
 
-        # QKV and output projections
         self.qkv = nn.Linear(d_token, 3 * d_token, bias=False)
         self.o_proj = nn.Linear(d_token, d_token, bias=False)
-
-        # SwiGLU FFN
         self.ffn_gate_value = nn.Linear(d_token, 2 * ffn_hidden, bias=False)
         self.ffn_out = nn.Linear(ffn_hidden, d_token, bias=False)
 
-        # nGPT learned step sizes (α), one per sublayer, per-dim
-        # Small init → conservative updates at start
         self.attn_alpha = nn.Parameter(torch.full((d_token,), 0.05))
         self.ffn_alpha = nn.Parameter(torch.full((d_token,), 0.05))
 
-    def _normalize_weights(self):
-        """Normalize weight rows to unit norm (called each forward)."""
-        with torch.no_grad():
-            for layer in [self.qkv, self.o_proj, self.ffn_gate_value, self.ffn_out]:
-                layer.weight.div_(layer.weight.norm(dim=1, keepdim=True).clamp(min=1e-6))
-
-    def forward(self, x):
-        # x: (batch, n_tokens, d_token) — assumed already on unit hypersphere
+    def forward(self, x, attn_mask=None):
         B, T, D = x.shape
-        self._normalize_weights()
-
-        # --- Multi-head self-attention ---
         qkv = self.qkv(_normalize(x))
         qkv = qkv.reshape(B, T, 3, self.n_heads, self.head_dim)
-        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, B, n_heads, T, head_dim)
+        qkv = qkv.permute(2, 0, 3, 1, 4)
         q, k, v = qkv.unbind(0)
-        # Q, K are already unit-scale from normalized input + normalized weights
-        with torch.amp.autocast('cuda', dtype=torch.bfloat16):
-            attn_out = F.scaled_dot_product_attention(q, k, v)
+        attn_ctx = torch.amp.autocast("cuda", dtype=torch.bfloat16) if (self.use_bf16_attn and x.is_cuda) else nullcontext()
+        with attn_ctx:
+            attn_out = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask)
         attn_out = attn_out.to(x.dtype).transpose(1, 2).reshape(B, T, D)
         h_attn = _normalize(self.o_proj(attn_out))
-        # Geodesic step on hypersphere: x + α * (h - x)
         x = _normalize(x + self.attn_alpha * (h_attn - x))
 
-        # --- SwiGLU FFN ---
         gate_value = self.ffn_gate_value(_normalize(x))
         gate, value = gate_value.chunk(2, dim=-1)
         h = F.silu(gate) * value
         h_ffn = _normalize(self.ffn_out(h))
         x = _normalize(x + self.ffn_alpha * (h_ffn - x))
-
         return x
-
-
-class ExplorationHead(nn.Module):
-    """Attention-native correlated noise via learned scale matrix L.
-
-    Architecture:
-    1. Cross-attention: per-actuator queries attend to policy tokens
-       → each actuator gathers state-relevant information
-    2. Self-attention: actuator tokens attend to each other
-       → cross-dim information sharing (all tokens get full context)
-    3. Output: each token produces one row of lower-triangular L
-       → noise = L @ eps gives cross-dim correlated, state-dependent noise
-
-    Log_prob is exact: log N(eps;0,I) - log|det(L)| = base_lp - sum(log|diag(L)|).
-    Inversion is cheap: eps = L^{-1} @ noise via triangular solve.
-
-    Self-attention IS the mechanism for learning cross-dim correlations —
-    each actuator's noise scale (its row in L) is informed by what all
-    other actuators see in the state.
-    """
-    def __init__(self, d_token, act_dim, n_heads=4):
-        super().__init__()
-        self.n_heads = n_heads
-        self.head_dim = d_token // n_heads
-        self.d_token = d_token
-        self._act_dim = act_dim
-
-        # Learnable exploration queries — one per action dimension
-        self.explore_queries = nn.Parameter(torch.randn(act_dim, d_token) * 0.02)
-
-        # Cross-attention: queries attend to policy tokens
-        self.cross_q_proj = nn.Linear(d_token, d_token, bias=False)
-        self.cross_kv_proj = nn.Linear(d_token, 2 * d_token, bias=False)
-        self.cross_out_proj = nn.Linear(d_token, d_token, bias=False)
-
-        # Self-attention: share info across actuator dims
-        self.self_qkv = nn.Linear(d_token, 3 * d_token, bias=False)
-        self.self_out_proj = nn.Linear(d_token, d_token, bias=False)
-
-        # Output: each token produces act_dim values (one row of L)
-        self.L_out = nn.Linear(d_token, act_dim, bias=True)
-        nn.init.zeros_(self.L_out.weight)
-        # Bias → initial L is diagonal with exp(LOG_STD_INIT) on diagonal
-        bias_init = torch.zeros(act_dim)
-        self.L_out.bias = nn.Parameter(bias_init)
-
-        # Pre-computed triangular mask (registered as buffer)
-        self.register_buffer('tril_mask', torch.tril(torch.ones(act_dim, act_dim)))
-        # Diagonal index mask for separating diagonal from off-diagonal
-        self.register_buffer('diag_mask', torch.eye(act_dim))
-
-    def forward(self, policy_tokens):
-        """
-        Args:
-            policy_tokens: (B, n_tokens, d_token) from backbone
-        Returns:
-            L: (B, act_dim, act_dim) — lower-triangular scale matrix
-            log_det: (B,) — log|det(L)| = sum of log|diagonal entries|
-        """
-        B = policy_tokens.shape[0]
-        A = self._act_dim
-
-        # --- Cross-attention: gather per-actuator state info ---
-        q = self.cross_q_proj(self.explore_queries).unsqueeze(0).expand(B, -1, -1)
-        kv = self.cross_kv_proj(policy_tokens)
-        k, v = kv.chunk(2, dim=-1)
-
-        q = q.reshape(B, A, self.n_heads, self.head_dim).transpose(1, 2)
-        k = k.reshape(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
-        v = v.reshape(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
-
-        with torch.amp.autocast('cuda', dtype=torch.bfloat16):
-            cross_out = F.scaled_dot_product_attention(q, k, v)
-        x = cross_out.to(policy_tokens.dtype).transpose(1, 2).reshape(B, A, self.d_token)
-        x = self.cross_out_proj(x)  # (B, act_dim, d_token)
-
-        # --- Self-attention: cross-dim information sharing ---
-        qkv = self.self_qkv(x).reshape(B, A, 3, self.n_heads, self.head_dim)
-        qkv = qkv.permute(2, 0, 3, 1, 4)
-        sq, sk, sv = qkv.unbind(0)
-
-        with torch.amp.autocast('cuda', dtype=torch.bfloat16):
-            self_out = F.scaled_dot_product_attention(sq, sk, sv)
-        self_out = self_out.to(x.dtype).transpose(1, 2).reshape(B, A, self.d_token)
-        x = x + self.self_out_proj(self_out)  # residual
-
-        # --- Produce lower-triangular scale matrix L ---
-        L_raw = self.L_out(x)  # (B, act_dim, act_dim)
-
-        # Apply triangular mask (zero out upper triangle)
-        L = L_raw * self.tril_mask
-
-        # Make diagonal positive via exp, clamp for stability
-        diag = torch.diagonal(L, dim1=-2, dim2=-1)  # (B, act_dim)
-        log_diag = diag.clamp(-5.0, 2.0)  # raw diagonal → log scale
-        pos_diag = torch.exp(log_diag)
-
-        # Replace diagonal: L = L_offdiag + diag_embed(pos_diag)
-        L = L * (1 - self.diag_mask) + torch.diag_embed(pos_diag)
-
-        # log|det(L)| = sum of log of positive diagonal entries
-        log_det = log_diag.sum(-1)
-
-        return L, log_det
 
 
 class Agent(nn.Module):
@@ -319,52 +220,183 @@ class Agent(nn.Module):
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         act_dim = np.prod(envs.single_action_space.shape)
         hidden_dim = 64
-        n_tokens = 8
+        n_policy_tokens = 8
         d_token = 32
 
-        # === Actor backbone: obs → transformer → token representations ===
+        self._act_dim = int(act_dim)
+        self._n_policy_tokens = n_policy_tokens
+        self._d_token = d_token
+        self._rank = max(1, min(int(args.explore_rank), self._act_dim))
+        self._n_source_tokens = max(self._rank, int(args.n_source_tokens))
+        self._manifold_dim = int(args.manifold_dim)
+
+        # === Actor: shared transformer over policy/action/source tokens ===
         self.actor_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
         self.actor_norm1 = RMSNorm(hidden_dim)
-        self.actor_tokenize = nn.Linear(hidden_dim, n_tokens * d_token)
-        self.actor_transformer = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
+        self.actor_tokenize = nn.Linear(hidden_dim, n_policy_tokens * d_token)
+        self.action_anchor_tokens = nn.Parameter(torch.randn(self._act_dim, d_token) * 0.02)
+        self.action_tokenize = nn.Linear(hidden_dim, self._act_dim * d_token)
+        self.source_anchor_tokens = nn.Parameter(torch.randn(self._n_source_tokens, d_token) * 0.02)
+        self.source_tokenize = nn.Linear(hidden_dim, self._n_source_tokens * d_token)
 
-        # Mean head: pool tokens → project to actions
-        self.actor_agg = layer_init(nn.Linear(d_token, hidden_dim))
-        self.actor_agg_norm = RMSNorm(hidden_dim)
-        self.actor_out = layer_init(nn.Linear(hidden_dim, act_dim), std=0.01)
+        self.actor_block1 = TransformerBlock(d_token, 4, hidden_dim, use_bf16_attn=args.use_bf16_attn)
+        self.actor_block2 = TransformerBlock(d_token, 4, hidden_dim, use_bf16_attn=args.use_bf16_attn)
 
-        # Exploration head: cross-attn + self-attn over policy tokens
-        self.explore_head = ExplorationHead(d_token, act_dim, n_heads=4)
+        # Shared action manifold couples mean/covariance geometry.
+        self.action_manifold = nn.Linear(d_token, self._manifold_dim, bias=False)
+        nn.init.normal_(self.action_manifold.weight, std=0.05)
+        self.action_manifold_norm = RMSNorm(self._manifold_dim)
+        self.action_mean_out = layer_init(nn.Linear(self._manifold_dim, 1), std=0.01)
+        self.mean_scale_log = nn.Parameter(torch.tensor(args.mean_scale_init))
 
-        # === Critic backbone ===
+        self.diag_std_out = nn.Linear(self._manifold_dim, 1, bias=True)
+        nn.init.zeros_(self.diag_std_out.weight)
+        nn.init.zeros_(self.diag_std_out.bias)
+        self.diag_log_std_offset = nn.Parameter(torch.tensor(args.log_std_init))
+
+        # Factor magnitude gates decoded from action/source tokens.
+        self.action_gain_out = nn.Linear(self._manifold_dim, 1, bias=True)
+        nn.init.zeros_(self.action_gain_out.weight)
+        nn.init.zeros_(self.action_gain_out.bias)
+        self.action_gain_log_std_offset = nn.Parameter(torch.full((self._act_dim,), args.log_std_init))
+
+        self.source_scale_out = nn.Linear(d_token, 1, bias=True)
+        nn.init.zeros_(self.source_scale_out.weight)
+        nn.init.zeros_(self.source_scale_out.bias)
+        self.source_scale_log_std_offset = nn.Parameter(torch.full((self._rank,), args.log_std_init))
+
+        # Attention-native factor loading map (action queries x source keys).
+        self.factor_heads = 4
+        self.factor_head_dim = d_token // self.factor_heads
+        self.factor_q = nn.Linear(d_token, d_token, bias=False)
+        self.factor_k = nn.Linear(d_token, d_token, bias=False)
+        self.factor_logit_scale = nn.Parameter(torch.tensor(np.log(8.0), dtype=torch.float32))
+
+        # Source basis vectors mixed by attention and direct action residual factors.
+        self.source_basis_out = nn.Linear(d_token, self._rank, bias=False)
+        nn.init.normal_(self.source_basis_out.weight, std=0.05)
+        self.factor_row_out = nn.Linear(self._manifold_dim, self._rank, bias=False)
+        nn.init.normal_(self.factor_row_out.weight, std=0.05)
+
+        self.use_expln = args.use_expln
+        self.diag_std_floor = args.diag_std_floor
+        self.source_std_floor = args.source_std_floor
+        self.action_gain_floor = args.action_gain_floor
+
+        # === Critic (separate) ===
         self.critic_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
         self.critic_norm1 = RMSNorm(hidden_dim)
-        self.critic_tokenize = nn.Linear(hidden_dim, n_tokens * d_token)
-        self.critic_transformer = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
+        self.critic_tokenize = nn.Linear(hidden_dim, n_policy_tokens * d_token)
+        self.critic_transformer = TransformerBlock(d_token, 4, hidden_dim, use_bf16_attn=args.use_bf16_attn)
         self.critic_agg = layer_init(nn.Linear(d_token, hidden_dim))
         self.critic_agg_norm = RMSNorm(hidden_dim)
         self.value_out = layer_init(nn.Linear(hidden_dim, 1), std=1.0)
 
-        self._n_tokens = n_tokens
-        self._d_token = d_token
+        self.register_buffer("rank_eye", torch.eye(self._rank))
+        self.tanh_eps = 1e-6
 
-    def _get_policy_tokens(self, x):
+    def _std_from_raw(self, raw_log_std):
+        return _expln(raw_log_std) if self.use_expln else torch.exp(raw_log_std)
+
+    def _get_actor_tokens(self, x):
         B = x.shape[0]
         h = F.silu(self.actor_norm1(self.actor_fc1(x)))
-        tokens = self.actor_tokenize(h).reshape(B, self._n_tokens, self._d_token)
-        tokens = _normalize(tokens)
-        tokens = self.actor_transformer(tokens)
-        return tokens
 
-    def _get_mean(self, tokens):
-        pooled = tokens.mean(dim=1)
-        h = F.silu(self.actor_agg_norm(self.actor_agg(pooled)))
-        return self.actor_out(h)
+        policy_tokens = self.actor_tokenize(h).reshape(B, self._n_policy_tokens, self._d_token)
+        policy_tokens = _normalize(policy_tokens)
+
+        action_state = self.action_tokenize(h).reshape(B, self._act_dim, self._d_token)
+        action_anchor = self.action_anchor_tokens.unsqueeze(0).expand(B, -1, -1)
+        action_tokens = _normalize(action_state + action_anchor)
+
+        source_state = self.source_tokenize(h).reshape(B, self._n_source_tokens, self._d_token)
+        source_anchor = self.source_anchor_tokens.unsqueeze(0).expand(B, -1, -1)
+        source_tokens = _normalize(source_state + source_anchor)
+
+        all_tokens = torch.cat([policy_tokens, action_tokens, source_tokens], dim=1)
+        all_tokens = self.actor_block1(all_tokens)
+        all_tokens = self.actor_block2(all_tokens)
+
+        p0 = self._n_policy_tokens
+        p1 = p0 + self._act_dim
+        policy_out = all_tokens[:, :p0]
+        action_out = all_tokens[:, p0:p1]
+        source_out = all_tokens[:, p1:]
+        return policy_out, action_out, source_out
+
+    def _get_dist_params(self, x):
+        policy_tokens, action_tokens, source_tokens = self._get_actor_tokens(x)
+
+        action_latent = self.action_manifold_norm(self.action_manifold(action_tokens))
+        action_latent = torch.tanh(action_latent)
+
+        mean_scale = F.softplus(self.mean_scale_log)
+        mean = mean_scale * self.action_mean_out(action_latent).squeeze(-1)
+
+        # Keep diagonal residual shared across actions to avoid covariance overfitting.
+        diag_raw = self.diag_std_out(action_latent).squeeze(-1).mean(dim=1) + self.diag_log_std_offset
+        diag_scalar = self._std_from_raw(diag_raw) + self.diag_std_floor
+        diag_std = diag_scalar.unsqueeze(-1).expand(-1, self._act_dim)
+
+        action_gain_raw = self.action_gain_out(action_latent).squeeze(-1) + self.action_gain_log_std_offset.unsqueeze(0)
+        action_gain = self._std_from_raw(action_gain_raw) + self.action_gain_floor
+
+        source_rank = source_tokens[:, :self._rank]
+        source_raw = self.source_scale_out(source_rank).squeeze(-1) + self.source_scale_log_std_offset.unsqueeze(0)
+        source_scale = self._std_from_raw(source_raw) + self.source_std_floor
+
+        B = action_tokens.shape[0]
+        q = self.factor_q(action_tokens).reshape(B, self._act_dim, self.factor_heads, self.factor_head_dim).transpose(1, 2)
+        k = self.factor_k(source_rank).reshape(B, self._rank, self.factor_heads, self.factor_head_dim).transpose(1, 2)
+        logits = torch.matmul(q, k.transpose(-1, -2)) / np.sqrt(self.factor_head_dim)  # (B, H, A, R)
+        logits = logits.mean(dim=1) * torch.exp(self.factor_logit_scale)
+        attn = torch.softmax(logits, dim=-1)
+
+        source_basis = self.source_basis_out(source_rank)  # (B, R, R)
+        factor_attn = torch.bmm(attn, source_basis)  # (B, A, R)
+        factor_res = self.factor_row_out(action_latent)  # (B, A, R)
+        factor_raw = factor_attn + factor_res
+
+        F_mat = action_gain.unsqueeze(-1) * source_scale.unsqueeze(1) * factor_raw  # (B, A, R)
+        return mean, diag_std, F_mat, action_gain, source_scale
+
+    def _gaussian_log_prob_and_entropy(self, delta, diag_std, F_mat):
+        B = delta.shape[0]
+        A = self._act_dim
+
+        d_var = diag_std.pow(2) + 1e-8
+        d_inv = 1.0 / d_var
+
+        term1 = d_inv * delta  # D^{-1} delta
+        df = d_inv.unsqueeze(-1) * F_mat
+        M = self.rank_eye.unsqueeze(0).expand(B, -1, -1) + torch.bmm(F_mat.transpose(1, 2), df)
+        M = M + 1e-6 * self.rank_eye.unsqueeze(0)
+
+        rhs = torch.bmm(F_mat.transpose(1, 2), term1.unsqueeze(-1)).squeeze(-1)
+        # M is SPD by construction; Cholesky path avoids slogdet/solve kernels.
+        chol = torch.linalg.cholesky(M)
+        solve = torch.cholesky_solve(rhs.unsqueeze(-1), chol).squeeze(-1)
+        corr = d_inv * torch.bmm(F_mat, solve.unsqueeze(-1)).squeeze(-1)
+        sigma_inv_delta = term1 - corr
+        quad = (delta * sigma_inv_delta).sum(-1)
+
+        logdet_d = torch.log(d_var).sum(-1)
+        logdet_m = 2.0 * torch.log(torch.diagonal(chol, dim1=-2, dim2=-1).clamp_min(1e-12)).sum(-1)
+        logdet = logdet_d + logdet_m
+
+        const = A * np.log(2 * np.pi)
+        log_prob = -0.5 * (quad + const + logdet)
+        entropy = 0.5 * (A * (1.0 + np.log(2 * np.pi)) + logdet)
+        return log_prob, entropy
+
+    def _atanh(self, x):
+        x = x.clamp(min=-1.0 + self.tanh_eps, max=1.0 - self.tanh_eps)
+        return 0.5 * (torch.log1p(x) - torch.log1p(-x))
 
     def _critic_features(self, x):
         B = x.shape[0]
         h = F.silu(self.critic_norm1(self.critic_fc1(x)))
-        tokens = self.critic_tokenize(h).reshape(B, self._n_tokens, self._d_token)
+        tokens = self.critic_tokenize(h).reshape(B, self._n_policy_tokens, self._d_token)
         tokens = _normalize(tokens)
         tokens = self.critic_transformer(tokens)
         pooled = tokens.mean(dim=1)
@@ -375,30 +407,24 @@ class Agent(nn.Module):
         return self.value_out(self._critic_features(x))
 
     def get_action_and_value(self, x, action=None):
-        tokens = self._get_policy_tokens(x)
-        mean = self._get_mean(tokens)
-
-        # ExplorationHead produces lower-triangular L via cross+self attention
-        L, log_det = self.explore_head(tokens)
+        mean, diag_std, F_mat, _, _ = self._get_dist_params(x)
 
         if action is None:
-            # Sample: noise = L @ eps, action = mean + noise
+            z = torch.randn(mean.shape[0], self._rank, device=x.device, dtype=mean.dtype)
             eps = torch.randn_like(mean)
-            noise = torch.bmm(L, eps.unsqueeze(-1)).squeeze(-1)
-            action = mean + noise
+            sub_noise = torch.bmm(F_mat, z.unsqueeze(-1)).squeeze(-1)
+            diag_noise = diag_std * eps
+            pre_tanh = mean + sub_noise + diag_noise
+            action = torch.tanh(pre_tanh)
         else:
-            # PPO update: recover eps from stored action
-            # noise = action - mean, eps = L^{-1} @ noise
-            noise = action - mean
-            eps = torch.linalg.solve_triangular(
-                L, noise.unsqueeze(-1), upper=False
-            ).squeeze(-1)
+            pre_tanh = self._atanh(action)
 
-        # Exact log_prob: log N(eps; 0, I) - log|det(L)|
-        base_lp = -0.5 * (eps.pow(2) + np.log(2 * np.pi)).sum(-1)
-        log_prob = base_lp - log_det
-
-        entropy = -log_prob.detach()
+        delta = pre_tanh - mean
+        base_log_prob, base_entropy = self._gaussian_log_prob_and_entropy(delta, diag_std, F_mat)
+        log_det_jac = torch.log(1.0 - action.pow(2) + self.tanh_eps).sum(-1)
+        log_prob = base_log_prob - log_det_jac
+        # Use base Gaussian entropy as a stable proxy for policy entropy regularization.
+        entropy = base_entropy
         return action, log_prob, entropy, self.get_value(x)
 
 
@@ -426,7 +452,6 @@ if __name__ == "__main__":
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
-    # TRY NOT TO MODIFY: seeding
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -434,16 +459,17 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
-    # env setup
     envs = gym.vector.SyncVectorEnv(
         [make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)]
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
+    assert isinstance(envs.single_action_space, gym.spaces.Box)
 
     agent = Agent(envs, args).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
-    # ALGO Logic: Storage setup
+    total_params = sum(p.numel() for p in agent.parameters())
+    print(f"Total parameters: {total_params:,}")
+
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
     logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
@@ -451,7 +477,6 @@ if __name__ == "__main__":
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
 
-    # TRY NOT TO MODIFY: start the game
     global_step = 0
     start_time = time.time()
     next_obs, _ = envs.reset(seed=args.seed)
@@ -459,7 +484,6 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs).to(device)
 
     for iteration in range(1, args.num_iterations + 1):
-        # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
@@ -470,14 +494,12 @@ if __name__ == "__main__":
             obs[step] = next_obs
             dones[step] = next_done
 
-            # ALGO LOGIC: action logic
             with torch.no_grad():
                 action, logprob, _, value = agent.get_action_and_value(next_obs)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
 
-            # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
@@ -490,7 +512,6 @@ if __name__ == "__main__":
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
-        # bootstrap value if not done
         with torch.no_grad():
             next_value = agent.get_value(next_obs).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
@@ -506,7 +527,6 @@ if __name__ == "__main__":
                 advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + values
 
-        # flatten the batch
         b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
@@ -514,7 +534,6 @@ if __name__ == "__main__":
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
-        # Optimizing the policy and value network
         b_inds = np.arange(args.batch_size)
         clipfracs = []
         for epoch in range(args.update_epochs):
@@ -543,12 +562,10 @@ if __name__ == "__main__":
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
-                # Policy loss
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef_low, 1 + args.clip_coef_high)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
                 newvalue = newvalue.view(-1)
                 if args.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
@@ -578,7 +595,6 @@ if __name__ == "__main__":
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-        # TRY NOT TO MODIFY: record rewards for plotting purposes
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
@@ -587,19 +603,27 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        # noise metrics
+        # exploration diagnostics
         with torch.no_grad():
-            tokens_probe = agent._get_policy_tokens(b_obs[:256])
-            L_probe, log_det_probe = agent.explore_head(tokens_probe)
-            eps_probe = torch.randn(256, np.prod(envs.single_action_space.shape), device=device)
-            noise_probe = torch.bmm(L_probe, eps_probe.unsqueeze(-1)).squeeze(-1)
-            diag_probe = torch.diagonal(L_probe, dim1=-2, dim2=-1)
-            offdiag_norm = (L_probe * (1 - agent.explore_head.diag_mask)).pow(2).sum((-2, -1)).sqrt()
+            mean_probe, diag_std_probe, F_probe, action_gain_probe, source_scale_probe = agent._get_dist_params(b_obs[:256])
+            z_probe = torch.randn(256, agent._rank, device=device)
+            eps_probe = torch.randn(256, agent._act_dim, device=device)
+            sub_noise_probe = torch.bmm(F_probe, z_probe.unsqueeze(-1)).squeeze(-1)
+            diag_noise_probe = diag_std_probe * eps_probe
+            noise_probe = sub_noise_probe + diag_noise_probe
+            pre_tanh_probe = mean_probe + noise_probe
+            action_probe = torch.tanh(pre_tanh_probe)
+
             writer.add_scalar("explore/noise_std", noise_probe.std().item(), global_step)
-            writer.add_scalar("explore/noise_mean_abs", noise_probe.abs().mean().item(), global_step)
-            writer.add_scalar("explore/log_det_mean", log_det_probe.mean().item(), global_step)
-            writer.add_scalar("explore/diag_mean", diag_probe.mean().item(), global_step)
-            writer.add_scalar("explore/offdiag_norm", offdiag_norm.mean().item(), global_step)
+            writer.add_scalar("explore/diag_std_mean", diag_std_probe.mean().item(), global_step)
+            writer.add_scalar("explore/factor_rms", F_probe.pow(2).mean().sqrt().item(), global_step)
+            writer.add_scalar("explore/factor_to_diag", (F_probe.pow(2).mean().sqrt() / (diag_std_probe.mean() + 1e-8)).item(), global_step)
+            writer.add_scalar("explore/action_abs_mean", action_probe.abs().mean().item(), global_step)
+            writer.add_scalar("explore/action_sat_frac", (action_probe.abs() > 0.95).float().mean().item(), global_step)
+            writer.add_scalar("explore/action_gain_mean", action_gain_probe.mean().item(), global_step)
+            writer.add_scalar("explore/source_scale_mean", source_scale_probe.mean().item(), global_step)
+            writer.add_scalar("explore/mean_abs", mean_probe.abs().mean().item(), global_step)
+            writer.add_scalar("explore/mean_scale", F.softplus(agent.mean_scale_log).item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
@@ -607,27 +631,6 @@ if __name__ == "__main__":
         model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
         torch.save(agent.state_dict(), model_path)
         print(f"model saved to {model_path}")
-        from cleanrl_utils.evals.ppo_eval import evaluate
-
-        episodic_returns = evaluate(
-            model_path,
-            make_env,
-            args.env_id,
-            eval_episodes=10,
-            run_name=f"{run_name}-eval",
-            Model=Agent,
-            device=device,
-            gamma=args.gamma,
-        )
-        for idx, episodic_return in enumerate(episodic_returns):
-            writer.add_scalar("eval/episodic_return", episodic_return, idx)
-
-        if args.upload_model:
-            from cleanrl_utils.huggingface import push_to_hub
-
-            repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-            repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-            push_to_hub(args, episodic_returns, repo_id, "PPO", f"runs/{run_name}", f"videos/{run_name}-eval")
 
     envs.close()
     writer.close()

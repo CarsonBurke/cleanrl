@@ -1,19 +1,22 @@
-"""PPO Transformer with Attention-Native Correlated Noise (v4)
+"""PPO Transformer with Temporal Noise Correlation (v9)
 
-Self-attention produces a state-dependent lower-triangular scale matrix L:
-  1. Cross-attention: per-actuator queries attend to policy tokens
-  2. Self-attention: actuator tokens share cross-dim information
-  3. Each token outputs one row of L (lower-triangular, positive diagonal)
-  4. noise = L @ eps where eps ~ N(0,I)
+Same architecture as v6 (the best at ~6005), plus gSDE-style temporal noise.
 
-Exact log_prob: log N(eps;0,I) - sum(log(diag(L))). No Jacobian needed.
-Cheap inversion: eps = L^{-1} @ noise via triangular solve.
-Entropy is emergent (ent_coef=0).
+Key change: Instead of fresh eps every step, eps is fixed per rollout period
+(resampled once every 2048*16 = 32768 env steps). The L matrix still adapts
+per-state through the transformer, so:
+  noise(t) = L(state_t) @ fixed_eps
 
-Key innovation over MVN variant: the scale matrix L is produced by
-self-attention, so each actuator's noise row is informed by what ALL
-other actuators see in the state — learned cross-dim coordination
-of both noise magnitude (diagonal) and correlation (off-diagonal).
+This creates temporally correlated exploration: the noise DIRECTION is
+consistent across a rollout, while noise MAGNITUDE/ROTATION adapts to state.
+Consistent exploration (e.g., "slightly more force on right leg" for many steps)
+helps discover gaits that random per-step jitter wouldn't find.
+
+Architecture (unchanged from v6):
+  - 8 policy tokens + 6 noise tokens → 2 nGPT transformer blocks
+  - Policy tokens → mean
+  - Noise tokens → L (lower-triangular) + mean correction
+  - L @ eps for noise, exact log_prob
 """
 import os
 import random
@@ -28,9 +31,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 import tyro
 from torch.utils.tensorboard import SummaryWriter
-
-
-LOG_STD_INIT = -2.0
 
 
 @dataclass
@@ -147,59 +147,41 @@ def _normalize(x, eps=1e-6):
 
 
 class TransformerBlock(nn.Module):
-    """nGPT-style Transformer block: all representations on the unit hypersphere.
-
-    Key ideas from nGPT (NVIDIA, 2024):
-    - Hidden states are L2-normalized after each sublayer
-    - Weight matrix rows are normalized at each forward pass
-    - Residual update: x_new = normalize(x + α * (h - x)) where α is learned
-      This is a geodesic interpolation on the hypersphere — bounded step size
-    - QK-norm is implicit (q, k are slices of normalized states)
-    """
+    """nGPT-style Transformer block: all representations on the unit hypersphere."""
     def __init__(self, d_token=32, n_heads=4, ffn_hidden=64):
         super().__init__()
         self.n_heads = n_heads
-        self.head_dim = d_token // n_heads  # 8
+        self.head_dim = d_token // n_heads
         self.d_token = d_token
 
-        # QKV and output projections
         self.qkv = nn.Linear(d_token, 3 * d_token, bias=False)
         self.o_proj = nn.Linear(d_token, d_token, bias=False)
 
-        # SwiGLU FFN
         self.ffn_gate_value = nn.Linear(d_token, 2 * ffn_hidden, bias=False)
         self.ffn_out = nn.Linear(ffn_hidden, d_token, bias=False)
 
-        # nGPT learned step sizes (α), one per sublayer, per-dim
-        # Small init → conservative updates at start
         self.attn_alpha = nn.Parameter(torch.full((d_token,), 0.05))
         self.ffn_alpha = nn.Parameter(torch.full((d_token,), 0.05))
 
     def _normalize_weights(self):
-        """Normalize weight rows to unit norm (called each forward)."""
         with torch.no_grad():
             for layer in [self.qkv, self.o_proj, self.ffn_gate_value, self.ffn_out]:
                 layer.weight.div_(layer.weight.norm(dim=1, keepdim=True).clamp(min=1e-6))
 
     def forward(self, x):
-        # x: (batch, n_tokens, d_token) — assumed already on unit hypersphere
         B, T, D = x.shape
         self._normalize_weights()
 
-        # --- Multi-head self-attention ---
         qkv = self.qkv(_normalize(x))
         qkv = qkv.reshape(B, T, 3, self.n_heads, self.head_dim)
-        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, B, n_heads, T, head_dim)
+        qkv = qkv.permute(2, 0, 3, 1, 4)
         q, k, v = qkv.unbind(0)
-        # Q, K are already unit-scale from normalized input + normalized weights
         with torch.amp.autocast('cuda', dtype=torch.bfloat16):
             attn_out = F.scaled_dot_product_attention(q, k, v)
         attn_out = attn_out.to(x.dtype).transpose(1, 2).reshape(B, T, D)
         h_attn = _normalize(self.o_proj(attn_out))
-        # Geodesic step on hypersphere: x + α * (h - x)
         x = _normalize(x + self.attn_alpha * (h_attn - x))
 
-        # --- SwiGLU FFN ---
         gate_value = self.ffn_gate_value(_normalize(x))
         gate, value = gate_value.chunk(2, dim=-1)
         h = F.silu(gate) * value
@@ -209,162 +191,124 @@ class TransformerBlock(nn.Module):
         return x
 
 
-class ExplorationHead(nn.Module):
-    """Attention-native correlated noise via learned scale matrix L.
-
-    Architecture:
-    1. Cross-attention: per-actuator queries attend to policy tokens
-       → each actuator gathers state-relevant information
-    2. Self-attention: actuator tokens attend to each other
-       → cross-dim information sharing (all tokens get full context)
-    3. Output: each token produces one row of lower-triangular L
-       → noise = L @ eps gives cross-dim correlated, state-dependent noise
-
-    Log_prob is exact: log N(eps;0,I) - log|det(L)| = base_lp - sum(log|diag(L)|).
-    Inversion is cheap: eps = L^{-1} @ noise via triangular solve.
-
-    Self-attention IS the mechanism for learning cross-dim correlations —
-    each actuator's noise scale (its row in L) is informed by what all
-    other actuators see in the state.
-    """
-    def __init__(self, d_token, act_dim, n_heads=4):
-        super().__init__()
-        self.n_heads = n_heads
-        self.head_dim = d_token // n_heads
-        self.d_token = d_token
-        self._act_dim = act_dim
-
-        # Learnable exploration queries — one per action dimension
-        self.explore_queries = nn.Parameter(torch.randn(act_dim, d_token) * 0.02)
-
-        # Cross-attention: queries attend to policy tokens
-        self.cross_q_proj = nn.Linear(d_token, d_token, bias=False)
-        self.cross_kv_proj = nn.Linear(d_token, 2 * d_token, bias=False)
-        self.cross_out_proj = nn.Linear(d_token, d_token, bias=False)
-
-        # Self-attention: share info across actuator dims
-        self.self_qkv = nn.Linear(d_token, 3 * d_token, bias=False)
-        self.self_out_proj = nn.Linear(d_token, d_token, bias=False)
-
-        # Output: each token produces act_dim values (one row of L)
-        self.L_out = nn.Linear(d_token, act_dim, bias=True)
-        nn.init.zeros_(self.L_out.weight)
-        # Bias → initial L is diagonal with exp(LOG_STD_INIT) on diagonal
-        bias_init = torch.zeros(act_dim)
-        self.L_out.bias = nn.Parameter(bias_init)
-
-        # Pre-computed triangular mask (registered as buffer)
-        self.register_buffer('tril_mask', torch.tril(torch.ones(act_dim, act_dim)))
-        # Diagonal index mask for separating diagonal from off-diagonal
-        self.register_buffer('diag_mask', torch.eye(act_dim))
-
-    def forward(self, policy_tokens):
-        """
-        Args:
-            policy_tokens: (B, n_tokens, d_token) from backbone
-        Returns:
-            L: (B, act_dim, act_dim) — lower-triangular scale matrix
-            log_det: (B,) — log|det(L)| = sum of log|diagonal entries|
-        """
-        B = policy_tokens.shape[0]
-        A = self._act_dim
-
-        # --- Cross-attention: gather per-actuator state info ---
-        q = self.cross_q_proj(self.explore_queries).unsqueeze(0).expand(B, -1, -1)
-        kv = self.cross_kv_proj(policy_tokens)
-        k, v = kv.chunk(2, dim=-1)
-
-        q = q.reshape(B, A, self.n_heads, self.head_dim).transpose(1, 2)
-        k = k.reshape(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
-        v = v.reshape(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
-
-        with torch.amp.autocast('cuda', dtype=torch.bfloat16):
-            cross_out = F.scaled_dot_product_attention(q, k, v)
-        x = cross_out.to(policy_tokens.dtype).transpose(1, 2).reshape(B, A, self.d_token)
-        x = self.cross_out_proj(x)  # (B, act_dim, d_token)
-
-        # --- Self-attention: cross-dim information sharing ---
-        qkv = self.self_qkv(x).reshape(B, A, 3, self.n_heads, self.head_dim)
-        qkv = qkv.permute(2, 0, 3, 1, 4)
-        sq, sk, sv = qkv.unbind(0)
-
-        with torch.amp.autocast('cuda', dtype=torch.bfloat16):
-            self_out = F.scaled_dot_product_attention(sq, sk, sv)
-        self_out = self_out.to(x.dtype).transpose(1, 2).reshape(B, A, self.d_token)
-        x = x + self.self_out_proj(self_out)  # residual
-
-        # --- Produce lower-triangular scale matrix L ---
-        L_raw = self.L_out(x)  # (B, act_dim, act_dim)
-
-        # Apply triangular mask (zero out upper triangle)
-        L = L_raw * self.tril_mask
-
-        # Make diagonal positive via exp, clamp for stability
-        diag = torch.diagonal(L, dim1=-2, dim2=-1)  # (B, act_dim)
-        log_diag = diag.clamp(-5.0, 2.0)  # raw diagonal → log scale
-        pos_diag = torch.exp(log_diag)
-
-        # Replace diagonal: L = L_offdiag + diag_embed(pos_diag)
-        L = L * (1 - self.diag_mask) + torch.diag_embed(pos_diag)
-
-        # log|det(L)| = sum of log of positive diagonal entries
-        log_det = log_diag.sum(-1)
-
-        return L, log_det
-
-
 class Agent(nn.Module):
     def __init__(self, envs, args):
         super().__init__()
         obs_dim = np.array(envs.single_observation_space.shape).prod()
         act_dim = np.prod(envs.single_action_space.shape)
         hidden_dim = 64
-        n_tokens = 8
+        n_policy_tokens = 8
         d_token = 32
 
-        # === Actor backbone: obs → transformer → token representations ===
+        # === Actor: obs → policy tokens + noise tokens → transformer → outputs ===
         self.actor_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
         self.actor_norm1 = RMSNorm(hidden_dim)
-        self.actor_tokenize = nn.Linear(hidden_dim, n_tokens * d_token)
-        self.actor_transformer = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
+        self.actor_tokenize = nn.Linear(hidden_dim, n_policy_tokens * d_token)
 
-        # Mean head: pool tokens → project to actions
+        # Learnable noise tokens — one per action dimension
+        self.noise_tokens = nn.Parameter(torch.randn(act_dim, d_token) * 0.02)
+
+        # 2 transformer blocks process all tokens together
+        self.actor_transformer1 = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
+        self.actor_transformer2 = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
+
+        # Mean head (from policy tokens)
         self.actor_agg = layer_init(nn.Linear(d_token, hidden_dim))
         self.actor_agg_norm = RMSNorm(hidden_dim)
         self.actor_out = layer_init(nn.Linear(hidden_dim, act_dim), std=0.01)
 
-        # Exploration head: cross-attn + self-attn over policy tokens
-        self.explore_head = ExplorationHead(d_token, act_dim, n_heads=4)
+        # L matrix readout (from noise tokens — each token produces one row)
+        self.L_out = nn.Linear(d_token, act_dim, bias=True)
+        nn.init.zeros_(self.L_out.weight)
+        nn.init.zeros_(self.L_out.bias)
 
-        # === Critic backbone ===
+        # Mean correction readout (from noise tokens)
+        self.mean_corr_out = nn.Linear(d_token, 1, bias=True)
+        nn.init.zeros_(self.mean_corr_out.weight)
+        nn.init.zeros_(self.mean_corr_out.bias)
+
+        # === Critic backbone (separate) ===
         self.critic_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
         self.critic_norm1 = RMSNorm(hidden_dim)
-        self.critic_tokenize = nn.Linear(hidden_dim, n_tokens * d_token)
+        self.critic_tokenize = nn.Linear(hidden_dim, n_policy_tokens * d_token)
         self.critic_transformer = TransformerBlock(d_token=d_token, n_heads=4, ffn_hidden=hidden_dim)
         self.critic_agg = layer_init(nn.Linear(d_token, hidden_dim))
         self.critic_agg_norm = RMSNorm(hidden_dim)
         self.value_out = layer_init(nn.Linear(hidden_dim, 1), std=1.0)
 
-        self._n_tokens = n_tokens
+        self._n_policy_tokens = n_policy_tokens
         self._d_token = d_token
+        self._act_dim = act_dim
+        self._num_envs = args.num_envs
 
-    def _get_policy_tokens(self, x):
+        # Masks for L matrix
+        self.register_buffer('tril_mask', torch.tril(torch.ones(act_dim, act_dim)))
+        self.register_buffer('diag_mask', torch.eye(act_dim))
+
+        # Persistent eps for temporal noise correlation (gSDE-style)
+        self.register_buffer('_stored_eps', torch.randn(args.num_envs, act_dim))
+
+    def resample_noise(self, mask=None):
+        """Resample the stored eps. If mask provided, only resample where mask is True."""
+        if mask is None:
+            self._stored_eps.normal_()
+        else:
+            idx = mask.nonzero(as_tuple=True)[0]
+            if len(idx) > 0:
+                self._stored_eps[idx] = torch.randn(len(idx), self._act_dim, device=self._stored_eps.device)
+
+    def _get_actor_tokens(self, x):
+        """Process obs through actor backbone, return (policy_tokens, noise_tokens)."""
         B = x.shape[0]
         h = F.silu(self.actor_norm1(self.actor_fc1(x)))
-        tokens = self.actor_tokenize(h).reshape(B, self._n_tokens, self._d_token)
-        tokens = _normalize(tokens)
-        tokens = self.actor_transformer(tokens)
-        return tokens
+        policy_tokens = self.actor_tokenize(h).reshape(B, self._n_policy_tokens, self._d_token)
+        policy_tokens = _normalize(policy_tokens)
 
-    def _get_mean(self, tokens):
-        pooled = tokens.mean(dim=1)
+        # Expand noise tokens to batch and normalize onto hypersphere
+        noise_tokens = _normalize(self.noise_tokens.unsqueeze(0).expand(B, -1, -1))
+
+        # Concatenate: [policy_tokens (8), noise_tokens (6)] = 14 tokens total
+        all_tokens = torch.cat([policy_tokens, noise_tokens], dim=1)
+
+        # Process through 2 transformer blocks
+        all_tokens = self.actor_transformer1(all_tokens)
+        all_tokens = self.actor_transformer2(all_tokens)
+
+        # Split back
+        policy_out = all_tokens[:, :self._n_policy_tokens]
+        noise_out = all_tokens[:, self._n_policy_tokens:]
+        return policy_out, noise_out
+
+    def _get_mean(self, policy_tokens):
+        pooled = policy_tokens.mean(dim=1)
         h = F.silu(self.actor_agg_norm(self.actor_agg(pooled)))
         return self.actor_out(h)
+
+    def _get_L_and_correction(self, noise_tokens):
+        """From noise tokens, produce L matrix and mean correction."""
+        # Each noise token produces one row of L
+        L_raw = self.L_out(noise_tokens)  # (B, act_dim, act_dim)
+
+        # Lower triangular mask
+        L = L_raw * self.tril_mask
+
+        # Positive diagonal via exp
+        diag = torch.diagonal(L, dim1=-2, dim2=-1)
+        log_diag = diag.clamp(-5.0, 2.0)
+        pos_diag = torch.exp(log_diag)
+        L = L * (1 - self.diag_mask) + torch.diag_embed(pos_diag)
+
+        log_det = log_diag.sum(-1)
+
+        # Mean correction
+        mean_correction = self.mean_corr_out(noise_tokens).squeeze(-1)  # (B, act_dim)
+
+        return L, log_det, mean_correction
 
     def _critic_features(self, x):
         B = x.shape[0]
         h = F.silu(self.critic_norm1(self.critic_fc1(x)))
-        tokens = self.critic_tokenize(h).reshape(B, self._n_tokens, self._d_token)
+        tokens = self.critic_tokenize(h).reshape(B, self._n_policy_tokens, self._d_token)
         tokens = _normalize(tokens)
         tokens = self.critic_transformer(tokens)
         pooled = tokens.mean(dim=1)
@@ -375,26 +319,23 @@ class Agent(nn.Module):
         return self.value_out(self._critic_features(x))
 
     def get_action_and_value(self, x, action=None):
-        tokens = self._get_policy_tokens(x)
-        mean = self._get_mean(tokens)
-
-        # ExplorationHead produces lower-triangular L via cross+self attention
-        L, log_det = self.explore_head(tokens)
+        policy_tokens, noise_tokens = self._get_actor_tokens(x)
+        base_mean = self._get_mean(policy_tokens)
+        L, log_det, mean_correction = self._get_L_and_correction(noise_tokens)
+        mean = base_mean + mean_correction
 
         if action is None:
-            # Sample: noise = L @ eps, action = mean + noise
-            eps = torch.randn_like(mean)
+            # Use stored eps for temporal correlation (gSDE-style)
+            eps = self._stored_eps[:x.shape[0]]
             noise = torch.bmm(L, eps.unsqueeze(-1)).squeeze(-1)
             action = mean + noise
         else:
-            # PPO update: recover eps from stored action
-            # noise = action - mean, eps = L^{-1} @ noise
+            # During training: invert to find eps from stored action
             noise = action - mean
             eps = torch.linalg.solve_triangular(
                 L, noise.unsqueeze(-1), upper=False
             ).squeeze(-1)
 
-        # Exact log_prob: log N(eps; 0, I) - log|det(L)|
         base_lp = -0.5 * (eps.pow(2) + np.log(2 * np.pi)).sum(-1)
         log_prob = base_lp - log_det
 
@@ -443,6 +384,10 @@ if __name__ == "__main__":
     agent = Agent(envs, args).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
+    # Print param count
+    total_params = sum(p.numel() for p in agent.parameters())
+    print(f"Total parameters: {total_params:,}")
+
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
@@ -464,6 +409,9 @@ if __name__ == "__main__":
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
+
+        # Resample noise at the start of each rollout (gSDE-style)
+        agent.resample_noise()
 
         for step in range(0, args.num_steps):
             global_step += args.num_envs
@@ -489,6 +437,10 @@ if __name__ == "__main__":
                         print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+
+            # Resample noise for envs that finished an episode
+            if next_done.any():
+                agent.resample_noise(next_done.bool())
 
         # bootstrap value if not done
         with torch.no_grad():
@@ -589,17 +541,17 @@ if __name__ == "__main__":
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         # noise metrics
         with torch.no_grad():
-            tokens_probe = agent._get_policy_tokens(b_obs[:256])
-            L_probe, log_det_probe = agent.explore_head(tokens_probe)
+            pt, nt = agent._get_actor_tokens(b_obs[:256])
+            L_probe, _, mcorr_probe = agent._get_L_and_correction(nt)
             eps_probe = torch.randn(256, np.prod(envs.single_action_space.shape), device=device)
             noise_probe = torch.bmm(L_probe, eps_probe.unsqueeze(-1)).squeeze(-1)
             diag_probe = torch.diagonal(L_probe, dim1=-2, dim2=-1)
-            offdiag_norm = (L_probe * (1 - agent.explore_head.diag_mask)).pow(2).sum((-2, -1)).sqrt()
+            offdiag_norm = (L_probe * (1 - agent.diag_mask)).pow(2).sum((-2, -1)).sqrt()
             writer.add_scalar("explore/noise_std", noise_probe.std().item(), global_step)
             writer.add_scalar("explore/noise_mean_abs", noise_probe.abs().mean().item(), global_step)
-            writer.add_scalar("explore/log_det_mean", log_det_probe.mean().item(), global_step)
             writer.add_scalar("explore/diag_mean", diag_probe.mean().item(), global_step)
             writer.add_scalar("explore/offdiag_norm", offdiag_norm.mean().item(), global_step)
+            writer.add_scalar("explore/mean_corr_abs", mcorr_probe.abs().mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 

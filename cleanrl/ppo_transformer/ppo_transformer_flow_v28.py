@@ -114,6 +114,10 @@ class Args:
     """minimum per-source factor magnitude"""
     action_gain_floor: float = 0.03
     """minimum per-action factor gain"""
+    floor_amp_init: float = -2.3
+    """initial log-amplitude for learnable floor terms (softplus parameterized)"""
+    kl_boost_init: float = -2.5
+    """initial log-scale for mean-magnitude KL compensation added to floors"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -277,9 +281,9 @@ class Agent(nn.Module):
         nn.init.normal_(self.factor_row_out.weight, std=0.05)
 
         # State-gated learnable floors (min floor + gate * learnable amplitude).
-        self.diag_floor_log_amp = nn.Parameter(torch.full((self._act_dim,), -3.0))
-        self.action_gain_floor_log_amp = nn.Parameter(torch.full((self._act_dim,), -3.0))
-        self.source_floor_log_amp = nn.Parameter(torch.full((self._rank,), -3.0))
+        self.diag_floor_log_amp = nn.Parameter(torch.full((self._act_dim,), args.floor_amp_init))
+        self.action_gain_floor_log_amp = nn.Parameter(torch.full((self._act_dim,), args.floor_amp_init))
+        self.source_floor_log_amp = nn.Parameter(torch.full((self._rank,), args.floor_amp_init))
         self.diag_floor_gate_out = nn.Linear(d_token, 1, bias=True)
         self.action_floor_gate_out = nn.Linear(d_token, 1, bias=True)
         self.source_floor_gate_out = nn.Linear(d_token, 1, bias=True)
@@ -289,6 +293,10 @@ class Agent(nn.Module):
         nn.init.zeros_(self.action_floor_gate_out.bias)
         nn.init.zeros_(self.source_floor_gate_out.weight)
         nn.init.zeros_(self.source_floor_gate_out.bias)
+        # Mean-magnitude compensation so sharp mean moves auto-increase exploration floors.
+        self.kl_diag_boost_log = nn.Parameter(torch.tensor(args.kl_boost_init))
+        self.kl_action_boost_log = nn.Parameter(torch.tensor(args.kl_boost_init))
+        self.kl_source_boost_log = nn.Parameter(torch.tensor(args.kl_boost_init))
 
         self.use_expln = args.use_expln
         self.diag_std_floor = args.diag_std_floor
@@ -351,19 +359,22 @@ class Agent(nn.Module):
         mean_local = self.action_mean_out(mean_action_tokens).squeeze(-1)
         mean_global = self.mean_global_out(policy_tokens.mean(dim=1))
         mean = mean_local + mean_global
+        mean_mag = mean.abs().mean(dim=-1, keepdim=True).detach()
 
         diag_raw = self.diag_std_out(explore_action_tokens).squeeze(-1) + self.diag_log_std_offset.unsqueeze(0)
         diag_base = self._std_from_raw(diag_raw)
         diag_gate = torch.sigmoid(self.diag_floor_gate_out(explore_action_tokens).squeeze(-1))
         diag_amp = F.softplus(self.diag_floor_log_amp).unsqueeze(0)
-        diag_floor = self.diag_std_floor + diag_amp * diag_gate
+        diag_kl_boost = F.softplus(self.kl_diag_boost_log) * mean_mag
+        diag_floor = self.diag_std_floor + diag_amp * diag_gate + diag_kl_boost
         diag_std = diag_base + diag_floor
 
         action_gain_raw = self.action_gain_out(explore_action_tokens).squeeze(-1) + self.action_gain_log_std_offset.unsqueeze(0)
         action_gain_base = self._std_from_raw(action_gain_raw)
         action_gate = torch.sigmoid(self.action_floor_gate_out(explore_action_tokens).squeeze(-1))
         action_amp = F.softplus(self.action_gain_floor_log_amp).unsqueeze(0)
-        action_floor = self.action_gain_floor + action_amp * action_gate
+        action_kl_boost = F.softplus(self.kl_action_boost_log) * mean_mag
+        action_floor = self.action_gain_floor + action_amp * action_gate + action_kl_boost
         action_gain = action_gain_base + action_floor
 
         source_rank = source_tokens[:, :self._rank]
@@ -371,7 +382,8 @@ class Agent(nn.Module):
         source_base = self._std_from_raw(source_raw)
         source_gate = torch.sigmoid(self.source_floor_gate_out(source_rank).squeeze(-1))
         source_amp = F.softplus(self.source_floor_log_amp).unsqueeze(0)
-        source_floor = self.source_std_floor + source_amp * source_gate
+        source_kl_boost = F.softplus(self.kl_source_boost_log) * mean_mag
+        source_floor = self.source_std_floor + source_amp * source_gate + source_kl_boost
         source_scale = source_base + source_floor
 
         B = explore_action_tokens.shape[0]
@@ -391,6 +403,10 @@ class Agent(nn.Module):
             "diag_floor_mean": diag_floor.mean(),
             "action_floor_mean": action_floor.mean(),
             "source_floor_mean": source_floor.mean(),
+            "mean_mag": mean_mag.mean(),
+            "diag_kl_boost_mean": diag_kl_boost.mean(),
+            "action_kl_boost_mean": action_kl_boost.mean(),
+            "source_kl_boost_mean": source_kl_boost.mean(),
         }
         return mean, diag_std, F_mat, action_gain, source_scale, floors
 
@@ -660,6 +676,10 @@ if __name__ == "__main__":
             writer.add_scalar("explore/diag_floor_mean", floor_probe["diag_floor_mean"].item(), global_step)
             writer.add_scalar("explore/action_floor_mean", floor_probe["action_floor_mean"].item(), global_step)
             writer.add_scalar("explore/source_floor_mean", floor_probe["source_floor_mean"].item(), global_step)
+            writer.add_scalar("explore/mean_mag", floor_probe["mean_mag"].item(), global_step)
+            writer.add_scalar("explore/diag_kl_boost_mean", floor_probe["diag_kl_boost_mean"].item(), global_step)
+            writer.add_scalar("explore/action_kl_boost_mean", floor_probe["action_kl_boost_mean"].item(), global_step)
+            writer.add_scalar("explore/source_kl_boost_mean", floor_probe["source_kl_boost_mean"].item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
