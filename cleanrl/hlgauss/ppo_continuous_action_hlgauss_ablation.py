@@ -15,6 +15,8 @@ import tyro
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
+from cleanrl.shared.hl_gauss import HLGaussSupport, symlog, symexp
+
 
 @dataclass
 class Args:
@@ -121,40 +123,6 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-def symlog(x):
-    return x.sign() * (x.abs() + 1.0).log()
-
-
-def symexp(x):
-    return x.sign() * (x.abs().exp() - 1.0)
-
-
-class HLGaussSupport:
-    def __init__(self, num_bins, v_min, v_max, sigma_ratio, device):
-        self.num_bins = num_bins
-        self.v_min = v_min
-        self.v_max = v_max
-        self.bin_width = (v_max - v_min) / (num_bins - 1)
-        self.sigma = sigma_ratio * self.bin_width
-        self.support = torch.linspace(v_min, v_max, num_bins, device=device)
-
-    def to_scalar(self, logits):
-        probs = torch.softmax(logits, dim=-1)
-        symlog_value = (probs * self.support).sum(dim=-1)
-        return symexp(symlog_value)
-
-    def project(self, targets):
-        targets = symlog(targets).clamp(self.v_min, self.v_max)
-        targets = targets.unsqueeze(-1)
-        support = self.support.unsqueeze(0)
-        half_w = self.bin_width / 2.0
-        upper = (support + half_w - targets) / self.sigma
-        lower = (support - half_w - targets) / self.sigma
-        probs = 0.5 * (torch.erf(upper / np.sqrt(2)) - torch.erf(lower / np.sqrt(2)))
-        probs = probs / probs.sum(dim=-1, keepdim=True)
-        return probs
-
-
 class Agent(nn.Module):
     def __init__(self, envs, num_bins):
         super().__init__()
@@ -235,7 +203,7 @@ if __name__ == "__main__":
 
     agent = Agent(envs, args.num_bins).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
-    hl_support = HLGaussSupport(args.num_bins, args.v_min, args.v_max, args.sigma_ratio, device)
+    hl_support = HLGaussSupport(args.num_bins, args.v_min, args.v_max, args.sigma_ratio, device, use_symlog=True)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)

@@ -136,45 +136,6 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-class HLGaussSupport:
-    """Manages the discretized support for HL-Gauss categorical value head."""
-
-    def __init__(self, num_bins, v_min, v_max, sigma_ratio, device):
-        self.num_bins = num_bins
-        self.v_min = v_min
-        self.v_max = v_max
-        self.bin_width = (v_max - v_min) / (num_bins - 1)
-        self.sigma = sigma_ratio * self.bin_width
-        # bin centers: evenly spaced from v_min to v_max
-        self.support = torch.linspace(v_min, v_max, num_bins, device=device)
-
-    def to_scalar(self, logits):
-        """Convert logits to scalar value via E[z] = sum(softmax(logits) * support)."""
-        probs = torch.softmax(logits, dim=-1)
-        return (probs * self.support).sum(dim=-1)
-
-    def project(self, targets):
-        """Project scalar targets onto HL-Gauss categorical distribution.
-
-        For each target, compute P(bin_i) = Phi((z_i + w/2 - target) / sigma)
-                                           - Phi((z_i - w/2 - target) / sigma)
-        where Phi is the standard normal CDF, z_i are bin centers, and w is bin width.
-        """
-        # Clamp targets to support range
-        targets = targets.clamp(self.v_min, self.v_max)
-        # targets: (batch,) -> (batch, 1), support: (num_bins,) -> (1, num_bins)
-        targets = targets.unsqueeze(-1)
-        support = self.support.unsqueeze(0)
-        half_w = self.bin_width / 2.0
-        # CDF of standard normal evaluated at bin edges relative to target
-        upper = (support + half_w - targets) / self.sigma
-        lower = (support - half_w - targets) / self.sigma
-        # Use torch.erf for normal CDF: Phi(x) = 0.5 * (1 + erf(x / sqrt(2)))
-        probs = 0.5 * (torch.erf(upper / np.sqrt(2)) - torch.erf(lower / np.sqrt(2)))
-        # Normalize to ensure valid probability distribution (handles edge bins)
-        probs = probs / probs.sum(dim=-1, keepdim=True)
-        return probs
-
 
 class Agent(nn.Module):
     def __init__(self, envs, num_bins):
@@ -437,6 +398,7 @@ if __name__ == "__main__":
 
         if args.upload_model:
             from cleanrl_utils.huggingface import push_to_hub
+from cleanrl.shared.hl_gauss import HLGaussSupport
 
             repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
             repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
