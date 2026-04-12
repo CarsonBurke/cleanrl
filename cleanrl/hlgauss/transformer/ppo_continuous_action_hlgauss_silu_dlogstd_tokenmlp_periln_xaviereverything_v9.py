@@ -3,9 +3,9 @@
 # Key ideas:
 # - one learned token per observation dimension via a small scalar MLP embedder
 # - three learned CLS tokens: actor, critic, and exploration/log-std
-# - 2-layer shared transformer with RoPE, QK-norm, pre-norm only, and SwiGLU
-# - small truncated-normal residual init to keep PPO updates conservative
-# - no extra CLS/head norm; rely on transformer pre-norm blocks only
+# - 2-layer shared transformer with RoPE, QK-norm, RMSNorm Peri-LN, and SwiGLU
+# - Xavier/Glorot init on tokenizer, transformer, and output heads
+# - no extra CLS/head norm; rely on RMSNorm Peri-LN blocks
 import os
 import random
 import sys
@@ -25,7 +25,7 @@ from torch.nn.attention import SDPBackend, sdpa_kernel
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from cleanrl.shared.hl_gauss import HLGaussSupport
 
@@ -36,9 +36,6 @@ NUM_KV_HEADS = 2
 FFN_MULT = 2
 NUM_LAYERS = 2
 NUM_SPECIAL_TOKENS = 3
-TOKEN_INIT_STD = 0.02
-CLS_INIT_STD = 0.02
-BRANCH_INIT_STD = 0.02
 SCALAR_EMBED_DIM = 32
 
 
@@ -147,6 +144,13 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
+def xavier_init_linear(layer, gain=1.0):
+    nn.init.xavier_uniform_(layer.weight, gain=gain)
+    if layer.bias is not None:
+        nn.init.zeros_(layer.bias)
+    return layer
+
+
 class RMSNorm(nn.Module):
     def __init__(self, dim, eps=1e-6):
         super().__init__()
@@ -195,7 +199,7 @@ def attention(q, k, v):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, dim, num_q_heads, num_kv_heads, ffn_mult=2, init_scale=1.0):
+    def __init__(self, dim, num_q_heads, num_kv_heads, ffn_mult=2):
         super().__init__()
         assert dim % num_q_heads == 0
         assert num_q_heads % num_kv_heads == 0
@@ -205,7 +209,9 @@ class TransformerBlock(nn.Module):
         self.kv_group_size = num_q_heads // num_kv_heads
 
         self.attn_pre_norm = RMSNorm(dim)
+        self.attn_post_norm = RMSNorm(dim)
         self.ffn_pre_norm = RMSNorm(dim)
+        self.ffn_post_norm = RMSNorm(dim)
         self.q_norm = RMSNorm(self.head_dim)
         self.k_norm = RMSNorm(self.head_dim)
 
@@ -219,12 +225,8 @@ class TransformerBlock(nn.Module):
         self.w2 = nn.Linear(ffn_dim, dim, bias=False)
         self.w3 = nn.Linear(dim, ffn_dim, bias=False)
 
-        for module in [self.wq, self.wk, self.wv, self.w1, self.w3]:
-            std = BRANCH_INIT_STD
-            nn.init.trunc_normal_(module.weight, std=std, a=-2 * std, b=2 * std)
-        for module in [self.wo, self.w2]:
-            std = BRANCH_INIT_STD * init_scale
-            nn.init.trunc_normal_(module.weight, std=std, a=-2 * std, b=2 * std)
+        for module in [self.wq, self.wk, self.wv, self.wo, self.w1, self.w2, self.w3]:
+            xavier_init_linear(module)
 
     def forward(self, x, rope_cos, rope_sin):
         batch, seq_len, width = x.shape
@@ -245,10 +247,10 @@ class TransformerBlock(nn.Module):
 
         attn_out = attention(q, k, v)
         attn_out = attn_out.transpose(1, 2).reshape(batch, seq_len, width)
-        x = x + self.wo(attn_out)
+        x = x + self.attn_post_norm(self.wo(attn_out))
 
         h = self.ffn_pre_norm(x)
-        x = x + self.w2(F.silu(self.w1(h)) * self.w3(h))
+        x = x + self.ffn_post_norm(self.w2(F.silu(self.w1(h)) * self.w3(h)))
         return x
 
 
@@ -258,25 +260,22 @@ class Agent(nn.Module):
         obs_dim = int(np.array(envs.single_observation_space.shape).prod())
         act_dim = int(np.prod(envs.single_action_space.shape))
 
-        self.obs_in_proj = nn.Linear(1, SCALAR_EMBED_DIM)
-        self.obs_out_proj = nn.Linear(SCALAR_EMBED_DIM, MODEL_DIM)
-        nn.init.trunc_normal_(self.obs_in_proj.weight, std=TOKEN_INIT_STD, a=-2 * TOKEN_INIT_STD, b=2 * TOKEN_INIT_STD)
-        nn.init.zeros_(self.obs_in_proj.bias)
-        nn.init.trunc_normal_(self.obs_out_proj.weight, std=TOKEN_INIT_STD, a=-2 * TOKEN_INIT_STD, b=2 * TOKEN_INIT_STD)
-        nn.init.zeros_(self.obs_out_proj.bias)
+        self.obs_in_proj = xavier_init_linear(nn.Linear(1, SCALAR_EMBED_DIM))
+        self.obs_out_proj = xavier_init_linear(nn.Linear(SCALAR_EMBED_DIM, MODEL_DIM))
 
         self.obs_dim_embed = nn.Parameter(torch.empty(obs_dim, MODEL_DIM))
-        nn.init.trunc_normal_(self.obs_dim_embed, std=TOKEN_INIT_STD, a=-2 * TOKEN_INIT_STD, b=2 * TOKEN_INIT_STD)
+        nn.init.xavier_uniform_(self.obs_dim_embed)
         self.obs_token_norm = RMSNorm(MODEL_DIM)
 
-        self.actor_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * CLS_INIT_STD)
-        self.critic_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * CLS_INIT_STD)
-        self.sde_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * CLS_INIT_STD)
+        cls = torch.empty(3, MODEL_DIM)
+        nn.init.xavier_uniform_(cls)
+        self.actor_cls = nn.Parameter(cls[0:1].unsqueeze(0))
+        self.critic_cls = nn.Parameter(cls[1:2].unsqueeze(0))
+        self.sde_cls = nn.Parameter(cls[2:3].unsqueeze(0))
 
         self.embed_norm = RMSNorm(MODEL_DIM)
-        init_scale = 1.0 / (2 * NUM_LAYERS) ** 0.5
         self.layers = nn.ModuleList(
-            [TransformerBlock(MODEL_DIM, NUM_Q_HEADS, NUM_KV_HEADS, FFN_MULT, init_scale) for _ in range(NUM_LAYERS)]
+            [TransformerBlock(MODEL_DIM, NUM_Q_HEADS, NUM_KV_HEADS, FFN_MULT) for _ in range(NUM_LAYERS)]
         )
         self.final_norm = RMSNorm(MODEL_DIM)
 
@@ -285,9 +284,9 @@ class Agent(nn.Module):
         self.register_buffer("rope_cos", rope_cos)
         self.register_buffer("rope_sin", rope_sin)
 
-        self.actor_mean_head = layer_init(nn.Linear(MODEL_DIM, act_dim), std=0.01)
-        self.critic_head = layer_init(nn.Linear(MODEL_DIM, num_bins), std=1.0)
-        self.sde_logstd_head = layer_init(nn.Linear(MODEL_DIM, act_dim), std=0.01)
+        self.actor_mean_head = xavier_init_linear(nn.Linear(MODEL_DIM, act_dim))
+        self.critic_head = xavier_init_linear(nn.Linear(MODEL_DIM, num_bins))
+        self.sde_logstd_head = xavier_init_linear(nn.Linear(MODEL_DIM, act_dim))
 
     def _encode(self, x):
         batch = x.shape[0]

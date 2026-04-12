@@ -1,12 +1,10 @@
-# PPO + HL-Gauss + Delightful Policy Gradient with an LLM-style shared self-attention backbone.
+# PPO + HL-Gauss with an LLM-style shared self-attention backbone.
 #
 # Key ideas:
-# - one learned token per observation dimension via a small scalar MLP embedder
+# - one learned token per observation dimension
 # - three learned CLS tokens: actor, critic, and exploration/log-std
-# - 2-layer shared transformer with RoPE, QK-norm, RMSNorm Peri-LN, and SwiGLU
-# - Xavier/Glorot init on tokenizer and transformer layers
-# - Delightful Policy Gradient gate on PPO policy loss using clipped rollout surprisal
-# - no extra CLS/head norm; rely on RMSNorm Peri-LN blocks
+# - 2-layer shared transformer with RoPE, QK-norm, pre-norm, and SwiGLU
+# - direct linear readouts from CLS tokens into mean, value logits, and log-std
 import os
 import random
 import sys
@@ -26,7 +24,7 @@ from torch.nn.attention import SDPBackend, sdpa_kernel
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from cleanrl.shared.hl_gauss import HLGaussSupport
 
@@ -37,7 +35,6 @@ NUM_KV_HEADS = 2
 FFN_MULT = 2
 NUM_LAYERS = 2
 NUM_SPECIAL_TOKENS = 3
-SCALAR_EMBED_DIM = 32
 
 
 @dataclass
@@ -101,12 +98,6 @@ class Args:
     target_kl: float = None
     """the target KL divergence threshold"""
 
-    # Delightful Policy Gradient
-    dg_eta: float = 1.0
-    """temperature for the delight gate (paper uses 1.0)"""
-    dg_logprob_clip: float = 10.0
-    """absolute clip applied to rollout surprisal for continuous-control DG"""
-
     # HL-Gauss specific
     num_bins: int = 51
     """number of bins for the categorical value head"""
@@ -148,13 +139,6 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
-    return layer
-
-
-def xavier_init_linear(layer, gain=1.0):
-    nn.init.xavier_uniform_(layer.weight, gain=gain)
-    if layer.bias is not None:
-        nn.init.zeros_(layer.bias)
     return layer
 
 
@@ -206,7 +190,7 @@ def attention(q, k, v):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, dim, num_q_heads, num_kv_heads, ffn_mult=2):
+    def __init__(self, dim, num_q_heads, num_kv_heads, ffn_mult=2, init_scale=1.0):
         super().__init__()
         assert dim % num_q_heads == 0
         assert num_q_heads % num_kv_heads == 0
@@ -215,10 +199,8 @@ class TransformerBlock(nn.Module):
         self.head_dim = dim // num_q_heads
         self.kv_group_size = num_q_heads // num_kv_heads
 
-        self.attn_pre_norm = RMSNorm(dim)
-        self.attn_post_norm = RMSNorm(dim)
-        self.ffn_pre_norm = RMSNorm(dim)
-        self.ffn_post_norm = RMSNorm(dim)
+        self.attn_norm = RMSNorm(dim)
+        self.ffn_norm = RMSNorm(dim)
         self.q_norm = RMSNorm(self.head_dim)
         self.k_norm = RMSNorm(self.head_dim)
 
@@ -232,13 +214,19 @@ class TransformerBlock(nn.Module):
         self.w2 = nn.Linear(ffn_dim, dim, bias=False)
         self.w3 = nn.Linear(dim, ffn_dim, bias=False)
 
-        for module in [self.wq, self.wk, self.wv, self.wo, self.w1, self.w2, self.w3]:
-            xavier_init_linear(module)
+        for module in [self.wq, self.wk, self.wv, self.w1, self.w3]:
+            fan_in = module.weight.shape[1]
+            std = fan_in**-0.5
+            nn.init.trunc_normal_(module.weight, std=std, a=-2 * std, b=2 * std)
+        for module in [self.wo, self.w2]:
+            fan_in = module.weight.shape[1]
+            std = init_scale * fan_in**-0.5
+            nn.init.trunc_normal_(module.weight, std=std, a=-2 * std, b=2 * std)
 
     def forward(self, x, rope_cos, rope_sin):
         batch, seq_len, width = x.shape
 
-        h = self.attn_pre_norm(x)
+        h = self.attn_norm(x)
         q = self.wq(h).view(batch, seq_len, self.num_q_heads, self.head_dim).transpose(1, 2)
         k = self.wk(h).view(batch, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
         v = self.wv(h).view(batch, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
@@ -254,10 +242,10 @@ class TransformerBlock(nn.Module):
 
         attn_out = attention(q, k, v)
         attn_out = attn_out.transpose(1, 2).reshape(batch, seq_len, width)
-        x = x + self.attn_post_norm(self.wo(attn_out))
+        x = x + self.wo(attn_out)
 
-        h = self.ffn_pre_norm(x)
-        x = x + self.ffn_post_norm(self.w2(F.silu(self.w1(h)) * self.w3(h)))
+        h = self.ffn_norm(x)
+        x = x + self.w2(F.silu(self.w1(h)) * self.w3(h))
         return x
 
 
@@ -267,21 +255,20 @@ class Agent(nn.Module):
         obs_dim = int(np.array(envs.single_observation_space.shape).prod())
         act_dim = int(np.prod(envs.single_action_space.shape))
 
-        self.obs_in_proj = xavier_init_linear(nn.Linear(1, SCALAR_EMBED_DIM))
-        self.obs_out_proj = xavier_init_linear(nn.Linear(SCALAR_EMBED_DIM, MODEL_DIM))
+        embed_std = MODEL_DIM**-0.5
+        self.obs_embed_w = nn.Parameter(torch.empty(obs_dim, MODEL_DIM))
+        nn.init.trunc_normal_(self.obs_embed_w, std=embed_std, a=-2 * embed_std, b=2 * embed_std)
+        self.obs_embed_b = nn.Parameter(torch.zeros(obs_dim, MODEL_DIM))
 
-        self.obs_dim_embed = nn.Parameter(torch.empty(obs_dim, MODEL_DIM))
-        nn.init.xavier_uniform_(self.obs_dim_embed)
-
-        cls = torch.empty(3, MODEL_DIM)
-        nn.init.xavier_uniform_(cls)
-        self.actor_cls = nn.Parameter(cls[0:1].unsqueeze(0))
-        self.critic_cls = nn.Parameter(cls[1:2].unsqueeze(0))
-        self.sde_cls = nn.Parameter(cls[2:3].unsqueeze(0))
+        cls_std = MODEL_DIM**-0.5
+        self.actor_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * cls_std)
+        self.critic_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * cls_std)
+        self.sde_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * cls_std)
 
         self.embed_norm = RMSNorm(MODEL_DIM)
+        init_scale = 1.0 / (2 * NUM_LAYERS) ** 0.5
         self.layers = nn.ModuleList(
-            [TransformerBlock(MODEL_DIM, NUM_Q_HEADS, NUM_KV_HEADS, FFN_MULT) for _ in range(NUM_LAYERS)]
+            [TransformerBlock(MODEL_DIM, NUM_Q_HEADS, NUM_KV_HEADS, FFN_MULT, init_scale) for _ in range(NUM_LAYERS)]
         )
         self.final_norm = RMSNorm(MODEL_DIM)
 
@@ -296,8 +283,7 @@ class Agent(nn.Module):
 
     def _encode(self, x):
         batch = x.shape[0]
-        obs_tokens = self.obs_out_proj(F.silu(self.obs_in_proj(x.unsqueeze(-1))))
-        obs_tokens = obs_tokens + self.obs_dim_embed.unsqueeze(0)
+        obs_tokens = x.unsqueeze(-1) * self.obs_embed_w + self.obs_embed_b
         special_tokens = torch.cat(
             [
                 self.actor_cls.expand(batch, -1, -1),
@@ -447,8 +433,6 @@ if __name__ == "__main__":
         # Optimizing the policy and value network
         b_inds = np.arange(args.batch_size)
         clipfracs = []
-        dg_weight_means = []
-        dg_surprisal_means = []
         for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
@@ -468,17 +452,10 @@ if __name__ == "__main__":
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
-                with torch.no_grad():
-                    surprisal = torch.clamp(-newlogprob, -args.dg_logprob_clip, args.dg_logprob_clip)
-                    delight = mb_advantages * surprisal
-                    dg_weight = torch.sigmoid(delight / args.dg_eta)
-                    dg_weight_means.append(dg_weight.mean().item())
-                    dg_surprisal_means.append(surprisal.mean().item())
-
                 # Policy loss
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
-                pg_loss = (dg_weight * torch.max(pg_loss1, pg_loss2)).mean()
+                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 # Value loss: HL-Gauss cross-entropy (no vclip — categorical doesn't support it cleanly)
                 newvalue_logits = agent.get_value_logits(b_obs[mb_inds])
@@ -508,8 +485,6 @@ if __name__ == "__main__":
         writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
-        writer.add_scalar("losses/dg_weight_mean", float(np.mean(dg_weight_means)), global_step)
-        writer.add_scalar("losses/dg_surprisal_mean", float(np.mean(dg_surprisal_means)), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)

@@ -3,8 +3,9 @@
 # Key ideas:
 # - one learned token per observation dimension
 # - three learned CLS tokens: actor, critic, and exploration/log-std
-# - 2-layer shared transformer with RoPE, QK-norm, pre-norm, and SwiGLU
-# - direct linear readouts from CLS tokens into mean, value logits, and log-std
+# - 2-layer shared transformer with RoPE, QK-norm, sandwich norm, and SwiGLU
+# - small truncated-normal residual init to keep PPO updates conservative
+# - no extra CLS/head norm; rely on transformer pre-norm + post-norm blocks
 import os
 import random
 import sys
@@ -24,7 +25,7 @@ from torch.nn.attention import SDPBackend, sdpa_kernel
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from cleanrl.shared.hl_gauss import HLGaussSupport
 
@@ -35,6 +36,9 @@ NUM_KV_HEADS = 2
 FFN_MULT = 2
 NUM_LAYERS = 2
 NUM_SPECIAL_TOKENS = 3
+TOKEN_INIT_STD = 0.02
+CLS_INIT_STD = 0.02
+BRANCH_INIT_STD = 0.02
 
 
 @dataclass
@@ -199,8 +203,10 @@ class TransformerBlock(nn.Module):
         self.head_dim = dim // num_q_heads
         self.kv_group_size = num_q_heads // num_kv_heads
 
-        self.attn_norm = RMSNorm(dim)
-        self.ffn_norm = RMSNorm(dim)
+        self.attn_pre_norm = RMSNorm(dim)
+        self.attn_post_norm = RMSNorm(dim)
+        self.ffn_pre_norm = RMSNorm(dim)
+        self.ffn_post_norm = RMSNorm(dim)
         self.q_norm = RMSNorm(self.head_dim)
         self.k_norm = RMSNorm(self.head_dim)
 
@@ -215,18 +221,16 @@ class TransformerBlock(nn.Module):
         self.w3 = nn.Linear(dim, ffn_dim, bias=False)
 
         for module in [self.wq, self.wk, self.wv, self.w1, self.w3]:
-            fan_in = module.weight.shape[1]
-            std = fan_in**-0.5
+            std = BRANCH_INIT_STD
             nn.init.trunc_normal_(module.weight, std=std, a=-2 * std, b=2 * std)
         for module in [self.wo, self.w2]:
-            fan_in = module.weight.shape[1]
-            std = init_scale * fan_in**-0.5
+            std = BRANCH_INIT_STD * init_scale
             nn.init.trunc_normal_(module.weight, std=std, a=-2 * std, b=2 * std)
 
     def forward(self, x, rope_cos, rope_sin):
         batch, seq_len, width = x.shape
 
-        h = self.attn_norm(x)
+        h = self.attn_pre_norm(x)
         q = self.wq(h).view(batch, seq_len, self.num_q_heads, self.head_dim).transpose(1, 2)
         k = self.wk(h).view(batch, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
         v = self.wv(h).view(batch, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
@@ -242,10 +246,10 @@ class TransformerBlock(nn.Module):
 
         attn_out = attention(q, k, v)
         attn_out = attn_out.transpose(1, 2).reshape(batch, seq_len, width)
-        x = x + self.wo(attn_out)
+        x = x + self.attn_post_norm(self.wo(attn_out))
 
-        h = self.ffn_norm(x)
-        x = x + self.w2(F.silu(self.w1(h)) * self.w3(h))
+        h = self.ffn_pre_norm(x)
+        x = x + self.ffn_post_norm(self.w2(F.silu(self.w1(h)) * self.w3(h)))
         return x
 
 
@@ -255,15 +259,13 @@ class Agent(nn.Module):
         obs_dim = int(np.array(envs.single_observation_space.shape).prod())
         act_dim = int(np.prod(envs.single_action_space.shape))
 
-        embed_std = MODEL_DIM**-0.5
         self.obs_embed_w = nn.Parameter(torch.empty(obs_dim, MODEL_DIM))
-        nn.init.trunc_normal_(self.obs_embed_w, std=embed_std, a=-2 * embed_std, b=2 * embed_std)
+        nn.init.trunc_normal_(self.obs_embed_w, std=TOKEN_INIT_STD, a=-2 * TOKEN_INIT_STD, b=2 * TOKEN_INIT_STD)
         self.obs_embed_b = nn.Parameter(torch.zeros(obs_dim, MODEL_DIM))
 
-        cls_std = MODEL_DIM**-0.5
-        self.actor_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * cls_std)
-        self.critic_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * cls_std)
-        self.sde_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * cls_std)
+        self.actor_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * CLS_INIT_STD)
+        self.critic_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * CLS_INIT_STD)
+        self.sde_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * CLS_INIT_STD)
 
         self.embed_norm = RMSNorm(MODEL_DIM)
         init_scale = 1.0 / (2 * NUM_LAYERS) ** 0.5

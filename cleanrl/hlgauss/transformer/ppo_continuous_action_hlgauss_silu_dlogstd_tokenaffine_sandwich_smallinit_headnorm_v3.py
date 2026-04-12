@@ -1,11 +1,11 @@
 # PPO + HL-Gauss with an LLM-style shared self-attention backbone.
 #
 # Key ideas:
-# - one learned token per observation dimension via a small scalar MLP embedder
+# - one learned token per observation dimension
 # - three learned CLS tokens: actor, critic, and exploration/log-std
-# - 2-layer shared transformer with RoPE, QK-norm, RMSNorm Peri-LN, and SwiGLU
+# - 2-layer shared transformer with RoPE, QK-norm, sandwich norm, and SwiGLU
 # - small truncated-normal residual init to keep PPO updates conservative
-# - no extra CLS/head norm; rely on RMSNorm Peri-LN blocks
+# - per-head RMSNorm on CLS readouts before mean, value logits, and log-std
 import os
 import random
 import sys
@@ -25,7 +25,7 @@ from torch.nn.attention import SDPBackend, sdpa_kernel
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from cleanrl.shared.hl_gauss import HLGaussSupport
 
@@ -39,7 +39,6 @@ NUM_SPECIAL_TOKENS = 3
 TOKEN_INIT_STD = 0.02
 CLS_INIT_STD = 0.02
 BRANCH_INIT_STD = 0.02
-SCALAR_EMBED_DIM = 32
 
 
 @dataclass
@@ -260,16 +259,9 @@ class Agent(nn.Module):
         obs_dim = int(np.array(envs.single_observation_space.shape).prod())
         act_dim = int(np.prod(envs.single_action_space.shape))
 
-        self.obs_in_proj = nn.Linear(1, SCALAR_EMBED_DIM)
-        self.obs_out_proj = nn.Linear(SCALAR_EMBED_DIM, MODEL_DIM)
-        nn.init.trunc_normal_(self.obs_in_proj.weight, std=TOKEN_INIT_STD, a=-2 * TOKEN_INIT_STD, b=2 * TOKEN_INIT_STD)
-        nn.init.zeros_(self.obs_in_proj.bias)
-        nn.init.trunc_normal_(self.obs_out_proj.weight, std=TOKEN_INIT_STD, a=-2 * TOKEN_INIT_STD, b=2 * TOKEN_INIT_STD)
-        nn.init.zeros_(self.obs_out_proj.bias)
-
-        self.obs_dim_embed = nn.Parameter(torch.empty(obs_dim, MODEL_DIM))
-        nn.init.trunc_normal_(self.obs_dim_embed, std=TOKEN_INIT_STD, a=-2 * TOKEN_INIT_STD, b=2 * TOKEN_INIT_STD)
-        self.obs_token_norm = RMSNorm(MODEL_DIM)
+        self.obs_embed_w = nn.Parameter(torch.empty(obs_dim, MODEL_DIM))
+        nn.init.trunc_normal_(self.obs_embed_w, std=TOKEN_INIT_STD, a=-2 * TOKEN_INIT_STD, b=2 * TOKEN_INIT_STD)
+        self.obs_embed_b = nn.Parameter(torch.zeros(obs_dim, MODEL_DIM))
 
         self.actor_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * CLS_INIT_STD)
         self.critic_cls = nn.Parameter(torch.randn(1, 1, MODEL_DIM) * CLS_INIT_STD)
@@ -282,6 +274,10 @@ class Agent(nn.Module):
         )
         self.final_norm = RMSNorm(MODEL_DIM)
 
+        self.actor_head_norm = RMSNorm(MODEL_DIM)
+        self.critic_head_norm = RMSNorm(MODEL_DIM)
+        self.sde_head_norm = RMSNorm(MODEL_DIM)
+
         head_dim = MODEL_DIM // NUM_Q_HEADS
         rope_cos, rope_sin = build_rope_cache(obs_dim, NUM_SPECIAL_TOKENS, head_dim, torch.device("cpu"))
         self.register_buffer("rope_cos", rope_cos)
@@ -293,8 +289,7 @@ class Agent(nn.Module):
 
     def _encode(self, x):
         batch = x.shape[0]
-        obs_tokens = self.obs_out_proj(F.silu(self.obs_in_proj(x.unsqueeze(-1))))
-        obs_tokens = self.obs_token_norm(obs_tokens + self.obs_dim_embed.unsqueeze(0))
+        obs_tokens = x.unsqueeze(-1) * self.obs_embed_w + self.obs_embed_b
         special_tokens = torch.cat(
             [
                 self.actor_cls.expand(batch, -1, -1),
@@ -314,13 +309,16 @@ class Agent(nn.Module):
 
     def get_value_logits(self, x):
         _, critic_features, _ = self._encode(x)
-        return self.critic_head(critic_features)
+        return self.critic_head(self.critic_head_norm(critic_features))
 
     def get_value(self, x, hl_support):
         return hl_support.to_scalar(self.get_value_logits(x))
 
     def get_action_and_value(self, x, hl_support, action=None):
         actor_features, critic_features, sde_features = self._encode(x)
+        actor_features = self.actor_head_norm(actor_features)
+        critic_features = self.critic_head_norm(critic_features)
+        sde_features = self.sde_head_norm(sde_features)
         action_mean = self.actor_mean_head(actor_features)
         action_logstd = torch.clamp(self.sde_logstd_head(sde_features), -5.0, 2.0)
         action_std = torch.exp(action_logstd)

@@ -3,9 +3,9 @@
 # Key ideas:
 # - one learned token per observation dimension via a small scalar MLP embedder
 # - three learned CLS tokens: actor, critic, and exploration/log-std
-# - 2-layer shared transformer with RoPE, QK-norm, sandwich norm, and SwiGLU
+# - 2-layer shared transformer with RoPE, QK-norm, pre-norm only, and SwiGLU
 # - small truncated-normal residual init to keep PPO updates conservative
-# - no extra CLS/head norm; rely on transformer pre-norm + post-norm blocks
+# - no extra CLS/head norm; rely on transformer pre-norm blocks only
 import os
 import random
 import sys
@@ -25,7 +25,7 @@ from torch.nn.attention import SDPBackend, sdpa_kernel
 from torch.distributions.normal import Normal
 from torch.utils.tensorboard import SummaryWriter
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from cleanrl.shared.hl_gauss import HLGaussSupport
 
@@ -205,9 +205,7 @@ class TransformerBlock(nn.Module):
         self.kv_group_size = num_q_heads // num_kv_heads
 
         self.attn_pre_norm = RMSNorm(dim)
-        self.attn_post_norm = RMSNorm(dim)
         self.ffn_pre_norm = RMSNorm(dim)
-        self.ffn_post_norm = RMSNorm(dim)
         self.q_norm = RMSNorm(self.head_dim)
         self.k_norm = RMSNorm(self.head_dim)
 
@@ -247,10 +245,10 @@ class TransformerBlock(nn.Module):
 
         attn_out = attention(q, k, v)
         attn_out = attn_out.transpose(1, 2).reshape(batch, seq_len, width)
-        x = x + self.attn_post_norm(self.wo(attn_out))
+        x = x + self.wo(attn_out)
 
         h = self.ffn_pre_norm(x)
-        x = x + self.ffn_post_norm(self.w2(F.silu(self.w1(h)) * self.w3(h)))
+        x = x + self.w2(F.silu(self.w1(h)) * self.w3(h))
         return x
 
 
