@@ -39,6 +39,7 @@ cleanrl/ppo_continuous_action_<your_method_name>.py
 - Generally do not run more than 3 experiments at once, which already saturate compute.
 - If a run is clearly underperforming after 1-2M steps you may wawnt to stop it
 - After a benchmark completes (or enough data to judge): re-evaluate your hypothesis, determine if it should be iterate on futher, and parse what worked and what didn't.
+- Do not do smoke tests
 - Use `cleanrl/scripts/score_runs.py` to get a clear picture of results. Run with `uv run python cleanrl/scripts/score_runs.py <pattern> [--env <env>] [--last N] [--runs-dir <from root dir>]`.
 
 First use or activate venv at `.venv/bin/python`
