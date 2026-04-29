@@ -29,13 +29,34 @@ class HLGaussSupport:
                     and symexp after converting logits to scalar.
     """
 
-    def __init__(self, num_bins, v_min, v_max, sigma_ratio, device, use_symlog=False):
+    def __init__(
+        self,
+        num_bins,
+        v_min,
+        v_max,
+        sigma_ratio,
+        device,
+        use_symlog=False,
+        support_is_edges=False,
+        clamp_targets=True,
+        eps=1e-10,
+    ):
         self.num_bins = num_bins
         self.v_min = v_min
         self.v_max = v_max
-        self.bin_width = (v_max - v_min) / (num_bins - 1)
+        self.support_is_edges = support_is_edges
+        self.clamp_targets = clamp_targets
+        self.eps = eps
+
+        denom = num_bins if support_is_edges else num_bins - 1
+        self.bin_width = (v_max - v_min) / denom
         self.sigma = sigma_ratio * self.bin_width
-        self.support = torch.linspace(v_min, v_max, num_bins, device=device)
+        if support_is_edges:
+            self.edges = torch.linspace(v_min, v_max, num_bins + 1, device=device)
+            self.support = (self.edges[:-1] + self.edges[1:]) / 2.0
+        else:
+            self.edges = None
+            self.support = torch.linspace(v_min, v_max, num_bins, device=device)
         self.use_symlog = use_symlog
 
     def to_scalar(self, logits):
@@ -56,8 +77,17 @@ class HLGaussSupport:
         """
         if self.use_symlog:
             targets = symlog(targets)
-        targets = targets.clamp(self.v_min, self.v_max)
+        if self.clamp_targets:
+            targets = targets.clamp(self.v_min, self.v_max)
         targets = targets.unsqueeze(-1)
+
+        if self.support_is_edges:
+            edges = self.edges.unsqueeze(0)
+            cdf_evals = torch.erf((edges - targets) / (self.sigma * np.sqrt(2)))
+            z = cdf_evals[..., -1:] - cdf_evals[..., :1]
+            probs = cdf_evals[..., 1:] - cdf_evals[..., :-1]
+            return probs / z.clamp(min=self.eps)
+
         support = self.support.unsqueeze(0)
         half_w = self.bin_width / 2.0
         upper = (support + half_w - targets) / self.sigma
