@@ -35,11 +35,11 @@ cleanrl/ppo_continuous_action_<your_method_name>.py
 
 ### Benchmarking and iterating
 
-- Always run experiments as background tasks so they appear in your harness UI.
+- Always run experiments such thawt they appear in your harness UI.
 - Generally do not run more than 3 experiments at once, which already saturate compute.
 - If a run is clearly underperforming after 1-2M steps you may wawnt to stop it
 - After a benchmark completes (or enough data to judge): re-evaluate your hypothesis, determine if it should be iterate on futher, and parse what worked and what didn't.
-- Do not do smoke tests
+- Never do smoke tests
 - Use `cleanrl/scripts/score_runs.py` to get a clear picture of results. Run with `uv run python cleanrl/scripts/score_runs.py <pattern> [--env <env>] [--last N] [--runs-dir <from root dir>]`.
 
 First use or activate venv at `.venv/bin/python`
@@ -47,7 +47,6 @@ First use or activate venv at `.venv/bin/python`
 Run with **16 parallel environments** and **versioned experiment names**:
 
 ```bash
-# Use Bash tool with run_in_background: true
 .venv/bin/python -u cleanrl/ppo_continuous_action_<method>.py \
     --env-id HalfCheetah-v4 \
     --num-envs 16 \
