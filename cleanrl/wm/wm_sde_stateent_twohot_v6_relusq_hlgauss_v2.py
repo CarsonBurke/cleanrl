@@ -13,6 +13,7 @@
 #      checkpoints still load; STSTSCLSBackbone is now parameterised.
 #   5. Dynamics-value heads trained in the PPO phase on the already-encoded,
 #      frozen latent (Dreamer4-style: RL learns heads, not the WM trunk).
+#      WM supervision and imagination both use a 16-step horizon.
 #   6. bf16 autocast around the major forward passes; SDPA dispatches to
 #      FlashAttention.
 #   7. AsyncVectorEnv for parallel env stepping at high num_envs.
@@ -154,14 +155,14 @@ class Args:
     reward_use_symlog: bool = True
     tokenizer_path: str = ""
     tokenizer_checkpoint_prefix: str = ""
-    dyn_horizon: int = 3
+    dyn_horizon: int = 16
     pred_context: int = 5
     wm_update_epochs: int = 1
-    imagination_horizon: int = 15
+    imagination_horizon: int = 16
     imagine_start_step: int = 0
     imagine_update_epochs: int = 1
     imagine_actor_coef: float = 1.0
-    imagine_critic_coef: float = 0.5
+    imagine_critic_coef: float = 1.0
     imagine_actor_ent_coef: float = 0.0
     # Cap on the number of seed states imagined from each rollout buffer.
     # 0 means "use all" (the v1 behaviour). Subsampling avoids OOM at large
@@ -1131,6 +1132,13 @@ if __name__ == "__main__":
         # PPO's encode shape modulo the horizon multiplier, which keeps the
         # number of WM-aux minibatches at args.num_minibatches.
         wm_minibatch_size = args.minibatch_size
+        wm_horizon_weight = torch.zeros(args.dyn_horizon, device=device)
+        wm_horizon_latent_weight = torch.zeros(args.dyn_horizon, device=device)
+        wm_horizon_reward_mse = torch.zeros(args.dyn_horizon, device=device)
+        wm_horizon_reward_bins = torch.zeros(args.dyn_horizon, device=device)
+        wm_horizon_continue = torch.zeros(args.dyn_horizon, device=device)
+        wm_horizon_state_pred = torch.zeros(args.dyn_horizon, device=device)
+        wm_horizon_trunk_anchor = torch.zeros(args.dyn_horizon, device=device)
         for wm_epoch in range(args.wm_update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, wm_minibatch_size):
@@ -1269,6 +1277,19 @@ if __name__ == "__main__":
                     ).mean(-1).view(mb_size, args.dyn_horizon)
                     trunk_anchor_loss = (trunk_anchor_raw * step_weight).sum() / (step_weight.sum() + 1e-8)
 
+                    with torch.no_grad():
+                        step_weight_d = step_weight.detach()
+                        latent_weight_d = latent_weight.detach()
+                        wm_horizon_weight += step_weight_d.sum(dim=0)
+                        wm_horizon_latent_weight += latent_weight_d.sum(dim=0)
+                        wm_horizon_reward_mse += (
+                            (pred_rewards - future_rewards).square().detach() * step_weight_d
+                        ).sum(dim=0)
+                        wm_horizon_reward_bins += (reward_ce.detach() * step_weight_d).sum(dim=0)
+                        wm_horizon_continue += (continue_loss_raw.detach() * step_weight_d).sum(dim=0)
+                        wm_horizon_state_pred += (sp_loss_raw.detach() * latent_weight_d).sum(dim=0)
+                        wm_horizon_trunk_anchor += (trunk_anchor_raw.detach() * step_weight_d).sum(dim=0)
+
                     # Equal-weight aggregation across heterogeneous categories.
                     aux_loss = (
                         equal_weight(reward_loss)
@@ -1290,6 +1311,9 @@ if __name__ == "__main__":
         imagine_approx_kl = torch.tensor(0.0, device=device)
         imagine_logprob_delta_abs = torch.tensor(0.0, device=device)
         imagined_return_mean = torch.tensor(0.0, device=device)
+        dream_horizon_return_mean = None
+        dream_horizon_reward_mean = None
+        dream_horizon_continue_mean = None
         use_imagination = (
             global_step >= args.imagine_start_step
             and (args.imagine_actor_coef != 0.0 or args.imagine_critic_coef != 0.0)
@@ -1376,6 +1400,27 @@ if __name__ == "__main__":
                     dream_gae = torch.where(dream_learn_masks[h], dream_gae, torch.zeros_like(dream_gae))
                     dream_returns.append(dream_gae + dream_values_with_bootstrap[h])
                 dream_returns.reverse()
+
+                dream_horizon_return_mean = []
+                dream_horizon_reward_mean = []
+                dream_horizon_continue_mean = []
+                for horizon_return, horizon_reward, horizon_continue, horizon_mask in zip(
+                    dream_returns,
+                    dream_rewards,
+                    dream_continues,
+                    dream_learn_masks,
+                ):
+                    if bool(horizon_mask.any()):
+                        dream_horizon_return_mean.append(horizon_return[horizon_mask].mean())
+                        dream_horizon_reward_mean.append(horizon_reward[horizon_mask].mean())
+                        dream_horizon_continue_mean.append(horizon_continue[horizon_mask].mean())
+                    else:
+                        dream_horizon_return_mean.append(horizon_return.mean())
+                        dream_horizon_reward_mean.append(horizon_reward.mean())
+                        dream_horizon_continue_mean.append(horizon_continue.mean())
+                dream_horizon_return_mean = torch.stack(dream_horizon_return_mean)
+                dream_horizon_reward_mean = torch.stack(dream_horizon_reward_mean)
+                dream_horizon_continue_mean = torch.stack(dream_horizon_continue_mean)
 
                 dream_states = torch.cat(dream_states, dim=0)
                 dream_actions = torch.cat(dream_actions, dim=0)
@@ -1500,12 +1545,64 @@ if __name__ == "__main__":
         writer.add_scalar("worldmodel/continue_loss", continue_loss.item(), global_step)
         writer.add_scalar("worldmodel/trunk_anchor_loss", trunk_anchor_loss.item(), global_step)
         writer.add_scalar("state_pred/loss", state_pred_loss.item(), global_step)
+        wm_horizon_denom = wm_horizon_weight.clamp_min(1e-8)
+        wm_horizon_latent_denom = wm_horizon_latent_weight.clamp_min(1e-8)
+        wm_horizon_reward_mse_mean = wm_horizon_reward_mse / wm_horizon_denom
+        wm_horizon_reward_bins_mean = wm_horizon_reward_bins / wm_horizon_denom
+        wm_horizon_continue_mean = wm_horizon_continue / wm_horizon_denom
+        wm_horizon_trunk_anchor_mean = wm_horizon_trunk_anchor / wm_horizon_denom
+        wm_horizon_state_pred_mean = wm_horizon_state_pred / wm_horizon_latent_denom
+        for horizon in range(args.dyn_horizon):
+            horizon_tag = f"h{horizon + 1:02d}"
+            writer.add_scalar(
+                f"worldmodel_horizon/reward_mse_{horizon_tag}",
+                wm_horizon_reward_mse_mean[horizon].item(),
+                global_step,
+            )
+            writer.add_scalar(
+                f"worldmodel_horizon/reward_bins_{horizon_tag}",
+                wm_horizon_reward_bins_mean[horizon].item(),
+                global_step,
+            )
+            writer.add_scalar(
+                f"worldmodel_horizon/continue_{horizon_tag}",
+                wm_horizon_continue_mean[horizon].item(),
+                global_step,
+            )
+            writer.add_scalar(
+                f"worldmodel_horizon/state_pred_{horizon_tag}",
+                wm_horizon_state_pred_mean[horizon].item(),
+                global_step,
+            )
+            writer.add_scalar(
+                f"worldmodel_horizon/trunk_anchor_{horizon_tag}",
+                wm_horizon_trunk_anchor_mean[horizon].item(),
+                global_step,
+            )
         writer.add_scalar("imagination/actor_loss", imagine_actor_loss.item(), global_step)
         writer.add_scalar("imagination/critic_loss", imagine_critic_loss.item(), global_step)
         writer.add_scalar("imagination/post_actor_approx_kl", imagine_approx_kl.item(), global_step)
         writer.add_scalar("imagination/post_actor_logprob_delta_abs", imagine_logprob_delta_abs.item(), global_step)
         with torch.no_grad():
             writer.add_scalar("imagination/mean_return", imagined_return_mean.item(), global_step)
+            if dream_horizon_return_mean is not None:
+                for horizon in range(args.imagination_horizon):
+                    horizon_tag = f"h{horizon + 1:02d}"
+                    writer.add_scalar(
+                        f"imagination_horizon/return_{horizon_tag}",
+                        dream_horizon_return_mean[horizon].item(),
+                        global_step,
+                    )
+                    writer.add_scalar(
+                        f"imagination_horizon/reward_{horizon_tag}",
+                        dream_horizon_reward_mean[horizon].item(),
+                        global_step,
+                    )
+                    writer.add_scalar(
+                        f"imagination_horizon/continue_{horizon_tag}",
+                        dream_horizon_continue_mean[horizon].item(),
+                        global_step,
+                    )
             cls = agent._encode_wm(agent.obs_history)
             dyn_flat = agent._dyn_flat_from_cls(cls)
             _, action_std = agent._actor_mean_std(dyn_flat)
