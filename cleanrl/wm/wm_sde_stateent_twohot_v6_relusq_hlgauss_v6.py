@@ -809,18 +809,18 @@ class Agent(nn.Module):
         self.register_buffer("action_low", torch.tensor(envs.single_action_space.low, dtype=torch.float32))
         self.register_buffer("action_high", torch.tensor(envs.single_action_space.high, dtype=torch.float32))
 
-        # Transition heads read the agent token plus the same action embedding
-        # used by the trunk. This mirrors Dreamer4's `agent_predicts_state`
-        # branch: the trunk is evaluated once over the teacher-forced sequence,
-        # and current action a_t is paired with frame-t agent readout at the
-        # transition head.
-        transition_head_dim = WM_AGENT_FLAT_DIM + WM_EMBED_DIM
+        # Keep latent dynamics on dyn tokens and reward/control readouts on
+        # agent tokens. Both heads receive the current action embedding, but
+        # next-latent prediction no longer competes directly for the actor /
+        # critic agent representation.
+        state_transition_head_dim = WM_DYN_FLAT_DIM + WM_EMBED_DIM
+        reward_transition_head_dim = WM_AGENT_FLAT_DIM + WM_EMBED_DIM
         self.to_state_pred = nn.Sequential(
-            RMSNorm(transition_head_dim),
-            nn.Linear(transition_head_dim, self.tok_obs_embed_dim * 2),
+            RMSNorm(state_transition_head_dim),
+            nn.Linear(state_transition_head_dim, self.tok_obs_embed_dim * 2),
         )
 
-        self.reward_head_bins = relusq_mlp(transition_head_dim, reward_num_bins, REWARD_HIDDEN)
+        self.reward_head_bins = relusq_mlp(reward_transition_head_dim, reward_num_bins, REWARD_HIDDEN)
         self.continue_head = relusq_mlp(self.tok_obs_embed_dim, 1, CONTINUE_HIDDEN)
         nn.init.constant_(self.continue_head[-1].bias, 5.0)
 
@@ -975,23 +975,24 @@ class Agent(nn.Module):
     def _transition_action_embed(self, current_action):
         return self.wm_backbone._action_tokens(current_action).squeeze(-2)
 
-    def _state_reward_from_readouts(self, agent_flat, current_action):
+    def _state_reward_from_readouts(self, dyn_flat, agent_flat, current_action):
         """Apply action-conditioned state and reward heads to WM readouts.
 
         Accepts either:
           - (B, D): single-frame readout used by the dream loop;
           - (B, T, D): per-frame readout used by extended-window WM training.
-        The action path follows Dreamer4's agent-state prediction head: pair
-        frame-k agent readout with the current action a_k at the transition
-        readout instead of building one extra transformer query frame per
-        prediction target.
+        Next-latent prediction reads dyn tokens, while reward prediction reads
+        agent tokens. This keeps actor / critic / reward conditioning together
+        but routes state reconstruction pressure through the state tokens.
         """
         action_embed = self._transition_action_embed(current_action).to(dtype=agent_flat.dtype)
         if action_embed.shape[:-1] != agent_flat.shape[:-1]:
             action_embed = action_embed.reshape(*agent_flat.shape[:-1], action_embed.shape[-1])
-        transition_flat = torch.cat([agent_flat, action_embed], dim=-1)
-        state_params = self.to_state_pred(transition_flat)  # (..., 2 * tok_obs_embed_dim)
-        reward_logits = self.reward_head_bins(transition_flat)
+        state_action_embed = action_embed.to(dtype=dyn_flat.dtype)
+        state_flat = torch.cat([dyn_flat, state_action_embed], dim=-1)
+        reward_flat = torch.cat([agent_flat, action_embed], dim=-1)
+        state_params = self.to_state_pred(state_flat)  # (..., 2 * tok_obs_embed_dim)
+        reward_logits = self.reward_head_bins(reward_flat)
         return state_params, reward_logits
 
     def _continue_from_next_obs_flat(self, next_obs_flat):
@@ -1017,8 +1018,9 @@ class Agent(nn.Module):
             action_history=action_history,
             reward_history=reward_history,
         )
+        dyn_flat = self._dyn_flat_from_cls(cls)
         agent_flat = self._agent_flat_from_cls(cls)
-        return self._state_reward_from_readouts(agent_flat, current_action)
+        return self._state_reward_from_readouts(dyn_flat, agent_flat, current_action)
 
     def _encode_next_obs_window(self, obs_window, action_history, reward_history):
         """Encode a window whose final obs slot is a forward prediction.
@@ -1711,12 +1713,17 @@ if __name__ == "__main__":
                         return_agent_seq=True,
                         cls_index=predict_start,
                     )
+                    dyn_seq = ext_cls['dyn_seq']
                     agent_seq = ext_cls['agent_seq']
+                    predict_dyn_flats = dyn_seq[
+                        :, predict_start:predict_start + args.dyn_horizon
+                    ].flatten(-2)
                     predict_agent_flats = agent_seq[
                         :, predict_start:predict_start + args.dyn_horizon
                     ].flatten(-2)
                     current_actions = b_actions[horizon_flat_inds]
                     state_params, pred_reward_logits = agent._state_reward_from_readouts(
+                        predict_dyn_flats,
                         predict_agent_flats,
                         current_actions,
                     )
@@ -1912,11 +1919,12 @@ if __name__ == "__main__":
                         # then encode the next imagined state from the predicted
                         # obs token. Dream rollouts condition future decisions
                         # on predicted rewards just as real rollouts condition
-                        # on observed rewards. The next latent / reward above
-                        # were decoded from the current agent readout plus the
-                        # sampled action embedding. Use the Beta mean for fixed-buffer
-                        # dream PPO; sampling here only injects OOD latent
-                        # noise because rollout generation runs under no_grad.
+                        # on observed rewards. The next latent is decoded from
+                        # dyn tokens, while reward is decoded from agent tokens;
+                        # both are conditioned on the sampled action embedding.
+                        # Use the Beta mean for fixed-buffer dream PPO; sampling
+                        # here only injects OOD latent noise because rollout
+                        # generation runs under no_grad.
                         state_dist, _, _ = agent._state_beta_dist(state_params.float())
                         next_obs_latent = (2.0 * state_dist.mean - 1.0)
                         continue_logits = agent._continue_from_next_obs_flat(next_obs_latent)

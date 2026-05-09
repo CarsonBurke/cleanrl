@@ -17,17 +17,16 @@
 #   6. bf16 autocast around the major forward passes; SDPA dispatches to
 #      FlashAttention.
 #   7. AsyncVectorEnv for parallel env stepping at high num_envs.
-#   8. WM aux objective now mirrors dreamer4: predictor outputs are decoded
-#      against the FROZEN tokenizer's next-obs embeddings (state_pred_loss).
+#   8. WM aux objective now mirrors dreamer4: action-conditioned dynamics
+#      outputs are decoded against the FROZEN tokenizer's next-obs embeddings
+#      (state_pred_loss).
 #      The collapse-prone transition_loss against the trainable trunk's own
 #      next-bundle is dropped; sigreg goes with it (no longer needed).
 #   9. DreamerV3-style asymmetric continue label smoothing
 #      (target = (1 - terminal).clamp(max=gamma)) so the head's asymptote is
 #      bounded on envs that never terminate.
 #  10. Per-frame trunk anchor: dyn_to_obs head decodes WM dyn_flat against
-#      the frozen tokenizer's CURRENT-step obs tokens. Without it the
-#      action-conditioned predictor can carry all the burden via state_pred,
-#      letting the dyn CLS go lazy.
+#      the frozen tokenizer's CURRENT-step obs tokens.
 #  11. Value head is HL-Gauss bin only — `get_value` returns the expected
 #      value via softmax-over-bins. The MSE critic head was producing
 #      unbounded `0.5*(newvalue - returns)^2` losses that dominated the
@@ -77,7 +76,9 @@ CONTEXT_LEN = 5
 DYN_TOKEN_NAMES = ['dyn0', 'dyn1', 'dyn2', 'dyn3']
 WM_CLS_NAMES = DYN_TOKEN_NAMES
 DYN_TOKEN_COUNT = len(DYN_TOKEN_NAMES)
+AGENT_TOKEN_COUNT = 2
 WM_DYN_FLAT_DIM = WM_EMBED_DIM * DYN_TOKEN_COUNT
+WM_AGENT_FLAT_DIM = WM_EMBED_DIM * AGENT_TOKEN_COUNT
 TOK_DYN_FLAT_DIM = TOK_EMBED_DIM * DYN_TOKEN_COUNT
 
 # Wider head MLPs; with the bigger trunk the readouts need to keep up.
@@ -94,7 +95,6 @@ DYNAMICS_SHAPE_COEF = 0.5
 STATE_ENT_COEF = 0.0
 STATE_PRED_LOSS_COEF = 0.1
 SQUASH_EPS = 1e-6
-PRED_NUM_BLOCKS = 2
 
 def equal_weight(loss, eps=1e-6):
     """Rescale a scalar loss to ~unit magnitude in value space.
@@ -113,7 +113,7 @@ class Args:
     seed: int = 1
     torch_deterministic: bool = True
     cuda: bool = True
-    compile: bool = True
+    compile: bool = False
     track: bool = False
     wandb_project_name: str = "cleanRL"
     wandb_entity: str = None
@@ -125,13 +125,14 @@ class Args:
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
     learning_rate: float = 3e-4
-    num_envs: int = 1
-    num_steps: int = 1024
+    num_envs: int = 64
+    rollout_batch_size: int = 2048
+    # Derived from rollout_batch_size // num_envs after CLI parsing.
+    num_steps: int = 0
     anneal_lr: bool = True
     gamma: float = 0.99
     gae_lambda: float = 0.95
-    num_minibatches: int = 32
-    update_epochs: int = 4
+    update_epochs: int = 1
     norm_adv: bool = True
     spo_eps_low: float = 0.40
     spo_eps_high: float = 0.56
@@ -164,13 +165,11 @@ class Args:
     imagine_actor_coef: float = 1.0
     imagine_critic_coef: float = 1.0
     imagine_actor_ent_coef: float = 0.0
-    # Cap on the number of seed states imagined from each rollout buffer.
-    # 0 means "use all" (the v1 behaviour). Subsampling avoids OOM at large
-    # num_envs/num_steps and is standard practice for Dreamer imagination.
+    # Flattened imagined transition samples optimized per dream batch.
     dream_batch_size: int = 2048
+    dream_batches: int = 8
 
     batch_size: int = 0
-    minibatch_size: int = 0
     num_iterations: int = 0
 
 
@@ -254,8 +253,8 @@ class RMSNorm(nn.Module):
         self.eps = eps
 
     def forward(self, x):
-        rms = torch.sqrt(torch.mean(x * x, dim=-1, keepdim=True) + self.eps)
-        return x / rms * self.weight
+        dtype = x.dtype
+        return F.rms_norm(x.float(), (x.shape[-1],), self.weight.float(), self.eps).to(dtype=dtype)
 
 
 def build_rope_cache(seq_len, head_dim, device):
@@ -267,6 +266,8 @@ def build_rope_cache(seq_len, head_dim, device):
 
 
 def apply_rope(x, cos, sin):
+    cos = cos.to(device=x.device, dtype=x.dtype)
+    sin = sin.to(device=x.device, dtype=x.dtype)
     half = x.shape[-1] // 2
     x1, x2 = x[..., :half], x[..., half:]
     return torch.cat([x1 * cos - x2 * sin, x2 * cos + x1 * sin], dim=-1)
@@ -403,12 +404,15 @@ class STSTSCLSBackbone(nn.Module):
         x = x.reshape(batch, slots, time_steps, width).permute(0, 2, 1, 3)
         return x
 
-    def forward(self, obs_seq, return_obs_tokens=False):
+    def forward(self, obs_seq, return_obs_tokens=False, return_all_obs_tokens=False):
         batch, time_steps, _ = obs_seq.shape
         obs_tokens = self.value_proj(obs_seq.unsqueeze(-1))
-        obs_tokens = obs_tokens + self.dim_id_embed(self.dim_indices).view(1, 1, self.obs_dim, self.embed_dim)
+        dtype = obs_tokens.dtype
+        obs_tokens = obs_tokens + self.dim_id_embed(self.dim_indices).to(dtype=dtype).view(
+            1, 1, self.obs_dim, self.embed_dim
+        )
 
-        cls_tokens = torch.stack(list(self.cls_params), dim=0)
+        cls_tokens = torch.stack(list(self.cls_params), dim=0).to(dtype=dtype)
         cls_tokens = cls_tokens.view(1, 1, self.num_cls_tokens, self.embed_dim).expand(batch, time_steps, -1, -1)
         tokens = torch.cat([obs_tokens, cls_tokens], dim=2)
         tokens = self.input_norm(tokens)
@@ -431,7 +435,220 @@ class STSTSCLSBackbone(nn.Module):
             out[name] = tokens[:, -1, self.obs_dim + i]
         if return_obs_tokens:
             out['obs_tokens'] = tokens[:, -1, :self.obs_dim]
+        if return_all_obs_tokens:
+            out['all_obs_tokens'] = tokens[:, :, :self.obs_dim]
         return out
+
+
+class TokenActionSTSBackbone(nn.Module):
+    def __init__(
+        self,
+        obs_dim,
+        action_dim,
+        context_len,
+        cls_names,
+        agent_token_count,
+        input_token_dim,
+        embed_dim,
+        num_heads,
+        ffn_mult,
+        num_spatial_blocks,
+        num_temporal_blocks,
+    ):
+        super().__init__()
+        self.obs_dim = obs_dim
+        self.action_dim = action_dim
+        self.context_len = context_len
+        self.cls_names = list(cls_names)
+        self.num_cls_tokens = len(self.cls_names)
+        self.num_agent_tokens = agent_token_count
+        self.embed_dim = embed_dim
+        self.reward_slots = 1
+        for i, name in enumerate(self.cls_names):
+            setattr(self, f'{name}_cls_index', obs_dim + action_dim + self.reward_slots + self.num_agent_tokens + i)
+
+        self.obs_token_proj = layer_init(nn.Linear(input_token_dim, embed_dim))
+        self.input_norm = RMSNorm(embed_dim)
+        self.obs_dim_embed = nn.Embedding(obs_dim, embed_dim)
+        self.action_proj = layer_init(nn.Linear(1, embed_dim))
+        self.action_dim_embed = nn.Embedding(action_dim, embed_dim)
+        self.reward_proj = layer_init(nn.Linear(1, embed_dim))
+        self.reward_embed = nn.Parameter(torch.empty(embed_dim))
+        self.agent_params = nn.Parameter(torch.empty(agent_token_count, embed_dim))
+        self.dyn_slot_embed = nn.Embedding(self.num_cls_tokens, embed_dim)
+        self.register_buffer("obs_dim_indices", torch.arange(obs_dim))
+        self.register_buffer("action_dim_indices", torch.arange(action_dim))
+        self.register_buffer("dyn_slot_indices", torch.arange(self.num_cls_tokens))
+
+        cls_std = 1.0 / embed_dim**0.5
+        self.cls_params = nn.ParameterList([
+            nn.Parameter(torch.empty(embed_dim)) for _ in range(self.num_cls_tokens)
+        ])
+        for p in self.cls_params:
+            nn.init.trunc_normal_(p, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
+        nn.init.trunc_normal_(self.agent_params, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
+        nn.init.trunc_normal_(self.obs_dim_embed.weight, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
+        nn.init.trunc_normal_(self.action_dim_embed.weight, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
+        nn.init.trunc_normal_(self.reward_embed, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
+        nn.init.trunc_normal_(self.dyn_slot_embed.weight, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
+
+        self.transition_pad_latent = nn.Parameter(torch.empty(1, 1, self.num_cls_tokens, embed_dim))
+        self.transition_pad_action = nn.Parameter(torch.empty(1, 1, action_dim))
+        self.transition_pad_reward = nn.Parameter(torch.empty(1, 1))
+        nn.init.trunc_normal_(self.transition_pad_latent, std=cls_std, a=-2 * cls_std, b=2 * cls_std)
+        nn.init.zeros_(self.transition_pad_action)
+        nn.init.zeros_(self.transition_pad_reward)
+
+        init_scale = 1.0 / (2 * (num_spatial_blocks + num_temporal_blocks)) ** 0.5
+        self.s_blocks = nn.ModuleList(
+            [SelfAttentionBlock(embed_dim, num_heads, ffn_mult, init_scale) for _ in range(num_spatial_blocks)]
+        )
+        self.t_blocks = nn.ModuleList(
+            [SelfAttentionBlock(embed_dim, num_heads, ffn_mult, init_scale) for _ in range(num_temporal_blocks)]
+        )
+        self.final_norm = RMSNorm(embed_dim)
+
+        head_dim = embed_dim // num_heads
+        temporal_cos, temporal_sin = build_rope_cache(context_len, head_dim, torch.device("cpu"))
+        self.register_buffer("temporal_cos", temporal_cos)
+        self.register_buffer("temporal_sin", temporal_sin)
+
+    def _spatial(self, tokens, tokens0, block):
+        batch, time_steps, slots, width = tokens.shape
+        x = tokens.reshape(batch * time_steps, slots, width)
+        x0 = tokens0.reshape(batch * time_steps, slots, width)
+        x = block(x, x0)
+        return x.reshape(batch, time_steps, slots, width)
+
+    def _temporal(self, tokens, tokens0, block):
+        batch, time_steps, slots, width = tokens.shape
+        x = tokens.permute(0, 2, 1, 3).reshape(batch * slots, time_steps, width)
+        x0 = tokens0.permute(0, 2, 1, 3).reshape(batch * slots, time_steps, width)
+        x = block(x, x0, rope_cos=self.temporal_cos, rope_sin=self.temporal_sin)
+        x = x.reshape(batch, slots, time_steps, width).permute(0, 2, 1, 3)
+        return x
+
+    def _run(self, tokens):
+        tokens = self.input_norm(tokens)
+        tokens0 = tokens
+        s_iter = iter(self.s_blocks)
+        t_iter = iter(self.t_blocks)
+        for s_block in s_iter:
+            tokens = self._spatial(tokens, tokens0, s_block)
+            t_block = next(t_iter, None)
+            if t_block is not None:
+                tokens = self._temporal(tokens, tokens0, t_block)
+        return self.final_norm(tokens)
+
+    def _action_tokens(self, action_history):
+        action_history = action_history.to(dtype=self.action_proj.weight.dtype)
+        action_tokens = self.action_proj(action_history.unsqueeze(-1))
+        dtype = action_tokens.dtype
+        return action_tokens + self.action_dim_embed(self.action_dim_indices).to(dtype=dtype).view(
+            1, 1, self.action_dim, self.embed_dim
+        )
+
+    def _reward_tokens(self, reward_history):
+        reward_history = reward_history.to(dtype=self.reward_proj.weight.dtype)
+        reward_tokens = self.reward_proj(reward_history.unsqueeze(-1).unsqueeze(-1))
+        return reward_tokens + self.reward_embed.to(dtype=reward_tokens.dtype).view(1, 1, 1, self.embed_dim)
+
+    def _agent_tokens(self, batch, time_steps, dtype=None):
+        tokens = self.agent_params.view(1, 1, self.num_agent_tokens, self.embed_dim).expand(
+            batch,
+            time_steps,
+            -1,
+            -1,
+        )
+        if dtype is not None:
+            tokens = tokens.to(dtype=dtype)
+        return tokens
+
+    def encode_obs_tokens(self, obs_tokens, action_history=None, reward_history=None, return_obs_tokens=False):
+        batch, time_steps, obs_dim, _ = obs_tokens.shape
+        assert time_steps == self.context_len
+        assert obs_dim == self.obs_dim
+        if action_history is None:
+            action_history = torch.zeros(
+                batch,
+                time_steps,
+                self.action_dim,
+                device=obs_tokens.device,
+                dtype=obs_tokens.dtype,
+            )
+        if reward_history is None:
+            reward_history = torch.zeros(
+                batch,
+                time_steps,
+                device=obs_tokens.device,
+                dtype=obs_tokens.dtype,
+            )
+
+        obs_tokens = self.obs_token_proj(obs_tokens)
+        dtype = obs_tokens.dtype
+        obs_tokens = obs_tokens + self.obs_dim_embed(self.obs_dim_indices).to(dtype=dtype).view(
+            1, 1, self.obs_dim, self.embed_dim
+        )
+        action_tokens = self._action_tokens(action_history)
+        reward_tokens = self._reward_tokens(reward_history)
+        agent_tokens = self._agent_tokens(batch, time_steps, dtype=dtype)
+        cls_tokens = torch.stack(list(self.cls_params), dim=0).to(dtype=dtype)
+        cls_tokens = cls_tokens.view(1, 1, self.num_cls_tokens, self.embed_dim).expand(batch, time_steps, -1, -1)
+        tokens = torch.cat([obs_tokens, action_tokens, reward_tokens, agent_tokens, cls_tokens], dim=2)
+        tokens = self._run(tokens)
+
+        out = {}
+        agent_start = self.obs_dim + self.action_dim + self.reward_slots
+        out['agent'] = tokens[:, -1, agent_start:agent_start + self.num_agent_tokens]
+        for i, name in enumerate(self.cls_names):
+            out[name] = tokens[:, -1, agent_start + self.num_agent_tokens + i]
+        if return_obs_tokens:
+            out['obs_tokens'] = tokens[:, -1, :self.obs_dim]
+        return out
+
+    def transition(self, latent_history, action_history, reward_history=None):
+        batch, context_len, num_tokens, width = latent_history.shape
+        assert num_tokens == self.num_cls_tokens
+        assert width == self.embed_dim
+        if reward_history is None:
+            reward_history = torch.zeros(
+                batch,
+                context_len,
+                device=latent_history.device,
+                dtype=latent_history.dtype,
+            )
+        if context_len > self.context_len:
+            latent_history = latent_history[:, -self.context_len:]
+            action_history = action_history[:, -self.context_len:]
+            reward_history = reward_history[:, -self.context_len:]
+        elif context_len < self.context_len:
+            pad = self.context_len - context_len
+            latent_history = torch.cat(
+                [self.transition_pad_latent.to(dtype=latent_history.dtype).expand(batch, pad, num_tokens, width), latent_history],
+                dim=1,
+            )
+            action_history = torch.cat(
+                [self.transition_pad_action.to(dtype=action_history.dtype).expand(batch, pad, self.action_dim), action_history],
+                dim=1,
+            )
+            reward_history = torch.cat(
+                [self.transition_pad_reward.to(dtype=reward_history.dtype).expand(batch, pad), reward_history],
+                dim=1,
+            )
+
+        action_tokens = self._action_tokens(action_history)
+        reward_tokens = self._reward_tokens(reward_history)
+        dtype = latent_history.dtype
+        agent_tokens = self._agent_tokens(batch, self.context_len, dtype=dtype)
+        latent_tokens = latent_history + self.dyn_slot_embed(self.dyn_slot_indices).to(dtype=dtype).view(
+            1, 1, self.num_cls_tokens, self.embed_dim
+        )
+        tokens = torch.cat([action_tokens, reward_tokens, agent_tokens, latent_tokens], dim=2)
+        tokens = self._run(tokens)
+        agent_start = self.action_dim + self.reward_slots
+        next_agent = tokens[:, -1, agent_start:agent_start + self.num_agent_tokens]
+        next_dyn = tokens[:, -1, agent_start + self.num_agent_tokens:]
+        return next_dyn, next_agent
 
 
 class Agent(nn.Module):
@@ -453,10 +670,15 @@ class Agent(nn.Module):
         self.tok_obs_embed_dim = obs_dim * TOK_EMBED_DIM
         self.action_dim = action_dim
         self.context_len = CONTEXT_LEN
-        self.pred_context = pred_context
+        self.pred_context = min(pred_context, self.context_len)
 
-        self.wm_backbone = STSTSCLSBackbone(
-            obs_dim, self.context_len, WM_CLS_NAMES,
+        self.wm_backbone = TokenActionSTSBackbone(
+            obs_dim,
+            action_dim,
+            self.context_len,
+            WM_CLS_NAMES,
+            AGENT_TOKEN_COUNT,
+            input_token_dim=TOK_EMBED_DIM,
             embed_dim=WM_EMBED_DIM,
             num_heads=WM_NUM_HEADS,
             ffn_mult=WM_FFN_MULT,
@@ -486,14 +708,14 @@ class Agent(nn.Module):
         # under SDE: each transition can collapse its own std and explode its
         # own gradient). Init: small (out_std=0.01) weights + zero bias →
         # raw ≈ 0 → std ≈ softplus(0) + STD_MIN = log(2) + STD_MIN ≈ 0.74.
-        self.actor_head = relusq_mlp_orthogonal(WM_DYN_FLAT_DIM, 2 * action_dim, ACTOR_HIDDEN, out_std=0.01)
+        self.actor_head = relusq_mlp_orthogonal(WM_AGENT_FLAT_DIM, 2 * action_dim, ACTOR_HIDDEN, out_std=0.01)
 
         # HL-Gauss bin critic — trained by softmax CE; expected-value
         # readout via `to_value(critic_bins(...))` is naturally bounded
         # by the support range, so no MSE head and no value clipping
         # are needed (a separate MSE head with unbounded loss would
         # dominate the shared trunk's gradient).
-        self.critic_bins = relusq_mlp_orthogonal(WM_DYN_FLAT_DIM, num_bins, CRITIC_HIDDEN, out_std=1.0)
+        self.critic_bins = relusq_mlp_orthogonal(WM_AGENT_FLAT_DIM, num_bins, CRITIC_HIDDEN, out_std=1.0)
         self.register_buffer("action_low", torch.tensor(envs.single_action_space.low, dtype=torch.float32))
         self.register_buffer("action_high", torch.tensor(envs.single_action_space.high, dtype=torch.float32))
 
@@ -505,61 +727,48 @@ class Agent(nn.Module):
         )
 
         # Per-frame trunk anchor: WM dyn_flat at the current step is decoded
-        # against the FROZEN tokenizer's current-step obs tokens. This forces
-        # every dyn CLS to encode the current state directly — without it the
-        # predictor (which is the only trunk gradient path through state_pred)
-        # could carry the burden and let the trunk go lazy.
+        # against the FROZEN tokenizer's current-step obs tokens.
         self.dyn_to_obs = nn.Sequential(
             RMSNorm(WM_DYN_FLAT_DIM),
             nn.Linear(WM_DYN_FLAT_DIM, self.tok_obs_embed_dim),
         )
-
-        # Action-token contextual dynamics predictor (lives in WM space).
-        self.pred_action_proj = layer_init(nn.Linear(1, WM_EMBED_DIM))
-        self.pred_action_dim_embed = nn.Embedding(action_dim, WM_EMBED_DIM)
-        nn.init.trunc_normal_(self.pred_action_dim_embed.weight, std=1.0 / WM_EMBED_DIM**0.5)
-        self.pred_pos_embed = nn.Parameter(
-            torch.empty(self.pred_context * (action_dim + DYN_TOKEN_COUNT), WM_EMBED_DIM)
-        )
-        nn.init.trunc_normal_(self.pred_pos_embed, std=1.0 / WM_EMBED_DIM**0.5)
-        # Learnable "no-history" tokens prepended when the real history is
-        # shorter than pred_context. Keeps the predictor's seq dim fixed at
-        # pred_context * tokens_per_step so torch.compile sees one shape and
-        # SDPA dispatches to FlashAttention with no mask.
-        self.pred_pad_latent = nn.Parameter(torch.zeros(1, 1, DYN_TOKEN_COUNT, WM_EMBED_DIM))
-        nn.init.trunc_normal_(self.pred_pad_latent, std=1.0 / WM_EMBED_DIM**0.5)
-        self.pred_pad_action = nn.Parameter(torch.zeros(1, 1, action_dim))
-        pred_init_scale = 1.0 / (2 * PRED_NUM_BLOCKS) ** 0.5
-        self.pred_blocks = nn.ModuleList(
-            [SelfAttentionBlock(WM_EMBED_DIM, WM_NUM_HEADS, WM_FFN_MULT, pred_init_scale)
-             for _ in range(PRED_NUM_BLOCKS)]
-        )
-        self.pred_final_norm = RMSNorm(WM_EMBED_DIM)
-        self.pred_next_proj = layer_init(nn.Linear(WM_EMBED_DIM, WM_EMBED_DIM))
 
         # Dynamics-value HL-Gauss bin head — trained on real GAE returns,
         # then used as the value bootstrap/readout inside imagined rollouts.
         # The dream loop computes lambda returns once per iteration under
         # no_grad, freezing the bootstrap target for that iteration's SGD —
         # so a separate EMA target copy isn't needed.
-        self.dynamics_value_bins = relusq_mlp(WM_DYN_FLAT_DIM, num_bins, DYN_VALUE_HIDDEN, out_std=1.0)
-        # Reward reads current latent, action features, and predicted next latent.
-        reward_input_dim = WM_DYN_FLAT_DIM * 2 + action_dim * 2 + 1
-        self.reward_head = relusq_mlp(reward_input_dim, 1, REWARD_HIDDEN)
-        self.reward_head_bins = relusq_mlp(reward_input_dim, reward_num_bins, REWARD_HIDDEN)
+        self.dynamics_value_bins = relusq_mlp(WM_AGENT_FLAT_DIM, num_bins, DYN_VALUE_HIDDEN, out_std=1.0)
+        self.reward_head_bins = relusq_mlp(WM_AGENT_FLAT_DIM, reward_num_bins, REWARD_HIDDEN)
         self.continue_head = relusq_mlp(WM_DYN_FLAT_DIM, 1, CONTINUE_HIDDEN)
         nn.init.constant_(self.continue_head[-1].bias, 5.0)
 
         self.register_buffer("obs_history", torch.zeros(num_envs, self.context_len, obs_dim))
+        self.register_buffer("action_history", torch.zeros(num_envs, self.context_len, action_dim))
+        self.register_buffer("reward_history", torch.zeros(num_envs, self.context_len))
 
     def reset_history(self, env_mask=None):
         if env_mask is None:
             self.obs_history.zero_()
+            self.action_history.zero_()
+            self.reward_history.zero_()
         else:
             self.obs_history[env_mask] = 0.0
+            self.action_history[env_mask] = 0.0
+            self.reward_history[env_mask] = 0.0
 
-    def update_history(self, obs):
+    def update_history(self, obs, action=None, reward=None):
         self.obs_history = torch.cat([self.obs_history[:, 1:], obs.unsqueeze(1)], dim=1)
+        if action is None:
+            action = torch.zeros(self.obs_history.shape[0], self.action_dim, device=obs.device, dtype=obs.dtype)
+        else:
+            action = action.to(dtype=self.action_history.dtype)
+        if reward is None:
+            reward = torch.zeros(self.obs_history.shape[0], device=obs.device, dtype=self.reward_history.dtype)
+        else:
+            reward = reward.to(dtype=self.reward_history.dtype)
+        self.action_history = torch.cat([self.action_history[:, 1:], action.unsqueeze(1)], dim=1)
+        self.reward_history = torch.cat([self.reward_history[:, 1:], reward.unsqueeze(1)], dim=1)
 
     def _load_tokenizer_checkpoint(self, tokenizer_path, tokenizer_checkpoint_prefix=""):
         path = Path(tokenizer_path).expanduser()
@@ -636,13 +845,24 @@ class Agent(nn.Module):
             f"missing={len(missing)}, unexpected={len(unexpected)})."
         )
 
-    def _encode_wm(self, obs_seq, return_obs_tokens=False):
-        return self.wm_backbone(obs_seq, return_obs_tokens=return_obs_tokens)
+    def _encode_wm(self, obs_seq, action_seq=None, reward_seq=None, return_obs_tokens=False):
+        with bf16_autocast(obs_seq.device):
+            tokenizer = self._encode_tokenizer(obs_seq, return_all_obs_tokens=True)
+            return self.wm_backbone.encode_obs_tokens(
+                tokenizer['all_obs_tokens'],
+                action_history=action_seq,
+                reward_history=reward_seq,
+                return_obs_tokens=return_obs_tokens,
+            )
 
-    def _encode_tokenizer(self, obs_seq, return_obs_tokens=False):
+    def _encode_tokenizer(self, obs_seq, return_obs_tokens=False, return_all_obs_tokens=False):
         self.tokenizer_backbone.eval()
-        with torch.no_grad():
-            return self.tokenizer_backbone(obs_seq, return_obs_tokens=return_obs_tokens)
+        with torch.no_grad(), bf16_autocast(obs_seq.device):
+            return self.tokenizer_backbone(
+                obs_seq,
+                return_obs_tokens=return_obs_tokens,
+                return_all_obs_tokens=return_all_obs_tokens,
+            )
 
     def _dyn_bundle_from_cls(self, cls):
         return torch.stack([cls[name] for name in DYN_TOKEN_NAMES], dim=1)
@@ -650,58 +870,47 @@ class Agent(nn.Module):
     def _dyn_flat_from_cls(self, cls):
         return self._dyn_bundle_from_cls(cls).flatten(1)
 
-    def _reward_input(self, current_flat, action, next_flat):
-        action_energy = action.square().sum(dim=-1, keepdim=True)
-        return torch.cat([current_flat, next_flat, action, action.square(), action_energy], dim=-1)
+    def _agent_bundle_from_cls(self, cls):
+        return cls['agent']
 
-    def _predict_next_bundle_from_history(self, latent_history, action_history):
-        batch, context_len, num_tokens, width = latent_history.shape
-        if context_len > self.pred_context:
-            latent_history = latent_history[:, -self.pred_context:]
-            action_history = action_history[:, -self.pred_context:]
-        elif context_len < self.pred_context:
-            pad = self.pred_context - context_len
-            latent_history = torch.cat(
-                [self.pred_pad_latent.expand(batch, pad, num_tokens, width), latent_history],
-                dim=1,
-            )
-            action_history = torch.cat(
-                [self.pred_pad_action.expand(batch, pad, self.action_dim), action_history],
-                dim=1,
-            )
-        context_len = self.pred_context
-        action_tokens = self.pred_action_proj(action_history.unsqueeze(-1))
-        action_tokens = action_tokens + self.pred_action_dim_embed.weight.view(1, 1, self.action_dim, WM_EMBED_DIM)
-        tokens = torch.cat([action_tokens, latent_history], dim=2)
-        tokens_per_step = self.action_dim + num_tokens
-        tokens = tokens.reshape(batch, context_len * tokens_per_step, width)
-        tokens = tokens + self.pred_pos_embed.view(1, context_len * tokens_per_step, width)
-        x0 = tokens
-        # No attn_mask: every token in this call is from a strictly-past step
-        # (or learnable padding) relative to the prediction target, so full
-        # attention is correct and SDPA dispatches to FlashAttention.
-        for block in self.pred_blocks:
-            tokens = block(tokens, x0)
-        tokens = self.pred_next_proj(self.pred_final_norm(tokens))
-        tokens = tokens.reshape(batch, context_len, tokens_per_step, width)
-        return tokens[:, -1, self.action_dim:]
+    def _agent_flat_from_cls(self, cls):
+        return self._agent_bundle_from_cls(cls).flatten(1)
 
-    def predict_next_bundles_teacher_forced(self, latent_history, action_history):
+    def _transition_next_bundle_from_history(self, latent_history, action_history, reward_history=None):
+        if reward_history is None:
+            reward_history = torch.zeros(
+                latent_history.shape[0],
+                latent_history.shape[1],
+                device=latent_history.device,
+                dtype=latent_history.dtype,
+            )
+        return self.wm_backbone.transition(latent_history, action_history, reward_history)
+
+    def transition_next_teacher_forced(self, latent_history, action_history, reward_history=None):
         _, horizon, _, _ = latent_history.shape
-        preds = []
+        if reward_history is None:
+            reward_history = torch.zeros(
+                latent_history.shape[0],
+                horizon,
+                device=latent_history.device,
+                dtype=latent_history.dtype,
+            )
+        dyn_preds = []
+        agent_preds = []
         for step in range(horizon):
             start = max(0, step + 1 - self.pred_context)
-            preds.append(
-                self._predict_next_bundle_from_history(
-                    latent_history[:, start:step + 1],
-                    action_history[:, start:step + 1],
-                )
+            next_dyn, next_agent = self._transition_next_bundle_from_history(
+                latent_history[:, start:step + 1],
+                action_history[:, start:step + 1],
+                reward_history[:, start:step + 1],
             )
-        return torch.stack(preds, dim=1)
+            dyn_preds.append(next_dyn)
+            agent_preds.append(next_agent)
+        return torch.stack(dyn_preds, dim=1), torch.stack(agent_preds, dim=1)
 
-    def _actor_mean_std(self, dyn_flat):
+    def _actor_mean_std(self, agent_flat):
         """State-dependent (mean, std). std = softplus(raw) + STD_MIN — smooth, floored, no clamp."""
-        mean, raw_std = self.actor_head(dyn_flat).chunk(2, dim=-1)
+        mean, raw_std = self.actor_head(agent_flat).chunk(2, dim=-1)
         std = F.softplus(raw_std) + STD_MIN
         return mean, std
 
@@ -758,61 +967,63 @@ class Agent(nn.Module):
         """Expected value from HL-Gauss bin logits — set self.hl_support after construction."""
         return self.hl_support.to_scalar(logits)
 
-    def get_value(self, obs_seq):
-        cls = self._encode_wm(obs_seq)
-        return self.to_value(self.critic_bins(self._dyn_flat_from_cls(cls).detach()))
+    def get_value(self, obs_seq, action_seq=None, reward_seq=None):
+        cls = self._encode_wm(obs_seq, action_seq, reward_seq)
+        return self.to_value(self.critic_bins(self._agent_flat_from_cls(cls).detach()))
 
-    def get_action_and_value(self, obs_seq):
+    def get_action_and_value(self, obs_seq, action_seq=None, reward_seq=None):
         # Actor, critic_bins, and dynamics_value_bins all read a detached
         # view of the WM trunk (Dreamer4 default — only train heads from
         # PPO/value losses). The trunk is shaped exclusively by the WM aux
-        # losses (state-pred / reward / continue / dyn_to_obs / predictor),
+        # losses (state-pred / reward / continue / dyn_to_obs / transition),
         # which keeps PPO from staling its own ratios mid-epoch by moving
         # the latent representation under stored old log-probs.
-        wm_cls = self._encode_wm(obs_seq)
+        wm_cls = self._encode_wm(obs_seq, action_seq, reward_seq)
         dyn_bundle = self._dyn_bundle_from_cls(wm_cls)
+        agent_bundle = self._agent_bundle_from_cls(wm_cls)
         dyn_flat = dyn_bundle.flatten(1)
-        dyn_flat_d = dyn_flat.detach()
-        action_mean, action_std = self._actor_mean_std(dyn_flat_d)
+        agent_flat = agent_bundle.flatten(1)
+        agent_flat_d = agent_flat.detach()
+        action_mean, action_std = self._actor_mean_std(agent_flat_d)
         action, log_prob, entropy, z = self._squashed_log_prob_entropy(action_mean, action_std)
-        return action, log_prob, entropy, self.to_value(self.critic_bins(dyn_flat_d)), dyn_bundle, dyn_flat, z
+        return action, log_prob, entropy, self.to_value(self.critic_bins(agent_flat_d)), dyn_bundle, dyn_flat, agent_bundle, agent_flat, z
 
-    def get_all_for_update(self, obs_seq, z):
+    def get_all_for_update(self, obs_seq, action_seq, reward_seq, z):
         # Dreamer4-style RL boundary: replay the WM encoder without building a
         # trainable trunk graph, then learn actor/value heads from frozen latents.
         with torch.no_grad():
-            wm_cls = self._encode_wm(obs_seq)
+            wm_cls = self._encode_wm(obs_seq, action_seq, reward_seq)
             dyn_bundle = self._dyn_bundle_from_cls(wm_cls)
-            dyn_flat_d = dyn_bundle.flatten(1)
-        action_mean, action_std = self._actor_mean_std(dyn_flat_d)
+            agent_flat_d = self._agent_flat_from_cls(wm_cls)
+        action_mean, action_std = self._actor_mean_std(agent_flat_d)
         _, log_prob, entropy, _ = self._squashed_log_prob_entropy(action_mean, action_std, z=z)
-        value_logits = self.critic_bins(dyn_flat_d)
+        value_logits = self.critic_bins(agent_flat_d)
         return (
             log_prob,
             entropy,
             self.to_value(value_logits),                # expected value from bins
             value_logits,                               # bin logits for HL-Gauss CE
-            dyn_flat_d,                                 # detached — all PPO heads consume detached trunk
+            agent_flat_d,                               # detached — all PPO agent heads consume detached trunk
         )
 
-    def get_imagined_action_and_value(self, dyn_bundle, z=None):
+    def get_imagined_action_and_value(self, agent_bundle, z=None):
         # Both actor and dynamics_value_bins read a detached view — Dreamer4
-        # default: only train heads from PPO/value losses. dyn_bundle is itself
+        # default: only train heads from PPO/value losses. agent_bundle is itself
         # a detached imagined latent; we re-detach defensively.
-        dyn_flat = dyn_bundle.flatten(1).detach()
-        action_mean, action_std = self._actor_mean_std(dyn_flat)
+        agent_flat = agent_bundle.flatten(1).detach()
+        action_mean, action_std = self._actor_mean_std(agent_flat)
         action, log_prob, entropy, z_out = self._squashed_log_prob_entropy(action_mean, action_std, z=z)
-        value_logits = self.dynamics_value_bins(dyn_flat)
+        value_logits = self.dynamics_value_bins(agent_flat)
         return action, log_prob, entropy, self.hl_support.to_scalar(value_logits), value_logits, z_out
 
-    def get_imagined_value(self, dyn_bundle, hl_support):
-        return hl_support.to_scalar(self.get_imagined_value_logits(dyn_bundle))
+    def get_imagined_value(self, agent_bundle, hl_support):
+        return hl_support.to_scalar(self.get_imagined_value_logits(agent_bundle))
 
-    def get_imagined_value_logits(self, dyn_bundle):
+    def get_imagined_value_logits(self, agent_bundle):
         # Defensive detach for symmetry with get_imagined_action_and_value —
         # imagined latents are stored detached, but we re-detach so the head
         # never accidentally backprops through the trunk via this path.
-        return self.dynamics_value_bins(dyn_bundle.flatten(1).detach())
+        return self.dynamics_value_bins(agent_bundle.flatten(1).detach())
 
 
 def clip_agent_grad_norms(agent, max_grad_norm):
@@ -824,13 +1035,6 @@ def clip_agent_grad_norms(agent, max_grad_norm):
         agent.dynamics_value_bins.parameters(),
         agent.to_state_pred.parameters(),
         agent.dyn_to_obs.parameters(),
-        agent.pred_action_proj.parameters(),
-        agent.pred_action_dim_embed.parameters(),
-        agent.pred_blocks.parameters(),
-        agent.pred_final_norm.parameters(),
-        agent.pred_next_proj.parameters(),
-        [agent.pred_pos_embed, agent.pred_pad_latent, agent.pred_pad_action],
-        agent.reward_head.parameters(),
         agent.reward_head_bins.parameters(),
         agent.continue_head.parameters(),
     ]
@@ -863,8 +1067,20 @@ def frozen_module_params(*modules):
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
-    args.batch_size = int(args.num_envs * args.num_steps)
-    args.minibatch_size = int(args.batch_size // args.num_minibatches)
+    if args.rollout_batch_size <= 0:
+        raise ValueError("--rollout-batch-size must be positive")
+    if args.num_envs <= 0:
+        raise ValueError("--num-envs must be positive")
+    if args.rollout_batch_size % args.num_envs != 0:
+        raise ValueError("--rollout-batch-size must be divisible by --num-envs")
+    if args.dream_batches < 0:
+        raise ValueError("--dream-batches must be non-negative")
+    if args.dream_batch_size <= 0:
+        raise ValueError("--dream-batch-size must be positive")
+    if args.imagination_horizon <= 0:
+        raise ValueError("--imagination-horizon must be positive")
+    args.num_steps = args.rollout_batch_size // args.num_envs
+    args.batch_size = int(args.rollout_batch_size)
     args.num_iterations = args.total_timesteps // args.batch_size
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     if args.track:
@@ -887,6 +1103,18 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+    if device.type == "cuda":
+        from torch.backends.cuda import (
+            enable_cudnn_sdp,
+            enable_flash_sdp,
+            enable_math_sdp,
+            enable_mem_efficient_sdp,
+        )
+
+        enable_flash_sdp(True)
+        enable_mem_efficient_sdp(False)
+        enable_math_sdp(False)
+        enable_cudnn_sdp(False)
 
     envs = gym.vector.AsyncVectorEnv([make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)])
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
@@ -900,17 +1128,8 @@ if __name__ == "__main__":
         args.tokenizer_checkpoint_prefix,
         args.pred_context,
     ).to(device)
-    if args.compile and device.type == "cuda":
-        # All transformers see only batch-dim variation across phases — their
-        # internal seq dim is fixed (CONTEXT_LEN × slots for the backbones,
-        # pred_context × tokens_per_step for pred_blocks now that history is
-        # padded with `pred_pad_*`). `dynamic=False, fullgraph=True` recompiles
-        # once per distinct batch size then hits the cache.
-        agent.wm_backbone = torch.compile(agent.wm_backbone, dynamic=False, fullgraph=True)
-        agent.tokenizer_backbone = torch.compile(agent.tokenizer_backbone, dynamic=False, fullgraph=True)
-        agent.pred_blocks = nn.ModuleList(
-            [torch.compile(block, dynamic=False, fullgraph=True) for block in agent.pred_blocks]
-        )
+    if args.compile:
+        print("[warn] --compile is ignored; this variant uses native Flash SDPA instead of torch.compile.")
     optimizer = optim.Adam((p for p in agent.parameters() if p.requires_grad), lr=args.learning_rate, eps=1e-5)
     hl_support = HLGaussSupport(
         args.num_bins,
@@ -933,6 +1152,10 @@ if __name__ == "__main__":
     action_dim = int(np.prod(envs.single_action_space.shape))
     obs_seqs = torch.zeros((args.num_steps, args.num_envs, agent.context_len, obs_dim), device=device)
     next_obs_seqs = torch.zeros((args.num_steps, args.num_envs, agent.context_len, obs_dim), device=device)
+    action_seqs = torch.zeros((args.num_steps, args.num_envs, agent.context_len, action_dim), device=device)
+    next_action_seqs = torch.zeros((args.num_steps, args.num_envs, agent.context_len, action_dim), device=device)
+    reward_seqs = torch.zeros((args.num_steps, args.num_envs, agent.context_len), device=device)
+    next_reward_seqs = torch.zeros((args.num_steps, args.num_envs, agent.context_len), device=device)
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape, device=device)
     # Pre-squash sample stored alongside the action so PPO recompute uses the
     # exact `z` from rollout — `z = atanh(action_to_u(action))` is wrong for
@@ -962,9 +1185,15 @@ if __name__ == "__main__":
         for step in range(args.num_steps):
             global_step += args.num_envs
             obs_seqs[step] = agent.obs_history.clone()
+            action_seqs[step] = agent.action_history.clone()
+            reward_seqs[step] = agent.reward_history.clone()
             dones[step] = next_done
             with torch.no_grad(), bf16_autocast(device):
-                action, logprob, _, value, _, state_pred_latent, z = agent.get_action_and_value(agent.obs_history)
+                action, logprob, _, value, _, state_pred_latent, _, _, z = agent.get_action_and_value(
+                    agent.obs_history,
+                    agent.action_history,
+                    agent.reward_history,
+                )
                 values[step] = value.flatten()
                 ent_bonus = agent.get_state_entropy_bonus(state_pred_latent)
             actions[step] = action
@@ -973,7 +1202,7 @@ if __name__ == "__main__":
 
             next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
             next_done_np = np.logical_or(terminations, truncations)
-            reward_tensor = torch.as_tensor(reward, device=device).view(-1)
+            reward_tensor = torch.as_tensor(reward, device=device, dtype=torch.float32).view(-1)
             raw_rewards[step] = reward_tensor
             rewards[step] = reward_tensor + ent_bonus
             terminations_buf[step] = torch.as_tensor(terminations, device=device, dtype=torch.float32)
@@ -994,10 +1223,18 @@ if __name__ == "__main__":
             transition_next_obs = torch.as_tensor(transition_next_obs, device=device, dtype=torch.float32)
             next_done = torch.as_tensor(next_done_np, device=device, dtype=torch.float32)
             transition_next_history = torch.cat([agent.obs_history[:, 1:], transition_next_obs.unsqueeze(1)], dim=1)
+            transition_next_action_history = torch.cat([agent.action_history[:, 1:], action.unsqueeze(1)], dim=1)
+            transition_next_reward_history = torch.cat([agent.reward_history[:, 1:], reward_tensor.unsqueeze(1)], dim=1)
             next_obs_seqs[step] = transition_next_history
+            next_action_seqs[step] = transition_next_action_history
+            next_reward_seqs[step] = transition_next_reward_history
+            history_action = action.clone()
+            history_action[next_done.bool()] = 0.0
+            history_reward = reward_tensor.clone()
+            history_reward[next_done.bool()] = 0.0
             if next_done.any():
                 agent.reset_history(next_done.bool())
-            agent.update_history(next_obs)
+            agent.update_history(next_obs, history_action, history_reward)
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -1010,7 +1247,7 @@ if __name__ == "__main__":
         # pure scalar arithmetic — autocast wouldn't affect it, but doing it
         # in fp32 avoids accidental bf16 silent promotions on `next_value`).
         with torch.no_grad(), bf16_autocast(device):
-            next_value = agent.get_value(agent.obs_history).reshape(1, -1)
+            next_value = agent.get_value(agent.obs_history, agent.action_history, agent.reward_history).reshape(1, -1)
         next_value = next_value.float()
         with torch.no_grad():
             advantages = torch.zeros_like(rewards, device=device)
@@ -1028,6 +1265,10 @@ if __name__ == "__main__":
 
         b_obs_seqs = obs_seqs.reshape(-1, agent.context_len, obs_dim)
         b_next_obs_seqs = next_obs_seqs.reshape(-1, agent.context_len, obs_dim)
+        b_action_seqs = action_seqs.reshape(-1, agent.context_len, action_dim)
+        b_next_action_seqs = next_action_seqs.reshape(-1, agent.context_len, action_dim)
+        b_reward_seqs = reward_seqs.reshape(-1, agent.context_len)
+        b_next_reward_seqs = next_reward_seqs.reshape(-1, agent.context_len)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
         b_pre_actions = pre_actions.reshape((-1,) + envs.single_action_space.shape)
@@ -1051,87 +1292,86 @@ if __name__ == "__main__":
         stop_policy_updates = False
         for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
-            for start in range(0, args.batch_size, args.minibatch_size):
-                end = start + args.minibatch_size
-                mb_inds = b_inds[start:end]
+            mb_inds = b_inds
 
-                if not stop_policy_updates:
-                    with bf16_autocast(device):
-                        (
-                            newlogprob,
-                            entropy,
-                            newvalue,
-                            value_logits,
-                            dyn_flat,
-                        ) = agent.get_all_for_update(b_obs_seqs[mb_inds], b_pre_actions[mb_inds])
-                        logratio = newlogprob - b_logprobs[mb_inds]
-                        ratio = logratio.exp()
+            if not stop_policy_updates:
+                with bf16_autocast(device):
+                    (
+                        newlogprob,
+                        entropy,
+                        newvalue,
+                        value_logits,
+                        agent_flat,
+                    ) = agent.get_all_for_update(
+                        b_obs_seqs[mb_inds],
+                        b_action_seqs[mb_inds],
+                        b_reward_seqs[mb_inds],
+                        b_pre_actions[mb_inds],
+                    )
+                    logratio = newlogprob - b_logprobs[mb_inds]
+                    ratio = logratio.exp()
 
-                        with torch.no_grad():
-                            old_approx_kl = (-logratio).mean()
-                            approx_kl = ((ratio - 1.0) - logratio).mean()
-                            if iteration <= 2 and epoch == 0 and start == 0:
-                                print(
-                                    f"[diag] iter={iteration} mb=0 approx_kl={approx_kl.item():.6f} "
-                                    f"old_approx_kl={old_approx_kl.item():.6f} ratio_mean={ratio.mean().item():.6f} "
-                                    f"logratio_abs_max={logratio.abs().max().item():.6f}"
-                                )
+                    with torch.no_grad():
+                        old_approx_kl = (-logratio).mean()
+                        approx_kl = ((ratio - 1.0) - logratio).mean()
+                        if iteration <= 2 and epoch == 0:
+                            print(
+                                f"[diag] iter={iteration} approx_kl={approx_kl.item():.6f} "
+                                f"old_approx_kl={old_approx_kl.item():.6f} ratio_mean={ratio.mean().item():.6f} "
+                                f"logratio_abs_max={logratio.abs().max().item():.6f}"
+                            )
 
-                        mb_advantages = b_advantages[mb_inds]
-                        if args.norm_adv:
-                            mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+                    mb_advantages = b_advantages[mb_inds]
+                    if args.norm_adv:
+                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
-                        # SPO asymmetric quadratic penalty (parity with dream).
-                        # spo_eps_high relaxes positive-advantage updates, low
-                        # tightens negative-advantage updates — same form as the
-                        # imagination loop so real and dream pull on the policy
-                        # with the same shape, just on different samples.
-                        ratio_diff = ratio - 1.0
-                        spo_eps = torch.where(
-                            (mb_advantages * ratio_diff) > 0,
-                            torch.full_like(mb_advantages, args.spo_eps_high),
-                            torch.full_like(mb_advantages, args.spo_eps_low),
-                        )
-                        spo_penalty = mb_advantages.abs() * ratio_diff.square() / (2.0 * spo_eps)
-                        pg_loss = -(mb_advantages * ratio - spo_penalty).mean()
-                        spo_penalties.append(spo_penalty.mean().item())
-                        entropy_loss = entropy.mean()
-                        newvalue = newvalue.view(-1)
-                        v_loss_bins = F.cross_entropy(value_logits, b_return_bins[mb_inds], reduction='mean')
+                    # SPO asymmetric quadratic penalty (parity with dream).
+                    # spo_eps_high relaxes positive-advantage updates, low
+                    # tightens negative-advantage updates — same form as the
+                    # imagination loop so real and dream pull on the policy
+                    # with the same shape, just on different samples.
+                    ratio_diff = ratio - 1.0
+                    spo_eps = torch.where(
+                        (mb_advantages * ratio_diff) > 0,
+                        torch.full_like(mb_advantages, args.spo_eps_high),
+                        torch.full_like(mb_advantages, args.spo_eps_low),
+                    )
+                    spo_penalty = mb_advantages.abs() * ratio_diff.square() / (2.0 * spo_eps)
+                    pg_loss = -(mb_advantages * ratio - spo_penalty).mean()
+                    spo_penalties.append(spo_penalty.mean().item())
+                    entropy_loss = entropy.mean()
+                    newvalue = newvalue.view(-1)
+                    v_loss_bins = F.cross_entropy(value_logits, b_return_bins[mb_inds], reduction='mean')
 
-                        # Dynamics-value bin head also reads a detached view
-                        # (Dreamer4 default — only learn heads during PPO; the
-                        # WM trunk is shaped by the WM aux losses below).
-                        dynamics_value_logits = agent.dynamics_value_bins(dyn_flat)
-                        dynamics_value_loss_bins = F.cross_entropy(
-                            dynamics_value_logits, b_return_bins[mb_inds], reduction='mean'
-                        )
+                    # Dynamics-value bin head also reads a detached view
+                    # (Dreamer4 default — only learn heads during PPO; the
+                    # WM trunk is shaped by the WM aux losses below).
+                    dynamics_value_logits = agent.dynamics_value_bins(agent_flat)
+                    dynamics_value_loss_bins = F.cross_entropy(
+                        dynamics_value_logits, b_return_bins[mb_inds], reduction='mean'
+                    )
 
-                        # Actor, critic_bins, and dynamics_value_bins all read
-                        # frozen latents (see get_all_for_update), so PPO only
-                        # updates heads. The WM trunk is shaped exclusively by
-                        # the WM aux losses below, preventing PPO ratio staleness
-                        # from representation drift. HL-Gauss CE on critic_bins
-                        # is naturally bounded so no value clipping is needed.
-                        policy_loss = (
-                            pg_loss - args.ent_coef * entropy_loss
-                            + v_loss_bins
-                            + DYNAMICS_VALUE_BINS_COEF * dynamics_value_loss_bins
-                        )
-                    optimizer.zero_grad()
-                    policy_loss.backward()
-                    clip_agent_grad_norms(agent, args.max_grad_norm)
-                    optimizer.step()
+                    # Actor, critic_bins, and dynamics_value_bins all read
+                    # frozen mixed agent tokens (see get_all_for_update), so PPO only
+                    # updates heads. The WM trunk is shaped exclusively by
+                    # the WM aux losses below, preventing PPO ratio staleness
+                    # from representation drift. HL-Gauss CE on critic_bins
+                    # is naturally bounded so no value clipping is needed.
+                    policy_loss = (
+                        pg_loss - args.ent_coef * entropy_loss
+                        + v_loss_bins
+                        + DYNAMICS_VALUE_BINS_COEF * dynamics_value_loss_bins
+                    )
+                optimizer.zero_grad()
+                policy_loss.backward()
+                clip_agent_grad_norms(agent, args.max_grad_norm)
+                optimizer.step()
 
-                    if args.target_kl is not None and approx_kl > args.target_kl:
-                        stop_policy_updates = True
+                if args.target_kl is not None and approx_kl > args.target_kl:
+                    stop_policy_updates = True
 
         # World-model phase: run after PPO so aux updates do not invalidate
-        # rollout log-prob ratios inside the PPO epoch. Mirrors the PPO
-        # minibatch size — the (mb × dyn_horizon)-batch encode then matches
-        # PPO's encode shape modulo the horizon multiplier, which keeps the
-        # number of WM-aux minibatches at args.num_minibatches.
-        wm_minibatch_size = args.minibatch_size
+        # rollout log-prob ratios inside the PPO epoch.
         wm_horizon_weight = torch.zeros(args.dyn_horizon, device=device)
         wm_horizon_latent_weight = torch.zeros(args.dyn_horizon, device=device)
         wm_horizon_reward_mse = torch.zeros(args.dyn_horizon, device=device)
@@ -1140,169 +1380,190 @@ if __name__ == "__main__":
         wm_horizon_state_pred = torch.zeros(args.dyn_horizon, device=device)
         wm_horizon_trunk_anchor = torch.zeros(args.dyn_horizon, device=device)
         for wm_epoch in range(args.wm_update_epochs):
-            np.random.shuffle(b_inds)
-            for start in range(0, args.batch_size, wm_minibatch_size):
-                end = start + wm_minibatch_size
-                mb_inds = b_inds[start:end]
+            mb_inds = np.arange(args.batch_size)
 
-                # Teacher-forced multi-step dynamics, inspired by v54: encode
-                # a real rollout window, predict each next latent from the
-                # corresponding real current latent/action, and mask across
-                # rollout edges and episode boundaries.
-                mb_size = len(mb_inds)
-                mb_step_inds = torch.as_tensor(mb_inds // args.num_envs, device=device, dtype=torch.long)
-                mb_env_inds = torch.as_tensor(mb_inds % args.num_envs, device=device, dtype=torch.long)
-                horizon_offsets = torch.arange(args.dyn_horizon, device=device)
-                future_step_inds = mb_step_inds[:, None] + horizon_offsets[None, :]
-                in_rollout = (future_step_inds < args.num_steps).float()
-                safe_step_inds = future_step_inds.clamp(max=args.num_steps - 1)
-                env_inds = mb_env_inds[:, None].expand_as(safe_step_inds)
+            # Teacher-forced one-step dynamics over the unique rollout states.
+            # Horizon is a diagnostic/view axis below; it must not multiply the
+            # trainable WM encoder graph by dyn_horizon.
+            mb_size = len(mb_inds)
+            mb_step_inds = torch.as_tensor(mb_inds // args.num_envs, device=device, dtype=torch.long)
+            mb_env_inds = torch.as_tensor(mb_inds % args.num_envs, device=device, dtype=torch.long)
 
-                future_actions = actions[safe_step_inds, env_inds]
-                future_rewards = raw_rewards[safe_step_inds, env_inds]
-                future_terminations = terminations_buf[safe_step_inds, env_inds]
-                future_boundaries = boundaries[safe_step_inds, env_inds]
-                future_valids = transition_valids[safe_step_inds, env_inds]
-                future_next_obs_seqs = next_obs_seqs[safe_step_inds, env_inds]
+            with bf16_autocast(device):
+                wm_cls = agent._encode_wm(
+                    b_obs_seqs[mb_inds],
+                    b_action_seqs[mb_inds],
+                    b_reward_seqs[mb_inds],
+                )
+                all_current_bundles = agent._dyn_bundle_from_cls(wm_cls)
+                current_flat = all_current_bundles.flatten(1)
 
-                with bf16_autocast(device):
-                    # Encode current state plus the first horizon-1 next states
-                    # (no horizon+1 needed since transition_loss is gone — we
-                    # only need current_bundles to feed the predictor).
-                    window_obs_seqs = torch.cat(
-                        [b_obs_seqs[mb_inds].unsqueeze(1), future_next_obs_seqs[:, :-1]], dim=1
+                context_offsets = torch.arange(agent.pred_context - 1, -1, -1, device=device)
+                context_step_inds = mb_step_inds[:, None] - context_offsets[None, :]
+                context_in_rollout = context_step_inds >= 0
+                safe_context_steps = context_step_inds.clamp(0, args.num_steps - 1)
+                context_env_inds = mb_env_inds[:, None].expand_as(safe_context_steps)
+
+                flat_context_inds = safe_context_steps * args.num_envs + context_env_inds
+                context_source_bundles = all_current_bundles.detach()
+                context_bundles = context_source_bundles[flat_context_inds]
+                context_actions = actions[safe_context_steps, context_env_inds]
+
+                boundary_prefix = torch.cat(
+                    [
+                        torch.zeros(1, args.num_envs, device=device, dtype=boundaries.dtype),
+                        boundaries.cumsum(dim=0),
+                    ],
+                    dim=0,
+                )
+                current_boundary_count = boundary_prefix[mb_step_inds, mb_env_inds]
+                context_boundary_count = boundary_prefix[safe_context_steps, context_env_inds]
+                context_valid = context_in_rollout & (current_boundary_count[:, None] == context_boundary_count)
+
+                context_bundles = torch.where(
+                    context_valid[:, :, None, None],
+                    context_bundles,
+                    agent.wm_backbone.transition_pad_latent.to(dtype=context_bundles.dtype).expand(
+                        mb_size, agent.pred_context, -1, -1
+                    ),
+                )
+                context_actions = torch.where(
+                    context_valid[:, :, None],
+                    context_actions,
+                    agent.wm_backbone.transition_pad_action.to(dtype=context_actions.dtype).expand(
+                        mb_size, agent.pred_context, -1
+                    ),
+                )
+
+                reward_context_steps = context_step_inds - 1
+                reward_in_rollout = reward_context_steps >= 0
+                safe_reward_steps = reward_context_steps.clamp(0, args.num_steps - 1)
+                prev_not_boundary = boundaries[safe_reward_steps, context_env_inds] == 0
+                context_rewards = torch.where(
+                    context_valid & reward_in_rollout & prev_not_boundary,
+                    raw_rewards[safe_reward_steps, context_env_inds],
+                    agent.wm_backbone.transition_pad_reward.to(dtype=raw_rewards.dtype).expand(mb_size, agent.pred_context),
+                )
+
+                pred_next_bundles, pred_next_agents = agent.wm_backbone.transition(
+                    context_bundles,
+                    context_actions,
+                    context_rewards,
+                )
+                pred_next_flat = pred_next_bundles.flatten(1)
+                pred_next_agent_flat = pred_next_agents.flatten(1)
+                pred_reward_logits = agent.reward_head_bins(pred_next_agent_flat)
+                pred_continue_logits = agent.continue_head(pred_next_flat).squeeze(-1)
+
+                step_weight = torch.ones(mb_size, device=device, dtype=pred_reward_logits.dtype)
+                latent_weight = b_wm_valid[mb_inds].to(dtype=pred_reward_logits.dtype)
+                target_rewards = b_raw_rewards[mb_inds]
+                target_terminations = b_terminations[mb_inds]
+
+                with torch.no_grad():
+                    tokenizer_next = agent._encode_tokenizer(
+                        b_next_obs_seqs[mb_inds],
+                        return_obs_tokens=True,
                     )
-                    window_cls = agent._encode_wm(window_obs_seqs.reshape(-1, agent.context_len, obs_dim))
-                    current_bundles = agent._dyn_bundle_from_cls(window_cls).reshape(
-                        mb_size, args.dyn_horizon, DYN_TOKEN_COUNT, WM_EMBED_DIM
-                    )
-                    current_flat = current_bundles.reshape(mb_size * args.dyn_horizon, WM_DYN_FLAT_DIM)
-                    flat_future_actions = future_actions.reshape(mb_size * args.dyn_horizon, action_dim)
+                    next_obs_embed_flat = tokenizer_next['obs_tokens'].flatten(1)
+                    first_step_tokens = agent._encode_tokenizer(
+                        b_obs_seqs[mb_inds],
+                        return_obs_tokens=True,
+                    )['obs_tokens'].flatten(1)
+                    current_obs_embed_flat = first_step_tokens
 
-                    pred_next_bundles = agent.predict_next_bundles_teacher_forced(
-                        current_bundles,
-                        future_actions,
-                    )
-                    pred_next_flat = pred_next_bundles.reshape(mb_size * args.dyn_horizon, WM_DYN_FLAT_DIM)
-                    reward_input = agent._reward_input(current_flat, flat_future_actions, pred_next_flat)
-                    pred_rewards = agent.reward_head(reward_input).view(mb_size, args.dyn_horizon)
-                    pred_reward_logits = agent.reward_head_bins(reward_input).view(
-                        mb_size, args.dyn_horizon, args.reward_num_bins
-                    )
-                    pred_continue_logits = agent.continue_head(pred_next_flat).view(mb_size, args.dyn_horizon)
+                with torch.no_grad(), torch.amp.autocast("cuda", enabled=False):
+                    mb_reward_bins = reward_support.project(target_rewards.float())
+                reward_ce = F.cross_entropy(
+                    pred_reward_logits,
+                    mb_reward_bins,
+                    reduction='none',
+                )
+                reward_loss_bins = (reward_ce * step_weight).sum() / (step_weight.sum() + 1e-8)
+                with torch.no_grad():
+                    pred_reward_values = reward_support.to_scalar(pred_reward_logits.float())
+                    reward_mse = (
+                        (pred_reward_values - target_rewards).square() * step_weight
+                    ).sum() / (step_weight.sum() + 1e-8)
 
+                continue_target = (1.0 - target_terminations).clamp(max=args.gamma)
+                continue_loss_raw = F.binary_cross_entropy_with_logits(
+                    pred_continue_logits,
+                    continue_target,
+                    reduction="none",
+                )
+                continue_loss = (continue_loss_raw * step_weight).sum() / (step_weight.sum() + 1e-8)
+
+                pred = agent.to_state_pred(pred_next_flat)
+                pred_mean, pred_log_var = pred[:, :agent.tok_obs_embed_dim], pred[:, agent.tok_obs_embed_dim:]
+                pred_var = pred_log_var.exp()
+                sp_loss_raw = F.gaussian_nll_loss(
+                    pred_mean,
+                    next_obs_embed_flat,
+                    var=pred_var,
+                    reduction='none',
+                ).mean(-1)
+                state_pred_loss = (sp_loss_raw * latent_weight).sum() / (latent_weight.sum() + 1e-8)
+
+                trunk_anchor_pred = agent.dyn_to_obs(current_flat)
+                trunk_anchor_raw = F.mse_loss(
+                    trunk_anchor_pred,
+                    current_obs_embed_flat,
+                    reduction='none',
+                ).mean(-1)
+                trunk_anchor_loss = (trunk_anchor_raw * step_weight).sum() / (step_weight.sum() + 1e-8)
+
+                with torch.no_grad():
+                    horizon_offsets = torch.arange(args.dyn_horizon, device=device)
+                    future_step_inds = mb_step_inds[:, None] + horizon_offsets[None, :]
+                    in_rollout = future_step_inds < args.num_steps
+                    safe_step_inds = future_step_inds.clamp(max=args.num_steps - 1)
+                    env_inds = mb_env_inds[:, None].expand_as(safe_step_inds)
+                    horizon_flat_inds = safe_step_inds * args.num_envs + env_inds
+
+                    future_boundaries = boundaries[safe_step_inds, env_inds]
                     prev_continues = torch.cat(
                         [torch.ones(mb_size, 1, device=device), 1.0 - future_boundaries[:, :-1]],
                         dim=1,
                     )
-                    step_weight = torch.cumprod(prev_continues, dim=1) * in_rollout
-                    latent_weight = step_weight * future_valids
+                    horizon_step_weight = torch.cumprod(prev_continues, dim=1) * in_rollout.float()
+                    horizon_latent_weight = horizon_step_weight * b_wm_valid[horizon_flat_inds]
 
-                    with torch.no_grad():
-                        tokenizer_next = agent._encode_tokenizer(
-                            future_next_obs_seqs.reshape(-1, agent.context_len, obs_dim),
-                            return_obs_tokens=True,
-                        )
-                        next_obs_embed_flat = tokenizer_next['obs_tokens'].flatten(1).reshape(
-                            mb_size, args.dyn_horizon, agent.tok_obs_embed_dim
-                        )
-                        # Current-step obs embeds for the per-frame trunk anchor.
-                        # Window step h's "current" obs equals window step h-1's "next"
-                        # obs (== `future_next_obs_seqs[:, h-1]`), so only step 0 needs
-                        # a fresh tokenizer pass — the rest reuse `next_obs_embed_flat`.
-                        first_step_tokens = agent._encode_tokenizer(
-                            b_obs_seqs[mb_inds],
-                            return_obs_tokens=True,
-                        )['obs_tokens'].flatten(1)
-                        current_obs_embed_flat = torch.cat(
-                            [first_step_tokens.unsqueeze(1), next_obs_embed_flat[:, :-1]],
-                            dim=1,
-                        )
+                    reward_mse_flat = (pred_reward_values - target_rewards).square().detach()
+                    reward_ce_flat = reward_ce.detach()
+                    continue_loss_flat = continue_loss_raw.detach()
+                    sp_loss_flat = sp_loss_raw.detach()
+                    trunk_anchor_flat = trunk_anchor_raw.detach()
 
-                    reward_loss = (
-                        (pred_rewards - future_rewards).square() * step_weight
-                    ).sum() / (step_weight.sum() + 1e-8)
+                    wm_horizon_weight += horizon_step_weight.sum(dim=0)
+                    wm_horizon_latent_weight += horizon_latent_weight.sum(dim=0)
+                    wm_horizon_reward_mse += (
+                        reward_mse_flat[horizon_flat_inds] * horizon_step_weight
+                    ).sum(dim=0)
+                    wm_horizon_reward_bins += (
+                        reward_ce_flat[horizon_flat_inds] * horizon_step_weight
+                    ).sum(dim=0)
+                    wm_horizon_continue += (
+                        continue_loss_flat[horizon_flat_inds] * horizon_step_weight
+                    ).sum(dim=0)
+                    wm_horizon_state_pred += (
+                        sp_loss_flat[horizon_flat_inds] * horizon_latent_weight
+                    ).sum(dim=0)
+                    wm_horizon_trunk_anchor += (
+                        trunk_anchor_flat[horizon_flat_inds] * horizon_step_weight
+                    ).sum(dim=0)
 
-                    # HL-Gauss reward loss. Project in fp32 — bf16 erf
-                    # underflows the inner-bin probability mass for targets
-                    # near the support boundary.
-                    with torch.no_grad(), torch.amp.autocast("cuda", enabled=False):
-                        mb_reward_bins = reward_support.project(future_rewards.reshape(-1).float())
-                    reward_ce = F.cross_entropy(
-                        pred_reward_logits.reshape(-1, args.reward_num_bins),
-                        mb_reward_bins,
-                        reduction='none',
-                    ).view(mb_size, args.dyn_horizon)
-                    reward_loss_bins = (reward_ce * step_weight).sum() / (step_weight.sum() + 1e-8)
+                aux_loss = (
+                    equal_weight(reward_loss_bins)
+                    + equal_weight(continue_loss)
+                    + equal_weight(state_pred_loss)
+                    + equal_weight(trunk_anchor_loss)
+                )
 
-                    # DreamerV3-style asymmetric label smoothing on the
-                    # non-termination class: continue target is clamped DOWN
-                    # to gamma (= 1 - eps) so the head's asymptote is bounded
-                    # at logit ~ ln(gamma/(1-gamma)) instead of +∞ on envs
-                    # that never terminate. Termination targets stay at 0.
-                    continue_target = (1.0 - future_terminations).clamp(max=args.gamma)
-                    continue_loss_raw = F.binary_cross_entropy_with_logits(
-                        pred_continue_logits,
-                        continue_target,
-                        reduction="none",
-                    )
-                    continue_loss = (continue_loss_raw * step_weight).sum() / (step_weight.sum() + 1e-8)
-
-                    # State prediction loss against frozen tokenizer's next
-                    # obs embeds — this is the dreamer4-style "predict next
-                    # tokenizer embeds" objective. It anchors the WM trunk
-                    # against a fixed target, so collapse is impossible and
-                    # no separate sigreg / transition-MSE is needed.
-                    pred = agent.to_state_pred(pred_next_flat)
-                    pred_mean, pred_log_var = pred[:, :agent.tok_obs_embed_dim], pred[:, agent.tok_obs_embed_dim:]
-                    pred_var = pred_log_var.exp()
-                    sp_loss_raw = F.gaussian_nll_loss(
-                        pred_mean,
-                        next_obs_embed_flat.reshape(mb_size * args.dyn_horizon, agent.tok_obs_embed_dim),
-                        var=pred_var,
-                        reduction='none',
-                    ).mean(-1).view(mb_size, args.dyn_horizon)
-                    state_pred_loss = (sp_loss_raw * latent_weight).sum() / (latent_weight.sum() + 1e-8)
-
-                    # Per-frame trunk anchor: dyn_flat at each window step
-                    # decodes to the frozen tokenizer's current-step obs
-                    # tokens. Forces every dyn CLS to faithfully encode the
-                    # current state — a tighter constraint than the predictor
-                    # path alone provides.
-                    trunk_anchor_pred = agent.dyn_to_obs(current_flat)
-                    trunk_anchor_raw = F.mse_loss(
-                        trunk_anchor_pred,
-                        current_obs_embed_flat.reshape(mb_size * args.dyn_horizon, agent.tok_obs_embed_dim),
-                        reduction='none',
-                    ).mean(-1).view(mb_size, args.dyn_horizon)
-                    trunk_anchor_loss = (trunk_anchor_raw * step_weight).sum() / (step_weight.sum() + 1e-8)
-
-                    with torch.no_grad():
-                        step_weight_d = step_weight.detach()
-                        latent_weight_d = latent_weight.detach()
-                        wm_horizon_weight += step_weight_d.sum(dim=0)
-                        wm_horizon_latent_weight += latent_weight_d.sum(dim=0)
-                        wm_horizon_reward_mse += (
-                            (pred_rewards - future_rewards).square().detach() * step_weight_d
-                        ).sum(dim=0)
-                        wm_horizon_reward_bins += (reward_ce.detach() * step_weight_d).sum(dim=0)
-                        wm_horizon_continue += (continue_loss_raw.detach() * step_weight_d).sum(dim=0)
-                        wm_horizon_state_pred += (sp_loss_raw.detach() * latent_weight_d).sum(dim=0)
-                        wm_horizon_trunk_anchor += (trunk_anchor_raw.detach() * step_weight_d).sum(dim=0)
-
-                    # Equal-weight aggregation across heterogeneous categories.
-                    aux_loss = (
-                        equal_weight(reward_loss)
-                        + equal_weight(reward_loss_bins)
-                        + equal_weight(continue_loss)
-                        + equal_weight(state_pred_loss)
-                        + equal_weight(trunk_anchor_loss)
-                    )
-
-                optimizer.zero_grad()
-                aux_loss.backward()
-                clip_agent_grad_norms(agent, args.max_grad_norm)
-                optimizer.step()
+            optimizer.zero_grad()
+            aux_loss.backward()
+            clip_agent_grad_norms(agent, args.max_grad_norm)
+            optimizer.step()
 
         # Imagination phase: v54-style fixed dream buffer, then PPO/SPO actor
         # and value updates on imagined latent rollouts.
@@ -1317,135 +1578,160 @@ if __name__ == "__main__":
         use_imagination = (
             global_step >= args.imagine_start_step
             and (args.imagine_actor_coef != 0.0 or args.imagine_critic_coef != 0.0)
+            and args.dream_batches > 0
         )
         if use_imagination:
-            with torch.no_grad(), bf16_autocast(device):
-                # Subsample seed states for imagination — running the dream
-                # loop over the full PPO rollout buffer would OOM on large
-                # num_envs/num_steps configurations and is unnecessary for
-                # Dreamer-style imagination.
-                seed_pool = b_obs_seqs.shape[0]
-                if 0 < args.dream_batch_size < seed_pool:
-                    seed_inds = torch.randperm(seed_pool, device=device)[: args.dream_batch_size]
-                    dream_seed_obs = b_obs_seqs[seed_inds]
-                    dream_seed_alive = b_wm_valid[seed_inds]
-                else:
-                    dream_seed_obs = b_obs_seqs
-                    dream_seed_alive = b_wm_valid
-
-                # Chunk the seed-encode pass: at full capacity the entire
-                # rollout buffer (num_envs * num_steps sequences) does not
-                # fit through the WM transformer in a single forward.
-                seed_chunk = max(args.minibatch_size, 256)
-                seed_bundles = []
-                for s_start in range(0, dream_seed_obs.shape[0], seed_chunk):
-                    s_end = s_start + seed_chunk
-                    chunk_cls = agent._encode_wm(dream_seed_obs[s_start:s_end])
-                    seed_bundles.append(agent._dyn_bundle_from_cls(chunk_cls))
-                z = torch.cat(seed_bundles, dim=0).detach()
-                alive = dream_seed_alive.float()
-                dream_states = []
-                dream_actions = []
-                dream_pre_actions = []
-                dream_old_logprobs = []
-                dream_values = []
-                dream_rewards = []
-                dream_continues = []
-                dream_learn_masks = []
-                summary_history = [z.detach()]
-                action_history = []
-
-                for _ in range(args.imagination_horizon):
-                    dream_states.append(z.detach())
-                    action, old_logprob, _, _, _, action_z = agent.get_imagined_action_and_value(z)
-                    # Lambda returns are computed once per iteration under
-                    # no_grad, freezing the bootstrap target during SGD.
-                    value = agent.get_imagined_value(z, hl_support)
-                    action_history.append(action.detach())
-                    context_len = min(agent.pred_context, len(summary_history), len(action_history))
-                    pred_context = torch.stack(summary_history[-context_len:], dim=1)
-                    action_context = torch.stack(action_history[-context_len:], dim=1)
-                    next_z = agent._predict_next_bundle_from_history(pred_context, action_context)
-                    next_flat = next_z.flatten(1)
-                    reward_input = agent._reward_input(z.flatten(1), action, next_flat)
-                    reward_logits = agent.reward_head_bins(reward_input)
-                    continue_logits = agent.continue_head(next_flat).squeeze(-1)
-                    # Sigmoid in fp32 — bf16 (1 - p) underflows when p ~ 1.
-                    continue_prob = continue_logits.float().sigmoid()
-                    reward_hat = reward_support.to_scalar(reward_logits) * alive
-                    continue_hat = continue_prob * alive
-                    dream_actions.append(action.detach())
-                    dream_pre_actions.append(action_z.detach())
-                    dream_old_logprobs.append(old_logprob.detach())
-                    dream_values.append(value.detach())
-                    dream_rewards.append(reward_hat.detach())
-                    dream_continues.append(continue_hat.detach())
-                    dream_learn_masks.append(alive.bool())
-                    sampled_terminal = (torch.bernoulli((1.0 - continue_prob).clamp(0.0, 1.0)) > 0).float()
-                    alive = alive * (1.0 - sampled_terminal)
-                    z = next_z.detach()
-                    summary_history.append(z)
-
-                bootstrap_value = agent.get_imagined_value(z, hl_support).detach()
-                dream_returns = []
-                dream_gae = torch.zeros_like(bootstrap_value)
-                dream_values_with_bootstrap = dream_values + [bootstrap_value]
-                for h in reversed(range(args.imagination_horizon)):
-                    delta = (
-                        dream_rewards[h]
-                        + args.gamma * dream_continues[h] * dream_values_with_bootstrap[h + 1]
-                        - dream_values_with_bootstrap[h]
-                    )
-                    dream_gae = delta + args.gamma * args.gae_lambda * dream_continues[h] * dream_gae
-                    dream_gae = torch.where(dream_learn_masks[h], dream_gae, torch.zeros_like(dream_gae))
-                    dream_returns.append(dream_gae + dream_values_with_bootstrap[h])
-                dream_returns.reverse()
-
-                dream_horizon_return_mean = []
-                dream_horizon_reward_mean = []
-                dream_horizon_continue_mean = []
-                for horizon_return, horizon_reward, horizon_continue, horizon_mask in zip(
-                    dream_returns,
-                    dream_rewards,
-                    dream_continues,
-                    dream_learn_masks,
-                ):
-                    if bool(horizon_mask.any()):
-                        dream_horizon_return_mean.append(horizon_return[horizon_mask].mean())
-                        dream_horizon_reward_mean.append(horizon_reward[horizon_mask].mean())
-                        dream_horizon_continue_mean.append(horizon_continue[horizon_mask].mean())
-                    else:
-                        dream_horizon_return_mean.append(horizon_return.mean())
-                        dream_horizon_reward_mean.append(horizon_reward.mean())
-                        dream_horizon_continue_mean.append(horizon_continue.mean())
-                dream_horizon_return_mean = torch.stack(dream_horizon_return_mean)
-                dream_horizon_reward_mean = torch.stack(dream_horizon_reward_mean)
-                dream_horizon_continue_mean = torch.stack(dream_horizon_continue_mean)
-
-                dream_states = torch.cat(dream_states, dim=0)
-                dream_actions = torch.cat(dream_actions, dim=0)
-                dream_pre_actions = torch.cat(dream_pre_actions, dim=0)
-                dream_old_logprobs = torch.cat(dream_old_logprobs, dim=0)
-                dream_values = torch.cat(dream_values, dim=0)
-                dream_returns = torch.cat(dream_returns, dim=0)
-                dream_advantages = dream_returns - dream_values
-                dream_learn_masks = torch.cat(dream_learn_masks, dim=0)
-                if bool(dream_learn_masks.any()):
-                    imagined_return_mean = dream_returns[dream_learn_masks].mean()
-                else:
-                    imagined_return_mean = dream_returns.mean()
-
-            dream_inds = np.arange(dream_states.shape[0])
-            dream_minibatch_size = max(args.minibatch_size, args.minibatch_size * args.imagination_horizon)
             imagine_actor_losses = []
             imagine_critic_losses = []
             imagine_approx_kls = []
             imagine_logprob_delta_abses = []
-            for _ in range(args.imagine_update_epochs):
-                np.random.shuffle(dream_inds)
-                for start in range(0, dream_states.shape[0], dream_minibatch_size):
-                    end = start + dream_minibatch_size
-                    mb_inds = dream_inds[start:end]
+            imagined_return_means = []
+            dream_horizon_return_batches = []
+            dream_horizon_reward_batches = []
+            dream_horizon_continue_batches = []
+
+            for _dream_batch in range(args.dream_batches):
+                with torch.no_grad(), bf16_autocast(device):
+                    seed_pool = b_obs_seqs.shape[0]
+                    dream_seed_count = math.ceil(args.dream_batch_size / args.imagination_horizon)
+                    if dream_seed_count < seed_pool:
+                        seed_inds = torch.randperm(seed_pool, device=device)[:dream_seed_count]
+                    elif dream_seed_count == seed_pool:
+                        seed_inds = torch.arange(seed_pool, device=device)
+                    else:
+                        seed_inds = torch.randint(0, seed_pool, (dream_seed_count,), device=device)
+                    dream_seed_obs = b_obs_seqs[seed_inds]
+                    dream_seed_actions = b_action_seqs[seed_inds]
+                    dream_seed_rewards = b_reward_seqs[seed_inds]
+                    dream_seed_alive = b_wm_valid[seed_inds]
+
+                    seed_cls = agent._encode_wm(
+                        dream_seed_obs,
+                        dream_seed_actions,
+                        dream_seed_rewards,
+                    )
+                    z = agent._dyn_bundle_from_cls(seed_cls).detach()
+                    agent_z = agent._agent_bundle_from_cls(seed_cls).detach()
+                    alive = dream_seed_alive.float()
+                    dream_states = []
+                    dream_pre_actions = []
+                    dream_old_logprobs = []
+                    dream_values = []
+                    dream_rewards = []
+                    dream_continues = []
+                    dream_learn_masks = []
+                    summary_history = [z.detach()]
+                    action_history = []
+                    reward_history = [dream_seed_rewards[:, -1].detach()]
+
+                    for _ in range(args.imagination_horizon):
+                        dream_states.append(agent_z.detach())
+                        action, old_logprob, _, _, _, action_z = agent.get_imagined_action_and_value(agent_z)
+                        value = agent.get_imagined_value(agent_z, hl_support)
+                        action_history.append(action.detach())
+                        context_len = min(agent.pred_context, len(summary_history), len(action_history))
+                        pred_context = torch.stack(summary_history[-context_len:], dim=1)
+                        action_context = torch.stack(action_history[-context_len:], dim=1)
+                        reward_items = reward_history[-context_len:]
+                        if len(reward_items) < context_len:
+                            reward_pad = torch.zeros(
+                                action_context.shape[0],
+                                context_len - len(reward_items),
+                                device=device,
+                                dtype=action_context.dtype,
+                            )
+                            if reward_items:
+                                reward_context = torch.cat([reward_pad, torch.stack(reward_items, dim=1)], dim=1)
+                            else:
+                                reward_context = reward_pad
+                        else:
+                            reward_context = torch.stack(reward_items, dim=1)
+                        next_z, next_agent_z = agent._transition_next_bundle_from_history(
+                            pred_context,
+                            action_context,
+                            reward_context,
+                        )
+                        next_agent_flat = next_agent_z.flatten(1)
+                        reward_logits = agent.reward_head_bins(next_agent_flat)
+                        next_flat = next_z.flatten(1)
+                        continue_logits = agent.continue_head(next_flat).squeeze(-1)
+                        continue_prob = continue_logits.float().sigmoid()
+                        reward_hat = reward_support.to_scalar(reward_logits) * alive
+                        continue_hat = continue_prob * alive
+                        reward_history.append(reward_hat.detach())
+                        dream_pre_actions.append(action_z.detach())
+                        dream_old_logprobs.append(old_logprob.detach())
+                        dream_values.append(value.detach())
+                        dream_rewards.append(reward_hat.detach())
+                        dream_continues.append(continue_hat.detach())
+                        dream_learn_masks.append(alive.bool())
+                        sampled_terminal = (torch.bernoulli((1.0 - continue_prob).clamp(0.0, 1.0)) > 0).float()
+                        alive = alive * (1.0 - sampled_terminal)
+                        z = next_z.detach()
+                        agent_z = next_agent_z.detach()
+                        summary_history.append(z)
+
+                    bootstrap_value = agent.get_imagined_value(agent_z, hl_support).detach()
+                    dream_returns = []
+                    dream_gae = torch.zeros_like(bootstrap_value)
+                    dream_values_with_bootstrap = dream_values + [bootstrap_value]
+                    for h in reversed(range(args.imagination_horizon)):
+                        delta = (
+                            dream_rewards[h]
+                            + args.gamma * dream_continues[h] * dream_values_with_bootstrap[h + 1]
+                            - dream_values_with_bootstrap[h]
+                        )
+                        dream_gae = delta + args.gamma * args.gae_lambda * dream_continues[h] * dream_gae
+                        dream_gae = torch.where(dream_learn_masks[h], dream_gae, torch.zeros_like(dream_gae))
+                        dream_returns.append(dream_gae + dream_values_with_bootstrap[h])
+                    dream_returns.reverse()
+
+                    batch_return_means = []
+                    batch_reward_means = []
+                    batch_continue_means = []
+                    for horizon_return, horizon_reward, horizon_continue, horizon_mask in zip(
+                        dream_returns,
+                        dream_rewards,
+                        dream_continues,
+                        dream_learn_masks,
+                    ):
+                        if bool(horizon_mask.any()):
+                            batch_return_means.append(horizon_return[horizon_mask].mean())
+                            batch_reward_means.append(horizon_reward[horizon_mask].mean())
+                            batch_continue_means.append(horizon_continue[horizon_mask].mean())
+                        else:
+                            batch_return_means.append(horizon_return.mean())
+                            batch_reward_means.append(horizon_reward.mean())
+                            batch_continue_means.append(horizon_continue.mean())
+                    dream_horizon_return_batches.append(torch.stack(batch_return_means))
+                    dream_horizon_reward_batches.append(torch.stack(batch_reward_means))
+                    dream_horizon_continue_batches.append(torch.stack(batch_continue_means))
+
+                    dream_states = torch.cat(dream_states, dim=0)
+                    dream_pre_actions = torch.cat(dream_pre_actions, dim=0)
+                    dream_old_logprobs = torch.cat(dream_old_logprobs, dim=0)
+                    dream_values = torch.cat(dream_values, dim=0)
+                    dream_returns = torch.cat(dream_returns, dim=0)
+                    dream_advantages = dream_returns - dream_values
+                    dream_learn_masks = torch.cat(dream_learn_masks, dim=0)
+                    if dream_states.shape[0] > args.dream_batch_size:
+                        train_inds = torch.randperm(dream_states.shape[0], device=device)[: args.dream_batch_size]
+                        dream_states = dream_states[train_inds]
+                        dream_pre_actions = dream_pre_actions[train_inds]
+                        dream_old_logprobs = dream_old_logprobs[train_inds]
+                        dream_values = dream_values[train_inds]
+                        dream_returns = dream_returns[train_inds]
+                        dream_advantages = dream_advantages[train_inds]
+                        dream_learn_masks = dream_learn_masks[train_inds]
+                    if bool(dream_learn_masks.any()):
+                        imagined_return_means.append(dream_returns[dream_learn_masks].mean())
+                    else:
+                        imagined_return_means.append(dream_returns.mean())
+
+                dream_inds = np.arange(dream_states.shape[0])
+                for _ in range(args.imagine_update_epochs):
+                    np.random.shuffle(dream_inds)
+                    mb_inds = dream_inds
                     mb_mask = dream_learn_masks[mb_inds]
                     has_targets = bool(mb_mask.any())
 
@@ -1489,25 +1775,22 @@ if __name__ == "__main__":
                             imagine_actor_loss = torch.tensor(0.0, device=device)
 
                         dream_return_targets = dream_returns[mb_inds]
-                        # Project in fp32 (bf16 erf is too lossy near boundaries),
-                        # then let F.cross_entropy handle the autocast promotion
-                        # for the logits-vs-soft-target reduction.
                         with torch.amp.autocast("cuda", enabled=False):
                             dream_return_probs = hl_support.project(dream_return_targets.float())
                         dream_value_logits = agent.get_imagined_value_logits(dream_states[mb_inds])
                         dream_value_loss_bins = F.cross_entropy(
-                            dream_value_logits, dream_return_probs.detach(), reduction='none'
+                            dream_value_logits,
+                            dream_return_probs.detach(),
+                            reduction='none',
                         )
                         if has_targets:
                             imagine_critic_loss = dream_value_loss_bins[mb_mask].mean()
                         else:
                             imagine_critic_loss = dream_value_loss_bins.sum() * 0.0
 
-                        # equal_weight(0) = 0, so the sentinel paths produce no
-                        # gradient — no special-casing needed.
                         imagine_loss = (
-                            args.imagine_actor_coef * equal_weight(imagine_actor_loss)
-                            + args.imagine_critic_coef * equal_weight(imagine_critic_loss)
+                            args.imagine_actor_coef * imagine_actor_loss
+                            + args.imagine_critic_coef * imagine_critic_loss
                         )
                     optimizer.zero_grad()
                     imagine_loss.backward()
@@ -1525,6 +1808,12 @@ if __name__ == "__main__":
                 imagine_approx_kl = torch.tensor(float(np.mean(imagine_approx_kls)), device=device)
             if imagine_logprob_delta_abses:
                 imagine_logprob_delta_abs = torch.tensor(float(np.mean(imagine_logprob_delta_abses)), device=device)
+            if imagined_return_means:
+                imagined_return_mean = torch.stack(imagined_return_means).mean()
+            if dream_horizon_return_batches:
+                dream_horizon_return_mean = torch.stack(dream_horizon_return_batches).mean(dim=0)
+                dream_horizon_reward_mean = torch.stack(dream_horizon_reward_batches).mean(dim=0)
+                dream_horizon_continue_mean = torch.stack(dream_horizon_continue_batches).mean(dim=0)
 
         # Logging
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
@@ -1540,7 +1829,7 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/spo_penalty", np.mean(spo_penalties) if spo_penalties else 0.0, global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        writer.add_scalar("worldmodel/reward_loss", reward_loss.item(), global_step)
+        writer.add_scalar("worldmodel/reward_mse", reward_mse.item(), global_step)
         writer.add_scalar("worldmodel/reward_loss_bins", reward_loss_bins.item(), global_step)
         writer.add_scalar("worldmodel/continue_loss", continue_loss.item(), global_step)
         writer.add_scalar("worldmodel/trunk_anchor_loss", trunk_anchor_loss.item(), global_step)
@@ -1603,11 +1892,13 @@ if __name__ == "__main__":
                         dream_horizon_continue_mean[horizon].item(),
                         global_step,
                     )
-            cls = agent._encode_wm(agent.obs_history)
-            dyn_flat = agent._dyn_flat_from_cls(cls)
-            _, action_std = agent._actor_mean_std(dyn_flat)
+            with bf16_autocast(device):
+                cls = agent._encode_wm(agent.obs_history, agent.action_history, agent.reward_history)
+                dyn_flat = agent._dyn_flat_from_cls(cls)
+                agent_flat = agent._agent_flat_from_cls(cls)
+                _, action_std = agent._actor_mean_std(agent_flat)
+                sp_pred = agent.to_state_pred(dyn_flat)
             writer.add_scalar("policy/action_std_mean", action_std.mean().item(), global_step)
-            sp_pred = agent.to_state_pred(dyn_flat)
             sp_log_var = sp_pred[:, agent.tok_obs_embed_dim:]
             writer.add_scalar("state_pred/log_var_mean", sp_log_var.mean().item(), global_step)
             writer.add_scalar("state_pred/entropy_bonus_mean", (sp_log_var.mean(-1) * STATE_ENT_COEF).mean().item(), global_step)
