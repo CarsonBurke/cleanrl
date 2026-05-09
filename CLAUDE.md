@@ -32,6 +32,7 @@ cleanrl/ppo_continuous_action_<your_method_name>.py
 - Default `env_id` should be `HalfCheetah-v4`
 - Include a header comment block explaining your method's key ideas, novelty, and hypothesis. Don't be verbose
 - Versioning: When creating new versions, give them a relevant summary-name and a version number `_v<N>`. Generally do this each time you modify the algorithm. This creates a clear trail: `method_v1`, `method_v2`, etc. so we can go back without having to wade through commit history
+- Always use CUDA, never CPU
 
 ### Benchmarking and iterating
 
