@@ -399,7 +399,7 @@ def temporal_causal_mask(context_len, tokens_per_step, device):
     return mask.masked_fill(future, float("-inf"))
 
 
-def attention(q, k, v, dropout_p=0.0, attn_mask=None):
+def attention(q, k, v, dropout_p=0.0, attn_mask=None, enable_gqa=False):
     if q.is_cuda and attn_mask is None:
         attn_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
         with warnings.catch_warnings():
@@ -407,12 +407,23 @@ def attention(q, k, v, dropout_p=0.0, attn_mask=None):
             try:
                 with sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION]):
                     out = F.scaled_dot_product_attention(
-                        q.to(attn_dtype), k.to(attn_dtype), v.to(attn_dtype), dropout_p=dropout_p
+                        q.to(attn_dtype),
+                        k.to(attn_dtype),
+                        v.to(attn_dtype),
+                        dropout_p=dropout_p,
+                        enable_gqa=enable_gqa,
                     )
                 return out.to(q.dtype)
             except RuntimeError:
                 pass
-    return F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, dropout_p=dropout_p)
+    return F.scaled_dot_product_attention(
+        q,
+        k,
+        v,
+        attn_mask=attn_mask,
+        dropout_p=dropout_p,
+        enable_gqa=enable_gqa,
+    )
 
 
 class TransformerBlock(nn.Module):
@@ -459,13 +470,7 @@ class TransformerBlock(nn.Module):
         q = apply_rope(self.q_norm(q), rope_cos, rope_sin)
         k = apply_rope(self.k_norm(k), rope_cos, rope_sin)
 
-        if self.kv_group_size > 1:
-            k = k.unsqueeze(2).expand(batch, self.num_kv_heads, self.kv_group_size, seq_len, self.head_dim)
-            k = k.reshape(batch, self.num_q_heads, seq_len, self.head_dim)
-            v = v.unsqueeze(2).expand(batch, self.num_kv_heads, self.kv_group_size, seq_len, self.head_dim)
-            v = v.reshape(batch, self.num_q_heads, seq_len, self.head_dim)
-
-        attn_out = attention(q, k, v, attn_mask=attn_mask)
+        attn_out = attention(q, k, v, attn_mask=attn_mask, enable_gqa=self.kv_group_size > 1)
         attn_out = attn_out.transpose(1, 2).reshape(batch, seq_len, width)
         x = x + self.attn_scale.to(dtype=x.dtype, device=x.device)[None, None, :] * self.wo(attn_out)
 
@@ -517,13 +522,7 @@ class PerceiverCrossAttentionBlock(nn.Module):
         q = self.q_norm(q)
         k = apply_rope(self.k_norm(k), obs_rope_cos, obs_rope_sin)
 
-        if self.kv_group_size > 1:
-            k = k.unsqueeze(2).expand(batch, self.num_kv_heads, self.kv_group_size, num_obs, self.head_dim)
-            k = k.reshape(batch, self.num_q_heads, num_obs, self.head_dim)
-            v = v.unsqueeze(2).expand(batch, self.num_kv_heads, self.kv_group_size, num_obs, self.head_dim)
-            v = v.reshape(batch, self.num_q_heads, num_obs, self.head_dim)
-
-        attn_out = attention(q, k, v)
+        attn_out = attention(q, k, v, enable_gqa=self.kv_group_size > 1)
         attn_out = attn_out.transpose(1, 2).reshape(batch, num_latents, width)
         latent_tokens = (
             latent_tokens
@@ -583,13 +582,7 @@ class PerceiverReadoutBlock(nn.Module):
         q = self.q_norm(q)
         k = self.k_norm(k)
 
-        if self.kv_group_size > 1:
-            k = k.unsqueeze(2).expand(batch, self.num_kv_heads, self.kv_group_size, num_context, self.head_dim)
-            k = k.reshape(batch, self.num_q_heads, num_context, self.head_dim)
-            v = v.unsqueeze(2).expand(batch, self.num_kv_heads, self.kv_group_size, num_context, self.head_dim)
-            v = v.reshape(batch, self.num_q_heads, num_context, self.head_dim)
-
-        attn_out = attention(q, k, v)
+        attn_out = attention(q, k, v, enable_gqa=self.kv_group_size > 1)
         attn_out = attn_out.transpose(1, 2).reshape(batch, num_queries, width)
         query_tokens = (
             query_tokens
@@ -648,14 +641,8 @@ class PredictorTransformerBlock(nn.Module):
         q = apply_rope(self.q_norm(q), rope_cos, rope_sin)
         k = apply_rope(self.k_norm(k), rope_cos, rope_sin)
 
-        if self.kv_group_size > 1:
-            k = k.unsqueeze(2).expand(batch, self.num_kv_heads, self.kv_group_size, seq_len, self.head_dim)
-            k = k.reshape(batch, self.num_q_heads, seq_len, self.head_dim)
-            v = v.unsqueeze(2).expand(batch, self.num_kv_heads, self.kv_group_size, seq_len, self.head_dim)
-            v = v.reshape(batch, self.num_q_heads, seq_len, self.head_dim)
-
         dropout_p = self.dropout if self.training else 0.0
-        attn_out = attention(q, k, v, dropout_p=dropout_p, attn_mask=attn_mask)
+        attn_out = attention(q, k, v, dropout_p=dropout_p, attn_mask=attn_mask, enable_gqa=self.kv_group_size > 1)
         attn_out = self.wo(attn_out.transpose(1, 2).reshape(batch, seq_len, width))
         attn_out = F.dropout(attn_out, p=self.dropout, training=self.training)
         x = x + self.attn_scale.to(dtype=x.dtype, device=x.device)[None, None, :] * attn_out
