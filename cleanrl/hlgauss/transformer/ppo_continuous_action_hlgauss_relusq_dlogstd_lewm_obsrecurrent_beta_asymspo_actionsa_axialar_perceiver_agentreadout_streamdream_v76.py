@@ -1,0 +1,2651 @@
+# PPO + HL-Gauss with a LeWM-style action-conditioned latent world model.
+#
+# Key ideas:
+# - scalar observation tokens are read by 8 learned latent queries through Perceiver-style cross-attention
+# - a separate predictor transformer rolls latent tokens forward from latent/action history
+# - a standard relu-squared MLP PPO agent acts on detached mixed-observation latent tokens
+# - Xavier/Glorot init on tokenizer and transformer layers
+# - LeWM-style next-encoder-latent MSE: pred(z_t, a_t) targets encoder(o_{t+1})
+# - 5-step teacher-forced WM training masked across episode boundaries
+# - LeWM-style SIGReg regularizes the full encoded latent sequence toward an isotropic Gaussian
+# - v59 predicts one state+outcome target embedding per transition:
+#   target(obs_{t+1}, reward_t, continuation_t), with reward/continuation
+#   entering the predicted embedding rather than detached dynamics heads
+# - imagined actor uses asymmetric half-strength SPO on detached world-model latent rollouts
+# - imagined critic uses an HL-Gauss value head for Dreamer-style lambda returns
+# - v44: dream construction runs the WM in eval mode, termination uses soft continuation
+#   for GAE without also masking by sampled terminal, and the unused dynamics value loss is disabled
+# - v45: immediate reward readout was action-aware: r_hat = g(z_t, a_t, z_hat_{t+1})
+# - v46: agent critic used a scalar ReLU-squared value head to avoid early HL-Gauss
+#   support-edge bootstraps poisoning imagined PPO; v54 returns to HL-Gauss value targets
+# - v47: imagined PPO uses one fixed dream buffer per rollout iteration, and the detached
+#   latent agent input is RMS-normalized before the standard ReLU-squared actor/critic
+# - v48: imagined lambda returns reset across non-learnable sampled-terminal steps; dreamed
+#   diagnostics track advantage/action correlation and policy-neighborhood reward sensitivity
+# - v51: dreamed rollouts are prompted with recent same-episode real latent/action context
+#   before generated policy actions, matching Dreamer-style prompted generation
+# - v52: predictor emits next latents through a LeWM-style projection instead of a
+#   zero-initialized residual delta, removing the identity shortcut that made dreams
+#   nearly action-indifferent
+# - v53: expands the rollout bottleneck to 8 latent tokens and represents continuous
+#   actions as one explicit predictor token per action dimension
+# - v54: replaces SiLU/gated hidden activations with ReLU-squared throughout
+#   the world model, predictor, action embedder, and readout projections
+#   and uses standard Pre-LN residuals with parameter-golf-style residual mixing
+# - v55: actor/critic use ReLU-squared MLP heads with RMSNorm after each hidden
+#   activation, and real rollout PPO is restored as an anchor using stored
+#   rollout latent tokens with real GAE advantages/returns
+# - v56: widens actor/critic hidden layers to 256, removes the actor mean/logstd
+#   clamps, and stores real rollout logprobs per action dimension like dreams
+# - v57: aligns real rollout actor training with imagined actor training by using
+#   the same asymmetric SPO objective; v67 restores asymmetric half-strength SPO
+# - v58: separates actor and critic latent-input normalization so critic/value
+#   gradients cannot move the actor feature scale, and logs real KL like SPO refs
+# - v60: restores LeWM-style target-gradient flow for summary prediction while
+#   detaching future target summaries when they are used as teacher-forced context
+# - v61: restores LeWM-style multi-step predictor context and per-layer action
+#   conditioning via AdaLN, and regularizes the full state+outcome summary
+# - v62: replaces per-observation-dimension tokens with 8 mixed observation tokens:
+#   obs_dim -> Linear(NUM_OBS_TOKENS * MODEL_DIM)
+# - v63: constructs the full dreamed PPO batch in GPU chunks, stages it on CPU,
+#   then streams shuffled dream minibatches back to CUDA for multi-epoch PPO
+# - v64: removes learned summary/state query tokens; the recurrent world-model state
+#   is now 8 mixed observation latent tokens plus 2 reward/continuation outcome tokens
+# - v65: logs real and imagined PPO return targets separately for each agent minibatch
+# - v66: replaces tanh-squashed Gaussian actions with D4-style Beta policies on
+#   normalized action coordinates, linearly mapped to the environment action box
+# - v67: restores asymmetric half-strength SPO for real and imagined Beta-policy updates
+# - v68: fixes time-limit bootstrapping, boundary target validity, direct outcome-token
+#   prediction gradients, observation-only SIGReg, and survival-weighted soft dream continuations
+# - v69: keeps learned outcome target projections inside the JEPA embedding system:
+#   full state+outcome summaries get SIGReg and reward/continue are decoded by
+#   distance to split learned outcome-token codebooks, not a trained CE/BCE dynamics head
+# - v70: renames world-model logs so optimized JEPA losses are separated from
+#   diagnostic outcome-token probes
+# - v71: replaces the mixed-observation encoder transformer with a Perceiver-style
+#   scalar-token cross-attention encoder: raw obs dims -> scalar tokens with RoPE,
+#   learned empty latent queries -> cross-attention -> final RMSNorm target tokens
+# - v72: applies SIGReg token-wise to obs and outcome target tokens instead of
+#   flattening all summary tokens into one vector
+# - v73: actor and critic read obs tokens through a shared two-query Perceiver
+#   cross-attention readout instead of flattening all obs tokens into a 512-d vector
+# - v74: removes global AdaLN action conditioning from the predictor. Actions enter only
+#   as same-step self-attended tokens built from realized_z, policy mean_z, and policy std_z.
+# - v75: dream prompt histories use observed reward/continuation outcome tokens for
+#   every prompt state instead of neutral outcome placeholders.
+# - v76: replaces flattened block-causal predictor attention with axial autoregression:
+#   same-step local SA -> per-slot temporal causal SA -> same-step local SA, with cached
+#   temporal K/V for dreamed rollout steps.
+import os
+import random
+import sys
+import time
+import warnings
+import math
+from dataclasses import dataclass
+from pathlib import Path
+
+import gymnasium as gym
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import tyro
+from torch.nn.attention import SDPBackend, sdpa_kernel
+from torch.distributions.beta import Beta
+from torch.utils.tensorboard import SummaryWriter
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from cleanrl.shared.hl_gauss import HLGaussSupport
+
+
+MODEL_DIM = 64
+REWARD_FEATURE_DIM = 512
+NUM_Q_HEADS = 4
+NUM_KV_HEADS = 2
+FFN_MULT = 2
+DYN_NUM_LAYERS = 2
+AGENT_NUM_LAYERS = 2
+PRED_NUM_LAYERS = 2
+PRED_DROPOUT = 0.1
+PRED_CONTEXT = 5
+DEFAULT_PRED_CONTEXT = PRED_CONTEXT
+NUM_OBS_TOKENS = 8
+NUM_OUTCOME_TOKENS = 2
+NUM_LATENT_TOKENS = NUM_OBS_TOKENS + NUM_OUTCOME_TOKENS
+SCALAR_EMBED_DIM = 32
+ACTION_FEATURE_DIM = 3
+AGENT_INPUT_DIM = MODEL_DIM
+AGENT_HIDDEN_DIM = 256
+SAMPLE_EPS = 1e-7
+
+
+@dataclass
+class Args:
+    exp_name: str = os.path.basename(__file__)[: -len(".py")]
+    """the name of this experiment"""
+    seed: int = 1
+    """seed of the experiment"""
+    torch_deterministic: bool = True
+    """if toggled, `torch.backends.cudnn.deterministic=False`"""
+    cuda: bool = True
+    """if toggled, cuda will be enabled by default"""
+    track: bool = False
+    """if toggled, this experiment will be tracked with Weights and Biases"""
+    wandb_project_name: str = "cleanRL"
+    """the wandb's project name"""
+    wandb_entity: str = None
+    """the entity (team) of wandb's project"""
+    capture_video: bool = False
+    """whether to capture videos of the agent performances (check out `videos` folder)"""
+    save_model: bool = False
+    """whether to save model into the `runs/{run_name}` folder"""
+    upload_model: bool = False
+    """whether to upload the saved model to huggingface"""
+    hf_entity: str = ""
+    """the user or org name of the model repository from the Hugging Face Hub"""
+
+    # Algorithm specific arguments
+    env_id: str = "HalfCheetah-v4"
+    """the id of the environment"""
+    total_timesteps: int = 1000000
+    """total timesteps of the experiments"""
+    learning_rate: float = 3e-4
+    """the learning rate of the optimizer"""
+    num_envs: int = 1
+    """the number of parallel game environments"""
+    num_steps: int = 2048
+    """the number of steps to run in each environment per policy rollout"""
+    anneal_lr: bool = True
+    """Toggle learning rate annealing for policy and value networks"""
+    gamma: float = 0.99
+    """the discount factor gamma"""
+    gae_lambda: float = 0.95
+    """the lambda for the general advantage estimation"""
+    num_minibatches: int = 32
+    """the number of mini-batches"""
+    wm_update_epochs: int = 1
+    """number of world-model epochs per rollout iteration after warmup starts"""
+    agent_update_epochs: int = 4
+    """number of PPO epochs per rollout iteration once agent training is enabled"""
+    norm_adv: bool = True
+    """Toggles advantages normalization"""
+    clip_coef: float = 0.2
+    """PPO reference clip coefficient used for KL/clipfrac diagnostics"""
+    spo_eps_low: float = 0.40
+    """SPO bound when ratio drift opposes the advantage direction; half-strength vs 0.20"""
+    spo_eps_high: float = 0.56
+    """SPO bound when ratio drift agrees with the advantage direction; half-strength vs 0.28"""
+    clip_vloss: bool = True
+    """retained for CLI compatibility; imagined value loss uses HL-Gauss targets"""
+    ent_coef: float = 0.0
+    """coefficient of the entropy"""
+    vf_coef: float = 0.5
+    """coefficient of the value function"""
+    max_grad_norm: float = 0.5
+    """the maximum norm for the gradient clipping"""
+    actor_mean_scale: float = 3.0
+    """retained for CLI compatibility; v66 uses Beta concentration heads"""
+    use_pmpo: bool = False
+    """retained for CLI compatibility; v67 uses advantage-magnitude SPO, not PMPO"""
+    detach_world_model_from_agent: bool = True
+    """if toggled, PPO and dreamed agent losses see detached world-model latent tokens"""
+
+    # HL-Gauss specific
+    num_bins: int = 51
+    """number of bins for the categorical value head"""
+    v_min: float = -5.0
+    """minimum value of the support (in symlog space)"""
+    v_max: float = 5.0
+    """maximum value of the support (in symlog space)"""
+    sigma_ratio: float = 0.5
+    """sigma / bin_width ratio for HL-Gauss target smoothing"""
+
+    # LeWM dynamics auxiliary
+    dyn_horizon: int = 5
+    """teacher-forced dynamics horizon"""
+    pred_context: int = DEFAULT_PRED_CONTEXT
+    """number of summary steps the predictor can attend over; v61 defaults to the full dynamics horizon"""
+    dyn_latent_coef: float = 1.0
+    """weight on next-dynamics-token prediction"""
+    outcome_decode_temp: float = 0.25
+    """temperature for codebook-distance reward/continuation decoding from learned outcome tokens"""
+    reward_num_bins: int = 51
+    """number of bins for the learned reward outcome token"""
+    reward_v_min: float = -10.0
+    """minimum reward support for the learned reward outcome token"""
+    reward_v_max: float = 10.0
+    """maximum reward support for the learned reward outcome token"""
+    reward_sigma_ratio: float = 0.75
+    """sigma / bin_width ratio for the auxiliary reward support"""
+    imagine_horizon: int = 16
+    """dream rollout horizon for Dreamer-style imagined GAE"""
+    dream_prompt_len: int = DEFAULT_PRED_CONTEXT
+    """real same-episode summary/action context length used to prompt dreamed rollouts"""
+    imagine_actor_coef: float = 1.0
+    """weight on the imagined-rollout actor objective"""
+    imagine_critic_coef: float = 0.5
+    """weight on the imagined-rollout critic objective"""
+    imagine_actor_ent_coef: float = 0.0
+    """entropy bonus for the dreamed PPO actor update"""
+    imagine_update_epochs: int = 4
+    """number of PPO epochs over the fixed imagined rollout buffer"""
+    imagine_start_step: int = 0
+    """global step at which dreamed updates become active"""
+    wm_warmup_steps: int = 100000
+    """number of env steps to train only the world model before enabling agent updates"""
+    sigreg_coef: float = 0.09
+    """weight on the SIGReg latent anti-collapse regularizer"""
+    sigreg_num_proj: int = 1024
+    """number of random projections used by SIGReg"""
+    sigreg_knots: int = 17
+    """number of quadrature knots used by SIGReg"""
+    sigreg_min_valid: int = 32
+    """minimum valid samples required for a masked timestep to contribute to SIGReg"""
+    dynamics_diagnostic_batch: int = 1024
+    """number of real rollout starts used for detached dynamics diagnostics"""
+    imagination_diagnostic_batch: int = 512
+    """number of dreamed starts used for detached imagination control-signal diagnostics"""
+    dream_build_batch_size: int = 16384
+    """number of real rollout starts to dream at once before staging tensors on CPU"""
+    action_sensitivity_samples: int = 8
+    """number of random actions per state for reward action-sensitivity diagnostics"""
+
+    # to be filled in runtime
+    batch_size: int = 0
+    """the batch size (computed in runtime)"""
+    minibatch_size: int = 0
+    """the mini-batch size (computed in runtime)"""
+    num_iterations: int = 0
+    """the number of iterations (computed in runtime)"""
+
+
+def make_env(env_id, idx, capture_video, run_name, gamma):
+    def thunk():
+        if capture_video and idx == 0:
+            env = gym.make(env_id, render_mode="rgb_array")
+            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+        else:
+            env = gym.make(env_id)
+        env = gym.wrappers.FlattenObservation(env)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        env = gym.wrappers.ClipAction(env)
+        env = gym.wrappers.NormalizeObservation(env)
+        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
+        env = gym.wrappers.NormalizeReward(env, gamma=gamma)
+        env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+        return env
+
+    return thunk
+
+
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
+
+def xavier_init_linear(layer, gain=1.0):
+    nn.init.xavier_uniform_(layer.weight, gain=gain)
+    if layer.bias is not None:
+        nn.init.zeros_(layer.bias)
+    return layer
+
+
+def set_requires_grad(modules, requires_grad):
+    for module in modules:
+        for param in module.parameters():
+            param.requires_grad_(requires_grad)
+
+
+def safe_mean(values):
+    return float(np.mean(values)) if len(values) else 0.0
+
+
+class RMSNorm(nn.Module):
+    def __init__(self, dim, eps=1e-6):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(dim))
+        self.eps = eps
+
+    def forward(self, x):
+        rms = torch.sqrt(torch.mean(x * x, dim=-1, keepdim=True) + self.eps)
+        return x / rms * self.weight
+
+
+class ReluSq(nn.Module):
+    def forward(self, x):
+        return torch.relu(x).square()
+
+
+class ReluSqRMSHead(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, output_std=1.0):
+        super().__init__()
+        self.net = nn.Sequential(
+            layer_init(nn.Linear(input_dim, hidden_dim)),
+            ReluSq(),
+            RMSNorm(hidden_dim),
+            layer_init(nn.Linear(hidden_dim, hidden_dim)),
+            ReluSq(),
+            RMSNorm(hidden_dim),
+            layer_init(nn.Linear(hidden_dim, output_dim), std=output_std),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+
+def relu_sq(x):
+    return torch.relu(x).square()
+
+
+class SIGReg(nn.Module):
+    """LeWM-style Sketched Isotropic Gaussian Regularizer."""
+
+    def __init__(self, knots=17, num_proj=256):
+        super().__init__()
+        self.num_proj = num_proj
+        t = torch.linspace(0, 3, knots, dtype=torch.float32)
+        dt = 3 / (knots - 1)
+        weights = torch.full((knots,), 2 * dt, dtype=torch.float32)
+        weights[[0, -1]] = dt
+        window = torch.exp(-t.square() / 2.0)
+        self.register_buffer("t", t)
+        self.register_buffer("phi", window)
+        self.register_buffer("weights", weights * window)
+
+    def sample_projection(self, dim, device, dtype):
+        A = torch.randn(dim, self.num_proj, device=device, dtype=dtype)
+        A = A.div_(A.norm(p=2, dim=0, keepdim=True).clamp_min(1e-8))
+        return A
+
+    def forward(self, proj, A=None):
+        # proj: (T, B, D)
+        if A is None:
+            A = self.sample_projection(proj.size(-1), proj.device, proj.dtype)
+        t = self.t.to(device=proj.device, dtype=proj.dtype)
+        phi = self.phi.to(device=proj.device, dtype=proj.dtype)
+        weights = self.weights.to(device=proj.device, dtype=proj.dtype)
+        x_t = (proj @ A).unsqueeze(-1) * t
+        err = (x_t.cos().mean(-3) - phi).square() + x_t.sin().mean(-3).square()
+        statistic = (err @ weights) * proj.size(-2)
+        return statistic.mean()
+
+
+def build_rope_cache(num_obs_tokens, num_special_tokens, head_dim, device, base=10000.0):
+    assert head_dim % 2 == 0
+    total_tokens = num_obs_tokens + num_special_tokens
+    theta = 1.0 / (base ** (torch.arange(0, head_dim, 2, device=device).float() / head_dim))
+    positions = torch.arange(num_obs_tokens, device=device).float()
+    freqs = torch.outer(positions, theta)
+
+    cos = torch.ones(total_tokens, head_dim // 2, device=device)
+    sin = torch.zeros(total_tokens, head_dim // 2, device=device)
+    cos[num_special_tokens:] = torch.cos(freqs)
+    sin[num_special_tokens:] = torch.sin(freqs)
+    return cos, sin
+
+
+def apply_rope(x, cos, sin):
+    half_dim = x.shape[-1] // 2
+    x1, x2 = x[..., :half_dim], x[..., half_dim:]
+    return torch.cat([x1 * cos - x2 * sin, x2 * cos + x1 * sin], dim=-1)
+
+
+def attention(q, k, v, dropout_p=0.0, attn_mask=None, enable_gqa=False, is_causal=False):
+    if q.is_cuda and attn_mask is None:
+        attn_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                with sdpa_kernel(backends=[SDPBackend.FLASH_ATTENTION]):
+                    out = F.scaled_dot_product_attention(
+                        q.to(attn_dtype),
+                        k.to(attn_dtype),
+                        v.to(attn_dtype),
+                        dropout_p=dropout_p,
+                        is_causal=is_causal,
+                        enable_gqa=enable_gqa,
+                    )
+                return out.to(q.dtype)
+            except RuntimeError:
+                pass
+    return F.scaled_dot_product_attention(
+        q,
+        k,
+        v,
+        attn_mask=attn_mask,
+        dropout_p=dropout_p,
+        is_causal=is_causal,
+        enable_gqa=enable_gqa,
+    )
+
+
+class TransformerBlock(nn.Module):
+    def __init__(self, dim, num_q_heads, num_kv_heads, ffn_mult=2):
+        super().__init__()
+        assert dim % num_q_heads == 0
+        assert num_q_heads % num_kv_heads == 0
+        self.num_q_heads = num_q_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = dim // num_q_heads
+        self.kv_group_size = num_q_heads // num_kv_heads
+
+        self.attn_norm = RMSNorm(dim)
+        self.ffn_norm = RMSNorm(dim)
+        self.q_norm = RMSNorm(self.head_dim)
+        self.k_norm = RMSNorm(self.head_dim)
+        self.attn_scale = nn.Parameter(torch.ones(dim, dtype=torch.float32))
+        self.ffn_scale = nn.Parameter(torch.ones(dim, dtype=torch.float32))
+        self.resid_mix = nn.Parameter(torch.stack((torch.ones(dim), torch.zeros(dim))).float())
+
+        self.wq = nn.Linear(dim, num_q_heads * self.head_dim, bias=False)
+        self.wk = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wv = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wo = nn.Linear(num_q_heads * self.head_dim, dim, bias=False)
+
+        ffn_dim = dim * ffn_mult
+        self.w1 = nn.Linear(dim, ffn_dim, bias=False)
+        self.w2 = nn.Linear(ffn_dim, dim, bias=False)
+        self.w3 = None
+
+        for module in [self.wq, self.wk, self.wv, self.wo, self.w1, self.w2]:
+            xavier_init_linear(module)
+
+    def forward(self, x, rope_cos, rope_sin, *, x0, attn_mask=None):
+        batch, seq_len, width = x.shape
+        mix = self.resid_mix.to(dtype=x.dtype, device=x.device)
+        x = mix[0][None, None, :] * x + mix[1][None, None, :] * x0
+
+        h = self.attn_norm(x)
+        q = self.wq(h).view(batch, seq_len, self.num_q_heads, self.head_dim).transpose(1, 2)
+        k = self.wk(h).view(batch, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = self.wv(h).view(batch, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
+
+        q = apply_rope(self.q_norm(q), rope_cos, rope_sin)
+        k = apply_rope(self.k_norm(k), rope_cos, rope_sin)
+
+        attn_out = attention(q, k, v, attn_mask=attn_mask, enable_gqa=self.kv_group_size > 1)
+        attn_out = attn_out.transpose(1, 2).reshape(batch, seq_len, width)
+        x = x + self.attn_scale.to(dtype=x.dtype, device=x.device)[None, None, :] * self.wo(attn_out)
+
+        h = self.ffn_norm(x)
+        x = x + self.ffn_scale.to(dtype=x.dtype, device=x.device)[None, None, :] * self.w2(relu_sq(self.w1(h)))
+        return x
+
+
+class PerceiverCrossAttentionBlock(nn.Module):
+    def __init__(self, dim, num_q_heads, num_kv_heads, ffn_mult=2):
+        super().__init__()
+        assert dim % num_q_heads == 0
+        assert num_q_heads % num_kv_heads == 0
+        self.num_q_heads = num_q_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = dim // num_q_heads
+        self.kv_group_size = num_q_heads // num_kv_heads
+
+        self.latent_attn_norm = RMSNorm(dim)
+        self.obs_attn_norm = RMSNorm(dim)
+        self.ffn_norm = RMSNorm(dim)
+        self.q_norm = RMSNorm(self.head_dim)
+        self.k_norm = RMSNorm(self.head_dim)
+        self.attn_scale = nn.Parameter(torch.ones(dim, dtype=torch.float32))
+        self.ffn_scale = nn.Parameter(torch.ones(dim, dtype=torch.float32))
+
+        self.wq = nn.Linear(dim, num_q_heads * self.head_dim, bias=False)
+        self.wk = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wv = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wo = nn.Linear(num_q_heads * self.head_dim, dim, bias=False)
+
+        ffn_dim = dim * ffn_mult
+        self.w1 = nn.Linear(dim, ffn_dim, bias=False)
+        self.w2 = nn.Linear(ffn_dim, dim, bias=False)
+
+        for module in [self.wq, self.wk, self.wv, self.wo, self.w1, self.w2]:
+            xavier_init_linear(module)
+
+    def forward(self, latent_tokens, obs_tokens, obs_rope_cos, obs_rope_sin):
+        batch, num_latents, width = latent_tokens.shape
+        num_obs = obs_tokens.shape[1]
+
+        latent_h = self.latent_attn_norm(latent_tokens)
+        obs_h = self.obs_attn_norm(obs_tokens)
+        q = self.wq(latent_h).view(batch, num_latents, self.num_q_heads, self.head_dim).transpose(1, 2)
+        k = self.wk(obs_h).view(batch, num_obs, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = self.wv(obs_h).view(batch, num_obs, self.num_kv_heads, self.head_dim).transpose(1, 2)
+
+        q = self.q_norm(q)
+        k = apply_rope(self.k_norm(k), obs_rope_cos, obs_rope_sin)
+
+        attn_out = attention(q, k, v, enable_gqa=self.kv_group_size > 1)
+        attn_out = attn_out.transpose(1, 2).reshape(batch, num_latents, width)
+        latent_tokens = (
+            latent_tokens
+            + self.attn_scale.to(dtype=latent_tokens.dtype, device=latent_tokens.device)[None, None, :]
+            * self.wo(attn_out)
+        )
+
+        h = self.ffn_norm(latent_tokens)
+        latent_tokens = (
+            latent_tokens
+            + self.ffn_scale.to(dtype=latent_tokens.dtype, device=latent_tokens.device)[None, None, :]
+            * self.w2(relu_sq(self.w1(h)))
+        )
+        return latent_tokens
+
+
+class PerceiverReadoutBlock(nn.Module):
+    def __init__(self, dim, num_q_heads, num_kv_heads, ffn_mult=2):
+        super().__init__()
+        assert dim % num_q_heads == 0
+        assert num_q_heads % num_kv_heads == 0
+        self.num_q_heads = num_q_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = dim // num_q_heads
+        self.kv_group_size = num_q_heads // num_kv_heads
+
+        self.query_norm = RMSNorm(dim)
+        self.context_norm = RMSNorm(dim)
+        self.ffn_norm = RMSNorm(dim)
+        self.q_norm = RMSNorm(self.head_dim)
+        self.k_norm = RMSNorm(self.head_dim)
+        self.attn_scale = nn.Parameter(torch.ones(dim, dtype=torch.float32))
+        self.ffn_scale = nn.Parameter(torch.ones(dim, dtype=torch.float32))
+
+        self.wq = nn.Linear(dim, num_q_heads * self.head_dim, bias=False)
+        self.wk = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wv = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wo = nn.Linear(num_q_heads * self.head_dim, dim, bias=False)
+
+        ffn_dim = dim * ffn_mult
+        self.w1 = nn.Linear(dim, ffn_dim, bias=False)
+        self.w2 = nn.Linear(ffn_dim, dim, bias=False)
+
+        for module in [self.wq, self.wk, self.wv, self.wo, self.w1, self.w2]:
+            xavier_init_linear(module)
+
+    def forward(self, query_tokens, context_tokens):
+        batch, num_queries, width = query_tokens.shape
+        num_context = context_tokens.shape[1]
+
+        query_h = self.query_norm(query_tokens)
+        context_h = self.context_norm(context_tokens)
+        q = self.wq(query_h).view(batch, num_queries, self.num_q_heads, self.head_dim).transpose(1, 2)
+        k = self.wk(context_h).view(batch, num_context, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = self.wv(context_h).view(batch, num_context, self.num_kv_heads, self.head_dim).transpose(1, 2)
+
+        q = self.q_norm(q)
+        k = self.k_norm(k)
+
+        attn_out = attention(q, k, v, enable_gqa=self.kv_group_size > 1)
+        attn_out = attn_out.transpose(1, 2).reshape(batch, num_queries, width)
+        query_tokens = (
+            query_tokens
+            + self.attn_scale.to(dtype=query_tokens.dtype, device=query_tokens.device)[None, None, :]
+            * self.wo(attn_out)
+        )
+
+        h = self.ffn_norm(query_tokens)
+        query_tokens = (
+            query_tokens
+            + self.ffn_scale.to(dtype=query_tokens.dtype, device=query_tokens.device)[None, None, :]
+            * self.w2(relu_sq(self.w1(h)))
+        )
+        return query_tokens
+
+
+class PredictorSelfAttentionBlock(nn.Module):
+    def __init__(self, dim, num_q_heads, num_kv_heads, ffn_mult=2, dropout=0.1):
+        super().__init__()
+        assert dim % num_q_heads == 0
+        assert num_q_heads % num_kv_heads == 0
+        self.num_q_heads = num_q_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = dim // num_q_heads
+        self.kv_group_size = num_q_heads // num_kv_heads
+        self.dropout = dropout
+
+        self.attn_norm = RMSNorm(dim)
+        self.ffn_norm = RMSNorm(dim)
+        self.q_norm = RMSNorm(self.head_dim)
+        self.k_norm = RMSNorm(self.head_dim)
+
+        self.wq = nn.Linear(dim, num_q_heads * self.head_dim, bias=False)
+        self.wk = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wv = nn.Linear(dim, num_kv_heads * self.head_dim, bias=False)
+        self.wo = nn.Linear(num_q_heads * self.head_dim, dim, bias=False)
+
+        ffn_dim = dim * ffn_mult
+        self.w1 = nn.Linear(dim, ffn_dim, bias=False)
+        self.w2 = nn.Linear(ffn_dim, dim, bias=False)
+        self.w3 = None
+        self.attn_scale = nn.Parameter(torch.ones(dim, dtype=torch.float32))
+        self.ffn_scale = nn.Parameter(torch.ones(dim, dtype=torch.float32))
+
+        for module in [self.wq, self.wk, self.wv, self.wo, self.w1, self.w2]:
+            xavier_init_linear(module)
+
+    def _qkv(self, x):
+        batch, seq_len, width = x.shape
+        h = self.attn_norm(x)
+        q = self.wq(h).view(batch, seq_len, self.num_q_heads, self.head_dim).transpose(1, 2)
+        k = self.wk(h).view(batch, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = self.wv(h).view(batch, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        return self.q_norm(q), self.k_norm(k), v
+
+    def _finish(self, x, attn_out):
+        width = x.shape[-1]
+        attn_out = self.wo(attn_out.transpose(1, 2).reshape(x.shape[0], x.shape[1], width))
+        attn_out = F.dropout(attn_out, p=self.dropout, training=self.training)
+        x = x + self.attn_scale.to(dtype=x.dtype, device=x.device)[None, None, :] * attn_out
+
+        h = self.ffn_norm(x)
+        ffn_out = self.w2(relu_sq(self.w1(h)))
+        ffn_out = F.dropout(ffn_out, p=self.dropout, training=self.training)
+        x = x + self.ffn_scale.to(dtype=x.dtype, device=x.device)[None, None, :] * ffn_out
+        return x
+
+    def forward(self, x, rope_cos=None, rope_sin=None, attn_mask=None, is_causal=False, return_cache=False):
+        q, k, v = self._qkv(x)
+        if rope_cos is not None:
+            q = apply_rope(q, rope_cos, rope_sin)
+            k_attn = apply_rope(k, rope_cos, rope_sin)
+        else:
+            k_attn = k
+
+        dropout_p = self.dropout if self.training else 0.0
+        attn_out = attention(
+            q,
+            k_attn,
+            v,
+            dropout_p=dropout_p,
+            attn_mask=attn_mask,
+            enable_gqa=self.kv_group_size > 1,
+            is_causal=is_causal,
+        )
+        x = self._finish(x, attn_out)
+        if return_cache:
+            return x, (k, v)
+        return x
+
+    def step(self, x, cache, rope_cos, rope_sin, max_context):
+        q, k_cur, v_cur = self._qkv(x)
+        if cache is None:
+            k_all = k_cur
+            v_all = v_cur
+        else:
+            k_past, v_past = cache
+            max_past = max(0, max_context - 1)
+            if max_past == 0:
+                k_past = k_past[:, :, :0]
+                v_past = v_past[:, :, :0]
+            elif k_past.shape[2] > max_past:
+                k_past = k_past[:, :, -max_past:]
+                v_past = v_past[:, :, -max_past:]
+            k_all = torch.cat([k_past, k_cur], dim=2)
+            v_all = torch.cat([v_past, v_cur], dim=2)
+
+        context_len = k_all.shape[2]
+        q = apply_rope(q, rope_cos[context_len - 1 : context_len], rope_sin[context_len - 1 : context_len])
+        k_attn = apply_rope(k_all, rope_cos[:context_len], rope_sin[:context_len])
+        dropout_p = self.dropout if self.training else 0.0
+        attn_out = attention(q, k_attn, v_all, dropout_p=dropout_p, enable_gqa=self.kv_group_size > 1)
+        return self._finish(x, attn_out), (k_all, v_all)
+
+
+class PredictorAxialBlock(nn.Module):
+    def __init__(self, dim, num_q_heads, num_kv_heads, ffn_mult=2, dropout=0.1):
+        super().__init__()
+        self.local_in = PredictorSelfAttentionBlock(dim, num_q_heads, num_kv_heads, ffn_mult, dropout)
+        self.temporal = PredictorSelfAttentionBlock(dim, num_q_heads, num_kv_heads, ffn_mult, dropout)
+        self.local_out = PredictorSelfAttentionBlock(dim, num_q_heads, num_kv_heads, ffn_mult, dropout)
+
+    def forward(self, x, time_rope_cos, time_rope_sin, temporal_mask=None, temporal_is_causal=False, return_cache=False):
+        batch, context_len, tokens_per_step, width = x.shape
+        x = self.local_in(x.reshape(batch * context_len, tokens_per_step, width))
+        x = x.reshape(batch, context_len, tokens_per_step, width)
+
+        temporal_x = x.transpose(1, 2).reshape(batch * tokens_per_step, context_len, width)
+        if return_cache:
+            temporal_x, temporal_cache = self.temporal(
+                temporal_x,
+                time_rope_cos,
+                time_rope_sin,
+                attn_mask=temporal_mask,
+                is_causal=temporal_is_causal,
+                return_cache=True,
+            )
+        else:
+            temporal_x = self.temporal(
+                temporal_x,
+                time_rope_cos,
+                time_rope_sin,
+                attn_mask=temporal_mask,
+                is_causal=temporal_is_causal,
+            )
+            temporal_cache = None
+        x = temporal_x.reshape(batch, tokens_per_step, context_len, width).transpose(1, 2)
+
+        x = self.local_out(x.reshape(batch * context_len, tokens_per_step, width))
+        x = x.reshape(batch, context_len, tokens_per_step, width)
+        if return_cache:
+            return x, temporal_cache
+        return x
+
+    def step(self, x, temporal_cache, time_rope_cos, time_rope_sin, max_context):
+        batch, tokens_per_step, width = x.shape
+        x = self.local_in(x)
+        temporal_x = x.reshape(batch * tokens_per_step, 1, width)
+        temporal_x, new_cache = self.temporal.step(
+            temporal_x,
+            temporal_cache,
+            time_rope_cos,
+            time_rope_sin,
+            max_context,
+        )
+        x = temporal_x.reshape(batch, tokens_per_step, width)
+        x = self.local_out(x)
+        return x, new_cache
+
+
+class Agent(nn.Module):
+    def __init__(
+        self,
+        envs,
+        num_bins,
+        reward_num_bins,
+        detach_world_model_from_agent=True,
+        actor_mean_scale=3.0,
+    ):
+        super().__init__()
+        obs_dim = int(np.array(envs.single_observation_space.shape).prod())
+        act_dim = int(np.prod(envs.single_action_space.shape))
+        self.act_dim = act_dim
+        self.reward_num_bins = reward_num_bins
+        self.detach_world_model_from_agent = detach_world_model_from_agent
+        self.actor_mean_scale = actor_mean_scale
+        self.register_buffer(
+            "action_low",
+            torch.tensor(envs.single_action_space.low, dtype=torch.float32),
+        )
+        self.register_buffer(
+            "action_high",
+            torch.tensor(envs.single_action_space.high, dtype=torch.float32),
+        )
+
+        self.obs_input_norm = RMSNorm(obs_dim)
+        self.obs_scalar_in_proj = xavier_init_linear(nn.Linear(1, SCALAR_EMBED_DIM))
+        self.obs_scalar_out_proj = xavier_init_linear(nn.Linear(SCALAR_EMBED_DIM, MODEL_DIM))
+        self.obs_token_norm = RMSNorm(MODEL_DIM)
+
+        self.obs_latent_queries = nn.Parameter(torch.empty(NUM_OBS_TOKENS, MODEL_DIM))
+        nn.init.xavier_uniform_(self.obs_latent_queries)
+        self.obs_cross_attn = PerceiverCrossAttentionBlock(MODEL_DIM, NUM_Q_HEADS, NUM_KV_HEADS, FFN_MULT)
+        self.dyn_final_norm = RMSNorm(MODEL_DIM)
+        self.dyn_next_proj = xavier_init_linear(nn.Linear(MODEL_DIM, MODEL_DIM))
+
+        self.pred_action_in_proj = xavier_init_linear(nn.Linear(ACTION_FEATURE_DIM, SCALAR_EMBED_DIM))
+        self.pred_action_out_proj = xavier_init_linear(nn.Linear(SCALAR_EMBED_DIM, MODEL_DIM))
+        self.pred_action_dim_embed = nn.Parameter(torch.empty(act_dim, MODEL_DIM))
+        nn.init.xavier_uniform_(self.pred_action_dim_embed)
+        self.pred_layers = nn.ModuleList(
+            [
+                PredictorAxialBlock(MODEL_DIM, NUM_Q_HEADS, NUM_KV_HEADS, FFN_MULT, dropout=PRED_DROPOUT)
+                for _ in range(PRED_NUM_LAYERS)
+            ]
+        )
+        self.pred_final_norm = RMSNorm(MODEL_DIM)
+        self.pred_next_proj = xavier_init_linear(nn.Linear(MODEL_DIM, MODEL_DIM))
+
+        head_dim = MODEL_DIM // NUM_Q_HEADS
+        obs_rope_cos, obs_rope_sin = build_rope_cache(obs_dim, 0, head_dim, torch.device("cpu"))
+        pred_time_rope_cos, pred_time_rope_sin = build_rope_cache(PRED_CONTEXT, 0, head_dim, torch.device("cpu"))
+        self.register_buffer("obs_rope_cos", obs_rope_cos)
+        self.register_buffer("obs_rope_sin", obs_rope_sin)
+        self.register_buffer("pred_time_rope_cos", pred_time_rope_cos)
+        self.register_buffer("pred_time_rope_sin", pred_time_rope_sin)
+
+        self.agent_readout_queries = nn.Parameter(torch.empty(2, MODEL_DIM))
+        nn.init.xavier_uniform_(self.agent_readout_queries)
+        self.agent_readout = PerceiverReadoutBlock(MODEL_DIM, NUM_Q_HEADS, NUM_KV_HEADS, FFN_MULT)
+        self.agent_readout_final_norm = RMSNorm(MODEL_DIM)
+        self.critic = ReluSqRMSHead(AGENT_INPUT_DIM, AGENT_HIDDEN_DIM, num_bins, output_std=1.0)
+        self.actor_beta = ReluSqRMSHead(AGENT_INPUT_DIM, AGENT_HIDDEN_DIM, 2 * act_dim, output_std=0.01)
+        self.actor_input_norm = RMSNorm(AGENT_INPUT_DIM)
+        self.critic_input_norm = RMSNorm(AGENT_INPUT_DIM)
+        self.reward_outcome_input_norm = RMSNorm(reward_num_bins)
+        self.reward_outcome_proj = xavier_init_linear(nn.Linear(reward_num_bins, MODEL_DIM))
+        self.continuation_outcome_input_norm = RMSNorm(1)
+        self.continuation_outcome_proj = xavier_init_linear(nn.Linear(1, MODEL_DIM))
+        self.outcome_token_norm = RMSNorm(MODEL_DIM)
+        self.outcome_decode_temp = 0.25
+        self.register_buffer("reward_codebook_probs", torch.eye(reward_num_bins), persistent=False)
+
+    def _action_distribution(self, agent_input):
+        beta_head = self.actor_beta(agent_input)
+        head_alpha, head_beta = beta_head.chunk(2, dim=-1)
+        alpha = 1.0 + F.softplus(head_alpha)
+        beta = 1.0 + F.softplus(head_beta)
+        return Beta(alpha, beta)
+
+    def _z_to_action(self, action_z):
+        return self.action_low + (self.action_high - self.action_low) * action_z
+
+    def _action_to_z(self, action):
+        action_z = (action - self.action_low) / (self.action_high - self.action_low)
+        return action_z.clamp(SAMPLE_EPS, 1.0 - SAMPLE_EPS)
+
+    def _beta_action_logprob_entropy(self, dist, action=None, action_z=None, sum_logprob=True):
+        if action_z is None:
+            if action is not None:
+                action_z = self._action_to_z(action)
+            else:
+                action_z = dist.sample().clamp(SAMPLE_EPS, 1.0 - SAMPLE_EPS)
+                action = self._z_to_action(action_z)
+        else:
+            action_z = action_z.clamp(SAMPLE_EPS, 1.0 - SAMPLE_EPS)
+            action = self._z_to_action(action_z)
+        logprob_per_dim = dist.log_prob(action_z)
+        entropy_per_dim = dist.entropy()
+        if sum_logprob:
+            logprob = logprob_per_dim.sum(1)
+            entropy = entropy_per_dim.sum(1)
+        else:
+            logprob = logprob_per_dim
+            entropy = entropy_per_dim
+        return action, action_z, logprob, entropy
+
+    def _action_mean_from_dist(self, dist):
+        return self._z_to_action(dist.mean)
+
+    def _action_std_from_dist(self, dist):
+        return dist.stddev * (self.action_high - self.action_low)
+
+    def _action_features_from_z_stats(self, action_z, mean_z, std_z):
+        return torch.stack(
+            [
+                action_z.clamp(SAMPLE_EPS, 1.0 - SAMPLE_EPS),
+                mean_z.clamp(SAMPLE_EPS, 1.0 - SAMPLE_EPS),
+                std_z.clamp_min(0.0),
+            ],
+            dim=-1,
+        )
+
+    def _action_features_from_dist(self, dist, action_z):
+        return self._action_features_from_z_stats(action_z, dist.mean, dist.stddev)
+
+    def _encode_dynamics_tokens(self, x):
+        batch = x.shape[0]
+        obs_flat = x.reshape(batch, -1)
+        obs_scalars = self.obs_input_norm(obs_flat).unsqueeze(-1)
+        obs_tokens = self.obs_scalar_out_proj(relu_sq(self.obs_scalar_in_proj(obs_scalars)))
+        obs_tokens = self.obs_token_norm(obs_tokens)
+        latent_tokens = self.obs_latent_queries.to(dtype=x.dtype, device=x.device).unsqueeze(0).expand(batch, -1, -1)
+        latent_tokens = self.obs_cross_attn(latent_tokens, obs_tokens, self.obs_rope_cos, self.obs_rope_sin)
+        return self.dyn_final_norm(latent_tokens)
+
+    def _encode_obs_latent_tokens(self, x):
+        obs_tokens = self._encode_dynamics_tokens(x)
+        return self.dyn_next_proj(obs_tokens)
+
+    def _reward_outcome_token(self, reward_probs):
+        return self.outcome_token_norm(
+            self.reward_outcome_proj(self.reward_outcome_input_norm(reward_probs))
+        )
+
+    def _continuation_outcome_token(self, continuations):
+        continuation_input = continuations.unsqueeze(-1)
+        return self.outcome_token_norm(
+            self.continuation_outcome_proj(self.continuation_outcome_input_norm(continuation_input))
+        )
+
+    def _outcome_tokens_from_labels(self, reward_probs, continuations):
+        reward_token = self._reward_outcome_token(reward_probs)
+        continuation_token = self._continuation_outcome_token(continuations)
+        return torch.stack([reward_token, continuation_token], dim=1)
+
+    def _outcome_tokens(self, obs_tokens, reward_probs, continuations):
+        return self._outcome_tokens_from_labels(reward_probs, continuations)
+
+    def _neutral_outcome_tokens(self, obs_tokens):
+        reward_probs = self.reward_codebook_probs.to(
+            device=obs_tokens.device,
+            dtype=obs_tokens.dtype,
+        )[self.reward_num_bins // 2].expand(obs_tokens.shape[0], -1)
+        continuations = obs_tokens.new_ones((obs_tokens.shape[0],))
+        return self._outcome_tokens(obs_tokens, reward_probs, continuations)
+
+    def _latent_from_obs(self, obs_tokens, outcome_tokens):
+        return torch.cat([obs_tokens, outcome_tokens], dim=1)
+
+    def _encode_online_summary(self, x):
+        obs_tokens = self._encode_obs_latent_tokens(x)
+        return self._latent_from_obs(obs_tokens, self._neutral_outcome_tokens(obs_tokens))
+
+    def encode_target_summary(self, x, reward_probs, continuations):
+        obs_tokens = self._encode_obs_latent_tokens(x)
+        outcome_tokens = self._outcome_tokens(obs_tokens, reward_probs, continuations)
+        return self._latent_from_obs(obs_tokens, outcome_tokens)
+
+    def decode_outcomes(self, summary_tokens, detach_summary=True):
+        outcome_tokens = summary_tokens[:, NUM_OBS_TOKENS:]
+        if detach_summary:
+            outcome_tokens = outcome_tokens.detach()
+        reward_token = outcome_tokens[:, 0]
+        continuation_token = outcome_tokens[:, 1]
+        reward_codebook_probs = self.reward_codebook_probs.to(
+            device=summary_tokens.device,
+            dtype=summary_tokens.dtype,
+        )
+        reward_codebook = self._reward_outcome_token(reward_codebook_probs)
+        reward_dist = (reward_token.unsqueeze(1) - reward_codebook.unsqueeze(0)).square().mean(dim=-1)
+        reward_logits = -reward_dist / self.outcome_decode_temp
+
+        continuation_labels = torch.tensor([0.0, 1.0], device=summary_tokens.device, dtype=summary_tokens.dtype)
+        continuation_codebook = self._continuation_outcome_token(continuation_labels)
+        continuation_dist = (
+            continuation_token.unsqueeze(1) - continuation_codebook.unsqueeze(0)
+        ).square().mean(dim=-1)
+        continuation_logits = -continuation_dist / self.outcome_decode_temp
+        termination_logits = continuation_logits[:, 0] - continuation_logits[:, 1]
+        return reward_logits, termination_logits
+
+    def _agent_readout_features_from_latents(self, latent_tokens):
+        obs_tokens = latent_tokens[:, :NUM_OBS_TOKENS]
+        queries = self.agent_readout_queries.to(dtype=latent_tokens.dtype, device=latent_tokens.device)
+        queries = queries.unsqueeze(0).expand(obs_tokens.shape[0], -1, -1)
+        return self.agent_readout_final_norm(self.agent_readout(queries, obs_tokens))
+
+    def _actor_features_from_latents(self, latent_tokens):
+        readout_tokens = self._agent_readout_features_from_latents(latent_tokens)
+        return self.actor_input_norm(readout_tokens[:, 0])
+
+    def _critic_features_from_latents(self, latent_tokens):
+        readout_tokens = self._agent_readout_features_from_latents(latent_tokens)
+        return self.critic_input_norm(readout_tokens[:, 1])
+
+    def _actor_critic_features_from_latents(self, latent_tokens):
+        readout_tokens = self._agent_readout_features_from_latents(latent_tokens)
+        return self.actor_input_norm(readout_tokens[:, 0]), self.critic_input_norm(readout_tokens[:, 1])
+
+    def _value_from_agent_input(self, agent_input, hl_support):
+        if hl_support is None:
+            raise ValueError("hl_support is required for HL-Gauss value decoding")
+        return hl_support.to_scalar(self.critic(agent_input))
+
+    def _encode_critic_features(self, x):
+        latent_tokens = self._encode_online_summary(x)
+        if self.detach_world_model_from_agent:
+            latent_tokens = latent_tokens.detach()
+        return self._critic_features_from_latents(latent_tokens)
+
+    def get_agent_latents(self, x):
+        latent_tokens = self._encode_online_summary(x)
+        if self.detach_world_model_from_agent:
+            latent_tokens = latent_tokens.detach()
+        return latent_tokens
+
+    def predict_dynamics(self, x, action_features):
+        summary_tokens = self.get_summary_targets(x)
+        return self.dynamics_step(summary_tokens, action_features)
+
+    def predict_next_latents(self, latent_tokens, action_features):
+        latent_history = latent_tokens.unsqueeze(1)
+        action_feature_history = action_features.unsqueeze(1)
+        return self.predict_next_latents_from_history(latent_history, action_feature_history)
+
+    def _predictor_action_tokens(self, action_feature_history):
+        width = self.pred_action_dim_embed.shape[-1]
+        action_tokens = self.pred_action_out_proj(relu_sq(self.pred_action_in_proj(action_feature_history)))
+        return action_tokens + self.pred_action_dim_embed.view(1, 1, self.act_dim, width)
+
+    def _predictor_tokens_from_history(self, latent_history, action_feature_history):
+        batch, context_len, num_latents, width = latent_history.shape
+        if context_len > PRED_CONTEXT:
+            raise ValueError(f"context_len={context_len} exceeds PRED_CONTEXT={PRED_CONTEXT}")
+        if action_feature_history.shape != (batch, context_len, self.act_dim, ACTION_FEATURE_DIM):
+            raise ValueError(
+                "action_feature_history must have shape "
+                f"{(batch, context_len, self.act_dim, ACTION_FEATURE_DIM)}, got {tuple(action_feature_history.shape)}"
+            )
+        action_tokens = self._predictor_action_tokens(action_feature_history)
+        return torch.cat([action_tokens, latent_history], dim=2)
+
+    def _predictor_tokens_from_step(self, summary_tokens, action_features):
+        batch, num_latents, width = summary_tokens.shape
+        if action_features.shape != (batch, self.act_dim, ACTION_FEATURE_DIM):
+            raise ValueError(
+                "action_features must have shape "
+                f"{(batch, self.act_dim, ACTION_FEATURE_DIM)}, got {tuple(action_features.shape)}"
+            )
+        action_tokens = self._predictor_action_tokens(action_features.unsqueeze(1)).squeeze(1)
+        return torch.cat([action_tokens, summary_tokens], dim=1)
+
+    def _predictor_forward_parallel(self, pred_tokens, return_cache=False):
+        context_len = pred_tokens.shape[1]
+        time_rope_cos = self.pred_time_rope_cos[:context_len]
+        time_rope_sin = self.pred_time_rope_sin[:context_len]
+        temporal_caches = []
+        for layer in self.pred_layers:
+            if return_cache:
+                pred_tokens, layer_cache = layer(
+                    pred_tokens,
+                    time_rope_cos,
+                    time_rope_sin,
+                    temporal_is_causal=True,
+                    return_cache=True,
+                )
+                temporal_caches.append(layer_cache)
+            else:
+                pred_tokens = layer(
+                    pred_tokens,
+                    time_rope_cos,
+                    time_rope_sin,
+                    temporal_is_causal=True,
+                )
+        if return_cache:
+            return pred_tokens, temporal_caches
+        return pred_tokens
+
+    def predict_next_latents_all_from_history(self, latent_history, action_feature_history):
+        pred_tokens = self._predictor_tokens_from_history(latent_history, action_feature_history)
+        pred_tokens = self._predictor_forward_parallel(pred_tokens)
+        pred_latents = self.pred_next_proj(self.pred_final_norm(pred_tokens))
+        return pred_latents[:, :, self.act_dim :]
+
+    def predict_next_latents_from_history(self, latent_history, action_feature_history):
+        pred_latents = self.predict_next_latents_all_from_history(latent_history, action_feature_history)
+        return pred_latents[:, -1]
+
+    def empty_predictor_cache(self):
+        return [None for _ in self.pred_layers]
+
+    def init_predictor_cache_from_history(self, summary_history, action_feature_history, max_context=PRED_CONTEXT):
+        context_len = summary_history.shape[1]
+        if context_len == 0:
+            return self.empty_predictor_cache()
+        max_cache_len = max(0, min(max_context, PRED_CONTEXT) - 1)
+        if max_cache_len == 0:
+            return self.empty_predictor_cache()
+        summary_history = summary_history[:, -max_cache_len:]
+        action_feature_history = action_feature_history[:, -max_cache_len:]
+        pred_tokens = self._predictor_tokens_from_history(summary_history, action_feature_history)
+        _, temporal_caches = self._predictor_forward_parallel(pred_tokens, return_cache=True)
+        return temporal_caches
+
+    def dynamics_step_with_cache(self, summary_tokens, action_features, predictor_cache, max_context=PRED_CONTEXT):
+        max_context = min(max_context, PRED_CONTEXT)
+        pred_tokens = self._predictor_tokens_from_step(summary_tokens, action_features)
+        next_cache = []
+        for layer, layer_cache in zip(self.pred_layers, predictor_cache):
+            pred_tokens, layer_cache = layer.step(
+                pred_tokens,
+                layer_cache,
+                self.pred_time_rope_cos,
+                self.pred_time_rope_sin,
+                max_context,
+            )
+            next_cache.append(layer_cache)
+        pred_next_latents = self.pred_next_proj(self.pred_final_norm(pred_tokens))[:, self.act_dim :]
+        pred_reward_logits, pred_termination_logits = self.decode_outcomes(pred_next_latents)
+        return pred_next_latents, pred_reward_logits, pred_termination_logits, next_cache
+
+    def dynamics_teacher_forced(self, latent_history, action_feature_history):
+        batch, horizon, num_latents, width = latent_history.shape
+        pred_next_latents = self.predict_next_latents_all_from_history(latent_history, action_feature_history)
+        with torch.no_grad():
+            pred_reward_logits, pred_termination_logits = self.decode_outcomes(
+                pred_next_latents.reshape(batch * horizon, num_latents, width),
+            )
+        pred_reward_logits = pred_reward_logits.reshape(batch, horizon, -1)
+        pred_termination_logits = pred_termination_logits.reshape(batch, horizon)
+        return pred_next_latents, pred_reward_logits, pred_termination_logits
+
+    def dynamics_step_from_history(self, summary_history, action_feature_history):
+        latent_history = summary_history
+        pred_next_latents = self.predict_next_latents_from_history(latent_history, action_feature_history)
+        pred_next_summary = pred_next_latents
+        pred_reward_logits, pred_termination_logits = self.decode_outcomes(pred_next_latents)
+        return pred_next_summary, pred_reward_logits, pred_termination_logits
+
+    def dynamics_step(self, summary_tokens, action_features):
+        return self.dynamics_step_from_history(summary_tokens.unsqueeze(1), action_features.unsqueeze(1))
+
+    def get_imagined_action_dist(self, summary_tokens):
+        latent_tokens = summary_tokens
+        if self.detach_world_model_from_agent:
+            latent_tokens = latent_tokens.detach()
+        agent_input = self._actor_features_from_latents(latent_tokens)
+        return self._action_distribution(agent_input)
+
+    def get_imagined_action_mean(self, summary_tokens):
+        dist = self.get_imagined_action_dist(summary_tokens)
+        return self._action_mean_from_dist(dist)
+
+    def get_imagined_action_std(self, summary_tokens):
+        dist = self.get_imagined_action_dist(summary_tokens)
+        return self._action_std_from_dist(dist)
+
+    def get_imagined_raw_action_mean(self, summary_tokens):
+        latent_tokens = summary_tokens
+        if self.detach_world_model_from_agent:
+            latent_tokens = latent_tokens.detach()
+        agent_input = self._actor_features_from_latents(latent_tokens)
+        return self.actor_beta(agent_input)
+
+    def get_imagined_action_z_stats(self, summary_tokens):
+        latent_tokens = summary_tokens
+        if self.detach_world_model_from_agent:
+            latent_tokens = latent_tokens.detach()
+        agent_input = self._actor_features_from_latents(latent_tokens)
+        dist = self._action_distribution(agent_input)
+        return dist.mean, dist.stddev
+
+    def get_imagined_value(self, summary_tokens, hl_support=None):
+        latent_tokens = summary_tokens
+        if self.detach_world_model_from_agent:
+            latent_tokens = latent_tokens.detach()
+        agent_input = self._critic_features_from_latents(latent_tokens)
+        return self._value_from_agent_input(agent_input, hl_support)
+
+    def get_imagined_value_logits(self, summary_tokens):
+        latent_tokens = summary_tokens
+        if self.detach_world_model_from_agent:
+            latent_tokens = latent_tokens.detach()
+        agent_input = self._critic_features_from_latents(latent_tokens)
+        return self.critic(agent_input)
+
+    def get_imagined_action_and_value(
+        self,
+        summary_tokens,
+        hl_support,
+        action=None,
+        action_z=None,
+        return_action_features=False,
+    ):
+        latent_tokens = summary_tokens
+        if self.detach_world_model_from_agent:
+            latent_tokens = latent_tokens.detach()
+        actor_input, critic_input = self._actor_critic_features_from_latents(latent_tokens)
+        dist = self._action_distribution(actor_input)
+        action, action_z, logprob, entropy = self._beta_action_logprob_entropy(
+            dist, action=action, action_z=action_z, sum_logprob=False
+        )
+        value = self._value_from_agent_input(critic_input, hl_support)
+        if return_action_features:
+            return action, action_z, logprob, entropy, value, self._action_features_from_dist(dist, action_z)
+        return action, action_z, logprob, entropy, value
+
+    def get_imagined_action_and_value_logits(self, summary_tokens, action=None, action_z=None):
+        latent_tokens = summary_tokens
+        if self.detach_world_model_from_agent:
+            latent_tokens = latent_tokens.detach()
+        actor_input, critic_input = self._actor_critic_features_from_latents(latent_tokens)
+        dist = self._action_distribution(actor_input)
+        action, action_z, logprob, entropy = self._beta_action_logprob_entropy(
+            dist, action=action, action_z=action_z, sum_logprob=False
+        )
+        return action, action_z, logprob, entropy, self.critic(critic_input)
+
+    def get_summary_targets(self, x):
+        return self._encode_online_summary(x)
+
+    def get_value(self, x, hl_support=None):
+        agent_input = self._encode_critic_features(x)
+        return self._value_from_agent_input(agent_input, hl_support)
+
+    def get_value_logits(self, x):
+        agent_input = self._encode_critic_features(x)
+        return self.critic(agent_input)
+
+    def get_value_logits_from_latents(self, latent_tokens):
+        if self.detach_world_model_from_agent:
+            latent_tokens = latent_tokens.detach()
+        agent_input = self._critic_features_from_latents(latent_tokens)
+        return self.critic(agent_input)
+
+    def get_action_and_value_from_latents(
+        self,
+        latent_tokens,
+        hl_support,
+        action=None,
+        action_z=None,
+        sum_logprob=True,
+        return_action_features=False,
+    ):
+        if self.detach_world_model_from_agent:
+            latent_tokens = latent_tokens.detach()
+        actor_input, critic_input = self._actor_critic_features_from_latents(latent_tokens)
+        dist = self._action_distribution(actor_input)
+        action, action_z, logprob, entropy = self._beta_action_logprob_entropy(
+            dist,
+            action=action,
+            action_z=action_z,
+            sum_logprob=sum_logprob,
+        )
+        value = self._value_from_agent_input(critic_input, hl_support)
+        if return_action_features:
+            return action, action_z, logprob, entropy, value, self._action_features_from_dist(dist, action_z)
+        return action, action_z, logprob, entropy, value
+
+    def get_action_logprob_entropy_from_latents(
+        self,
+        latent_tokens,
+        action=None,
+        action_z=None,
+        sum_logprob=True,
+    ):
+        if self.detach_world_model_from_agent:
+            latent_tokens = latent_tokens.detach()
+        agent_input = self._actor_features_from_latents(latent_tokens)
+        dist = self._action_distribution(agent_input)
+        return self._beta_action_logprob_entropy(
+            dist,
+            action=action,
+            action_z=action_z,
+            sum_logprob=sum_logprob,
+        )
+
+    def get_action_and_value(self, x, hl_support, action=None, action_z=None):
+        latent_tokens = self.get_agent_latents(x)
+        return self.get_action_and_value_from_latents(
+            latent_tokens,
+            hl_support,
+            action=action,
+            action_z=action_z,
+        )
+
+
+if __name__ == "__main__":
+    args = tyro.cli(Args)
+    if args.pred_context < 1 or args.pred_context > PRED_CONTEXT:
+        raise ValueError(f"--pred-context must be in [1, {PRED_CONTEXT}]")
+    if args.dyn_horizon < 1:
+        raise ValueError("--dyn-horizon must be at least 1")
+    if args.dyn_horizon > args.pred_context:
+        raise ValueError("--dyn-horizon must be <= --pred-context for teacher-forced contextual prediction")
+    args.batch_size = int(args.num_envs * args.num_steps)
+    args.minibatch_size = int(args.batch_size // args.num_minibatches)
+    args.num_iterations = args.total_timesteps // args.batch_size
+    run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+    if args.track:
+        import wandb
+
+        wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=vars(args),
+            name=run_name,
+            monitor_gym=True,
+            save_code=True,
+        )
+    writer = SummaryWriter(f"runs/{run_name}")
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+    )
+
+    # TRY NOT TO MODIFY: seeding
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = args.torch_deterministic
+
+    if not args.cuda or not torch.cuda.is_available():
+        raise RuntimeError("CUDA is required for this experiment")
+    device = torch.device("cuda")
+
+    # env setup
+    envs = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)]
+    )
+    assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
+
+    agent = Agent(
+        envs,
+        args.num_bins,
+        args.reward_num_bins,
+        detach_world_model_from_agent=args.detach_world_model_from_agent,
+        actor_mean_scale=args.actor_mean_scale,
+    ).to(device)
+    agent.outcome_decode_temp = args.outcome_decode_temp
+    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+
+    def module_parameters(*modules):
+        params = []
+        for module in modules:
+            params.extend(list(module.parameters()))
+        return params
+
+    grad_clip_groups = [
+        (
+            "wm",
+            [
+                *module_parameters(
+                    agent.obs_input_norm,
+                    agent.obs_scalar_in_proj,
+                    agent.obs_scalar_out_proj,
+                    agent.obs_token_norm,
+                    agent.obs_cross_attn,
+                    agent.dyn_final_norm,
+                    agent.dyn_next_proj,
+                ),
+                agent.obs_latent_queries,
+                *module_parameters(
+                    agent.reward_outcome_input_norm,
+                    agent.reward_outcome_proj,
+                    agent.continuation_outcome_input_norm,
+                    agent.continuation_outcome_proj,
+                    agent.outcome_token_norm,
+                ),
+                agent.pred_action_in_proj.weight,
+                agent.pred_action_in_proj.bias,
+                agent.pred_action_out_proj.weight,
+                agent.pred_action_out_proj.bias,
+                agent.pred_action_dim_embed,
+                *module_parameters(agent.pred_layers, agent.pred_final_norm, agent.pred_next_proj),
+            ],
+        ),
+        (
+            "agent_readout",
+            [
+                agent.agent_readout_queries,
+                *module_parameters(agent.agent_readout, agent.agent_readout_final_norm),
+            ],
+        ),
+        ("actor", module_parameters(agent.actor_input_norm, agent.actor_beta)),
+        ("critic", module_parameters(agent.critic_input_norm, agent.critic)),
+    ]
+
+    def clip_grad_groups():
+        for _, params in grad_clip_groups:
+            params_with_grad = [param for param in params if param.grad is not None]
+            if params_with_grad:
+                nn.utils.clip_grad_norm_(params_with_grad, args.max_grad_norm)
+
+    sigreg = SIGReg(knots=args.sigreg_knots, num_proj=args.sigreg_num_proj).to(device)
+    hl_support = HLGaussSupport(args.num_bins, args.v_min, args.v_max, args.sigma_ratio, device, use_symlog=True)
+    reward_support = HLGaussSupport(
+        args.reward_num_bins,
+        args.reward_v_min,
+        args.reward_v_max,
+        args.reward_sigma_ratio,
+        device,
+        use_symlog=False,
+    )
+    agent.reward_codebook_probs = reward_support.project(reward_support.support).detach()
+    action_low = torch.tensor(envs.single_action_space.low, device=device)
+    action_high = torch.tensor(envs.single_action_space.high, device=device)
+
+    def masked_time_major_sigreg(sigreg_latents, sigreg_valids):
+        sigreg_losses = []
+        A = sigreg.sample_projection(
+            sigreg_latents[0].shape[-1],
+            sigreg_latents[0].device,
+            sigreg_latents[0].dtype,
+        )
+        for latents, valids in zip(sigreg_latents, sigreg_valids):
+            if latents.dim() == 2:
+                valid_latents = latents[valids].unsqueeze(0)
+            elif latents.dim() == 3:
+                valid_latents = latents[:, valids]
+            else:
+                raise ValueError(f"expected 2D or 3D SIGReg latents, got shape {tuple(latents.shape)}")
+            if valid_latents.shape[1] >= args.sigreg_min_valid:
+                sigreg_losses.append(sigreg(valid_latents, A=A))
+        if sigreg_losses:
+            return torch.stack(sigreg_losses).mean()
+        return sigreg_latents[0].sum() * 0.0
+
+    def imagined_lambda_returns(rewards_hat, continues_hat, values_hat, learn_masks):
+        returns = []
+        gae = torch.zeros_like(values_hat[-1])
+        for step in reversed(range(len(rewards_hat))):
+            delta = rewards_hat[step] + args.gamma * continues_hat[step] * values_hat[step + 1] - values_hat[step]
+            gae = delta + args.gamma * args.gae_lambda * continues_hat[step] * gae
+            gae = torch.where(learn_masks[step], gae, torch.zeros_like(gae))
+            returns.append(gae + values_hat[step])
+        returns.reverse()
+        return returns
+
+    def pearson_corr(x, y):
+        if x.numel() <= 1 or y.numel() <= 1:
+            return x.sum() * 0.0
+        x = x - x.mean()
+        y = y - y.mean()
+        denom = x.square().mean().sqrt() * y.square().mean().sqrt()
+        return (x * y).mean() / denom.clamp_min(1e-8)
+
+    def weighted_mean(values, weights):
+        return (values * weights).sum() / weights.sum().clamp_min(1e-8)
+
+    @torch.no_grad()
+    def build_dream_prompt_context(
+        rollout_target_summaries,
+        rollout_action_features,
+        rollout_boundaries,
+        rollout_valids,
+    ):
+        prompt_len = max(1, min(args.dream_prompt_len, args.pred_context))
+        flat_inds = torch.arange(args.batch_size, device=device)
+        step_inds = flat_inds // args.num_envs
+        env_inds = flat_inds % args.num_envs
+        prompt_valids = step_inds >= prompt_len
+
+        prompt_summary_history = []
+        for offset in range(prompt_len):
+            hist_step = step_inds - (prompt_len - 1 - offset)
+            prev_step = hist_step - 1
+            safe_prev_step = prev_step.clamp(min=0)
+            prompt_summary_history.append(rollout_target_summaries[safe_prev_step, env_inds].detach())
+            prompt_valids = prompt_valids & (prev_step >= 0)
+            prompt_valids = prompt_valids & rollout_valids[safe_prev_step, env_inds].bool()
+
+        prompt_action_feature_history = []
+        for offset in range(prompt_len - 1):
+            action_step = step_inds - (prompt_len - 1 - offset)
+            safe_action_step = action_step.clamp(min=0)
+            prompt_action_feature_history.append(rollout_action_features[safe_action_step, env_inds].detach())
+
+        for back_offset in range(prompt_len):
+            boundary_step = step_inds - 1 - back_offset
+            safe_boundary_step = boundary_step.clamp(min=0)
+            prompt_valids = prompt_valids & (boundary_step >= 0)
+            prompt_valids = prompt_valids & (~rollout_boundaries[safe_boundary_step, env_inds].bool())
+
+        return prompt_summary_history, prompt_action_feature_history, prompt_valids
+
+    def build_dream_batch(prompt_summary_history, prompt_action_feature_history, prompt_valids):
+        states = []
+        raw_actions = []
+        action_zs = []
+        old_logprobs = []
+        values = []
+        learn_masks = []
+        learn_weights = []
+        rewards_hat = []
+        continues_hat = []
+        model_episode_returns = torch.zeros_like(prompt_valids, dtype=torch.float32)
+        policy_reward_sensitivity_stds = []
+        policy_reward_sensitivity_ranges = []
+        policy_latent_sensitivity_stds = []
+        policy_latent_sensitivity_ranges = []
+        summary_history = [summary.detach() for summary in prompt_summary_history]
+        action_feature_history = [action_features.detach() for action_features in prompt_action_feature_history]
+        alive = prompt_valids.float()
+        diagnostic_n = min(args.imagination_diagnostic_batch, summary_history[-1].shape[0])
+        sensitivity_k = max(2, args.action_sensitivity_samples)
+        with torch.no_grad():
+            dream_cache_context = args.pred_context
+            if action_feature_history:
+                prompt_prefix_summaries = torch.stack(summary_history[: len(action_feature_history)], dim=1)
+                prompt_prefix_actions = torch.stack(action_feature_history, dim=1)
+                predictor_cache = agent.init_predictor_cache_from_history(
+                    prompt_prefix_summaries,
+                    prompt_prefix_actions,
+                    max_context=dream_cache_context,
+                )
+                cache_prompt_steps = prompt_prefix_summaries.shape[1]
+            else:
+                predictor_cache = agent.empty_predictor_cache()
+                cache_prompt_steps = 0
+            for _ in range(args.imagine_horizon):
+                summary_state = summary_history[-1].detach()
+                states.append(summary_state)
+                dream_action, dream_action_z, old_logprob, _, value, dream_action_features = agent.get_imagined_action_and_value(
+                    summary_state,
+                    hl_support,
+                    return_action_features=True,
+                )
+                action_feature_history.append(dream_action_features.detach())
+                context_len = min(args.pred_context, len(summary_history), len(action_feature_history))
+                if len(action_feature_history) > args.pred_context:
+                    # Rebuild the prefix cache when the fixed training window slides. Reusing
+                    # deeper-layer K/V across the slide would leak older-than-trained context.
+                    prefix_len = context_len - 1
+                    if prefix_len > 0:
+                        prefix_summaries = torch.stack(summary_history[-context_len:-1], dim=1)
+                        prefix_actions = torch.stack(action_feature_history[-context_len:-1], dim=1)
+                        predictor_cache = agent.init_predictor_cache_from_history(
+                            prefix_summaries,
+                            prefix_actions,
+                            max_context=context_len,
+                        )
+                    else:
+                        predictor_cache = agent.empty_predictor_cache()
+                pred_next_summary, pred_reward_logits, pred_termination_logits, predictor_cache = agent.dynamics_step_with_cache(
+                    summary_state,
+                    dream_action_features,
+                    predictor_cache,
+                    max_context=context_len,
+                )
+                if diagnostic_n > 0:
+                    diag_alive = alive[:diagnostic_n].bool()
+                    diag_cpu_rng_state = torch.random.get_rng_state()
+                    diag_cuda_rng_state = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+                    try:
+                        diag_state = summary_state[:diagnostic_n]
+                        diag_dist = agent.get_imagined_action_dist(diag_state)
+                        diag_action_zs = diag_dist.sample((sensitivity_k,)).transpose(0, 1)
+                        diag_action_zs = diag_action_zs.clamp(SAMPLE_EPS, 1.0 - SAMPLE_EPS)
+                        diag_pred_context = torch.stack(
+                            [summary[:diagnostic_n] for summary in summary_history[-context_len:]],
+                            dim=1,
+                        )
+                        diag_pred_context = diag_pred_context.unsqueeze(1).expand(
+                            -1, sensitivity_k, -1, -1, -1
+                        ).reshape(
+                            diagnostic_n * sensitivity_k,
+                            context_len,
+                            NUM_LATENT_TOKENS,
+                            MODEL_DIM,
+                        )
+                        if context_len > 1:
+                            previous_action_features = torch.stack(
+                                [
+                                    action_features[:diagnostic_n]
+                                    for action_features in action_feature_history[-context_len:-1]
+                                ],
+                                dim=1,
+                            )
+                            previous_action_features = previous_action_features.unsqueeze(1).expand(
+                                -1, sensitivity_k, -1, -1, -1
+                            )
+                            diag_mean_z = diag_dist.mean.unsqueeze(1).expand(-1, sensitivity_k, -1)
+                            diag_std_z = diag_dist.stddev.unsqueeze(1).expand(-1, sensitivity_k, -1)
+                            diag_action_features = agent._action_features_from_z_stats(
+                                diag_action_zs,
+                                diag_mean_z,
+                                diag_std_z,
+                            )
+                            diag_action_context = torch.cat(
+                                [previous_action_features, diag_action_features.unsqueeze(2)],
+                                dim=2,
+                            )
+                        else:
+                            diag_mean_z = diag_dist.mean.unsqueeze(1).expand(-1, sensitivity_k, -1)
+                            diag_std_z = diag_dist.stddev.unsqueeze(1).expand(-1, sensitivity_k, -1)
+                            diag_action_features = agent._action_features_from_z_stats(
+                                diag_action_zs,
+                                diag_mean_z,
+                                diag_std_z,
+                            )
+                            diag_action_context = diag_action_features.unsqueeze(2)
+                        diag_action_context = diag_action_context.reshape(
+                            diagnostic_n * sensitivity_k,
+                            context_len,
+                            agent.act_dim,
+                            ACTION_FEATURE_DIM,
+                        )
+                        diag_next_summary, diag_reward_logits, _ = agent.dynamics_step_from_history(
+                            diag_pred_context,
+                            diag_action_context,
+                        )
+                        diag_rewards = reward_support.to_scalar(diag_reward_logits).reshape(
+                            diagnostic_n,
+                            sensitivity_k,
+                        )
+                        diag_next_latents = diag_next_summary[:, :NUM_LATENT_TOKENS].reshape(
+                            diagnostic_n,
+                            sensitivity_k,
+                            -1,
+                        )
+                        if bool(diag_alive.any()):
+                            alive_diag_rewards = diag_rewards[diag_alive]
+                            alive_diag_latents = diag_next_latents[diag_alive]
+                            policy_reward_sensitivity_stds.append(
+                                alive_diag_rewards.std(dim=1, unbiased=False).mean()
+                            )
+                            policy_reward_sensitivity_ranges.append(
+                                (
+                                    alive_diag_rewards.max(dim=1).values
+                                    - alive_diag_rewards.min(dim=1).values
+                                ).mean()
+                            )
+                            policy_latent_sensitivity_stds.append(
+                                alive_diag_latents.std(dim=1, unbiased=False).norm(dim=-1).mean()
+                            )
+                            policy_latent_sensitivity_ranges.append(
+                                (
+                                    alive_diag_latents.max(dim=1).values
+                                    - alive_diag_latents.min(dim=1).values
+                                ).norm(dim=-1).mean()
+                            )
+                    finally:
+                        torch.random.set_rng_state(diag_cpu_rng_state)
+                        if diag_cuda_rng_state is not None:
+                            torch.cuda.set_rng_state_all(diag_cuda_rng_state)
+                raw_actions.append(dream_action)
+                action_zs.append(dream_action_z)
+                old_logprobs.append(old_logprob)
+                values.append(value)
+                learn_masks.append(alive > 1e-6)
+                learn_weights.append(alive)
+                pred_reward = reward_support.to_scalar(pred_reward_logits)
+                termination_prob = torch.sigmoid(pred_termination_logits)
+                pred_continue = 1.0 - termination_prob
+                rewards_hat.append(pred_reward)
+                continues_hat.append(pred_continue)
+                model_episode_returns = model_episode_returns + pred_reward * alive
+                alive = alive * pred_continue
+                summary_history.append(pred_next_summary.detach())
+            bootstrap_value = agent.get_imagined_value(summary_history[-1].detach(), hl_support)
+
+        returns = imagined_lambda_returns(rewards_hat, continues_hat, values + [bootstrap_value], learn_masks)
+        states = torch.cat(states, dim=0)
+        raw_actions = torch.cat(raw_actions, dim=0)
+        action_zs = torch.cat(action_zs, dim=0)
+        old_logprobs = torch.cat(old_logprobs, dim=0)
+        values = torch.cat(values, dim=0)
+        learn_masks = torch.cat(learn_masks, dim=0)
+        learn_weights = torch.cat(learn_weights, dim=0)
+        returns = torch.cat(returns, dim=0)
+        advantages = returns - values
+        rewards_flat = torch.cat(rewards_hat, dim=0)
+        continues_flat = torch.cat(continues_hat, dim=0)
+        with torch.no_grad():
+            if bool(learn_masks.any()):
+                diag_rewards = rewards_flat[learn_masks]
+                diag_continues = continues_flat[learn_masks]
+                diag_values = values[learn_masks]
+                diag_returns = returns[learn_masks]
+                diag_advantages = advantages[learn_masks]
+                diag_actions = raw_actions[learn_masks]
+                diag_action_zs = action_zs[learn_masks]
+            else:
+                diag_rewards = rewards_flat
+                diag_continues = continues_flat
+                diag_values = values
+                diag_returns = returns
+                diag_advantages = advantages
+                diag_actions = raw_actions
+                diag_action_zs = action_zs
+            action_dim_corrs = []
+            action_z_dim_corrs = []
+            for action_dim in range(agent.act_dim):
+                action_dim_corrs.append(pearson_corr(diag_advantages, diag_actions[:, action_dim]).abs())
+                action_z_dim_corrs.append(
+                    pearson_corr(diag_advantages, diag_action_zs[:, action_dim]).abs()
+                )
+            action_dim_corrs = torch.stack(action_dim_corrs)
+            action_z_dim_corrs = torch.stack(action_z_dim_corrs)
+            action_norm = diag_actions.norm(dim=1)
+            action_energy = diag_actions.square().sum(dim=1)
+            diagnostics = {
+                "reward_mean": diag_rewards.mean().item(),
+                "reward_std": diag_rewards.std(unbiased=False).item(),
+                "continue_mean": diag_continues.mean().item(),
+                "learn_mask_frac": learn_masks.float().mean().item(),
+                "learn_weight_mean": learn_weights.mean().item(),
+                "prompt_valid_frac": prompt_valids.float().mean().item(),
+                "value_mean": diag_values.mean().item(),
+                "value_max": diag_values.max().item(),
+                "bootstrap_value_mean": bootstrap_value.mean().item(),
+                "return_mean": diag_returns.mean().item(),
+                "return_std": diag_returns.std(unbiased=False).item(),
+                "return_max": diag_returns.max().item(),
+                "model_episode_return_mean": model_episode_returns[prompt_valids].mean().item()
+                if bool(prompt_valids.any())
+                else 0.0,
+                "advantage_abs_mean": diag_advantages.abs().mean().item(),
+                "advantage_std": diag_advantages.std(unbiased=False).item(),
+                "advantage_action_norm_corr": pearson_corr(diag_advantages, action_norm).item(),
+                "advantage_action_energy_corr": pearson_corr(diag_advantages, action_energy).item(),
+                "advantage_action_dim_abs_corr_mean": action_dim_corrs.mean().item(),
+                "advantage_action_dim_abs_corr_max": action_dim_corrs.max().item(),
+                "advantage_action_z_dim_abs_corr_mean": action_z_dim_corrs.mean().item(),
+                "advantage_action_z_dim_abs_corr_max": action_z_dim_corrs.max().item(),
+                "predictor_cache_path_used": 1.0,
+                "predictor_cache_prompt_steps": float(cache_prompt_steps),
+            }
+            if policy_reward_sensitivity_stds:
+                diagnostics.update(
+                    reward_policy_action_sensitivity_std=torch.stack(policy_reward_sensitivity_stds).mean().item(),
+                    reward_policy_action_sensitivity_range=torch.stack(policy_reward_sensitivity_ranges).mean().item(),
+                    latent_policy_action_sensitivity_std=torch.stack(policy_latent_sensitivity_stds).mean().item(),
+                    latent_policy_action_sensitivity_range=torch.stack(policy_latent_sensitivity_ranges).mean().item(),
+                )
+        return (
+            states,
+            raw_actions,
+            action_zs,
+            old_logprobs,
+            values,
+            advantages,
+            returns,
+            learn_masks,
+            learn_weights,
+            diagnostics,
+        )
+
+    def build_dream_batch_eval(prompt_summary_history, prompt_action_feature_history, prompt_valids):
+        was_training = agent.training
+        agent.eval()
+        try:
+            prompt_valid_frac = prompt_valids.float().mean().item()
+            valid_start_inds = torch.nonzero(prompt_valids, as_tuple=False).flatten()
+            total_starts = valid_start_inds.numel()
+            if total_starts == 0:
+                empty_states = prompt_summary_history[-1].new_empty((0, NUM_LATENT_TOKENS, MODEL_DIM)).cpu()
+                empty_actions = prompt_summary_history[-1].new_empty((0, agent.act_dim)).cpu()
+                empty_scalars = prompt_summary_history[-1].new_empty((0,)).cpu()
+                empty_masks = torch.empty((0,), dtype=torch.bool)
+                diagnostics = {
+                    "prompt_valid_frac": prompt_valid_frac,
+                    "dream_start_count": 0.0,
+                }
+                return (
+                    empty_states,
+                    empty_actions,
+                    empty_actions.clone(),
+                    empty_actions.clone(),
+                    empty_scalars,
+                    empty_scalars.clone(),
+                    empty_scalars.clone(),
+                    empty_masks,
+                    empty_scalars.clone(),
+                    diagnostics,
+                )
+            chunk_size = args.dream_build_batch_size if args.dream_build_batch_size > 0 else total_starts
+            tensor_chunks = [[] for _ in range(9)]
+            diagnostic_sums = {}
+            diagnostic_weight = 0
+
+            for start in range(0, total_starts, chunk_size):
+                end = min(start + chunk_size, total_starts)
+                chunk_inds = valid_start_inds[start:end]
+                chunk_summaries = [summary[chunk_inds] for summary in prompt_summary_history]
+                chunk_action_features = [
+                    action_features[chunk_inds] for action_features in prompt_action_feature_history
+                ]
+                chunk_valids = torch.ones(end - start, device=device, dtype=torch.bool)
+                chunk_batch = build_dream_batch(chunk_summaries, chunk_action_features, chunk_valids)
+                for idx, tensor in enumerate(chunk_batch[:9]):
+                    tensor_chunks[idx].append(tensor.detach().cpu())
+                chunk_weight = end - start
+                for key, value in chunk_batch[9].items():
+                    diagnostic_sums[key] = diagnostic_sums.get(key, 0.0) + value * chunk_weight
+                diagnostic_weight += chunk_weight
+                del chunk_batch
+
+            tensors = tuple(torch.cat(chunks, dim=0) for chunks in tensor_chunks)
+            diagnostics = {
+                key: value / max(1, diagnostic_weight)
+                for key, value in diagnostic_sums.items()
+            }
+            diagnostics["prompt_valid_frac"] = prompt_valid_frac
+            diagnostics["dream_start_count"] = float(total_starts)
+            return tensors + (diagnostics,)
+        finally:
+            agent.train(was_training)
+
+    @torch.no_grad()
+    def dynamics_diagnostics(
+        flat_obs,
+        rollout_rewards,
+        rollout_action_features,
+        rollout_terminations,
+        rollout_boundaries,
+        rollout_valids,
+    ):
+        num_starts = min(args.dynamics_diagnostic_batch, flat_obs.shape[0])
+        if num_starts <= 0:
+            return {}
+
+        was_training = agent.training
+        cpu_rng_state = torch.random.get_rng_state()
+        cuda_rng_state = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+        agent.eval()
+        try:
+            sample_inds = torch.randperm(flat_obs.shape[0], device=device)[:num_starts]
+            mb_step_inds = sample_inds // args.num_envs
+            mb_env_inds = sample_inds % args.num_envs
+            summary_history = [agent.get_summary_targets(flat_obs[sample_inds]).detach()]
+            action_feature_history = []
+            alive = torch.ones(num_starts, device=device)
+            pred_reward_sum = torch.zeros(num_starts, device=device)
+            true_reward_sum = torch.zeros(num_starts, device=device)
+            pred_discounted_return = torch.zeros(num_starts, device=device)
+            true_discounted_return = torch.zeros(num_starts, device=device)
+            valid_any = torch.zeros(num_starts, device=device, dtype=torch.bool)
+            step_abs_errors = []
+            step_biases = []
+            term_briers = []
+            horizon = min(args.dyn_horizon, args.imagine_horizon)
+
+            for horizon_idx in range(horizon):
+                future_step_inds = mb_step_inds + horizon_idx
+                in_rollout = (future_step_inds < args.num_steps).float()
+                safe_step_inds = future_step_inds.clamp(max=args.num_steps - 1)
+                future_action_features = rollout_action_features[safe_step_inds, mb_env_inds]
+                future_rewards = rollout_rewards[safe_step_inds, mb_env_inds]
+                future_terminations = rollout_terminations[safe_step_inds, mb_env_inds]
+                future_boundaries = rollout_boundaries[safe_step_inds, mb_env_inds]
+                future_valids = rollout_valids[safe_step_inds, mb_env_inds]
+                step_weight = alive * in_rollout * future_valids
+                valid_mask = step_weight > 0.0
+
+                action_feature_history.append(future_action_features)
+                context_len = min(args.pred_context, len(summary_history), len(action_feature_history))
+                pred_context = torch.stack(summary_history[-context_len:], dim=1)
+                action_feature_context = torch.stack(action_feature_history[-context_len:], dim=1)
+                pred_next_summary, pred_reward_logits, pred_termination_logits = agent.dynamics_step_from_history(
+                    pred_context, action_feature_context
+                )
+                pred_reward = reward_support.to_scalar(pred_reward_logits)
+                terminal_prob = torch.sigmoid(pred_termination_logits)
+
+                if bool(valid_mask.any()):
+                    reward_error = pred_reward - future_rewards
+                    step_abs_errors.append(reward_error[valid_mask].abs().mean())
+                    step_biases.append(reward_error[valid_mask].mean())
+                    term_briers.append((terminal_prob[valid_mask] - future_terminations[valid_mask]).square().mean())
+
+                discount = args.gamma ** horizon_idx
+                pred_reward_sum = pred_reward_sum + pred_reward * step_weight
+                true_reward_sum = true_reward_sum + future_rewards * step_weight
+                pred_discounted_return = pred_discounted_return + pred_reward * step_weight * discount
+                true_discounted_return = true_discounted_return + future_rewards * step_weight * discount
+                valid_any |= valid_mask
+                alive = alive * (1.0 - future_boundaries)
+                summary_history.append(pred_next_summary.detach())
+
+            metrics = {}
+            if bool(valid_any.any()):
+                metrics.update(
+                    rollout_reward_step_mae=torch.stack(step_abs_errors).mean().item() if step_abs_errors else 0.0,
+                    rollout_reward_step_bias=torch.stack(step_biases).mean().item() if step_biases else 0.0,
+                    rollout_reward_sum_mae=(pred_reward_sum[valid_any] - true_reward_sum[valid_any]).abs().mean().item(),
+                    rollout_reward_sum_bias=(pred_reward_sum[valid_any] - true_reward_sum[valid_any]).mean().item(),
+                    rollout_discounted_return_mae=(
+                        pred_discounted_return[valid_any] - true_discounted_return[valid_any]
+                    ).abs().mean().item(),
+                    rollout_discounted_return_bias=(
+                        pred_discounted_return[valid_any] - true_discounted_return[valid_any]
+                    ).mean().item(),
+                    rollout_terminal_brier=torch.stack(term_briers).mean().item() if term_briers else 0.0,
+                    rollout_valid_frac=valid_any.float().mean().item(),
+                )
+
+            sensitivity_n = min(256, num_starts)
+            sensitivity_k = max(2, args.action_sensitivity_samples)
+            sensitivity_summary = summary_history[0][:sensitivity_n]
+            random_action_zs = torch.rand(
+                sensitivity_n, sensitivity_k, agent.act_dim, device=device
+            ).clamp(SAMPLE_EPS, 1.0 - SAMPLE_EPS)
+            mean_z, std_z = agent.get_imagined_action_z_stats(sensitivity_summary)
+            random_action_features = agent._action_features_from_z_stats(
+                random_action_zs,
+                mean_z.unsqueeze(1).expand(-1, sensitivity_k, -1),
+                std_z.unsqueeze(1).expand(-1, sensitivity_k, -1),
+            )
+            repeated_summary = sensitivity_summary.repeat_interleave(sensitivity_k, dim=0)
+            flat_action_features = random_action_features.reshape(
+                sensitivity_n * sensitivity_k,
+                agent.act_dim,
+                ACTION_FEATURE_DIM,
+            )
+            sensitivity_next_summary, sensitivity_reward_logits, _ = agent.dynamics_step_from_history(
+                repeated_summary.unsqueeze(1),
+                flat_action_features.unsqueeze(1),
+            )
+            sensitivity_rewards = reward_support.to_scalar(sensitivity_reward_logits).reshape(sensitivity_n, sensitivity_k)
+            sensitivity_latents = sensitivity_next_summary[:, :NUM_LATENT_TOKENS].reshape(sensitivity_n, sensitivity_k, -1)
+            metrics.update(
+                reward_action_sensitivity_std=sensitivity_rewards.std(dim=1, unbiased=False).mean().item(),
+                reward_action_sensitivity_range=(
+                    sensitivity_rewards.max(dim=1).values - sensitivity_rewards.min(dim=1).values
+                ).mean().item(),
+                latent_action_sensitivity_std=sensitivity_latents.std(dim=1, unbiased=False).norm(dim=-1).mean().item(),
+                latent_action_sensitivity_range=(
+                    sensitivity_latents.max(dim=1).values - sensitivity_latents.min(dim=1).values
+                ).norm(dim=-1).mean().item(),
+            )
+            return metrics
+        finally:
+            torch.random.set_rng_state(cpu_rng_state)
+            if cuda_rng_state is not None:
+                torch.cuda.set_rng_state_all(cuda_rng_state)
+            agent.train(was_training)
+
+    # ALGO Logic: Storage setup
+    obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
+    actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
+    action_zs = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
+    transition_actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
+    transition_action_features = torch.zeros(
+        (args.num_steps, args.num_envs, envs.single_action_space.shape[0], ACTION_FEATURE_DIM),
+        device=device,
+    )
+    logprobs = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
+    agent_latents = torch.zeros((args.num_steps, args.num_envs, NUM_LATENT_TOKENS, MODEL_DIM)).to(device)
+    rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    transition_terminations = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    transition_boundaries = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    transition_valids = torch.ones((args.num_steps, args.num_envs)).to(device)
+    next_obses = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
+    values = torch.zeros((args.num_steps, args.num_envs)).to(device)
+
+    # TRY NOT TO MODIFY: start the game
+    global_step = 0
+    imagined_steps = 0
+    imagined_learnable_steps = 0
+    real_minibatch_step = 0
+    imagination_minibatch_step = 0
+    start_time = time.time()
+    next_obs, _ = envs.reset(seed=args.seed)
+    next_obs = torch.Tensor(next_obs).to(device)
+    next_done = torch.zeros(args.num_envs).to(device)
+
+    for iteration in range(1, args.num_iterations + 1):
+        if args.anneal_lr:
+            frac = 1.0 - (iteration - 1.0) / args.num_iterations
+            lrnow = frac * args.learning_rate
+            optimizer.param_groups[0]["lr"] = lrnow
+
+        for step in range(0, args.num_steps):
+            global_step += args.num_envs
+            obs[step] = next_obs
+            dones[step] = next_done
+
+            with torch.no_grad():
+                rollout_latents = agent.get_agent_latents(next_obs)
+                action, action_z, logprob, _, value, wm_action_features = agent.get_action_and_value_from_latents(
+                    rollout_latents,
+                    hl_support,
+                    sum_logprob=False,
+                    return_action_features=True,
+                )
+                values[step] = value.flatten()
+                agent_latents[step] = rollout_latents.detach()
+            actions[step] = action
+            action_zs[step] = action_z
+            env_action = torch.clamp(action, action_low, action_high)
+            transition_actions[step] = env_action
+            transition_action_features[step] = wm_action_features
+            logprobs[step] = logprob
+
+            next_obs, reward, terminations, truncations, infos = envs.step(env_action.cpu().numpy())
+            transition_termination = terminations
+            transition_boundary = np.logical_or(terminations, truncations)
+            transition_next_obs = np.array(next_obs, copy=True)
+            transition_valid = (~transition_boundary).astype(np.float32)
+            final_obs = infos.get("final_observation")
+            final_obs_mask = infos.get("_final_observation")
+            if final_obs is not None:
+                if final_obs_mask is None:
+                    final_obs_mask = [fo is not None for fo in final_obs]
+                for env_idx, has_final in enumerate(final_obs_mask):
+                    if has_final and final_obs[env_idx] is not None:
+                        transition_next_obs[env_idx] = final_obs[env_idx]
+                        transition_valid[env_idx] = 1.0
+                    elif transition_boundary[env_idx]:
+                        transition_valid[env_idx] = 0.0
+            next_done = transition_boundary
+            rewards[step] = torch.tensor(reward).to(device).view(-1)
+            transition_terminations[step] = torch.tensor(transition_termination, device=device, dtype=torch.float32)
+            transition_boundaries[step] = torch.tensor(transition_boundary, device=device, dtype=torch.float32)
+            transition_valids[step] = torch.tensor(transition_valid, device=device)
+            next_obses[step] = torch.tensor(transition_next_obs, device=device)
+            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+
+            if "final_info" in infos:
+                for info in infos["final_info"]:
+                    if info and "episode" in info:
+                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+                        writer.add_scalar("charts/real_episodic_return", info["episode"]["r"], global_step)
+                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+
+        # bootstrap value if not done
+        with torch.no_grad():
+            next_transition_values = agent.get_value(
+                next_obses.reshape((-1,) + envs.single_observation_space.shape),
+                hl_support,
+            ).reshape(args.num_steps, args.num_envs)
+            advantages = torch.zeros_like(rewards).to(device)
+            lastgaelam = 0
+            for t in reversed(range(args.num_steps)):
+                bootstrap_nonterminal = (1.0 - transition_terminations[t]) * transition_valids[t]
+                lambda_nonterminal = 1.0 - transition_boundaries[t]
+                delta = rewards[t] + args.gamma * next_transition_values[t] * bootstrap_nonterminal - values[t]
+                advantages[t] = lastgaelam = (
+                    delta + args.gamma * args.gae_lambda * lambda_nonterminal * lastgaelam
+                )
+            returns = advantages + values
+
+        # flatten the batch
+        b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
+        b_logprobs = logprobs.reshape((-1,) + envs.single_action_space.shape)
+        b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
+        b_action_zs = action_zs.reshape((-1,) + envs.single_action_space.shape)
+        b_agent_latents = agent_latents.reshape(-1, NUM_LATENT_TOKENS, MODEL_DIM)
+        b_advantages = advantages.reshape(-1)
+        b_returns = returns.reshape(-1)
+        b_values = values.reshape(-1)
+        b_rewards = rewards.reshape(-1)
+        b_transition_terminations = transition_terminations.reshape(-1)
+        b_transition_boundaries = transition_boundaries.reshape(-1)
+        b_transition_valids = transition_valids.reshape(-1)
+        b_next_obs = next_obses.reshape((-1,) + envs.single_observation_space.shape)
+
+        world_model_only = global_step < args.wm_warmup_steps
+
+        wm_b_inds = np.arange(args.batch_size)
+        wm_losses = []
+        dyn_latent_losses = []
+        outcome_reward_probe_ces = []
+        outcome_termination_probe_bces = []
+        dyn_sigreg_losses = []
+        lejepa_losses = []
+        outcome_reward_mses = []
+        dyn_termination_accs = []
+        lejepa_pred_mses = []
+        lejepa_obs_pred_mses = []
+        lejepa_outcome_pred_mses = []
+        lejepa_reward_outcome_pred_mses = []
+        lejepa_continuation_outcome_pred_mses = []
+
+        for epoch in range(args.wm_update_epochs):
+            np.random.shuffle(wm_b_inds)
+            for start in range(0, args.batch_size, args.minibatch_size):
+                end = start + args.minibatch_size
+                mb_inds = wm_b_inds[start:end]
+
+                mb_size = len(mb_inds)
+                mb_step_inds = torch.as_tensor(mb_inds // args.num_envs, device=device, dtype=torch.long)
+                mb_env_inds = torch.as_tensor(mb_inds % args.num_envs, device=device, dtype=torch.long)
+                horizon_offsets = torch.arange(args.dyn_horizon, device=device)
+                future_step_inds = mb_step_inds[:, None] + horizon_offsets[None, :]
+                in_rollout = (future_step_inds < args.num_steps).float()
+                safe_step_inds = future_step_inds.clamp(max=args.num_steps - 1)
+                env_inds = mb_env_inds[:, None].expand_as(safe_step_inds)
+
+                future_action_features = transition_action_features[safe_step_inds, env_inds]
+                future_rewards = rewards[safe_step_inds, env_inds]
+                future_terminations = transition_terminations[safe_step_inds, env_inds]
+                future_boundaries = transition_boundaries[safe_step_inds, env_inds]
+                future_valids = transition_valids[safe_step_inds, env_inds]
+                future_next_obs = next_obses[safe_step_inds, env_inds]
+
+                initial_summary = agent.get_summary_targets(b_obs[mb_inds])
+                reward_target_probs = reward_support.project(future_rewards.reshape(-1)).reshape(
+                    mb_size * args.dyn_horizon,
+                    -1,
+                )
+                future_continues = (1.0 - future_terminations).reshape(-1)
+                target_future_summaries = agent.encode_target_summary(
+                    future_next_obs.reshape((-1,) + envs.single_observation_space.shape),
+                    reward_target_probs,
+                    future_continues,
+                ).reshape(mb_size, args.dyn_horizon, NUM_LATENT_TOKENS, MODEL_DIM)
+                sigreg_window_latents = torch.cat([initial_summary.unsqueeze(1), target_future_summaries], dim=1)
+                teacher_window_latents = torch.cat(
+                    [initial_summary.unsqueeze(1), target_future_summaries.detach()],
+                    dim=1,
+                )
+                latent_history = teacher_window_latents[:, :-1]
+                target_next_latents = target_future_summaries
+
+                pred_next_latents, pred_reward_logits, pred_termination_logits = agent.dynamics_teacher_forced(
+                    latent_history,
+                    future_action_features,
+                )
+
+                prev_continues = torch.cat(
+                    [
+                        torch.ones(mb_size, 1, device=device),
+                        1.0 - future_boundaries[:, :-1],
+                    ],
+                    dim=1,
+                )
+                step_weight = torch.cumprod(prev_continues, dim=1) * in_rollout
+                latent_weight = step_weight * future_valids
+
+                sigreg_token_inds = torch.arange(NUM_LATENT_TOKENS, device=device)
+                sigreg_latents = [
+                    sigreg_window_latents[:, 0, sigreg_token_inds].transpose(0, 1)
+                ]
+                sigreg_valids = [torch.ones(mb_size, device=device, dtype=torch.bool)]
+                sigreg_latents.extend(
+                    [
+                        sigreg_window_latents[:, horizon_idx + 1, sigreg_token_inds].transpose(0, 1)
+                        for horizon_idx in range(args.dyn_horizon)
+                    ]
+                )
+                sigreg_valids.extend([latent_weight[:, horizon_idx] > 0.0 for horizon_idx in range(args.dyn_horizon)])
+
+                per_step_latent_loss = F.mse_loss(
+                    pred_next_latents,
+                    target_next_latents,
+                    reduction="none",
+                ).mean(dim=(-1, -2))
+                dyn_latent_loss = (
+                    per_step_latent_loss * latent_weight
+                ).sum() / latent_weight.sum().clamp_min(1.0)
+                reward_target_probs = reward_target_probs.reshape(
+                    mb_size,
+                    args.dyn_horizon,
+                    -1,
+                )
+                with torch.no_grad():
+                    reward_probe_ce = -(
+                        reward_target_probs * torch.log_softmax(pred_reward_logits, dim=-1)
+                    ).sum(dim=-1)
+                    outcome_reward_probe_ce = (
+                        reward_probe_ce * latent_weight
+                    ).sum() / latent_weight.sum().clamp_min(1.0)
+                    termination_probe_bce = F.binary_cross_entropy_with_logits(
+                        pred_termination_logits,
+                        future_terminations,
+                        reduction="none",
+                    )
+                    outcome_termination_probe_bce = (
+                        termination_probe_bce * latent_weight
+                    ).sum() / latent_weight.sum().clamp_min(1.0)
+                    reward_pred = reward_support.to_scalar(pred_reward_logits)
+                    termination_pred = (torch.sigmoid(pred_termination_logits) >= 0.5).float()
+                    for horizon_idx in range(args.dyn_horizon):
+                        horizon_weight = step_weight[:, horizon_idx]
+                        denom = horizon_weight.sum().clamp_min(1.0)
+                        reward_mse = (
+                            (reward_pred[:, horizon_idx] - future_rewards[:, horizon_idx]).square()
+                            * horizon_weight
+                        ).sum() / denom
+                        termination_acc = (
+                            (termination_pred[:, horizon_idx] == future_terminations[:, horizon_idx]).float()
+                            * horizon_weight
+                        ).sum() / denom
+                        outcome_reward_mses.append(reward_mse.item())
+                        dyn_termination_accs.append(termination_acc.item())
+                    obs_pred_mse = (
+                        F.mse_loss(
+                            pred_next_latents[:, :, :NUM_OBS_TOKENS],
+                            target_next_latents[:, :, :NUM_OBS_TOKENS].detach(),
+                            reduction="none",
+                        ).mean(dim=(-1, -2))
+                        * latent_weight
+                    ).sum() / latent_weight.sum().clamp_min(1.0)
+                    outcome_pred_mse = (
+                        F.mse_loss(
+                            pred_next_latents[:, :, NUM_OBS_TOKENS:],
+                            target_next_latents[:, :, NUM_OBS_TOKENS:].detach(),
+                            reduction="none",
+                        ).mean(dim=(-1, -2))
+                        * latent_weight
+                    ).sum() / latent_weight.sum().clamp_min(1.0)
+                    reward_outcome_pred_mse = (
+                        F.mse_loss(
+                            pred_next_latents[:, :, NUM_OBS_TOKENS],
+                            target_next_latents[:, :, NUM_OBS_TOKENS].detach(),
+                            reduction="none",
+                        ).mean(dim=-1)
+                        * latent_weight
+                    ).sum() / latent_weight.sum().clamp_min(1.0)
+                    continuation_outcome_pred_mse = (
+                        F.mse_loss(
+                            pred_next_latents[:, :, NUM_OBS_TOKENS + 1],
+                            target_next_latents[:, :, NUM_OBS_TOKENS + 1].detach(),
+                            reduction="none",
+                        ).mean(dim=-1)
+                        * latent_weight
+                    ).sum() / latent_weight.sum().clamp_min(1.0)
+                    lejepa_obs_pred_mses.append(obs_pred_mse.item())
+                    lejepa_outcome_pred_mses.append(outcome_pred_mse.item())
+                    lejepa_reward_outcome_pred_mses.append(reward_outcome_pred_mse.item())
+                    lejepa_continuation_outcome_pred_mses.append(continuation_outcome_pred_mse.item())
+                dyn_sigreg_loss = masked_time_major_sigreg(sigreg_latents, sigreg_valids)
+                lejepa_loss = args.dyn_latent_coef * dyn_latent_loss + args.sigreg_coef * dyn_sigreg_loss
+
+                optimizer.zero_grad()
+                lejepa_loss.backward()
+                clip_grad_groups()
+                optimizer.step()
+
+                wm_losses.append(lejepa_loss.item())
+                dyn_latent_losses.append(dyn_latent_loss.item())
+                outcome_reward_probe_ces.append(outcome_reward_probe_ce.item())
+                outcome_termination_probe_bces.append(outcome_termination_probe_bce.item())
+                dyn_sigreg_losses.append(dyn_sigreg_loss.item())
+                lejepa_losses.append(lejepa_loss.item())
+                lejepa_pred_mses.append(dyn_latent_loss.item())
+
+        dyn_diagnostics = dynamics_diagnostics(
+            b_obs,
+            rewards,
+            transition_action_features,
+            transition_terminations,
+            transition_boundaries,
+            transition_valids,
+        )
+
+        prompt_summary_history = None
+        prompt_action_feature_history = None
+        prompt_valids = None
+        use_imagination_updates = args.imagine_actor_coef != 0.0 or args.imagine_critic_coef != 0.0
+        if (not world_model_only) and use_imagination_updates and global_step >= args.imagine_start_step:
+            with torch.no_grad():
+                prompt_reward_probs = reward_support.project(rewards.reshape(-1))
+                prompt_continues = (1.0 - transition_terminations).reshape(-1)
+                prompt_target_summaries = agent.encode_target_summary(
+                    next_obses.reshape((-1,) + envs.single_observation_space.shape),
+                    prompt_reward_probs,
+                    prompt_continues,
+                ).reshape(args.num_steps, args.num_envs, NUM_LATENT_TOKENS, MODEL_DIM)
+                prompt_summary_history, prompt_action_feature_history, prompt_valids = build_dream_prompt_context(
+                    prompt_target_summaries,
+                    transition_action_features,
+                    transition_boundaries,
+                    transition_valids,
+                )
+                del prompt_reward_probs, prompt_continues, prompt_target_summaries
+
+        # Agent phase on a frozen world-model interface. Real rollouts provide
+        # the PPO anchor; imagined rollouts add model-based updates.
+        b_inds = np.arange(args.batch_size)
+        dream_inds = None
+        dream_minibatch_size = args.minibatch_size * args.imagine_horizon if prompt_summary_history is not None else None
+        clipfracs = []
+        action_clipfracs = []
+        real_approx_kls = []
+        real_cleanrl_approx_kls = []
+        real_logratio_abs_means = []
+        real_logratio_max_abses = []
+        real_action_logratio_abs_means = []
+        real_actor_stds = []
+        dream_clipfracs = []
+        imagine_actor_losses = []
+        imagine_actor_returns = []
+        imagine_critic_losses = []
+        imagine_old_approx_kls = []
+        imagine_approx_kls = []
+        imagine_cleanrl_approx_kls = []
+        imagine_logratio_abs_means = []
+        imagine_logratio_max_abses = []
+        imagine_action_logratio_abs_means = []
+        dream_action_clipfracs = []
+        imagine_action_sat_fracs = []
+        imagine_actor_mean_abs_means = []
+        imagine_actor_mean_max_abses = []
+        imagine_raw_actor_beta_head_abs_means = []
+        imagine_raw_actor_beta_head_max_abses = []
+        imagine_actor_stds = []
+        real_spo_penalties = []
+        imagine_spo_penalties = []
+        pg_loss = None
+        v_loss = None
+        entropy_loss = None
+        old_approx_kl = None
+        approx_kl = None
+        dream_diagnostics = {}
+        dream_diagnostic_values = {}
+        imagine_explained_var = None
+        imagine_explained_vars = []
+
+        if not world_model_only:
+            for epoch in range(args.agent_update_epochs):
+                np.random.shuffle(b_inds)
+                for start in range(0, args.batch_size, args.minibatch_size):
+                    end = start + args.minibatch_size
+                    mb_inds = b_inds[start:end]
+
+                    with torch.no_grad():
+                        writer.add_scalar(
+                            "returns/real_gae_minibatch",
+                            b_returns[mb_inds].mean().item(),
+                            real_minibatch_step,
+                        )
+                        real_minibatch_step += 1
+
+                    _, _, newlogprob, entropy = agent.get_action_logprob_entropy_from_latents(
+                        b_agent_latents[mb_inds],
+                        b_actions[mb_inds],
+                        b_action_zs[mb_inds],
+                        sum_logprob=False,
+                    )
+                    action_logratio = newlogprob - b_logprobs[mb_inds]
+                    action_ratio = action_logratio.exp()
+                    logratio = action_logratio.sum(1)
+                    ratio = logratio.exp()
+                    action_approx_kl = ((action_ratio - 1) - action_logratio).sum(1)
+
+                    with torch.no_grad():
+                        old_approx_kl = (-logratio).mean()
+                        approx_kl = action_approx_kl.mean()
+                        cleanrl_approx_kl = ((ratio - 1) - logratio).mean()
+                        real_approx_kls.append(approx_kl.item())
+                        real_cleanrl_approx_kls.append(cleanrl_approx_kl.item())
+                        clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+                        action_clipfracs += [
+                            ((action_ratio - 1.0).abs() > args.clip_coef).float().mean().item()
+                        ]
+                        real_logratio_abs_means.append(logratio.abs().mean().item())
+                        real_logratio_max_abses.append(logratio.abs().max().item())
+                        real_action_logratio_abs_means.append(action_logratio.abs().mean().item())
+                        real_actor_stds.append(
+                            agent.get_imagined_action_std(b_agent_latents[mb_inds]).mean().item()
+                        )
+
+                    mb_advantages = b_advantages[mb_inds]
+                    if args.norm_adv:
+                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (
+                            mb_advantages.std(unbiased=False) + 1e-8
+                        )
+
+                    ratio_diff = ratio - 1.0
+                    spo_eps = torch.where(
+                        (mb_advantages * ratio_diff) > 0,
+                        torch.full_like(mb_advantages, args.spo_eps_high),
+                        torch.full_like(mb_advantages, args.spo_eps_low),
+                    )
+                    spo_penalty = mb_advantages.abs() * ratio_diff.square() / (2.0 * spo_eps)
+                    pg_loss = -(mb_advantages * ratio - spo_penalty).mean()
+                    real_spo_penalties.append(spo_penalty.mean().item())
+
+                    value_logits = agent.get_value_logits_from_latents(b_agent_latents[mb_inds])
+                    return_probs = hl_support.project(b_returns[mb_inds])
+                    v_loss = -(
+                        return_probs.detach() * torch.log_softmax(value_logits, dim=-1)
+                    ).sum(dim=-1).mean()
+                    entropy_loss = entropy.sum(1).mean()
+
+                    loss = pg_loss - args.ent_coef * entropy_loss + args.vf_coef * v_loss
+
+                    optimizer.zero_grad()
+                    loss.backward()
+                    clip_grad_groups()
+                    optimizer.step()
+
+        if prompt_summary_history is not None:
+            dream_batch = build_dream_batch_eval(prompt_summary_history, prompt_action_feature_history, prompt_valids)
+            (
+                dream_states,
+                dream_actions,
+                dream_action_zs,
+                dream_old_logprobs,
+                dream_values,
+                dream_advantages,
+                dream_returns,
+                dream_learn_masks,
+                dream_learn_weights,
+                dream_diagnostics,
+            ) = dream_batch
+            dream_inds = np.arange(dream_states.shape[0])
+            imagined_steps += dream_states.shape[0]
+            imagined_learnable_steps += int(dream_learn_masks.sum().item())
+            for key, value in dream_diagnostics.items():
+                dream_diagnostic_values.setdefault(key, []).append(value)
+            for epoch in range(args.imagine_update_epochs):
+                np.random.shuffle(dream_inds)
+                for start in range(0, dream_states.shape[0], dream_minibatch_size):
+                    end = start + dream_minibatch_size
+                    mb_inds = dream_inds[start:end]
+                    mb_inds_t = torch.as_tensor(mb_inds, dtype=torch.long)
+                    mb_dream_states = dream_states[mb_inds_t].to(device)
+                    mb_dream_actions = dream_actions[mb_inds_t].to(device)
+                    mb_dream_action_zs = dream_action_zs[mb_inds_t].to(device)
+                    mb_dream_old_logprobs = dream_old_logprobs[mb_inds_t].to(device)
+                    mb_dream_advantages = dream_advantages[mb_inds_t].to(device)
+                    mb_dream_returns = dream_returns[mb_inds_t].to(device)
+                    mb_dream_learn_mask = dream_learn_masks[mb_inds_t].to(device)
+                    mb_dream_learn_weights = dream_learn_weights[mb_inds_t].to(device)
+                    has_dream_targets = bool(mb_dream_learn_mask.any())
+                    if not has_dream_targets:
+                        continue
+                    valid_weights = mb_dream_learn_weights[mb_dream_learn_mask]
+
+                    with torch.no_grad():
+                        writer.add_scalar(
+                            "returns/dream_lambda_minibatch",
+                            weighted_mean(
+                                mb_dream_returns[mb_dream_learn_mask],
+                                valid_weights,
+                            ).item(),
+                            imagination_minibatch_step,
+                        )
+                        imagination_minibatch_step += 1
+
+                    (
+                        _,
+                        _,
+                        dream_action_newlogprob,
+                        dream_entropy,
+                        dream_value_logits,
+                    ) = agent.get_imagined_action_and_value_logits(
+                        mb_dream_states,
+                        mb_dream_actions,
+                        mb_dream_action_zs,
+                    )
+                    dream_action_logratio = dream_action_newlogprob - mb_dream_old_logprobs
+                    dream_action_ratio = dream_action_logratio.exp()
+                    dream_logratio = dream_action_logratio.sum(1)
+                    dream_ratio = dream_logratio.exp()
+                    dream_action_approx_kl = ((dream_action_ratio - 1) - dream_action_logratio).sum(1)
+
+                    with torch.no_grad():
+                        valid_dream_action_logratio = dream_action_logratio[mb_dream_learn_mask]
+                        valid_dream_action_ratio = dream_action_ratio[mb_dream_learn_mask]
+                        valid_dream_logratio = dream_logratio[mb_dream_learn_mask]
+                        valid_dream_ratio = dream_ratio[mb_dream_learn_mask]
+                        dream_old_approx_kl = (-valid_dream_logratio).mean()
+                        dream_approx_kl = dream_action_approx_kl[mb_dream_learn_mask].mean()
+                        dream_cleanrl_approx_kl = ((valid_dream_ratio - 1) - valid_dream_logratio).mean()
+                        imagine_cleanrl_approx_kls.append(dream_cleanrl_approx_kl.item())
+                        dream_clipfracs += [
+                            ((valid_dream_ratio - 1.0).abs() > args.clip_coef).float().mean().item()
+                        ]
+                        dream_action_clipfracs += [
+                            ((valid_dream_action_ratio - 1.0).abs() > args.clip_coef).float().mean().item()
+                        ]
+                        imagine_logratio_abs_means.append(valid_dream_logratio.abs().mean().item())
+                        imagine_logratio_max_abses.append(valid_dream_logratio.abs().max().item())
+                        imagine_action_logratio_abs_means.append(valid_dream_action_logratio.abs().mean().item())
+                        valid_actions = mb_dream_actions[mb_dream_learn_mask]
+                        imagine_action_sat_fracs.append((valid_actions.abs() > 0.98).float().mean().item())
+                        valid_dream_states = mb_dream_states[mb_dream_learn_mask]
+                        dream_action_mean = agent.get_imagined_action_mean(valid_dream_states)
+                        raw_dream_beta_head = agent.get_imagined_raw_action_mean(valid_dream_states)
+                        imagine_actor_mean_abs_means.append(dream_action_mean.abs().mean().item())
+                        imagine_actor_mean_max_abses.append(dream_action_mean.abs().max().item())
+                        imagine_raw_actor_beta_head_abs_means.append(raw_dream_beta_head.abs().mean().item())
+                        imagine_raw_actor_beta_head_max_abses.append(raw_dream_beta_head.abs().max().item())
+                        imagine_actor_stds.append(agent.get_imagined_action_std(valid_dream_states).mean().item())
+
+                    if args.norm_adv:
+                        valid_advantages = mb_dream_advantages[mb_dream_learn_mask]
+                        advantage_mean = weighted_mean(valid_advantages, valid_weights)
+                        advantage_var = weighted_mean((valid_advantages - advantage_mean).square(), valid_weights)
+                        mb_dream_advantages = (mb_dream_advantages - advantage_mean) / (
+                            advantage_var.sqrt() + 1e-8
+                        )
+
+                    dream_ratio_diff = dream_ratio - 1.0
+                    dream_spo_eps = torch.where(
+                        (mb_dream_advantages * dream_ratio_diff) > 0,
+                        torch.full_like(mb_dream_advantages, args.spo_eps_high),
+                        torch.full_like(mb_dream_advantages, args.spo_eps_low),
+                    )
+                    dream_spo_penalty = (
+                        mb_dream_advantages.abs() * dream_ratio_diff.square() / (2.0 * dream_spo_eps)
+                    )
+                    imagine_policy_loss = -(mb_dream_advantages * dream_ratio - dream_spo_penalty)
+                    imagine_actor_loss = imagine_policy_loss - args.imagine_actor_ent_coef * dream_entropy.sum(1)
+                    imagine_actor_loss = weighted_mean(
+                        imagine_actor_loss[mb_dream_learn_mask],
+                        valid_weights,
+                    )
+                    imagine_spo_penalties.append(
+                        weighted_mean(dream_spo_penalty[mb_dream_learn_mask], valid_weights).item()
+                    )
+
+                    dream_return_probs = hl_support.project(mb_dream_returns)
+                    imagine_value_loss = -(
+                        dream_return_probs.detach() * torch.log_softmax(dream_value_logits, dim=-1)
+                    ).sum(dim=-1)
+                    imagine_critic_loss = weighted_mean(
+                        imagine_value_loss[mb_dream_learn_mask],
+                        valid_weights,
+                    )
+
+                    imagine_loss = (
+                        args.imagine_actor_coef * imagine_actor_loss
+                        + args.imagine_critic_coef * imagine_critic_loss
+                    )
+
+                    optimizer.zero_grad()
+                    imagine_loss.backward()
+                    clip_grad_groups()
+                    optimizer.step()
+
+                    imagine_actor_losses.append(imagine_actor_loss.item())
+                    imagine_actor_returns.append(
+                        weighted_mean(mb_dream_returns[mb_dream_learn_mask], valid_weights).item()
+                    )
+                    imagine_old_approx_kls.append(dream_old_approx_kl.item())
+                    imagine_approx_kls.append(dream_approx_kl.item())
+                    imagine_critic_losses.append(imagine_critic_loss.item())
+
+                with torch.no_grad():
+                    valid_inds = torch.nonzero(dream_learn_masks, as_tuple=False).flatten()
+                    valid_returns = dream_returns[valid_inds].float()
+                    if valid_returns.numel() > 1:
+                        value_chunks = []
+                        for value_start in range(0, valid_inds.numel(), dream_minibatch_size):
+                            value_end = value_start + dream_minibatch_size
+                            value_inds = valid_inds[value_start:value_end]
+                            value_states = dream_states[value_inds].to(device)
+                            value_chunks.append(agent.get_imagined_value(value_states, hl_support).detach().cpu())
+                        valid_values = torch.cat(value_chunks, dim=0).float()
+                        var_returns = torch.var(valid_returns, unbiased=False)
+                        if var_returns.item() == 0.0:
+                            imagine_explained_vars.append(np.nan)
+                        else:
+                            imagine_explained_vars.append(
+                                (
+                                    1 - torch.var(valid_returns - valid_values, unbiased=False) / var_returns
+                                ).item()
+                            )
+            if imagine_explained_vars:
+                imagine_explained_var = float(np.nanmean(imagine_explained_vars))
+
+        y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
+        var_y = np.var(y_true)
+        explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+
+        writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
+        writer.add_scalar("charts/world_model_only", float(world_model_only), global_step)
+        if v_loss is not None:
+            writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
+            writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
+            writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
+            writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
+            writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
+            writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
+            if real_approx_kls:
+                writer.add_scalar("losses/approx_kl_update_mean", np.mean(real_approx_kls), global_step)
+                writer.add_scalar("losses/approx_kl_update_max", np.max(real_approx_kls), global_step)
+            if real_cleanrl_approx_kls:
+                writer.add_scalar("losses/cleanrl_approx_kl", real_cleanrl_approx_kls[-1], global_step)
+                writer.add_scalar(
+                    "losses/cleanrl_approx_kl_update_mean", np.mean(real_cleanrl_approx_kls), global_step
+                )
+                writer.add_scalar(
+                    "losses/cleanrl_approx_kl_update_max", np.max(real_cleanrl_approx_kls), global_step
+                )
+            if action_clipfracs:
+                writer.add_scalar("losses/action_clipfrac", np.mean(action_clipfracs), global_step)
+            if real_logratio_abs_means:
+                writer.add_scalar("real_rollout/logratio_abs_mean", np.mean(real_logratio_abs_means), global_step)
+                writer.add_scalar("real_rollout/logratio_max_abs", np.mean(real_logratio_max_abses), global_step)
+                writer.add_scalar(
+                    "real_rollout/action_logratio_abs_mean", np.mean(real_action_logratio_abs_means), global_step
+                )
+                writer.add_scalar("real_rollout/actor_std_mean", np.mean(real_actor_stds), global_step)
+            if real_spo_penalties:
+                writer.add_scalar("losses/spo_penalty", np.mean(real_spo_penalties), global_step)
+        writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        wm_loss_mean = safe_mean(wm_losses)
+        dyn_latent_loss_mean = safe_mean(dyn_latent_losses)
+        outcome_reward_probe_ce_mean = safe_mean(outcome_reward_probe_ces)
+        outcome_termination_probe_bce_mean = safe_mean(outcome_termination_probe_bces)
+        dyn_sigreg_loss_mean = safe_mean(dyn_sigreg_losses)
+        lejepa_loss_mean = safe_mean(lejepa_losses)
+        writer.add_scalar("losses/wm_loss", wm_loss_mean, global_step)
+        writer.add_scalar("lejepa/loss", lejepa_loss_mean, global_step)
+        writer.add_scalar("lejepa/prediction_loss", dyn_latent_loss_mean, global_step)
+        writer.add_scalar("lejepa/prediction_mse", safe_mean(lejepa_pred_mses), global_step)
+        writer.add_scalar("lejepa/obs_prediction_mse", safe_mean(lejepa_obs_pred_mses), global_step)
+        writer.add_scalar("lejepa/outcome_prediction_mse", safe_mean(lejepa_outcome_pred_mses), global_step)
+        writer.add_scalar("lejepa/reward_outcome_prediction_mse", safe_mean(lejepa_reward_outcome_pred_mses), global_step)
+        writer.add_scalar(
+            "lejepa/continuation_outcome_prediction_mse",
+            safe_mean(lejepa_continuation_outcome_pred_mses),
+            global_step,
+        )
+        writer.add_scalar("lejepa/sigreg_loss", dyn_sigreg_loss_mean, global_step)
+        writer.add_scalar("outcome_probe/reward_ce", outcome_reward_probe_ce_mean, global_step)
+        writer.add_scalar("outcome_probe/reward_mse", safe_mean(outcome_reward_mses), global_step)
+        writer.add_scalar("outcome_probe/termination_bce", outcome_termination_probe_bce_mean, global_step)
+        writer.add_scalar("outcome_probe/termination_accuracy", safe_mean(dyn_termination_accs), global_step)
+        for key, value in dyn_diagnostics.items():
+            writer.add_scalar(f"dynamics/{key}", value, global_step)
+        if imagine_critic_losses:
+            writer.add_scalar("losses/imagine_critic_loss", np.mean(imagine_critic_losses), global_step)
+        if imagine_actor_losses:
+            writer.add_scalar("losses/imagine_actor_loss", np.mean(imagine_actor_losses), global_step)
+        if imagine_spo_penalties:
+            writer.add_scalar("losses/imagine_spo_penalty", np.mean(imagine_spo_penalties), global_step)
+        if imagine_actor_returns:
+            writer.add_scalar("imagination/returns", np.mean(imagine_actor_returns), global_step)
+        if "model_episode_return_mean" in dream_diagnostic_values:
+            writer.add_scalar(
+                "charts/imagined_episodic_return",
+                safe_mean(dream_diagnostic_values["model_episode_return_mean"]),
+                global_step,
+            )
+        if imagine_explained_var is not None:
+            writer.add_scalar("losses/imagine_explained_variance", imagine_explained_var, global_step)
+        writer.add_scalar("losses/real_rollout_explained_variance_probe", explained_var, global_step)
+        for key, diagnostic_values in dream_diagnostic_values.items():
+            writer.add_scalar(f"imagination/{key}", safe_mean(diagnostic_values), global_step)
+        if imagine_approx_kls:
+            writer.add_scalar("losses/imagine_old_approx_kl", np.mean(imagine_old_approx_kls), global_step)
+            writer.add_scalar("losses/imagine_approx_kl", np.mean(imagine_approx_kls), global_step)
+            writer.add_scalar("losses/imagine_clipfrac", np.mean(dream_clipfracs), global_step)
+        if imagine_cleanrl_approx_kls:
+            writer.add_scalar("losses/imagine_cleanrl_approx_kl", np.mean(imagine_cleanrl_approx_kls), global_step)
+            writer.add_scalar("losses/imagine_action_clipfrac", np.mean(dream_action_clipfracs), global_step)
+        if imagine_logratio_abs_means:
+            writer.add_scalar("imagination/logratio_abs_mean", np.mean(imagine_logratio_abs_means), global_step)
+            writer.add_scalar("imagination/logratio_max_abs", np.mean(imagine_logratio_max_abses), global_step)
+            writer.add_scalar(
+                "imagination/action_logratio_abs_mean", np.mean(imagine_action_logratio_abs_means), global_step
+            )
+            writer.add_scalar("imagination/action_saturation_frac", np.mean(imagine_action_sat_fracs), global_step)
+            writer.add_scalar("imagination/actor_mean_abs_mean", np.mean(imagine_actor_mean_abs_means), global_step)
+            writer.add_scalar("imagination/actor_mean_max_abs", np.mean(imagine_actor_mean_max_abses), global_step)
+            writer.add_scalar(
+                "imagination/raw_actor_beta_head_abs_mean",
+                np.mean(imagine_raw_actor_beta_head_abs_means),
+                global_step,
+            )
+            writer.add_scalar(
+                "imagination/raw_actor_beta_head_max_abs",
+                np.mean(imagine_raw_actor_beta_head_max_abses),
+                global_step,
+            )
+            writer.add_scalar("imagination/actor_std_mean", np.mean(imagine_actor_stds), global_step)
+        writer.add_scalar("charts/imagined_steps", imagined_steps, global_step)
+        writer.add_scalar("charts/imagined_learnable_steps", imagined_learnable_steps, global_step)
+        print("SPS:", int(global_step / (time.time() - start_time)))
+        writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+        writer.add_scalar(
+            "charts_total/SPS", int((global_step + imagined_steps) / (time.time() - start_time)), global_step
+        )
+
+    envs.close()
+    writer.close()
