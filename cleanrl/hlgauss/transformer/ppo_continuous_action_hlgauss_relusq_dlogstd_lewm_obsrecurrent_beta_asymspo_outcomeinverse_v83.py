@@ -63,6 +63,9 @@
 #   distance to split learned outcome-token codebooks, not a trained CE/BCE dynamics head
 # - v82: returns to the v69 backbone but decodes reward/termination through detached
 #   supervised probes from predicted outcome tokens, avoiding codebook-distance decode drift
+# - v83: removes predicted-token outcome probes; reward/termination scalars are decoded
+#   through inverse heads calibrated only on target outcome tokens, while predicted outcome
+#   tokens remain trained by the JEPA embedding objective
 import os
 import random
 import sys
@@ -199,11 +202,11 @@ class Args:
     dyn_latent_coef: float = 1.0
     """weight on next-dynamics-token prediction"""
     dyn_reward_coef: float = 0.25
-    """weight on detached reward-token HL-Gauss CE probe"""
+    """weight on target reward-outcome inverse decoder calibration"""
     dyn_termination_coef: float = 0.25
-    """weight on detached termination-token BCE probe"""
+    """weight on target continuation-outcome inverse decoder calibration"""
     outcome_decode_temp: float = 0.25
-    """retained for CLI compatibility; v82 uses trained detached outcome probes"""
+    """retained for CLI compatibility; v83 uses target-calibrated inverse outcome decoders"""
     reward_num_bins: int = 51
     """number of bins for the learned reward outcome token"""
     reward_v_min: float = -10.0
@@ -615,9 +618,9 @@ class Agent(nn.Module):
         self.outcome_token_norm = RMSNorm(MODEL_DIM)
         self.outcome_decode_temp = 0.25
         self.register_buffer("reward_codebook_probs", torch.eye(reward_num_bins), persistent=False)
-        self.reward_probe = xavier_init_linear(nn.Linear(MODEL_DIM, reward_num_bins))
-        self.termination_probe = xavier_init_linear(nn.Linear(MODEL_DIM, 1))
-        nn.init.constant_(self.termination_probe.bias, -5.0)
+        self.reward_outcome_unproj = xavier_init_linear(nn.Linear(MODEL_DIM, reward_num_bins))
+        self.continuation_outcome_unproj = xavier_init_linear(nn.Linear(MODEL_DIM, 1))
+        nn.init.constant_(self.continuation_outcome_unproj.bias, -5.0)
 
     def _action_distribution(self, agent_input):
         beta_head = self.actor_beta(agent_input)
@@ -719,8 +722,8 @@ class Agent(nn.Module):
         outcome_tokens = summary_tokens[:, NUM_OBS_TOKENS:]
         if detach_summary:
             outcome_tokens = outcome_tokens.detach()
-        reward_logits = self.reward_probe(outcome_tokens[:, 0])
-        termination_logits = self.termination_probe(outcome_tokens[:, 1]).squeeze(-1)
+        reward_logits = self.reward_outcome_unproj(outcome_tokens[:, 0])
+        termination_logits = self.continuation_outcome_unproj(outcome_tokens[:, 1]).squeeze(-1)
         return reward_logits, termination_logits
 
     def _actor_features_from_latents(self, latent_tokens):
@@ -1005,7 +1008,10 @@ if __name__ == "__main__":
                 *module_parameters(agent.pred_layers, agent.pred_final_norm, agent.pred_next_proj),
             ],
         ),
-        ("outcome_probe", module_parameters(agent.reward_probe, agent.termination_probe)),
+        (
+            "outcome_inverse",
+            module_parameters(agent.reward_outcome_unproj, agent.continuation_outcome_unproj),
+        ),
         ("actor", module_parameters(agent.actor_input_norm, agent.actor_beta)),
         ("critic", module_parameters(agent.critic_input_norm, agent.critic)),
     ]
@@ -1573,6 +1579,8 @@ if __name__ == "__main__":
         dyn_latent_losses = []
         dyn_reward_losses = []
         dyn_termination_losses = []
+        pred_reward_decode_losses = []
+        pred_termination_decode_losses = []
         dyn_sigreg_losses = []
         lejepa_losses = []
         dyn_reward_mses = []
@@ -1626,6 +1634,11 @@ if __name__ == "__main__":
                     latent_history,
                     future_actions,
                 )
+                target_reward_logits, target_termination_logits = agent.decode_outcomes(
+                    target_next_latents.reshape(mb_size * args.dyn_horizon, NUM_LATENT_TOKENS, MODEL_DIM),
+                )
+                target_reward_logits = target_reward_logits.reshape(mb_size, args.dyn_horizon, -1)
+                target_termination_logits = target_termination_logits.reshape(mb_size, args.dyn_horizon)
 
                 prev_continues = torch.cat(
                     [
@@ -1657,21 +1670,38 @@ if __name__ == "__main__":
                     args.dyn_horizon,
                     -1,
                 )
-                pred_reward_loss = -(
-                    reward_target_probs.detach() * torch.log_softmax(pred_reward_logits, dim=-1)
+                target_reward_decode_loss = -(
+                    reward_target_probs.detach() * torch.log_softmax(target_reward_logits, dim=-1)
                 ).sum(dim=-1)
                 dyn_reward_loss = (
-                    pred_reward_loss * latent_weight
+                    target_reward_decode_loss * latent_weight
                 ).sum() / latent_weight.sum().clamp_min(1.0)
-                per_step_termination_loss = F.binary_cross_entropy_with_logits(
-                    pred_termination_logits,
+                target_termination_decode_loss = F.binary_cross_entropy_with_logits(
+                    target_termination_logits,
                     future_terminations,
                     reduction="none",
                 )
                 dyn_termination_loss = (
-                    per_step_termination_loss * latent_weight
+                    target_termination_decode_loss * latent_weight
                 ).sum() / latent_weight.sum().clamp_min(1.0)
                 with torch.no_grad():
+                    pred_reward_decode_loss = -(
+                        reward_target_probs * torch.log_softmax(pred_reward_logits, dim=-1)
+                    ).sum(dim=-1)
+                    pred_reward_decode_losses.append(
+                        ((pred_reward_decode_loss * latent_weight).sum() / latent_weight.sum().clamp_min(1.0)).item()
+                    )
+                    pred_termination_decode_loss = F.binary_cross_entropy_with_logits(
+                        pred_termination_logits,
+                        future_terminations,
+                        reduction="none",
+                    )
+                    pred_termination_decode_losses.append(
+                        (
+                            (pred_termination_decode_loss * latent_weight).sum()
+                            / latent_weight.sum().clamp_min(1.0)
+                        ).item()
+                    )
                     reward_pred = reward_support.to_scalar(pred_reward_logits)
                     termination_pred = (torch.sigmoid(pred_termination_logits) >= 0.5).float()
                     for horizon_idx in range(args.dyn_horizon):
@@ -1707,11 +1737,11 @@ if __name__ == "__main__":
                     lejepa_outcome_pred_mses.append(outcome_pred_mse.item())
                 dyn_sigreg_loss = masked_time_major_sigreg(sigreg_latents, sigreg_valids)
                 lejepa_loss = args.dyn_latent_coef * dyn_latent_loss + args.sigreg_coef * dyn_sigreg_loss
-                outcome_probe_loss = (
+                outcome_inverse_loss = (
                     args.dyn_reward_coef * dyn_reward_loss
                     + args.dyn_termination_coef * dyn_termination_loss
                 )
-                wm_loss = lejepa_loss + outcome_probe_loss
+                wm_loss = lejepa_loss + outcome_inverse_loss
 
                 optimizer.zero_grad()
                 wm_loss.backward()
@@ -2070,13 +2100,15 @@ if __name__ == "__main__":
         dyn_latent_loss_mean = safe_mean(dyn_latent_losses)
         dyn_reward_loss_mean = safe_mean(dyn_reward_losses)
         dyn_termination_loss_mean = safe_mean(dyn_termination_losses)
+        pred_reward_decode_loss_mean = safe_mean(pred_reward_decode_losses)
+        pred_termination_decode_loss_mean = safe_mean(pred_termination_decode_losses)
         dyn_sigreg_loss_mean = safe_mean(dyn_sigreg_losses)
         lejepa_loss_mean = safe_mean(lejepa_losses)
         writer.add_scalar("losses/dyn_loss", dyn_loss_mean, global_step)
         writer.add_scalar("losses/lejepa_loss", lejepa_loss_mean, global_step)
         writer.add_scalar("losses/dyn_latent_loss", dyn_latent_loss_mean, global_step)
-        writer.add_scalar("losses/dyn_reward_loss", dyn_reward_loss_mean, global_step)
-        writer.add_scalar("losses/dyn_termination_loss", dyn_termination_loss_mean, global_step)
+        writer.add_scalar("losses/outcome_inverse_reward_loss", dyn_reward_loss_mean, global_step)
+        writer.add_scalar("losses/outcome_inverse_termination_loss", dyn_termination_loss_mean, global_step)
         writer.add_scalar("losses/dyn_sigreg_loss", dyn_sigreg_loss_mean, global_step)
         writer.add_scalar("lejepa/loss", lejepa_loss_mean, global_step)
         writer.add_scalar("lejepa/prediction_loss", dyn_latent_loss_mean, global_step)
@@ -2085,9 +2117,11 @@ if __name__ == "__main__":
         writer.add_scalar("lejepa/outcome_prediction_mse", safe_mean(lejepa_outcome_pred_mses), global_step)
         writer.add_scalar("lejepa/sigreg_loss", dyn_sigreg_loss_mean, global_step)
         writer.add_scalar("dynamics/loss", dyn_loss_mean, global_step)
-        writer.add_scalar("dynamics/reward_loss", dyn_reward_loss_mean, global_step)
+        writer.add_scalar("dynamics/target_reward_inverse_loss", dyn_reward_loss_mean, global_step)
+        writer.add_scalar("dynamics/pred_reward_loss", pred_reward_decode_loss_mean, global_step)
         writer.add_scalar("dynamics/reward_mse", safe_mean(dyn_reward_mses), global_step)
-        writer.add_scalar("dynamics/termination_loss", dyn_termination_loss_mean, global_step)
+        writer.add_scalar("dynamics/target_termination_inverse_loss", dyn_termination_loss_mean, global_step)
+        writer.add_scalar("dynamics/pred_termination_loss", pred_termination_decode_loss_mean, global_step)
         writer.add_scalar("dynamics/termination_accuracy", safe_mean(dyn_termination_accs), global_step)
         for key, value in dyn_diagnostics.items():
             writer.add_scalar(f"dynamics/{key}", value, global_step)
@@ -2101,7 +2135,7 @@ if __name__ == "__main__":
             writer.add_scalar("imagination/returns", np.mean(imagine_actor_returns), global_step)
         if imagine_explained_var is not None:
             writer.add_scalar("losses/imagine_explained_variance", imagine_explained_var, global_step)
-        writer.add_scalar("losses/real_rollout_explained_variance_probe", explained_var, global_step)
+        writer.add_scalar("losses/real_rollout_explained_variance", explained_var, global_step)
         for key, diagnostic_values in dream_diagnostic_values.items():
             writer.add_scalar(f"imagination/{key}", safe_mean(diagnostic_values), global_step)
         if imagine_approx_kls:

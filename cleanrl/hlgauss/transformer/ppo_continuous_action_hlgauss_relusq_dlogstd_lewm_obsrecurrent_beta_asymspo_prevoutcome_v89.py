@@ -63,6 +63,18 @@
 #   distance to split learned outcome-token codebooks, not a trained CE/BCE dynamics head
 # - v82: returns to the v69 backbone but decodes reward/termination through detached
 #   supervised probes from predicted outcome tokens, avoiding codebook-distance decode drift
+# - v83: removes predicted-token outcome probes; reward/termination scalars are decoded
+#   through inverse heads calibrated only on target outcome tokens, while predicted outcome
+#   tokens remain trained by the JEPA embedding objective
+# - v85: calibrates the same outcome decoder on both target tokens and detached predicted
+#   tokens, closing the encoded-vs-predicted readout gap without reward/termination
+#   gradients entering the JEPA predictor
+# - v87: uses the detached reward probe as the reward interface for real and imagined
+#   rollout targets from the start; CE to actual env rewards provides the anchor
+# - v88: restores env-reward real PPO anchoring and adds behavior-action closed-loop
+#   JEPA/probe training to reduce autoregressive dream exposure bias
+# - v89: makes real/prompt/current summary outcome slots consistently mean previous
+#   transition outcome; episode starts keep neutral previous-outcome padding
 import os
 import random
 import sys
@@ -199,11 +211,11 @@ class Args:
     dyn_latent_coef: float = 1.0
     """weight on next-dynamics-token prediction"""
     dyn_reward_coef: float = 0.25
-    """weight on detached reward-token HL-Gauss CE probe"""
+    """weight on target reward-outcome inverse decoder calibration"""
     dyn_termination_coef: float = 0.25
-    """weight on detached termination-token BCE probe"""
+    """weight on target continuation-outcome inverse decoder calibration"""
     outcome_decode_temp: float = 0.25
-    """retained for CLI compatibility; v82 uses trained detached outcome probes"""
+    """retained for CLI compatibility; v88 uses target-calibrated outcome probes"""
     reward_num_bins: int = 51
     """number of bins for the learned reward outcome token"""
     reward_v_min: float = -10.0
@@ -615,9 +627,9 @@ class Agent(nn.Module):
         self.outcome_token_norm = RMSNorm(MODEL_DIM)
         self.outcome_decode_temp = 0.25
         self.register_buffer("reward_codebook_probs", torch.eye(reward_num_bins), persistent=False)
-        self.reward_probe = xavier_init_linear(nn.Linear(MODEL_DIM, reward_num_bins))
-        self.termination_probe = xavier_init_linear(nn.Linear(MODEL_DIM, 1))
-        nn.init.constant_(self.termination_probe.bias, -5.0)
+        self.reward_outcome_unproj = xavier_init_linear(nn.Linear(MODEL_DIM, reward_num_bins))
+        self.continuation_outcome_unproj = xavier_init_linear(nn.Linear(MODEL_DIM, 1))
+        nn.init.constant_(self.continuation_outcome_unproj.bias, -5.0)
 
     def _action_distribution(self, agent_input):
         beta_head = self.actor_beta(agent_input)
@@ -710,17 +722,20 @@ class Agent(nn.Module):
         obs_tokens = self._encode_obs_latent_tokens(x)
         return self._latent_from_obs(obs_tokens, self._neutral_outcome_tokens(obs_tokens))
 
-    def encode_target_summary(self, x, reward_probs, continuations):
+    def encode_summary_with_outcomes(self, x, reward_probs, continuations):
         obs_tokens = self._encode_obs_latent_tokens(x)
         outcome_tokens = self._outcome_tokens(obs_tokens, reward_probs, continuations)
         return self._latent_from_obs(obs_tokens, outcome_tokens)
+
+    def encode_target_summary(self, x, reward_probs, continuations):
+        return self.encode_summary_with_outcomes(x, reward_probs, continuations)
 
     def decode_outcomes(self, summary_tokens, detach_summary=True):
         outcome_tokens = summary_tokens[:, NUM_OBS_TOKENS:]
         if detach_summary:
             outcome_tokens = outcome_tokens.detach()
-        reward_logits = self.reward_probe(outcome_tokens[:, 0])
-        termination_logits = self.termination_probe(outcome_tokens[:, 1]).squeeze(-1)
+        reward_logits = self.reward_outcome_unproj(outcome_tokens[:, 0])
+        termination_logits = self.continuation_outcome_unproj(outcome_tokens[:, 1]).squeeze(-1)
         return reward_logits, termination_logits
 
     def _actor_features_from_latents(self, latent_tokens):
@@ -1005,7 +1020,10 @@ if __name__ == "__main__":
                 *module_parameters(agent.pred_layers, agent.pred_final_norm, agent.pred_next_proj),
             ],
         ),
-        ("outcome_probe", module_parameters(agent.reward_probe, agent.termination_probe)),
+        (
+            "outcome_inverse",
+            module_parameters(agent.reward_outcome_unproj, agent.continuation_outcome_unproj),
+        ),
         ("actor", module_parameters(agent.actor_input_norm, agent.actor_beta)),
         ("critic", module_parameters(agent.critic_input_norm, agent.critic)),
     ]
@@ -1067,8 +1085,11 @@ if __name__ == "__main__":
     def weighted_mean(values, weights):
         return (values * weights).sum() / weights.sum().clamp_min(1e-8)
 
+    def neutral_reward_probs(batch_size):
+        return reward_support.project(torch.zeros(batch_size, device=device))
+
     @torch.no_grad()
-    def build_dream_prompt_context(flat_obs, rollout_actions, rollout_boundaries):
+    def build_dream_prompt_context(flat_obs, flat_prev_reward_probs, flat_prev_continues, rollout_actions, rollout_boundaries):
         prompt_len = max(1, min(args.dream_prompt_len, args.pred_context))
         flat_inds = torch.arange(args.batch_size, device=device)
         step_inds = flat_inds // args.num_envs
@@ -1080,7 +1101,13 @@ if __name__ == "__main__":
             hist_step = step_inds - (prompt_len - 1 - offset)
             safe_hist_step = hist_step.clamp(min=0)
             hist_flat_inds = safe_hist_step * args.num_envs + env_inds
-            prompt_summary_history.append(agent.get_summary_targets(flat_obs[hist_flat_inds]).detach())
+            prompt_summary_history.append(
+                agent.encode_summary_with_outcomes(
+                    flat_obs[hist_flat_inds],
+                    flat_prev_reward_probs[hist_flat_inds],
+                    flat_prev_continues[hist_flat_inds],
+                ).detach()
+            )
 
         prompt_action_history = []
         for offset in range(prompt_len - 1):
@@ -1339,7 +1366,16 @@ if __name__ == "__main__":
             agent.train(was_training)
 
     @torch.no_grad()
-    def dynamics_diagnostics(flat_obs, rollout_rewards, rollout_actions, rollout_terminations, rollout_boundaries, rollout_valids):
+    def dynamics_diagnostics(
+        flat_obs,
+        flat_prev_reward_probs,
+        flat_prev_continues,
+        rollout_rewards,
+        rollout_actions,
+        rollout_terminations,
+        rollout_boundaries,
+        rollout_valids,
+    ):
         num_starts = min(args.dynamics_diagnostic_batch, flat_obs.shape[0])
         if num_starts <= 0:
             return {}
@@ -1352,7 +1388,13 @@ if __name__ == "__main__":
             sample_inds = torch.randperm(flat_obs.shape[0], device=device)[:num_starts]
             mb_step_inds = sample_inds // args.num_envs
             mb_env_inds = sample_inds % args.num_envs
-            summary_history = [agent.get_summary_targets(flat_obs[sample_inds]).detach()]
+            summary_history = [
+                agent.encode_summary_with_outcomes(
+                    flat_obs[sample_inds],
+                    flat_prev_reward_probs[sample_inds],
+                    flat_prev_continues[sample_inds],
+                ).detach()
+            ]
             action_history = []
             alive = torch.ones(num_starts, device=device)
             pred_reward_sum = torch.zeros(num_starts, device=device)
@@ -1457,6 +1499,8 @@ if __name__ == "__main__":
     transition_actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
     logprobs = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
     agent_latents = torch.zeros((args.num_steps, args.num_envs, NUM_LATENT_TOKENS, MODEL_DIM)).to(device)
+    prev_reward_probs = torch.zeros((args.num_steps, args.num_envs, args.reward_num_bins), device=device)
+    prev_outcome_continues = torch.ones((args.num_steps, args.num_envs), device=device)
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     transition_terminations = torch.zeros((args.num_steps, args.num_envs)).to(device)
@@ -1475,6 +1519,8 @@ if __name__ == "__main__":
     next_obs, _ = envs.reset(seed=args.seed)
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
+    current_prev_reward_probs = neutral_reward_probs(args.num_envs)
+    current_prev_continues = torch.ones(args.num_envs, device=device)
 
     for iteration in range(1, args.num_iterations + 1):
         if args.anneal_lr:
@@ -1486,9 +1532,17 @@ if __name__ == "__main__":
             global_step += args.num_envs
             obs[step] = next_obs
             dones[step] = next_done
+            prev_reward_probs[step] = current_prev_reward_probs
+            prev_outcome_continues[step] = current_prev_continues
 
             with torch.no_grad():
-                rollout_latents = agent.get_agent_latents(next_obs)
+                rollout_latents = agent.encode_summary_with_outcomes(
+                    next_obs,
+                    current_prev_reward_probs,
+                    current_prev_continues,
+                )
+                if args.detach_world_model_from_agent:
+                    rollout_latents = rollout_latents.detach()
                 action, action_z, logprob, _, value = agent.get_action_and_value_from_latents(
                     rollout_latents,
                     hl_support,
@@ -1525,6 +1579,21 @@ if __name__ == "__main__":
             transition_valids[step] = torch.tensor(transition_valid, device=device)
             next_obses[step] = torch.tensor(transition_next_obs, device=device)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+            reward_tensor = rewards[step]
+            boundary_tensor = transition_boundaries[step].bool()
+            current_prev_reward_probs = reward_support.project(reward_tensor)
+            current_prev_continues = 1.0 - transition_terminations[step]
+            neutral_probs = neutral_reward_probs(args.num_envs)
+            current_prev_reward_probs = torch.where(
+                boundary_tensor[:, None],
+                neutral_probs,
+                current_prev_reward_probs,
+            )
+            current_prev_continues = torch.where(
+                boundary_tensor,
+                torch.ones_like(current_prev_continues),
+                current_prev_continues,
+            )
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -1533,7 +1602,8 @@ if __name__ == "__main__":
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
-        # bootstrap value if not done
+        # Bootstrap real PPO from environment rewards; probe rewards are logged
+        # and used by imagined rollouts, but the real rollout remains the anchor.
         with torch.no_grad():
             next_transition_values = agent.get_value(
                 next_obses.reshape((-1,) + envs.single_observation_space.shape),
@@ -1556,6 +1626,8 @@ if __name__ == "__main__":
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
         b_action_zs = action_zs.reshape((-1,) + envs.single_action_space.shape)
         b_agent_latents = agent_latents.reshape(-1, NUM_LATENT_TOKENS, MODEL_DIM)
+        b_prev_reward_probs = prev_reward_probs.reshape(-1, args.reward_num_bins)
+        b_prev_continues = prev_outcome_continues.reshape(-1)
         b_transition_actions = transition_actions.reshape((-1,) + envs.single_action_space.shape)
         b_advantages = advantages.reshape(-1)
         b_returns = returns.reshape(-1)
@@ -1573,13 +1645,21 @@ if __name__ == "__main__":
         dyn_latent_losses = []
         dyn_reward_losses = []
         dyn_termination_losses = []
+        pred_reward_decode_losses = []
+        pred_termination_decode_losses = []
         dyn_sigreg_losses = []
         lejepa_losses = []
         dyn_reward_mses = []
         dyn_termination_accs = []
         lejepa_pred_mses = []
+        teacher_forced_latent_losses = []
         lejepa_obs_pred_mses = []
         lejepa_outcome_pred_mses = []
+        closed_loop_latent_losses = []
+        closed_loop_reward_losses = []
+        closed_loop_termination_losses = []
+        closed_loop_reward_mses = []
+        closed_loop_reward_biases = []
 
         for epoch in range(args.wm_update_epochs):
             np.random.shuffle(wm_b_inds)
@@ -1603,7 +1683,11 @@ if __name__ == "__main__":
                 future_valids = transition_valids[safe_step_inds, env_inds]
                 future_next_obs = next_obses[safe_step_inds, env_inds]
 
-                initial_summary = agent.get_summary_targets(b_obs[mb_inds])
+                initial_summary = agent.encode_summary_with_outcomes(
+                    b_obs[mb_inds],
+                    b_prev_reward_probs[mb_inds],
+                    b_prev_continues[mb_inds],
+                )
                 reward_target_probs = reward_support.project(future_rewards.reshape(-1)).reshape(
                     mb_size * args.dyn_horizon,
                     -1,
@@ -1626,6 +1710,11 @@ if __name__ == "__main__":
                     latent_history,
                     future_actions,
                 )
+                target_reward_logits, target_termination_logits = agent.decode_outcomes(
+                    target_next_latents.reshape(mb_size * args.dyn_horizon, NUM_LATENT_TOKENS, MODEL_DIM),
+                )
+                target_reward_logits = target_reward_logits.reshape(mb_size, args.dyn_horizon, -1)
+                target_termination_logits = target_termination_logits.reshape(mb_size, args.dyn_horizon)
 
                 prev_continues = torch.cat(
                     [
@@ -1649,7 +1738,7 @@ if __name__ == "__main__":
                     target_next_latents,
                     reduction="none",
                 ).mean(dim=(-1, -2))
-                dyn_latent_loss = (
+                teacher_forced_latent_loss = (
                     per_step_latent_loss * latent_weight
                 ).sum() / latent_weight.sum().clamp_min(1.0)
                 reward_target_probs = reward_target_probs.reshape(
@@ -1657,25 +1746,100 @@ if __name__ == "__main__":
                     args.dyn_horizon,
                     -1,
                 )
-                pred_reward_loss = -(
+                target_reward_decode_loss = -(
+                    reward_target_probs.detach() * torch.log_softmax(target_reward_logits, dim=-1)
+                ).sum(dim=-1)
+                pred_reward_decode_loss = -(
                     reward_target_probs.detach() * torch.log_softmax(pred_reward_logits, dim=-1)
                 ).sum(dim=-1)
-                dyn_reward_loss = (
-                    pred_reward_loss * latent_weight
+                dyn_target_reward_loss = (
+                    target_reward_decode_loss * latent_weight
                 ).sum() / latent_weight.sum().clamp_min(1.0)
-                per_step_termination_loss = F.binary_cross_entropy_with_logits(
+                dyn_pred_reward_loss = (
+                    pred_reward_decode_loss * latent_weight
+                ).sum() / latent_weight.sum().clamp_min(1.0)
+                target_termination_decode_loss = F.binary_cross_entropy_with_logits(
+                    target_termination_logits,
+                    future_terminations,
+                    reduction="none",
+                )
+                pred_termination_decode_loss = F.binary_cross_entropy_with_logits(
                     pred_termination_logits,
                     future_terminations,
                     reduction="none",
                 )
-                dyn_termination_loss = (
-                    per_step_termination_loss * latent_weight
+                dyn_target_termination_loss = (
+                    target_termination_decode_loss * latent_weight
                 ).sum() / latent_weight.sum().clamp_min(1.0)
+                dyn_pred_termination_loss = (
+                    pred_termination_decode_loss * latent_weight
+                ).sum() / latent_weight.sum().clamp_min(1.0)
+
+                closed_loop_summaries = []
+                closed_loop_reward_logits = []
+                closed_loop_termination_logits = []
+                summary_history = [initial_summary.detach()]
+                action_history = []
+                for horizon_idx in range(args.dyn_horizon):
+                    action_history.append(future_actions[:, horizon_idx])
+                    context_len = min(args.pred_context, len(summary_history), len(action_history))
+                    pred_context = torch.stack(summary_history[-context_len:], dim=1)
+                    action_context = torch.stack(action_history[-context_len:], dim=1)
+                    (
+                        closed_loop_summary,
+                        closed_loop_reward_logit,
+                        closed_loop_termination_logit,
+                    ) = agent.dynamics_step_from_history(pred_context, action_context)
+                    closed_loop_summaries.append(closed_loop_summary)
+                    closed_loop_reward_logits.append(closed_loop_reward_logit)
+                    closed_loop_termination_logits.append(closed_loop_termination_logit)
+                    summary_history.append(closed_loop_summary.detach())
+                closed_loop_next_latents = torch.stack(closed_loop_summaries, dim=1)
+                closed_loop_reward_logits = torch.stack(closed_loop_reward_logits, dim=1)
+                closed_loop_termination_logits = torch.stack(closed_loop_termination_logits, dim=1)
+                closed_loop_per_step_latent_loss = F.mse_loss(
+                    closed_loop_next_latents,
+                    target_next_latents,
+                    reduction="none",
+                ).mean(dim=(-1, -2))
+                closed_loop_latent_loss = (
+                    closed_loop_per_step_latent_loss * latent_weight
+                ).sum() / latent_weight.sum().clamp_min(1.0)
+                closed_loop_reward_decode_loss = -(
+                    reward_target_probs.detach() * torch.log_softmax(closed_loop_reward_logits, dim=-1)
+                ).sum(dim=-1)
+                closed_loop_reward_loss = (
+                    closed_loop_reward_decode_loss * latent_weight
+                ).sum() / latent_weight.sum().clamp_min(1.0)
+                closed_loop_termination_decode_loss = F.binary_cross_entropy_with_logits(
+                    closed_loop_termination_logits,
+                    future_terminations,
+                    reduction="none",
+                )
+                closed_loop_termination_loss = (
+                    closed_loop_termination_decode_loss * latent_weight
+                ).sum() / latent_weight.sum().clamp_min(1.0)
+
+                teacher_forced_reward_loss = 0.5 * (dyn_target_reward_loss + dyn_pred_reward_loss)
+                teacher_forced_termination_loss = 0.5 * (
+                    dyn_target_termination_loss + dyn_pred_termination_loss
+                )
+                dyn_latent_loss = 0.5 * (teacher_forced_latent_loss + closed_loop_latent_loss)
+                dyn_reward_loss = 0.5 * (teacher_forced_reward_loss + closed_loop_reward_loss)
+                dyn_termination_loss = 0.5 * (
+                    teacher_forced_termination_loss + closed_loop_termination_loss
+                )
+                pred_reward_decode_losses.append(dyn_pred_reward_loss.item())
+                pred_termination_decode_losses.append(dyn_pred_termination_loss.item())
+                closed_loop_latent_losses.append(closed_loop_latent_loss.item())
+                closed_loop_reward_losses.append(closed_loop_reward_loss.item())
+                closed_loop_termination_losses.append(closed_loop_termination_loss.item())
                 with torch.no_grad():
                     reward_pred = reward_support.to_scalar(pred_reward_logits)
+                    closed_loop_reward_pred = reward_support.to_scalar(closed_loop_reward_logits)
                     termination_pred = (torch.sigmoid(pred_termination_logits) >= 0.5).float()
                     for horizon_idx in range(args.dyn_horizon):
-                        horizon_weight = step_weight[:, horizon_idx]
+                        horizon_weight = latent_weight[:, horizon_idx]
                         denom = horizon_weight.sum().clamp_min(1.0)
                         reward_mse = (
                             (reward_pred[:, horizon_idx] - future_rewards[:, horizon_idx]).square()
@@ -1687,6 +1851,15 @@ if __name__ == "__main__":
                         ).sum() / denom
                         dyn_reward_mses.append(reward_mse.item())
                         dyn_termination_accs.append(termination_acc.item())
+                    closed_loop_reward_error = (closed_loop_reward_pred - future_rewards) * latent_weight
+                    closed_loop_reward_mse = (
+                        (closed_loop_reward_pred - future_rewards).square() * latent_weight
+                    ).sum() / latent_weight.sum().clamp_min(1.0)
+                    closed_loop_reward_bias = (
+                        closed_loop_reward_error.sum() / latent_weight.sum().clamp_min(1.0)
+                    )
+                    closed_loop_reward_mses.append(closed_loop_reward_mse.item())
+                    closed_loop_reward_biases.append(closed_loop_reward_bias.item())
                     obs_pred_mse = (
                         F.mse_loss(
                             pred_next_latents[:, :, :NUM_OBS_TOKENS],
@@ -1725,9 +1898,27 @@ if __name__ == "__main__":
                 dyn_sigreg_losses.append(dyn_sigreg_loss.item())
                 lejepa_losses.append(lejepa_loss.item())
                 lejepa_pred_mses.append(dyn_latent_loss.item())
+                teacher_forced_latent_losses.append(teacher_forced_latent_loss.item())
+
+        with torch.no_grad():
+            reward_target_probs = reward_support.project(rewards.reshape(-1))
+            target_continues = (1.0 - transition_terminations).reshape(-1)
+            target_summaries = agent.encode_target_summary(
+                next_obses.reshape((-1,) + envs.single_observation_space.shape),
+                reward_target_probs,
+                target_continues,
+            )
+            probe_reward_logits, _ = agent.decode_outcomes(target_summaries)
+            rollout_probe_rewards = reward_support.to_scalar(probe_reward_logits).reshape(
+                args.num_steps,
+                args.num_envs,
+            )
+            reward_probe_error = rollout_probe_rewards - rewards
 
         dyn_diagnostics = dynamics_diagnostics(
             b_obs,
+            b_prev_reward_probs,
+            b_prev_continues,
             rewards,
             transition_actions,
             transition_terminations,
@@ -1743,6 +1934,8 @@ if __name__ == "__main__":
             with torch.no_grad():
                 prompt_summary_history, prompt_action_history, prompt_valids = build_dream_prompt_context(
                     b_obs,
+                    b_prev_reward_probs,
+                    b_prev_continues,
                     transition_actions,
                     transition_boundaries,
                 )
@@ -2070,24 +2263,42 @@ if __name__ == "__main__":
         dyn_latent_loss_mean = safe_mean(dyn_latent_losses)
         dyn_reward_loss_mean = safe_mean(dyn_reward_losses)
         dyn_termination_loss_mean = safe_mean(dyn_termination_losses)
+        pred_reward_decode_loss_mean = safe_mean(pred_reward_decode_losses)
+        pred_termination_decode_loss_mean = safe_mean(pred_termination_decode_losses)
         dyn_sigreg_loss_mean = safe_mean(dyn_sigreg_losses)
         lejepa_loss_mean = safe_mean(lejepa_losses)
         writer.add_scalar("losses/dyn_loss", dyn_loss_mean, global_step)
         writer.add_scalar("losses/lejepa_loss", lejepa_loss_mean, global_step)
         writer.add_scalar("losses/dyn_latent_loss", dyn_latent_loss_mean, global_step)
-        writer.add_scalar("losses/dyn_reward_loss", dyn_reward_loss_mean, global_step)
-        writer.add_scalar("losses/dyn_termination_loss", dyn_termination_loss_mean, global_step)
+        writer.add_scalar("losses/outcome_probe_reward_loss", dyn_reward_loss_mean, global_step)
+        writer.add_scalar("losses/outcome_probe_termination_loss", dyn_termination_loss_mean, global_step)
         writer.add_scalar("losses/dyn_sigreg_loss", dyn_sigreg_loss_mean, global_step)
         writer.add_scalar("lejepa/loss", lejepa_loss_mean, global_step)
         writer.add_scalar("lejepa/prediction_loss", dyn_latent_loss_mean, global_step)
-        writer.add_scalar("lejepa/prediction_mse", safe_mean(lejepa_pred_mses), global_step)
+        writer.add_scalar("lejepa/prediction_mse", safe_mean(teacher_forced_latent_losses), global_step)
+        writer.add_scalar("lejepa/combined_prediction_loss", safe_mean(lejepa_pred_mses), global_step)
+        writer.add_scalar("lejepa/closed_loop_prediction_loss", safe_mean(closed_loop_latent_losses), global_step)
         writer.add_scalar("lejepa/obs_prediction_mse", safe_mean(lejepa_obs_pred_mses), global_step)
         writer.add_scalar("lejepa/outcome_prediction_mse", safe_mean(lejepa_outcome_pred_mses), global_step)
         writer.add_scalar("lejepa/sigreg_loss", dyn_sigreg_loss_mean, global_step)
         writer.add_scalar("dynamics/loss", dyn_loss_mean, global_step)
-        writer.add_scalar("dynamics/reward_loss", dyn_reward_loss_mean, global_step)
+        writer.add_scalar("dynamics/reward_probe_loss", dyn_reward_loss_mean, global_step)
+        writer.add_scalar("dynamics/pred_reward_loss", pred_reward_decode_loss_mean, global_step)
+        writer.add_scalar("dynamics/closed_loop_reward_loss", safe_mean(closed_loop_reward_losses), global_step)
+        writer.add_scalar("dynamics/closed_loop_reward_mse", safe_mean(closed_loop_reward_mses), global_step)
+        writer.add_scalar("dynamics/closed_loop_reward_bias", safe_mean(closed_loop_reward_biases), global_step)
         writer.add_scalar("dynamics/reward_mse", safe_mean(dyn_reward_mses), global_step)
-        writer.add_scalar("dynamics/termination_loss", dyn_termination_loss_mean, global_step)
+        writer.add_scalar("dynamics/real_probe_reward_bias", reward_probe_error.mean().item(), global_step)
+        writer.add_scalar("dynamics/real_probe_reward_mae", reward_probe_error.abs().mean().item(), global_step)
+        writer.add_scalar("dynamics/real_probe_reward_mean", rollout_probe_rewards.mean().item(), global_step)
+        writer.add_scalar("dynamics/env_reward_mean", rewards.mean().item(), global_step)
+        writer.add_scalar("dynamics/termination_probe_loss", dyn_termination_loss_mean, global_step)
+        writer.add_scalar("dynamics/pred_termination_loss", pred_termination_decode_loss_mean, global_step)
+        writer.add_scalar(
+            "dynamics/closed_loop_termination_loss",
+            safe_mean(closed_loop_termination_losses),
+            global_step,
+        )
         writer.add_scalar("dynamics/termination_accuracy", safe_mean(dyn_termination_accs), global_step)
         for key, value in dyn_diagnostics.items():
             writer.add_scalar(f"dynamics/{key}", value, global_step)
@@ -2101,7 +2312,7 @@ if __name__ == "__main__":
             writer.add_scalar("imagination/returns", np.mean(imagine_actor_returns), global_step)
         if imagine_explained_var is not None:
             writer.add_scalar("losses/imagine_explained_variance", imagine_explained_var, global_step)
-        writer.add_scalar("losses/real_rollout_explained_variance_probe", explained_var, global_step)
+        writer.add_scalar("losses/real_rollout_explained_variance", explained_var, global_step)
         for key, diagnostic_values in dream_diagnostic_values.items():
             writer.add_scalar(f"imagination/{key}", safe_mean(diagnostic_values), global_step)
         if imagine_approx_kls:

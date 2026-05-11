@@ -63,6 +63,14 @@
 #   distance to split learned outcome-token codebooks, not a trained CE/BCE dynamics head
 # - v82: returns to the v69 backbone but decodes reward/termination through detached
 #   supervised probes from predicted outcome tokens, avoiding codebook-distance decode drift
+# - v83: removes predicted-token outcome probes; reward/termination scalars are decoded
+#   through inverse heads calibrated only on target outcome tokens, while predicted outcome
+#   tokens remain trained by the JEPA embedding objective
+# - v85: calibrates the same outcome decoder on both target tokens and detached predicted
+#   tokens, closing the encoded-vs-predicted readout gap without reward/termination
+#   gradients entering the JEPA predictor
+# - v87: uses the detached reward probe as the reward interface for real and imagined
+#   rollout targets from the start; CE to actual env rewards provides the anchor
 import os
 import random
 import sys
@@ -199,11 +207,11 @@ class Args:
     dyn_latent_coef: float = 1.0
     """weight on next-dynamics-token prediction"""
     dyn_reward_coef: float = 0.25
-    """weight on detached reward-token HL-Gauss CE probe"""
+    """weight on target reward-outcome inverse decoder calibration"""
     dyn_termination_coef: float = 0.25
-    """weight on detached termination-token BCE probe"""
+    """weight on target continuation-outcome inverse decoder calibration"""
     outcome_decode_temp: float = 0.25
-    """retained for CLI compatibility; v82 uses trained detached outcome probes"""
+    """retained for CLI compatibility; v87 uses target-calibrated outcome probes"""
     reward_num_bins: int = 51
     """number of bins for the learned reward outcome token"""
     reward_v_min: float = -10.0
@@ -615,9 +623,9 @@ class Agent(nn.Module):
         self.outcome_token_norm = RMSNorm(MODEL_DIM)
         self.outcome_decode_temp = 0.25
         self.register_buffer("reward_codebook_probs", torch.eye(reward_num_bins), persistent=False)
-        self.reward_probe = xavier_init_linear(nn.Linear(MODEL_DIM, reward_num_bins))
-        self.termination_probe = xavier_init_linear(nn.Linear(MODEL_DIM, 1))
-        nn.init.constant_(self.termination_probe.bias, -5.0)
+        self.reward_outcome_unproj = xavier_init_linear(nn.Linear(MODEL_DIM, reward_num_bins))
+        self.continuation_outcome_unproj = xavier_init_linear(nn.Linear(MODEL_DIM, 1))
+        nn.init.constant_(self.continuation_outcome_unproj.bias, -5.0)
 
     def _action_distribution(self, agent_input):
         beta_head = self.actor_beta(agent_input)
@@ -719,8 +727,8 @@ class Agent(nn.Module):
         outcome_tokens = summary_tokens[:, NUM_OBS_TOKENS:]
         if detach_summary:
             outcome_tokens = outcome_tokens.detach()
-        reward_logits = self.reward_probe(outcome_tokens[:, 0])
-        termination_logits = self.termination_probe(outcome_tokens[:, 1]).squeeze(-1)
+        reward_logits = self.reward_outcome_unproj(outcome_tokens[:, 0])
+        termination_logits = self.continuation_outcome_unproj(outcome_tokens[:, 1]).squeeze(-1)
         return reward_logits, termination_logits
 
     def _actor_features_from_latents(self, latent_tokens):
@@ -1005,7 +1013,10 @@ if __name__ == "__main__":
                 *module_parameters(agent.pred_layers, agent.pred_final_norm, agent.pred_next_proj),
             ],
         ),
-        ("outcome_probe", module_parameters(agent.reward_probe, agent.termination_probe)),
+        (
+            "outcome_inverse",
+            module_parameters(agent.reward_outcome_unproj, agent.continuation_outcome_unproj),
+        ),
         ("actor", module_parameters(agent.actor_input_norm, agent.actor_beta)),
         ("critic", module_parameters(agent.critic_input_norm, agent.critic)),
     ]
@@ -1533,8 +1544,22 @@ if __name__ == "__main__":
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
-        # bootstrap value if not done
+        # Use the same learned reward interface for real and imagined returns.
+        # The probe is anchored by CE to env rewards in the world-model update below.
         with torch.no_grad():
+            reward_target_probs = reward_support.project(rewards.reshape(-1))
+            target_continues = (1.0 - transition_terminations).reshape(-1)
+            target_summaries = agent.encode_target_summary(
+                next_obses.reshape((-1,) + envs.single_observation_space.shape),
+                reward_target_probs,
+                target_continues,
+            )
+            probe_reward_logits, _ = agent.decode_outcomes(target_summaries)
+            rollout_probe_rewards = reward_support.to_scalar(probe_reward_logits).reshape(
+                args.num_steps,
+                args.num_envs,
+            )
+            reward_probe_error = rollout_probe_rewards - rewards
             next_transition_values = agent.get_value(
                 next_obses.reshape((-1,) + envs.single_observation_space.shape),
                 hl_support,
@@ -1544,7 +1569,11 @@ if __name__ == "__main__":
             for t in reversed(range(args.num_steps)):
                 bootstrap_nonterminal = (1.0 - transition_terminations[t]) * transition_valids[t]
                 lambda_nonterminal = 1.0 - transition_boundaries[t]
-                delta = rewards[t] + args.gamma * next_transition_values[t] * bootstrap_nonterminal - values[t]
+                delta = (
+                    rollout_probe_rewards[t]
+                    + args.gamma * next_transition_values[t] * bootstrap_nonterminal
+                    - values[t]
+                )
                 advantages[t] = lastgaelam = (
                     delta + args.gamma * args.gae_lambda * lambda_nonterminal * lastgaelam
                 )
@@ -1560,7 +1589,8 @@ if __name__ == "__main__":
         b_advantages = advantages.reshape(-1)
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
-        b_rewards = rewards.reshape(-1)
+        b_rewards = rollout_probe_rewards.reshape(-1)
+        b_env_rewards = rewards.reshape(-1)
         b_transition_terminations = transition_terminations.reshape(-1)
         b_transition_boundaries = transition_boundaries.reshape(-1)
         b_transition_valids = transition_valids.reshape(-1)
@@ -1573,6 +1603,8 @@ if __name__ == "__main__":
         dyn_latent_losses = []
         dyn_reward_losses = []
         dyn_termination_losses = []
+        pred_reward_decode_losses = []
+        pred_termination_decode_losses = []
         dyn_sigreg_losses = []
         lejepa_losses = []
         dyn_reward_mses = []
@@ -1626,6 +1658,11 @@ if __name__ == "__main__":
                     latent_history,
                     future_actions,
                 )
+                target_reward_logits, target_termination_logits = agent.decode_outcomes(
+                    target_next_latents.reshape(mb_size * args.dyn_horizon, NUM_LATENT_TOKENS, MODEL_DIM),
+                )
+                target_reward_logits = target_reward_logits.reshape(mb_size, args.dyn_horizon, -1)
+                target_termination_logits = target_termination_logits.reshape(mb_size, args.dyn_horizon)
 
                 prev_continues = torch.cat(
                     [
@@ -1657,20 +1694,38 @@ if __name__ == "__main__":
                     args.dyn_horizon,
                     -1,
                 )
-                pred_reward_loss = -(
+                target_reward_decode_loss = -(
+                    reward_target_probs.detach() * torch.log_softmax(target_reward_logits, dim=-1)
+                ).sum(dim=-1)
+                pred_reward_decode_loss = -(
                     reward_target_probs.detach() * torch.log_softmax(pred_reward_logits, dim=-1)
                 ).sum(dim=-1)
-                dyn_reward_loss = (
-                    pred_reward_loss * latent_weight
+                dyn_target_reward_loss = (
+                    target_reward_decode_loss * latent_weight
                 ).sum() / latent_weight.sum().clamp_min(1.0)
-                per_step_termination_loss = F.binary_cross_entropy_with_logits(
+                dyn_pred_reward_loss = (
+                    pred_reward_decode_loss * latent_weight
+                ).sum() / latent_weight.sum().clamp_min(1.0)
+                dyn_reward_loss = 0.5 * (dyn_target_reward_loss + dyn_pred_reward_loss)
+                target_termination_decode_loss = F.binary_cross_entropy_with_logits(
+                    target_termination_logits,
+                    future_terminations,
+                    reduction="none",
+                )
+                pred_termination_decode_loss = F.binary_cross_entropy_with_logits(
                     pred_termination_logits,
                     future_terminations,
                     reduction="none",
                 )
-                dyn_termination_loss = (
-                    per_step_termination_loss * latent_weight
+                dyn_target_termination_loss = (
+                    target_termination_decode_loss * latent_weight
                 ).sum() / latent_weight.sum().clamp_min(1.0)
+                dyn_pred_termination_loss = (
+                    pred_termination_decode_loss * latent_weight
+                ).sum() / latent_weight.sum().clamp_min(1.0)
+                dyn_termination_loss = 0.5 * (dyn_target_termination_loss + dyn_pred_termination_loss)
+                pred_reward_decode_losses.append(dyn_pred_reward_loss.item())
+                pred_termination_decode_losses.append(dyn_pred_termination_loss.item())
                 with torch.no_grad():
                     reward_pred = reward_support.to_scalar(pred_reward_logits)
                     termination_pred = (torch.sigmoid(pred_termination_logits) >= 0.5).float()
@@ -1707,11 +1762,11 @@ if __name__ == "__main__":
                     lejepa_outcome_pred_mses.append(outcome_pred_mse.item())
                 dyn_sigreg_loss = masked_time_major_sigreg(sigreg_latents, sigreg_valids)
                 lejepa_loss = args.dyn_latent_coef * dyn_latent_loss + args.sigreg_coef * dyn_sigreg_loss
-                outcome_probe_loss = (
+                outcome_inverse_loss = (
                     args.dyn_reward_coef * dyn_reward_loss
                     + args.dyn_termination_coef * dyn_termination_loss
                 )
-                wm_loss = lejepa_loss + outcome_probe_loss
+                wm_loss = lejepa_loss + outcome_inverse_loss
 
                 optimizer.zero_grad()
                 wm_loss.backward()
@@ -2070,13 +2125,15 @@ if __name__ == "__main__":
         dyn_latent_loss_mean = safe_mean(dyn_latent_losses)
         dyn_reward_loss_mean = safe_mean(dyn_reward_losses)
         dyn_termination_loss_mean = safe_mean(dyn_termination_losses)
+        pred_reward_decode_loss_mean = safe_mean(pred_reward_decode_losses)
+        pred_termination_decode_loss_mean = safe_mean(pred_termination_decode_losses)
         dyn_sigreg_loss_mean = safe_mean(dyn_sigreg_losses)
         lejepa_loss_mean = safe_mean(lejepa_losses)
         writer.add_scalar("losses/dyn_loss", dyn_loss_mean, global_step)
         writer.add_scalar("losses/lejepa_loss", lejepa_loss_mean, global_step)
         writer.add_scalar("losses/dyn_latent_loss", dyn_latent_loss_mean, global_step)
-        writer.add_scalar("losses/dyn_reward_loss", dyn_reward_loss_mean, global_step)
-        writer.add_scalar("losses/dyn_termination_loss", dyn_termination_loss_mean, global_step)
+        writer.add_scalar("losses/outcome_probe_reward_loss", dyn_reward_loss_mean, global_step)
+        writer.add_scalar("losses/outcome_probe_termination_loss", dyn_termination_loss_mean, global_step)
         writer.add_scalar("losses/dyn_sigreg_loss", dyn_sigreg_loss_mean, global_step)
         writer.add_scalar("lejepa/loss", lejepa_loss_mean, global_step)
         writer.add_scalar("lejepa/prediction_loss", dyn_latent_loss_mean, global_step)
@@ -2085,9 +2142,15 @@ if __name__ == "__main__":
         writer.add_scalar("lejepa/outcome_prediction_mse", safe_mean(lejepa_outcome_pred_mses), global_step)
         writer.add_scalar("lejepa/sigreg_loss", dyn_sigreg_loss_mean, global_step)
         writer.add_scalar("dynamics/loss", dyn_loss_mean, global_step)
-        writer.add_scalar("dynamics/reward_loss", dyn_reward_loss_mean, global_step)
+        writer.add_scalar("dynamics/reward_probe_loss", dyn_reward_loss_mean, global_step)
+        writer.add_scalar("dynamics/pred_reward_loss", pred_reward_decode_loss_mean, global_step)
         writer.add_scalar("dynamics/reward_mse", safe_mean(dyn_reward_mses), global_step)
-        writer.add_scalar("dynamics/termination_loss", dyn_termination_loss_mean, global_step)
+        writer.add_scalar("dynamics/real_probe_reward_bias", reward_probe_error.mean().item(), global_step)
+        writer.add_scalar("dynamics/real_probe_reward_mae", reward_probe_error.abs().mean().item(), global_step)
+        writer.add_scalar("dynamics/real_probe_reward_mean", rollout_probe_rewards.mean().item(), global_step)
+        writer.add_scalar("dynamics/env_reward_mean", rewards.mean().item(), global_step)
+        writer.add_scalar("dynamics/termination_probe_loss", dyn_termination_loss_mean, global_step)
+        writer.add_scalar("dynamics/pred_termination_loss", pred_termination_decode_loss_mean, global_step)
         writer.add_scalar("dynamics/termination_accuracy", safe_mean(dyn_termination_accs), global_step)
         for key, value in dyn_diagnostics.items():
             writer.add_scalar(f"dynamics/{key}", value, global_step)
@@ -2101,7 +2164,7 @@ if __name__ == "__main__":
             writer.add_scalar("imagination/returns", np.mean(imagine_actor_returns), global_step)
         if imagine_explained_var is not None:
             writer.add_scalar("losses/imagine_explained_variance", imagine_explained_var, global_step)
-        writer.add_scalar("losses/real_rollout_explained_variance_probe", explained_var, global_step)
+        writer.add_scalar("losses/real_rollout_explained_variance", explained_var, global_step)
         for key, diagnostic_values in dream_diagnostic_values.items():
             writer.add_scalar(f"imagination/{key}", safe_mean(diagnostic_values), global_step)
         if imagine_approx_kls:

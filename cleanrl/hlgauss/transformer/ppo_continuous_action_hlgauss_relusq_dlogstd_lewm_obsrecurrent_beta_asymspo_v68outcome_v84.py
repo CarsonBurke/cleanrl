@@ -8,7 +8,7 @@
 # - Xavier/Glorot init on tokenizer and transformer layers
 # - LeWM-style next-encoder-latent MSE: pred(z_t, a_t) targets encoder(o_{t+1})
 # - 5-step teacher-forced WM training masked across episode boundaries
-# - LeWM-style SIGReg regularizes the full encoded latent sequence toward an isotropic Gaussian
+# - LeWM-style SIGReg regularizes encoded observation tokens toward an isotropic Gaussian
 # - v59 predicts one state+outcome target embedding per transition:
 #   target(obs_{t+1}, reward_t, continuation_t), with reward/continuation
 #   entering the predicted embedding rather than detached dynamics heads
@@ -63,6 +63,12 @@
 #   distance to split learned outcome-token codebooks, not a trained CE/BCE dynamics head
 # - v82: returns to the v69 backbone but decodes reward/termination through detached
 #   supervised probes from predicted outcome tokens, avoiding codebook-distance decode drift
+# - v83: removes predicted-token outcome probes; reward/termination scalars are decoded
+#   through inverse heads calibrated only on target outcome tokens, while predicted outcome
+#   tokens remain trained by the JEPA embedding objective
+# - v84: restores the v68 outcome interface: obs-conditioned outcome target tokens,
+#   obs-only SIGReg, and reward/termination readouts calibrated from both predicted and
+#   target outcome tokens
 import os
 import random
 import sys
@@ -199,11 +205,11 @@ class Args:
     dyn_latent_coef: float = 1.0
     """weight on next-dynamics-token prediction"""
     dyn_reward_coef: float = 0.25
-    """weight on detached reward-token HL-Gauss CE probe"""
+    """weight on reward readout calibration from predicted and target outcome tokens"""
     dyn_termination_coef: float = 0.25
-    """weight on detached termination-token BCE probe"""
+    """weight on termination readout calibration from predicted and target outcome tokens"""
     outcome_decode_temp: float = 0.25
-    """retained for CLI compatibility; v82 uses trained detached outcome probes"""
+    """retained for CLI compatibility; v84 uses learned outcome readout heads"""
     reward_num_bins: int = 51
     """number of bins for the learned reward outcome token"""
     reward_v_min: float = -10.0
@@ -608,16 +614,20 @@ class Agent(nn.Module):
         self.actor_beta = ReluSqRMSHead(AGENT_INPUT_DIM, AGENT_HIDDEN_DIM, 2 * act_dim, output_std=0.01)
         self.actor_input_norm = RMSNorm(AGENT_INPUT_DIM)
         self.critic_input_norm = RMSNorm(AGENT_INPUT_DIM)
-        self.reward_outcome_input_norm = RMSNorm(reward_num_bins)
-        self.reward_outcome_proj = xavier_init_linear(nn.Linear(reward_num_bins, MODEL_DIM))
-        self.continuation_outcome_input_norm = RMSNorm(1)
-        self.continuation_outcome_proj = xavier_init_linear(nn.Linear(1, MODEL_DIM))
+        outcome_input_dim = MODEL_DIM * NUM_OBS_TOKENS + reward_num_bins + 1
+        self.outcome_input_norm = RMSNorm(outcome_input_dim)
+        self.outcome_target_proj = xavier_init_linear(
+            nn.Linear(outcome_input_dim, NUM_OUTCOME_TOKENS * MODEL_DIM)
+        )
         self.outcome_token_norm = RMSNorm(MODEL_DIM)
+        self.outcome_readout_norm = RMSNorm(NUM_OUTCOME_TOKENS * MODEL_DIM)
+        self.outcome_readout_proj = xavier_init_linear(
+            nn.Linear(NUM_OUTCOME_TOKENS * MODEL_DIM, REWARD_FEATURE_DIM)
+        )
+        self.dyn_reward_head = xavier_init_linear(nn.Linear(REWARD_FEATURE_DIM, reward_num_bins))
+        self.dyn_termination_head = xavier_init_linear(nn.Linear(REWARD_FEATURE_DIM, 1))
         self.outcome_decode_temp = 0.25
-        self.register_buffer("reward_codebook_probs", torch.eye(reward_num_bins), persistent=False)
-        self.reward_probe = xavier_init_linear(nn.Linear(MODEL_DIM, reward_num_bins))
-        self.termination_probe = xavier_init_linear(nn.Linear(MODEL_DIM, 1))
-        nn.init.constant_(self.termination_probe.bias, -5.0)
+        nn.init.constant_(self.dyn_termination_head.bias, -5.0)
 
     def _action_distribution(self, agent_input):
         beta_head = self.actor_beta(agent_input)
@@ -676,30 +686,16 @@ class Agent(nn.Module):
         obs_tokens = self._encode_dynamics_tokens(x)
         return self.dyn_next_proj(obs_tokens)
 
-    def _reward_outcome_token(self, reward_probs):
-        return self.outcome_token_norm(
-            self.reward_outcome_proj(self.reward_outcome_input_norm(reward_probs))
-        )
-
-    def _continuation_outcome_token(self, continuations):
-        continuation_input = continuations.unsqueeze(-1)
-        return self.outcome_token_norm(
-            self.continuation_outcome_proj(self.continuation_outcome_input_norm(continuation_input))
-        )
-
-    def _outcome_tokens_from_labels(self, reward_probs, continuations):
-        reward_token = self._reward_outcome_token(reward_probs)
-        continuation_token = self._continuation_outcome_token(continuations)
-        return torch.stack([reward_token, continuation_token], dim=1)
-
     def _outcome_tokens(self, obs_tokens, reward_probs, continuations):
-        return self._outcome_tokens_from_labels(reward_probs, continuations)
+        obs_flat = obs_tokens.detach().reshape(obs_tokens.shape[0], -1)
+        outcome_input = torch.cat([obs_flat, reward_probs, continuations.unsqueeze(-1)], dim=-1)
+        outcome_tokens = self.outcome_target_proj(self.outcome_input_norm(outcome_input))
+        outcome_tokens = outcome_tokens.reshape(obs_tokens.shape[0], NUM_OUTCOME_TOKENS, MODEL_DIM)
+        return self.outcome_token_norm(outcome_tokens)
 
     def _neutral_outcome_tokens(self, obs_tokens):
-        reward_probs = self.reward_codebook_probs.to(
-            device=obs_tokens.device,
-            dtype=obs_tokens.dtype,
-        )[self.reward_num_bins // 2].expand(obs_tokens.shape[0], -1)
+        reward_probs = obs_tokens.new_zeros((obs_tokens.shape[0], self.reward_num_bins))
+        reward_probs[:, self.reward_num_bins // 2] = 1.0
         continuations = obs_tokens.new_ones((obs_tokens.shape[0],))
         return self._outcome_tokens(obs_tokens, reward_probs, continuations)
 
@@ -719,8 +715,10 @@ class Agent(nn.Module):
         outcome_tokens = summary_tokens[:, NUM_OBS_TOKENS:]
         if detach_summary:
             outcome_tokens = outcome_tokens.detach()
-        reward_logits = self.reward_probe(outcome_tokens[:, 0])
-        termination_logits = self.termination_probe(outcome_tokens[:, 1]).squeeze(-1)
+        outcome_flat = outcome_tokens.reshape(outcome_tokens.shape[0], -1)
+        features = relu_sq(self.outcome_readout_proj(self.outcome_readout_norm(outcome_flat)))
+        reward_logits = self.dyn_reward_head(features)
+        termination_logits = self.dyn_termination_head(features).squeeze(-1)
         return reward_logits, termination_logits
 
     def _actor_features_from_latents(self, latent_tokens):
@@ -788,6 +786,7 @@ class Agent(nn.Module):
         pred_next_latents = self.predict_next_latents_all_from_history(latent_history, action_history)
         pred_reward_logits, pred_termination_logits = self.decode_outcomes(
             pred_next_latents.reshape(batch * horizon, num_latents, width),
+            detach_summary=False,
         )
         pred_reward_logits = pred_reward_logits.reshape(batch, horizon, -1)
         pred_termination_logits = pred_termination_logits.reshape(batch, horizon)
@@ -988,13 +987,7 @@ if __name__ == "__main__":
             [
                 *module_parameters(agent.obs_input_norm, agent.obs_mix_proj, agent.obs_token_norm),
                 *module_parameters(agent.dyn_embed_norm, agent.dyn_layers, agent.dyn_final_norm, agent.dyn_next_proj),
-                *module_parameters(
-                    agent.reward_outcome_input_norm,
-                    agent.reward_outcome_proj,
-                    agent.continuation_outcome_input_norm,
-                    agent.continuation_outcome_proj,
-                    agent.outcome_token_norm,
-                ),
+                *module_parameters(agent.outcome_input_norm, agent.outcome_target_proj, agent.outcome_token_norm),
                 agent.pred_action_in_proj.weight,
                 agent.pred_action_in_proj.bias,
                 agent.pred_action_out_proj.weight,
@@ -1005,7 +998,11 @@ if __name__ == "__main__":
                 *module_parameters(agent.pred_layers, agent.pred_final_norm, agent.pred_next_proj),
             ],
         ),
-        ("outcome_probe", module_parameters(agent.reward_probe, agent.termination_probe)),
+        (
+            "reward",
+            module_parameters(agent.outcome_readout_norm, agent.outcome_readout_proj, agent.dyn_reward_head),
+        ),
+        ("termination", module_parameters(agent.dyn_termination_head)),
         ("actor", module_parameters(agent.actor_input_norm, agent.actor_beta)),
         ("critic", module_parameters(agent.critic_input_norm, agent.critic)),
     ]
@@ -1026,7 +1023,6 @@ if __name__ == "__main__":
         device,
         use_symlog=False,
     )
-    agent.reward_codebook_probs = reward_support.project(reward_support.support).detach()
     action_low = torch.tensor(envs.single_action_space.low, device=device)
     action_high = torch.tensor(envs.single_action_space.high, device=device)
 
@@ -1626,7 +1622,6 @@ if __name__ == "__main__":
                     latent_history,
                     future_actions,
                 )
-
                 prev_continues = torch.cat(
                     [
                         torch.ones(mb_size, 1, device=device),
@@ -1638,7 +1633,7 @@ if __name__ == "__main__":
                 latent_weight = step_weight * future_valids
 
                 sigreg_latents = [
-                    sigreg_window_latents[:, horizon_idx].reshape(mb_size, -1)
+                    sigreg_window_latents[:, horizon_idx, :NUM_OBS_TOKENS].reshape(mb_size, -1)
                     for horizon_idx in range(args.dyn_horizon + 1)
                 ]
                 sigreg_valids = [torch.ones(mb_size, device=device, dtype=torch.bool)]
@@ -1657,17 +1652,31 @@ if __name__ == "__main__":
                     args.dyn_horizon,
                     -1,
                 )
-                pred_reward_loss = -(
-                    reward_target_probs.detach() * torch.log_softmax(pred_reward_logits, dim=-1)
+                target_reward_logits, target_termination_logits = agent.decode_outcomes(
+                    target_next_latents.reshape(mb_size * args.dyn_horizon, NUM_LATENT_TOKENS, MODEL_DIM),
+                    detach_summary=False,
+                )
+                target_reward_logits = target_reward_logits.reshape(mb_size, args.dyn_horizon, -1)
+                target_termination_logits = target_termination_logits.reshape(mb_size, args.dyn_horizon)
+                pred_reward_loss = -(reward_target_probs * torch.log_softmax(pred_reward_logits, dim=-1)).sum(dim=-1)
+                target_reward_loss = -(
+                    reward_target_probs * torch.log_softmax(target_reward_logits, dim=-1)
                 ).sum(dim=-1)
+                per_step_reward_loss = 0.5 * (pred_reward_loss + target_reward_loss)
                 dyn_reward_loss = (
-                    pred_reward_loss * latent_weight
+                    per_step_reward_loss * latent_weight
                 ).sum() / latent_weight.sum().clamp_min(1.0)
                 per_step_termination_loss = F.binary_cross_entropy_with_logits(
                     pred_termination_logits,
                     future_terminations,
                     reduction="none",
                 )
+                target_step_termination_loss = F.binary_cross_entropy_with_logits(
+                    target_termination_logits,
+                    future_terminations,
+                    reduction="none",
+                )
+                per_step_termination_loss = 0.5 * (per_step_termination_loss + target_step_termination_loss)
                 dyn_termination_loss = (
                     per_step_termination_loss * latent_weight
                 ).sum() / latent_weight.sum().clamp_min(1.0)
@@ -1707,11 +1716,11 @@ if __name__ == "__main__":
                     lejepa_outcome_pred_mses.append(outcome_pred_mse.item())
                 dyn_sigreg_loss = masked_time_major_sigreg(sigreg_latents, sigreg_valids)
                 lejepa_loss = args.dyn_latent_coef * dyn_latent_loss + args.sigreg_coef * dyn_sigreg_loss
-                outcome_probe_loss = (
+                outcome_decode_loss = (
                     args.dyn_reward_coef * dyn_reward_loss
                     + args.dyn_termination_coef * dyn_termination_loss
                 )
-                wm_loss = lejepa_loss + outcome_probe_loss
+                wm_loss = lejepa_loss + outcome_decode_loss
 
                 optimizer.zero_grad()
                 wm_loss.backward()
@@ -2101,7 +2110,7 @@ if __name__ == "__main__":
             writer.add_scalar("imagination/returns", np.mean(imagine_actor_returns), global_step)
         if imagine_explained_var is not None:
             writer.add_scalar("losses/imagine_explained_variance", imagine_explained_var, global_step)
-        writer.add_scalar("losses/real_rollout_explained_variance_probe", explained_var, global_step)
+        writer.add_scalar("losses/real_rollout_explained_variance", explained_var, global_step)
         for key, diagnostic_values in dream_diagnostic_values.items():
             writer.add_scalar(f"imagination/{key}", safe_mean(diagnostic_values), global_step)
         if imagine_approx_kls:
