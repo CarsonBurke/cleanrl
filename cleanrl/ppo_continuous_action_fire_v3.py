@@ -1,30 +1,34 @@
-# PPO + FIRE v3: trunk-NS, head-reset (matches the paper's DQN
-# integration pattern in dqn_atari_resume.py).
+# PPO + FIRE v3: NS+Muon-scale on every Linear weight + fresh Adam.
 #
-# In the paper's reference DQN code (rl/dqn/cleanrl/dqn_atari_resume.py
-# `apply_fire`), Linear layers are NOT NS-orthogonalized — they are
-# hard-reset to a saved init network's weights. NS+Muon scaling is
-# applied only to Conv2d trunk layers. For their Simba SAC the issue
-# doesn't show up because every Dense layer uses kernel_init_scale=1.0
-# (Muon scale ≈ init scale), so NS-on-heads is a no-op-ish.
+# Aligned with the FIRE reference's Simba SAC integration
+# (rl/sac/scale_rl/agents/simba/simba_agent.py `_orthogonally_project_network`
+# + projection.py `orthogonal_project_network`), which is the closest
+# reference setting to on-policy continuous control: only Dense layers,
+# no Conv2d. There, every Dense layer's kernel is matched by regex
+# "Dense.*" and replaced with NS-orthogonalized + Muon-scaled
+# (sqrt(d_out/d_in)) weights — trunk and heads uniformly — and then a
+# fresh init builds a new train state so the optimizer moments start
+# from zero. Biases are not touched (projection acts on "kernel" only).
 #
-# CleanRL PPO has non-uniform init: hidden trunks use gain=sqrt(2),
-# critic head gain=1.0, actor head gain=0.01. v1 NS'd everything,
-# corrupting heads (actor head ~13× explosion at every shock — the
-# big return dip). v2 left heads untouched but kept stale Adam
-# moments, so heads were calibrated to the *old* feature distribution.
+# We mirror that here:
+#   every nn.Linear weight:   NS + Muon scale  (rank recovery)
+#   every nn.Linear bias:     untouched
+#   actor_logstd parameter:   untouched (it is not a Dense kernel)
+#   optimizer:                fresh Adam (full state reset)
 #
-# v3 mirrors the paper's DQN apply_fire structure:
-#   trunk Linears (hidden):   NS + Muon scale   (rank recovery)
-#   head Linears (output):    fresh sample of init at original gain
-#                             (clean restart, correct scale)
-#   Adam state:               full reset
+# Note: CleanRL PPO uses non-uniform init gains (trunk sqrt(2), critic
+# head 1.0, actor head 0.01). Uniform NS+Muon raises the actor head
+# from ~0.01 to sqrt(d_out/d_in) magnitude, which is intentional per
+# the paper (rank recovery is the point); Simba SAC tolerates the same
+# rescaling because its heads share the trunk's init scale, and the
+# paper applies the same projection there without exception.
 #
 # Schedule [2M, 4M, 6M] matches v1.
 #
 # Reference: https://isaac7778.github.io/fire/  (ICLR 2026)
 # Reference impl: https://github.com/isaac7778/FIRE
-#   rl/dqn/cleanrl/dqn_atari_resume.py:269-314 (apply_fire)
+#   rl/sac/scale_rl/agents/simba/simba_agent.py:487-503
+#   rl/sac/scale_rl/agents/simba/projection.py:67-109
 import os
 import random
 import time
@@ -123,25 +127,19 @@ def newton_schulz(matrix: torch.Tensor, num_iters: int = 10) -> torch.Tensor:
 
 
 @torch.no_grad()
-def fire_reinit_trunk(layers, num_iters: int = 10):
-    """NS + Muon-scale on hidden trunk Linears (rank recovery)."""
-    for m in layers:
-        W = m.weight.data
-        d_out, d_in = W.shape
-        ortho = newton_schulz(W.detach().clone(), num_iters=num_iters)
-        scale = (d_out / d_in) ** 0.5
-        m.weight.data.copy_(ortho * scale)
-
-
-@torch.no_grad()
-def fire_reset_heads(head_specs):
-    """Fresh sample of orthogonal init at the head's original gain.
-    head_specs: list of (Linear, gain, bias_const). Mirrors the paper's
-    DQN apply_fire which does m.weight.copy_(m_init.weight) for Linear
-    layers — i.e., a fresh draw from the original init distribution."""
-    for m, gain, bias in head_specs:
-        torch.nn.init.orthogonal_(m.weight, gain)
-        torch.nn.init.constant_(m.bias, bias)
+def apply_fire(module: nn.Module, num_iters: int = 10):
+    """NS + Muon-scale every nn.Linear weight in `module` (rank recovery).
+    Mirrors Simba SAC's `orthogonal_project_network` which matches all
+    Dense layers via regex and rewrites each kernel as
+    scale * newton_schulz(kernel) with scale = sqrt(d_out/d_in).
+    Biases are left untouched."""
+    for m in module.modules():
+        if isinstance(m, nn.Linear):
+            W = m.weight.data
+            d_out, d_in = W.shape
+            ortho = newton_schulz(W.detach().clone(), num_iters=num_iters)
+            scale = (d_out / d_in) ** 0.5
+            m.weight.data.copy_(ortho * scale)
 
 
 class Agent(nn.Module):
@@ -162,17 +160,6 @@ class Agent(nn.Module):
             layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
         )
         self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
-
-    def trunk_linears(self):
-        return [self.critic[0], self.critic[2], self.actor_mean[0], self.actor_mean[2]]
-
-    def head_specs(self):
-        """[(Linear, gain, bias_const), ...] — the per-head original-init
-        spec passed to fire_reset_heads."""
-        return [
-            (self.critic[4], 1.0, 0.0),
-            (self.actor_mean[4], 0.01, 0.0),
-        ]
 
     def get_value(self, x):
         return self.critic(x)
@@ -342,15 +329,13 @@ if __name__ == "__main__":
             if args.target_kl is not None and approx_kl > args.target_kl:
                 break
 
-        # FIRE v3: NS+Muon on hidden trunks, fresh-init the small-gain heads
-        # (mirrors apply_fire in dqn_atari_resume.py). Full Adam reset.
+        # FIRE v3: NS+Muon on every nn.Linear weight; biases and
+        # actor_logstd untouched; full Adam reset (mirrors Simba SAC's
+        # `_orthogonally_project_network` + `_init_network`).
         while fire_pending and global_step >= fire_pending[0]:
             threshold = fire_pending.pop(0)
             print(f"[FIRE v3] global_step={global_step} reinit at threshold={threshold}")
-            fire_reinit_trunk(agent.trunk_linears(), num_iters=args.fire_ns_iters)
-            fire_reset_heads(agent.head_specs())
-            # Note: actor_logstd is left untouched — its zero init stays
-            # consistent with PPO's initial sigma=1 expectation.
+            apply_fire(agent, num_iters=args.fire_ns_iters)
             optimizer = optim.Adam(agent.parameters(), lr=optimizer.param_groups[0]["lr"], eps=1e-5)
             writer.add_scalar("fire/applied_at_step", threshold, global_step)
 
