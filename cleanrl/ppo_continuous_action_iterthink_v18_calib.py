@@ -1,0 +1,559 @@
+# PPO + IterThink v18 (distributional PG + CALIBRATED value via target smoothing). From v17.
+#
+# THE CALIBRATION PROBLEM. v17's CDF-rank advantage A_t = Phi^-1(F_Z(G_t)) is only a
+# rich, informative signal if Z(s) is CALIBRATED: by the probability-integral
+# transform u=F_Z(G) is Uniform[0,1] (so Phi^-1(u)~N(0,1)) ONLY when the predicted
+# distribution matches the true return distribution. v17's categorical critic became
+# OVERCONFIDENT — its λ-return CE target is near-two-hot (~2 bins) while the true
+# conditional return spread is ~6 bins — so realized returns landed in Z's tails, u
+# went BIMODAL at 0/1, Phi^-1 saturated at the clamp, the advantage degenerated to
+# ≈sign(GAE) (corr 0.92), and KL blew up (needing target_kl to mask it).
+#
+# v18 FIXES CALIBRATION AT THE SOURCE: smooth the categorical λ-return target with a
+# Gaussian kernel (sigma = `target_smooth_sigma` bins) before the cross-entropy. This
+# is HL-Gauss-style label smoothing: it forbids the critic from collapsing to an
+# overconfident spike, widening Z to its true spread. The kernel is symmetric so the
+# value MEAN (and thus GAE/control) is unchanged — only the SPREAD is corrected.
+# Calibrated Z -> u≈Uniform -> Phi^-1(u)≈N(0,1): the distributional advantage becomes
+# a genuine, informative, well-conditioned signal (lower corr with GAE, naturally
+# healthy KL). Control: iterthink_v17_distpg_probit_tkl03 (sigma=0 == v17).
+#
+# --- inherited v17 method ---
+# THE DISTRIBUTION DRIVES CONTROL. v10 learns a full categorical value distribution
+# Z(s) but the policy only ever sees its MEAN (via GAE). v17 makes the SHAPE of the
+# distribution drive the policy gradient directly: the advantage is WHERE THE
+# REALIZED λ-RETURN FALLS INSIDE THE PREDICTED VALUE DISTRIBUTION.
+#
+#   u_t = F_{Z(s_t)}(G_t) = P( Z(s_t) ≤ G_t )    (CDF position of the outcome G_t)
+#   A_t = 2*u_t - 1   ∈ [-1, 1]                  (centered distributional advantage)
+#
+# WHY THIS, NOT v16. v16 divided the advantage by the per-state std sigma(s) — an
+# UNBOUNDED rescaling that amplified confident states' advantages up to ~3x and
+# wrecked the policy gradient on HalfCheetah (1070 vs v10's 2492 @1.44M). The
+# CDF-rank advantage is the principled distributional alternative:
+#   - BOUNDED in [-1,1]: a great outcome in a confident (sharp) state saturates at
+#     +1 instead of exploding — the OPPOSITE of v16's failure mode.
+#   - SIGN-PRESERVING: F is monotone, so sign(2u-1) = sign(G_t - median Z(s_t)) ≈
+#     sign(G_t - V_t) = sign(true advantage). A valid ascent direction.
+#   - USES THE WHOLE DISTRIBUTION, not just mean/std: in a skewed/heavy-tailed Z the
+#     same scalar gap maps to a different rank — automatic, distribution-aware,
+#     outlier-robust advantage shaping (bounded influence reduces gradient variance).
+#   - The MEAN-VALUE GAE is kept UNDISTORTED: it still produces `returns` and the
+#     distributional λ-return value target is unchanged. `dist_pg_beta` blends the
+#     (z-scored) GAE advantage with the CDF advantage; beta=1 is pure CDF, beta=0
+#     recovers v10 exactly.
+#
+# The CDF is computed against the OLD rollout distribution Z(s_t) (value_probs),
+# detached like every PPO advantage. Piecewise-linear (each atom's mass = one bin
+# slab) so u is smooth & monotone in G_t. Control: iterthink_v10_distreturn (beta=0).
+import os
+import random
+import time
+from dataclasses import dataclass
+from math import log
+
+import gymnasium as gym
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import tyro
+from torch.distributions.normal import Normal
+from torch.utils.tensorboard import SummaryWriter
+
+from cleanrl.shared.hl_gauss import HLGaussSupport
+
+
+@dataclass
+class Args:
+    exp_name: str = os.path.basename(__file__)[: -len(".py")]
+    seed: int = 1
+    torch_deterministic: bool = True
+    cuda: bool = True
+    track: bool = False
+    wandb_project_name: str = "cleanRL"
+    wandb_entity: str = None
+    capture_video: bool = False
+    save_model: bool = False
+    upload_model: bool = False
+    hf_entity: str = ""
+
+    env_id: str = "HalfCheetah-v4"
+    total_timesteps: int = 8000000
+    learning_rate: float = 3e-4
+    num_envs: int = 16
+    num_steps: int = 2048
+    anneal_lr: bool = True
+    gamma: float = 0.99
+    gae_lambda: float = 0.95
+    num_minibatches: int = 32
+    update_epochs: int = 10
+    norm_adv: bool = True
+    clip_coef: float = 0.2
+    ent_coef: float = 0.0
+    vf_coef: float = 0.5
+    max_grad_norm: float = 0.5
+    target_kl: float = None
+
+    # Distributional critic support. Tight + well-resolved (vs v9's ±20/255).
+    num_bins: int = 511
+    v_min: float = -10.0
+    v_max: float = 10.0
+    critic_init_tau: float = 0.5   # init Z ≈ N(0, tau^2), sharp at 0
+    value_symlog: bool = False
+
+    # Distributional policy gradient (the v17 extension). Policy advantage =
+    # (1-beta)*zscore(GAE_adv) + beta*(CDF-rank adv). beta=1 -> pure CDF-rank;
+    # beta=0 -> v10 exactly. The mean-value GAE / value target are untouched.
+    dist_pg: bool = True
+    dist_pg_beta: float = 1.0
+    # CDF -> advantage transform. "linear" (2u-1) is UNIFORM by the probability
+    # integral transform -> almost no mass near 0 -> over-drives the policy
+    # (KL/clipfrac blow up). "probit" maps u via Phi^-1 so the advantage is ~N(0,1)
+    # (PPO's expected shape, concentrated near 0), clamped to +/-~3.3.
+    cdf_transform: str = "probit"
+    cdf_probit_clamp: float = 0.999
+    # Calibration (v18): Gaussian-smooth the categorical λ-return target by this many
+    # bins before the CE (HL-Gauss label smoothing). Widens Z to its true spread so
+    # u=F_Z(G) stays Uniform. 0 -> v17 (no smoothing). True cond. spread ≈6 bins.
+    target_smooth_sigma: float = 4.0
+
+    hidden: int = 64
+    k_blocks: int = 3
+    n_experts: int = 16
+
+    batch_size: int = 0
+    minibatch_size: int = 0
+    num_iterations: int = 0
+
+
+def make_env(env_id, idx, capture_video, run_name, gamma):
+    def thunk():
+        if capture_video and idx == 0:
+            env = gym.make(env_id, render_mode="rgb_array")
+            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+        else:
+            env = gym.make(env_id)
+        env = gym.wrappers.FlattenObservation(env)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        env = gym.wrappers.ClipAction(env)
+        env = gym.wrappers.NormalizeObservation(env)
+        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
+        env = gym.wrappers.NormalizeReward(env, gamma=gamma)
+        env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+        return env
+
+    return thunk
+
+
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    if hasattr(layer, "bias") and layer.bias is not None:
+        torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
+
+class ReLUSquared(nn.Module):
+    def forward(self, x):
+        return torch.relu(x).pow(2)
+
+
+def _branch_body(H):
+    # Plain pre-act MLP. Standard sqrt(2) init on both Linears.
+    return nn.Sequential(
+        layer_init(nn.Linear(H, H)),
+        ReLUSquared(),
+        layer_init(nn.Linear(H, H)),
+    )
+
+
+class ThinkBlock(nn.Module):
+    """Bounded convex residual mix of x and x0, then parallel dense + soft MoE."""
+
+    def __init__(self, in_dim, H, n_experts):
+        super().__init__()
+        self.n_experts = n_experts
+
+        self.in_proj = layer_init(nn.Linear(in_dim, H))
+        # Bounded convex residual gate: g = sigmoid(resid_gate) per channel.
+        # init +4 → g ≈ 0.982 → x_in ≈ x at start.
+        self.resid_gate = nn.Parameter(torch.full((H,), 4.0))
+
+        # Dense branch. RMSNorm without learnable affine (no free per-channel γ).
+        self.dense_norm = nn.RMSNorm(H, elementwise_affine=False)
+        self.dense = _branch_body(H)
+
+        # Soft MoE branch (softmax over all experts, no top-K).
+        self.moe_norm = nn.RMSNorm(H, elementwise_affine=False)
+        self.gate = layer_init(nn.Linear(H, n_experts))
+        self.experts = nn.ModuleList([_branch_body(H) for _ in range(n_experts)])
+
+    def forward(self, cat_feats, x0):
+        x = self.in_proj(cat_feats)                                   # (B, H)
+        g = torch.sigmoid(self.resid_gate)                            # (H,)
+        x_in = g * x + (1.0 - g) * x0                                 # (B, H), convex
+
+        d_dense = self.dense(self.dense_norm(x_in))                   # (B, H)
+
+        m_in = self.moe_norm(x_in)
+        weights = torch.softmax(self.gate(m_in), dim=-1)              # (B, E)
+        all_out = torch.stack([e(m_in) for e in self.experts], dim=1) # (B, E, H)
+        d_moe = (weights.unsqueeze(-1) * all_out).sum(dim=1)          # (B, H)
+
+        return x_in + d_dense + d_moe
+
+
+class ThinkTrunk(nn.Module):
+    def __init__(self, in_dim, H, K, n_experts):
+        super().__init__()
+        self.entry = layer_init(nn.Linear(in_dim, H))
+        self.blocks = nn.ModuleList()
+        for k in range(K):
+            block_in_dim = H * (k + 1)
+            self.blocks.append(ThinkBlock(block_in_dim, H, n_experts))
+        cat_dim = H * (K + 1)
+        self.out_norm = nn.RMSNorm(cat_dim, elementwise_affine=False)
+        self.out_proj = layer_init(nn.Linear(cat_dim, H))
+
+    def forward(self, x):
+        x0 = self.entry(x)
+        feats = [x0]
+        for block in self.blocks:
+            feats.append(block(torch.cat(feats, dim=-1), x0))
+        return self.out_proj(self.out_norm(torch.cat(feats, dim=-1)))
+
+
+class Agent(nn.Module):
+    def __init__(self, envs, args):
+        super().__init__()
+        obs_dim = int(np.array(envs.single_observation_space.shape).prod())
+        act_dim = int(np.prod(envs.single_action_space.shape))
+        H = args.hidden
+        self.critic_trunk = ThinkTrunk(obs_dim, H, args.k_blocks, args.n_experts)
+        # Categorical critic with a PEAKED init: small weight + Gaussian-logit
+        # bias so the initial value distribution is sharp at 0 (not uniform),
+        # preventing the distributional-bootstrap blowup that sank v9.
+        self.critic_head = layer_init(nn.Linear(H, args.num_bins), std=0.1)
+        with torch.no_grad():
+            z = torch.linspace(args.v_min, args.v_max, args.num_bins)
+            self.critic_head.bias.copy_(-0.5 * (z / args.critic_init_tau) ** 2)
+        self.actor_trunk = ThinkTrunk(obs_dim, H, args.k_blocks, args.n_experts)
+        self.actor_head = layer_init(nn.Linear(H, act_dim), std=0.01)
+        self.actor_logstd = nn.Parameter(torch.zeros(1, act_dim))
+
+    def get_value(self, x):
+        # Returns value LOGITS (B, num_bins); caller converts via support.
+        return self.critic_head(self.critic_trunk(x))
+
+    def get_action_and_value(self, x, z=None):
+        mean = self.actor_head(self.actor_trunk(x))
+        std = self.actor_logstd.expand_as(mean).exp()
+        probs = Normal(mean, std)
+        if z is None:
+            z = probs.sample()
+        action = torch.tanh(z)
+        log_det = 2.0 * (log(2.0) - z - F.softplus(-2.0 * z))
+        log_prob = (probs.log_prob(z) - log_det).sum(1)
+        value_logits = self.critic_head(self.critic_trunk(x))
+        return action, z, log_prob, probs.entropy().sum(1), value_logits
+
+
+def categorical_project(probs, atoms, support, v_min, v_max, bin_width):
+    """C51 projection: distribute `probs` (B, n) sitting at positions `atoms`
+    (B, n) onto the fixed `support` (n,) via linear interpolation between
+    neighbouring bins. Mass-preserving (atoms are pre-clamped to [v_min, v_max]).
+    """
+    n = support.shape[0]
+    tz = atoms.clamp(v_min, v_max)
+    b = (tz - v_min) / bin_width                       # (B, n) fractional bin pos
+    lo = b.floor()
+    hi = b.ceil()
+    lo_idx = lo.clamp(0, n - 1).long()
+    hi_idx = hi.clamp(0, n - 1).long()
+    m = torch.zeros_like(probs)
+    m.scatter_add_(1, lo_idx, probs * (hi - b))        # mass to lower bin
+    m.scatter_add_(1, hi_idx, probs * (b - lo))        # mass to upper bin
+    # When b is integer, lo == hi and both weights are 0; (1 - (hi - lo)) == 1
+    # routes the full mass to that bin. Otherwise hi - lo == 1 → adds 0.
+    m.scatter_add_(1, lo_idx, probs * (1.0 - (hi - lo)))
+    return m
+
+
+def gaussian_smooth_probs(probs, sigma_bins):
+    """HL-Gauss-style calibration: blur a categorical distribution along the bin
+    axis with a Gaussian kernel of width `sigma_bins`. Symmetric -> preserves the
+    mean (interior support); only widens the spread. probs: (..., n) -> (..., n)."""
+    if sigma_bins <= 0:
+        return probs
+    n = probs.shape[-1]
+    k = int(6 * sigma_bins) | 1                              # odd kernel length
+    idx = torch.arange(k, device=probs.device) - k // 2
+    kernel = torch.exp(-0.5 * (idx / sigma_bins) ** 2)
+    kernel = (kernel / kernel.sum()).view(1, 1, k)
+    flat = probs.reshape(-1, 1, n)
+    sm = F.conv1d(flat, kernel, padding=k // 2).reshape(probs.shape)
+    return sm / sm.sum(dim=-1, keepdim=True).clamp_min(1e-8)  # renormalize edge loss
+
+
+def distributional_lambda_returns(
+    rewards, dones, next_done, value_probs, bootstrap_probs, support, v_min, v_max, bin_width, gamma, gae_lambda
+):
+    """Backward recursion for the distributional λ-return G^λ (probs per step).
+
+        G^λ_t =_D r_t + γ·nonterm·[ (1-λ)·Z(s_{t+1}) + λ·G^λ_{t+1} ]
+
+    Mean-matches the scalar GAE λ-return. Shapes: rewards/dones (T, B);
+    value_probs (T, B, n); bootstrap_probs (B, n) = Z(s_T). Returns (T, B, n).
+    """
+    T = rewards.shape[0]
+    target = torch.zeros_like(value_probs)
+    g_next = bootstrap_probs                            # G^λ_{T} ≡ bootstrap
+    for t in reversed(range(T)):
+        if t == T - 1:
+            nonterminal = 1.0 - next_done               # (B,)
+            z_next = bootstrap_probs                    # Z(s_T)
+        else:
+            nonterminal = 1.0 - dones[t + 1]
+            z_next = value_probs[t + 1]                 # Z(s_{t+1})
+        mix = (1.0 - gae_lambda) * z_next + gae_lambda * g_next          # (B, n)
+        gn = (gamma * nonterminal).unsqueeze(-1)        # (B, 1)
+        atoms = rewards[t].unsqueeze(-1) + gn * support  # (B, n) transformed atoms
+        g_next = categorical_project(mix, atoms, support, v_min, v_max, bin_width)
+        target[t] = g_next
+    return target
+
+
+if __name__ == "__main__":
+    args = tyro.cli(Args)
+    args.batch_size = int(args.num_envs * args.num_steps)
+    args.minibatch_size = int(args.batch_size // args.num_minibatches)
+    args.num_iterations = args.total_timesteps // args.batch_size
+    run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+    if args.track:
+        import wandb
+
+        wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=vars(args),
+            name=run_name,
+            monitor_gym=True,
+            save_code=True,
+        )
+    writer = SummaryWriter(f"runs/{run_name}")
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+    )
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = args.torch_deterministic
+
+    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+
+    envs = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)]
+    )
+    assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
+
+    agent = Agent(envs, args).to(device)
+    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+
+    hl_support = HLGaussSupport(
+        args.num_bins,
+        args.v_min,
+        args.v_max,
+        0.5,  # sigma_ratio unused (categorical Bellman target, no Gaussian projection)
+        device,
+        use_symlog=args.value_symlog,
+    )
+    support = hl_support.support                       # (num_bins,) linear support
+    bin_width = hl_support.bin_width
+
+    obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
+    actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
+    latent_zs = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
+    logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    values = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    value_probs = torch.zeros((args.num_steps, args.num_envs, args.num_bins)).to(device)
+
+    global_step = 0
+    start_time = time.time()
+    next_obs, _ = envs.reset(seed=args.seed)
+    next_obs = torch.Tensor(next_obs).to(device)
+    next_done = torch.zeros(args.num_envs).to(device)
+
+    for iteration in range(1, args.num_iterations + 1):
+        if args.anneal_lr:
+            frac = 1.0 - (iteration - 1.0) / args.num_iterations
+            lrnow = frac * args.learning_rate
+            optimizer.param_groups[0]["lr"] = lrnow
+
+        for step in range(0, args.num_steps):
+            global_step += args.num_envs
+            obs[step] = next_obs
+            dones[step] = next_done
+
+            with torch.no_grad():
+                action, z, logprob, _, value_logits = agent.get_action_and_value(next_obs)
+                p = torch.softmax(value_logits, dim=-1)
+                value_probs[step] = p
+                values[step] = (p * support).sum(dim=-1)
+            actions[step] = action
+            latent_zs[step] = z
+            logprobs[step] = logprob
+
+            next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
+            next_done = np.logical_or(terminations, truncations)
+            rewards[step] = torch.tensor(reward).to(device).view(-1)
+            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+
+            if "final_info" in infos:
+                for info in infos["final_info"]:
+                    if info and "episode" in info:
+                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+
+        with torch.no_grad():
+            bootstrap_probs = torch.softmax(agent.get_value(next_obs), dim=-1)   # (B, n) = Z(s_T)
+            next_value = (bootstrap_probs * support).sum(dim=-1).reshape(1, -1)
+            # Scalar GAE (means) — advantage baseline is unchanged from v7.
+            advantages = torch.zeros_like(rewards).to(device)
+            lastgaelam = 0
+            for t in reversed(range(args.num_steps)):
+                if t == args.num_steps - 1:
+                    nextnonterminal = 1.0 - next_done
+                    nextvalues = next_value
+                else:
+                    nextnonterminal = 1.0 - dones[t + 1]
+                    nextvalues = values[t + 1]
+                delta = rewards[t] + args.gamma * nextvalues * nextnonterminal - values[t]
+                advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
+            returns = advantages + values
+            # Distributional λ-return target (mean-matches `returns`).
+            target_probs = distributional_lambda_returns(
+                rewards, dones, next_done, value_probs, bootstrap_probs,
+                support, args.v_min, args.v_max, bin_width, args.gamma, args.gae_lambda,
+            )
+            # Calibration: widen the (near-two-hot) target so the critic can't become
+            # overconfident -> u = F_Z(G) stays Uniform -> probit advantage stays N(0,1).
+            target_probs = gaussian_smooth_probs(target_probs, args.target_smooth_sigma)
+            # CDF-rank distributional advantage: position of the realized λ-return
+            # G_t inside the OLD predicted value distribution Z(s_t). Piecewise-linear
+            # CDF (atom mass = one bin slab) -> smooth, monotone u_t ∈ [0,1].
+            cdf_frac = ((returns.unsqueeze(-1) - support) / bin_width + 0.5).clamp(0.0, 1.0)  # (T,B,n)
+            u = (value_probs * cdf_frac).sum(dim=-1)       # (T,B) CDF position, ~Uniform[0,1]
+            # Calibration diagnostic: frac of u in the tails. Uniform(calibrated)≈0.10;
+            # high -> Z overconfident (bimodal u -> degenerate/saturated advantage).
+            u_edge_frac = ((u < 0.05) | (u > 0.95)).float().mean().item()
+            centered = (2.0 * u - 1.0)                     # (T,B) ∈ [-1,1], uniform
+            if args.cdf_transform == "probit":
+                # Phi^-1(u) = sqrt(2)*erfinv(2u-1): uniform u -> ~N(0,1) advantage.
+                # erfinv has no working CUDA kernel here (NVRTC broken), so do the
+                # T*B=batch transform on CPU once per iteration (negligible cost).
+                c = args.cdf_probit_clamp
+                cdf_adv = ((2.0 ** 0.5) * torch.erfinv(centered.clamp(-c, c).cpu())).to(device)
+            else:
+                cdf_adv = centered                         # linear (uniform; over-drives KL)
+
+        b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
+        b_logprobs = logprobs.reshape(-1)
+        b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
+        b_latent_zs = latent_zs.reshape((-1,) + envs.single_action_space.shape)
+        b_advantages = advantages.reshape(-1)
+        b_returns = returns.reshape(-1)
+        b_values = values.reshape(-1)
+        b_target_probs = target_probs.reshape(-1, args.num_bins)
+        # Policy advantage: blend z-scored GAE advantage with the CDF-rank advantage.
+        # beta=0 -> v10 (GAE only); beta=1 -> pure distributional CDF-rank advantage.
+        if args.dist_pg:
+            b_cdf_adv = cdf_adv.reshape(-1)
+            a_z = (b_advantages - b_advantages.mean()) / (b_advantages.std() + 1e-8)
+            c_z = (b_cdf_adv - b_cdf_adv.mean()) / (b_cdf_adv.std() + 1e-8)
+            b_policy_adv = (1.0 - args.dist_pg_beta) * a_z + args.dist_pg_beta * c_z
+            # Diagnostics: how different is the distributional signal from GAE?
+            adv_sign_agree = (torch.sign(a_z) == torch.sign(c_z)).float().mean().item()
+            adv_corr = (a_z * c_z).mean().item()  # both unit-std, zero-mean -> ≈ Pearson r
+        else:
+            b_policy_adv = b_advantages
+
+        b_inds = np.arange(args.batch_size)
+        clipfracs = []
+        for epoch in range(args.update_epochs):
+            np.random.shuffle(b_inds)
+            for start in range(0, args.batch_size, args.minibatch_size):
+                end = start + args.minibatch_size
+                mb_inds = b_inds[start:end]
+
+                _, _, newlogprob, entropy, value_logits = agent.get_action_and_value(
+                    b_obs[mb_inds], b_latent_zs[mb_inds]
+                )
+                logratio = newlogprob - b_logprobs[mb_inds]
+                ratio = logratio.exp()
+
+                with torch.no_grad():
+                    old_approx_kl = (-logratio).mean()
+                    approx_kl = ((ratio - 1) - logratio).mean()
+                    clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+
+                mb_advantages = b_policy_adv[mb_inds]
+                if args.norm_adv:
+                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+
+                pg_loss1 = -mb_advantages * ratio
+                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
+                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+
+                # Distributional value loss: cross-entropy to the (fixed)
+                # distributional λ-return target. No value clipping.
+                value_log_probs = torch.log_softmax(value_logits, dim=-1)
+                v_loss = -(b_target_probs[mb_inds] * value_log_probs).sum(dim=-1).mean()
+
+                entropy_loss = entropy.mean()
+                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+
+                optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
+                optimizer.step()
+
+            if args.target_kl is not None and approx_kl > args.target_kl:
+                break
+
+        y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
+        var_y = np.var(y_true)
+        explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+
+        # Support-adequacy instrumentation: edge-bin mass should stay ≈ 0.
+        edge_mass = (b_target_probs[:, 0] + b_target_probs[:, -1]).mean().item()
+
+        writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
+        writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
+        writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
+        writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
+        writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
+        writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
+        writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
+        writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("debug/returns_mean", b_returns.mean().item(), global_step)
+        writer.add_scalar("debug/returns_std", b_returns.std().item(), global_step)
+        writer.add_scalar("debug/returns_absmax", b_returns.abs().max().item(), global_step)
+        writer.add_scalar("debug/target_edge_mass", edge_mass, global_step)
+        if args.dist_pg:
+            # corr≈1 -> CDF advantage ~ GAE (distribution adds little); lower -> the
+            # distributional signal genuinely reshapes the gradient.
+            writer.add_scalar("debug/distpg_corr_with_gae", adv_corr, global_step)
+            writer.add_scalar("debug/distpg_sign_agree", adv_sign_agree, global_step)
+            writer.add_scalar("debug/u_edge_frac", u_edge_frac, global_step)
+        print("SPS:", int(global_step / (time.time() - start_time)))
+        writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+
+    envs.close()
+    writer.close()

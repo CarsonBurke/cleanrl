@@ -1,0 +1,706 @@
+# PPO + IterThink v22 (DIRECT / STATE-DEPENDENT LOG-STD). From v21.
+#
+# WHY v22. v21 (and the whole iterthink line) used a single GLOBAL learned
+# actor_logstd Parameter: exploration scale is the SAME in every state, only the
+# mean is state-dependent. v22 swaps in the repo's "direct log-std" actor — a
+# second head (actor_logstd_head) parallel to the mean head, reading the SAME
+# actor trunk features that produce the mean, clamped to [-5, 2] then exp'd:
+#     logstd = clamp(actor_logstd_head(actor_feat), -5, 2); std = logstd.exp()
+# This makes the exploration covariance state-conditioned: the policy can be bold
+# where the value landscape is flat and cautious near cliffs, instead of one
+# global noise floor. Everything else is the v21 winner unchanged — shared
+# backbone + decoupled dual-backward clip + rankgauss + clip-higher + tkl03
+# (the bar to beat: iterthink_v21_sharedclip_tkl03 ~= 8774). `direct_logstd` is a
+# toggle, so this file also reproduces v21's flat-logstd actor for A/B.
+#
+# --- inherited v21 notes ---
+# PPO + IterThink v21 (SHARED BACKBONE + DECOUPLED GRAD CLIP). From v19.
+#
+# WHY v21. v19 used two independent ThinkTrunks (one actor, one critic). The
+# classic MuJoCo-PPO result is that shared backbones LOSE, because the value
+# loss gradient dominates the shared trunk and corrupts the policy's features.
+# v21 tests whether we can have the representation-sharing benefit WITHOUT that
+# cost, by decoupling the gradient magnitudes:
+#   - share_backbone: one ThinkTrunk feeds both the actor head and the
+#     (distributional) critic head; trunk is computed once per forward.
+#   - separate_grad_clip: DUAL-BACKWARD clipping. The value gradient
+#     (vf_coef * v_loss) and the policy gradient (pg_loss - ent) are each
+#     backpropped and clipped to their OWN max-norm (critic_grad_clip /
+#     actor_grad_clip), then summed on the shared trunk:
+#         trunk.grad = clip_actor(d pg / d trunk) + clip_critic(d vl / d trunk)
+#     so the distributional critic's large CE gradient can no longer swamp the
+#     shared features. NOTE: the trunk's effective budget is the SUM of the two
+#     clips, so each defaults to 0.25 (sum ~= v19's single 0.5 global clip).
+# This is targeted: rankgauss already bounds the POLICY gradient (rank-only adv),
+# so the dominant imbalance on a shared trunk is the critic -> clip it apart.
+# Built on the v19 winner: adv_transform="rankgauss" + clip-higher (0.2/0.28).
+# Both knobs are toggles, so this file also runs the {shared,separate} x
+# {global,decoupled-clip} 2x2. The bar to beat: rankgauss_cliphigh ~= 8292 (towers).
+#
+# --- inherited v19 notes ---
+# PPO + IterThink v19 (ADVANTAGE SHAPING — magnitude-preserving + attribution). From v17.
+#
+# WHY v19. A subagent review of v17 (CDF-rank distributional PG) found that in its
+# STABLE regime the categorical critic is overconfident, so u=F_Z(G) is bimodal at
+# 0/1, the probit saturates, and the advantage DEGENERATES to ≈sign(GAE) (corr 0.92);
+# norm_adv then re-standardizes the ±3.3 spikes to ≈±1 binary. So v17 discards the
+# advantage MAGNITUDE (the thing PPO needs) and is really a sign-of-TD-error update
+# made trainable by KL control. v17's 5867@4M conflates THREE possible causes — the
+# distribution, a bounded/outlier-robust advantage, and KL control — introduced at
+# once. v19 disentangles them and adds the principled fix, via one `adv_transform`:
+#
+#   "v10"      : raw GAE (== v10 / dist_pg off). Baseline.
+#   "cdf_probit": v17's CDF-rank u -> Phi^-1(u). Reference.
+#   "tanh_std" : A~ = tanh( GAE_t / (kappa * sigma(s_t)) ).  THE FIX. Per-state
+#                normalized by the critic's return std sigma(s) (v16's good idea),
+#                but BOUNDED by tanh (fixes v16's blowup: tiny sigma -> saturate, not
+#                explode) AND magnitude-preserving near 0 (fixes v17's sign-collapse:
+#                linear in GAE for |GAE|<kappa*sigma). Note G_t-E[Z_t]=GAE_t exactly.
+#   "tanh_gae" : A~ = tanh( zscore(GAE)_t / kappa ).  Robust-GAE CONTROL with NO
+#                distribution — isolates "bounded/outlier-robust advantage" from the
+#                distributional claim. If this matches v17, the distribution is
+#                incidental and this is the cleaner lever.
+#
+# All paths keep the mean-value GAE and the distributional λ-return value target
+# (v10) UNCHANGED; only the policy advantage is reshaped. sigma(s) is the std of the
+# OLD rollout Z(s_t), floored at `sigma_floor_bins` bins. Pair with target_kl for the
+# 2x2 attribution (v10/tanh_gae/cdf_probit x KL-cap). Control: v17 / v10.
+import os
+import random
+import time
+from dataclasses import dataclass
+from math import log
+
+import gymnasium as gym
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import tyro
+from torch.distributions.normal import Normal
+from torch.utils.tensorboard import SummaryWriter
+
+from cleanrl.shared.hl_gauss import HLGaussSupport
+
+
+@dataclass
+class Args:
+    exp_name: str = os.path.basename(__file__)[: -len(".py")]
+    seed: int = 1
+    torch_deterministic: bool = True
+    cuda: bool = True
+    track: bool = False
+    wandb_project_name: str = "cleanRL"
+    wandb_entity: str = None
+    capture_video: bool = False
+    save_model: bool = False
+    upload_model: bool = False
+    hf_entity: str = ""
+
+    env_id: str = "HalfCheetah-v4"
+    total_timesteps: int = 8000000
+    learning_rate: float = 3e-4
+    num_envs: int = 16
+    num_steps: int = 2048
+    anneal_lr: bool = True
+    gamma: float = 0.99
+    gae_lambda: float = 0.95
+    num_minibatches: int = 32
+    update_epochs: int = 10
+    norm_adv: bool = True
+    clip_coef: float = 0.2           # PPO clip (lower bound 1-clip_coef; also upper if no high)
+    clip_coef_high: float = 0.28     # "clip-higher" (DAPO): looser UPPER bound 1+clip_coef_high
+    ent_coef: float = 0.0
+    vf_coef: float = 0.5
+    max_grad_norm: float = 0.5       # used only when separate_grad_clip=False (global clip)
+    target_kl: float = 0.03          # KL early-stop leash (the iterthink-line winner; shared trunk runs hot without it)
+
+    # v21: shared backbone + decoupled (dual-backward) gradient clipping.
+    share_backbone: bool = True      # one ThinkTrunk for both actor and critic heads
+    separate_grad_clip: bool = True  # clip policy- and value-gradients to their own norms
+    actor_grad_clip: float = 0.25    # max-norm for the policy gradient (incl. its trunk part)
+    critic_grad_clip: float = 0.25   # max-norm for the value gradient (incl. its trunk part)
+
+    # v22: direct (state-dependent) log-std head vs v21's flat global Parameter.
+    direct_logstd: bool = True       # predict logstd from actor features (a head) instead of a global Param
+    logstd_min: float = -5.0         # clamp on the predicted logstd (repo convention)
+    logstd_max: float = 2.0
+
+    # Distributional critic support. Tight + well-resolved (vs v9's ±20/255).
+    num_bins: int = 511
+    v_min: float = -10.0
+    v_max: float = 10.0
+    critic_init_tau: float = 0.5   # init Z ≈ N(0, tau^2), sharp at 0
+    value_symlog: bool = False
+
+    # Advantage shaping (v19). Selects how the policy advantage is formed from the
+    # GAE advantage and/or the value distribution Z(s). See header.
+    #   "v10" | "cdf_probit" | "tanh_std" | "tanh_gae" | "clip_z"
+    #   "rankgauss" | "rankgauss_signed" | "rankgauss_temp" | "rankgauss_signmag"
+    adv_transform: str = "rankgauss"
+    tanh_kappa: float = 2.0          # tanh saturation scale (in per-state std units)
+    sigma_floor_bins: float = 2.0    # floor sigma(s) at this many bins (avoid /~0)
+    clip_z_c: float = 2.0            # Winsorize bound for "clip_z" (in std units)
+    rank_tanh_kappa: float = 1.5     # tanh temperature for "rankgauss_temp" (<inf=harder)
+    pos_neg_alpha: float = 0.5       # PMPO-style: weight +adv by 2a, -adv by 2(1-a); 0.5=off
+    # CDF/probit knobs (used by "cdf_probit" and "rankgauss").
+    cdf_probit_clamp: float = 0.999
+
+    hidden: int = 64
+    k_blocks: int = 3
+    n_experts: int = 16
+
+    batch_size: int = 0
+    minibatch_size: int = 0
+    num_iterations: int = 0
+
+
+def make_env(env_id, idx, capture_video, run_name, gamma):
+    def thunk():
+        if capture_video and idx == 0:
+            env = gym.make(env_id, render_mode="rgb_array")
+            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+        else:
+            env = gym.make(env_id)
+        env = gym.wrappers.FlattenObservation(env)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        env = gym.wrappers.ClipAction(env)
+        env = gym.wrappers.NormalizeObservation(env)
+        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
+        env = gym.wrappers.NormalizeReward(env, gamma=gamma)
+        env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+        return env
+
+    return thunk
+
+
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    if hasattr(layer, "bias") and layer.bias is not None:
+        torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
+
+class ReLUSquared(nn.Module):
+    def forward(self, x):
+        return torch.relu(x).pow(2)
+
+
+def _branch_body(H):
+    # Plain pre-act MLP. Standard sqrt(2) init on both Linears.
+    return nn.Sequential(
+        layer_init(nn.Linear(H, H)),
+        ReLUSquared(),
+        layer_init(nn.Linear(H, H)),
+    )
+
+
+class ThinkBlock(nn.Module):
+    """Bounded convex residual mix of x and x0, then parallel dense + soft MoE."""
+
+    def __init__(self, in_dim, H, n_experts):
+        super().__init__()
+        self.n_experts = n_experts
+
+        self.in_proj = layer_init(nn.Linear(in_dim, H))
+        # Bounded convex residual gate: g = sigmoid(resid_gate) per channel.
+        # init +4 → g ≈ 0.982 → x_in ≈ x at start.
+        self.resid_gate = nn.Parameter(torch.full((H,), 4.0))
+
+        # Dense branch. RMSNorm without learnable affine (no free per-channel γ).
+        self.dense_norm = nn.RMSNorm(H, elementwise_affine=False)
+        self.dense = _branch_body(H)
+
+        # Soft MoE branch (softmax over all experts, no top-K).
+        self.moe_norm = nn.RMSNorm(H, elementwise_affine=False)
+        self.gate = layer_init(nn.Linear(H, n_experts))
+        self.experts = nn.ModuleList([_branch_body(H) for _ in range(n_experts)])
+
+    def forward(self, cat_feats, x0):
+        x = self.in_proj(cat_feats)                                   # (B, H)
+        g = torch.sigmoid(self.resid_gate)                            # (H,)
+        x_in = g * x + (1.0 - g) * x0                                 # (B, H), convex
+
+        d_dense = self.dense(self.dense_norm(x_in))                   # (B, H)
+
+        m_in = self.moe_norm(x_in)
+        weights = torch.softmax(self.gate(m_in), dim=-1)              # (B, E)
+        all_out = torch.stack([e(m_in) for e in self.experts], dim=1) # (B, E, H)
+        d_moe = (weights.unsqueeze(-1) * all_out).sum(dim=1)          # (B, H)
+
+        return x_in + d_dense + d_moe
+
+
+class ThinkTrunk(nn.Module):
+    def __init__(self, in_dim, H, K, n_experts):
+        super().__init__()
+        self.entry = layer_init(nn.Linear(in_dim, H))
+        self.blocks = nn.ModuleList()
+        for k in range(K):
+            block_in_dim = H * (k + 1)
+            self.blocks.append(ThinkBlock(block_in_dim, H, n_experts))
+        cat_dim = H * (K + 1)
+        self.out_norm = nn.RMSNorm(cat_dim, elementwise_affine=False)
+        self.out_proj = layer_init(nn.Linear(cat_dim, H))
+
+    def forward(self, x):
+        x0 = self.entry(x)
+        feats = [x0]
+        for block in self.blocks:
+            feats.append(block(torch.cat(feats, dim=-1), x0))
+        return self.out_proj(self.out_norm(torch.cat(feats, dim=-1)))
+
+
+class Agent(nn.Module):
+    def __init__(self, envs, args):
+        super().__init__()
+        obs_dim = int(np.array(envs.single_observation_space.shape).prod())
+        act_dim = int(np.prod(envs.single_action_space.shape))
+        H = args.hidden
+        self.share_backbone = args.share_backbone
+        if self.share_backbone:
+            # One trunk feeds both heads (computed once per forward).
+            self.trunk = ThinkTrunk(obs_dim, H, args.k_blocks, args.n_experts)
+        else:
+            self.critic_trunk = ThinkTrunk(obs_dim, H, args.k_blocks, args.n_experts)
+            self.actor_trunk = ThinkTrunk(obs_dim, H, args.k_blocks, args.n_experts)
+        # Categorical critic with a PEAKED init: small weight + Gaussian-logit
+        # bias so the initial value distribution is sharp at 0 (not uniform),
+        # preventing the distributional-bootstrap blowup that sank v9.
+        self.critic_head = layer_init(nn.Linear(H, args.num_bins), std=0.1)
+        with torch.no_grad():
+            z = torch.linspace(args.v_min, args.v_max, args.num_bins)
+            self.critic_head.bias.copy_(-0.5 * (z / args.critic_init_tau) ** 2)
+        self.actor_head = layer_init(nn.Linear(H, act_dim), std=0.01)
+        # v22: state-dependent log-std head (predicted from actor features) OR the
+        # v21 flat global Parameter, selected by args.direct_logstd.
+        self.direct_logstd = args.direct_logstd
+        self.logstd_min, self.logstd_max = args.logstd_min, args.logstd_max
+        if self.direct_logstd:
+            self.actor_logstd_head = layer_init(nn.Linear(H, act_dim), std=0.01)
+        else:
+            self.actor_logstd = nn.Parameter(torch.zeros(1, act_dim))
+
+    def _trunks(self, x):
+        # Return (actor_feat, critic_feat). When sharing, the SAME trunk output
+        # is fed to both heads, computed only once.
+        if self.share_backbone:
+            feat = self.trunk(x)
+            return feat, feat
+        return self.actor_trunk(x), self.critic_trunk(x)
+
+    def get_value(self, x):
+        # Returns value LOGITS (B, num_bins); caller converts via support.
+        _, critic_feat = self._trunks(x)
+        return self.critic_head(critic_feat)
+
+    def get_action_and_value(self, x, z=None):
+        actor_feat, critic_feat = self._trunks(x)
+        mean = self.actor_head(actor_feat)
+        if self.direct_logstd:
+            logstd = self.actor_logstd_head(actor_feat).clamp(self.logstd_min, self.logstd_max)
+            std = logstd.exp()
+        else:
+            std = self.actor_logstd.expand_as(mean).exp()
+        probs = Normal(mean, std)
+        if z is None:
+            z = probs.sample()
+        action = torch.tanh(z)
+        log_det = 2.0 * (log(2.0) - z - F.softplus(-2.0 * z))
+        log_prob = (probs.log_prob(z) - log_det).sum(1)
+        value_logits = self.critic_head(critic_feat)
+        return action, z, log_prob, probs.entropy().sum(1), value_logits
+
+    def actor_parameters(self):
+        # Params receiving the POLICY gradient (incl. the shared trunk).
+        trunk = self.trunk if self.share_backbone else self.actor_trunk
+        logstd_params = (
+            list(self.actor_logstd_head.parameters()) if self.direct_logstd else [self.actor_logstd]
+        )
+        return list(trunk.parameters()) + list(self.actor_head.parameters()) + logstd_params
+
+    def critic_parameters(self):
+        # Params receiving the VALUE gradient (incl. the shared trunk).
+        trunk = self.trunk if self.share_backbone else self.critic_trunk
+        return list(trunk.parameters()) + list(self.critic_head.parameters())
+
+
+def categorical_project(probs, atoms, support, v_min, v_max, bin_width):
+    """C51 projection: distribute `probs` (B, n) sitting at positions `atoms`
+    (B, n) onto the fixed `support` (n,) via linear interpolation between
+    neighbouring bins. Mass-preserving (atoms are pre-clamped to [v_min, v_max]).
+    """
+    n = support.shape[0]
+    tz = atoms.clamp(v_min, v_max)
+    b = (tz - v_min) / bin_width                       # (B, n) fractional bin pos
+    lo = b.floor()
+    hi = b.ceil()
+    lo_idx = lo.clamp(0, n - 1).long()
+    hi_idx = hi.clamp(0, n - 1).long()
+    m = torch.zeros_like(probs)
+    m.scatter_add_(1, lo_idx, probs * (hi - b))        # mass to lower bin
+    m.scatter_add_(1, hi_idx, probs * (b - lo))        # mass to upper bin
+    # When b is integer, lo == hi and both weights are 0; (1 - (hi - lo)) == 1
+    # routes the full mass to that bin. Otherwise hi - lo == 1 → adds 0.
+    m.scatter_add_(1, lo_idx, probs * (1.0 - (hi - lo)))
+    return m
+
+
+def distributional_lambda_returns(
+    rewards, dones, next_done, value_probs, bootstrap_probs, support, v_min, v_max, bin_width, gamma, gae_lambda
+):
+    """Backward recursion for the distributional λ-return G^λ (probs per step).
+
+        G^λ_t =_D r_t + γ·nonterm·[ (1-λ)·Z(s_{t+1}) + λ·G^λ_{t+1} ]
+
+    Mean-matches the scalar GAE λ-return. Shapes: rewards/dones (T, B);
+    value_probs (T, B, n); bootstrap_probs (B, n) = Z(s_T). Returns (T, B, n).
+    """
+    T = rewards.shape[0]
+    target = torch.zeros_like(value_probs)
+    g_next = bootstrap_probs                            # G^λ_{T} ≡ bootstrap
+    for t in reversed(range(T)):
+        if t == T - 1:
+            nonterminal = 1.0 - next_done               # (B,)
+            z_next = bootstrap_probs                    # Z(s_T)
+        else:
+            nonterminal = 1.0 - dones[t + 1]
+            z_next = value_probs[t + 1]                 # Z(s_{t+1})
+        mix = (1.0 - gae_lambda) * z_next + gae_lambda * g_next          # (B, n)
+        gn = (gamma * nonterminal).unsqueeze(-1)        # (B, 1)
+        atoms = rewards[t].unsqueeze(-1) + gn * support  # (B, n) transformed atoms
+        g_next = categorical_project(mix, atoms, support, v_min, v_max, bin_width)
+        target[t] = g_next
+    return target
+
+
+if __name__ == "__main__":
+    args = tyro.cli(Args)
+    args.batch_size = int(args.num_envs * args.num_steps)
+    args.minibatch_size = int(args.batch_size // args.num_minibatches)
+    args.num_iterations = args.total_timesteps // args.batch_size
+    run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+    if args.track:
+        import wandb
+
+        wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=vars(args),
+            name=run_name,
+            monitor_gym=True,
+            save_code=True,
+        )
+    writer = SummaryWriter(f"runs/{run_name}")
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+    )
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = args.torch_deterministic
+
+    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+
+    envs = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)]
+    )
+    assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
+
+    agent = Agent(envs, args).to(device)
+    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    # Param groups for decoupled clipping. With a shared backbone, the trunk
+    # appears in BOTH lists (it receives policy and value gradients separately).
+    actor_params = agent.actor_parameters()
+    critic_params = agent.critic_parameters()
+
+    hl_support = HLGaussSupport(
+        args.num_bins,
+        args.v_min,
+        args.v_max,
+        0.5,  # sigma_ratio unused (categorical Bellman target, no Gaussian projection)
+        device,
+        use_symlog=args.value_symlog,
+    )
+    support = hl_support.support                       # (num_bins,) linear support
+    bin_width = hl_support.bin_width
+
+    obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
+    actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
+    latent_zs = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
+    logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    values = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    value_probs = torch.zeros((args.num_steps, args.num_envs, args.num_bins)).to(device)
+
+    global_step = 0
+    start_time = time.time()
+    next_obs, _ = envs.reset(seed=args.seed)
+    next_obs = torch.Tensor(next_obs).to(device)
+    next_done = torch.zeros(args.num_envs).to(device)
+
+    for iteration in range(1, args.num_iterations + 1):
+        if args.anneal_lr:
+            frac = 1.0 - (iteration - 1.0) / args.num_iterations
+            lrnow = frac * args.learning_rate
+            optimizer.param_groups[0]["lr"] = lrnow
+
+        for step in range(0, args.num_steps):
+            global_step += args.num_envs
+            obs[step] = next_obs
+            dones[step] = next_done
+
+            with torch.no_grad():
+                action, z, logprob, _, value_logits = agent.get_action_and_value(next_obs)
+                p = torch.softmax(value_logits, dim=-1)
+                value_probs[step] = p
+                values[step] = (p * support).sum(dim=-1)
+            actions[step] = action
+            latent_zs[step] = z
+            logprobs[step] = logprob
+
+            next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
+            next_done = np.logical_or(terminations, truncations)
+            rewards[step] = torch.tensor(reward).to(device).view(-1)
+            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+
+            if "final_info" in infos:
+                for info in infos["final_info"]:
+                    if info and "episode" in info:
+                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+
+        with torch.no_grad():
+            bootstrap_probs = torch.softmax(agent.get_value(next_obs), dim=-1)   # (B, n) = Z(s_T)
+            next_value = (bootstrap_probs * support).sum(dim=-1).reshape(1, -1)
+            # Scalar GAE (means) — advantage baseline is unchanged from v7.
+            advantages = torch.zeros_like(rewards).to(device)
+            lastgaelam = 0
+            for t in reversed(range(args.num_steps)):
+                if t == args.num_steps - 1:
+                    nextnonterminal = 1.0 - next_done
+                    nextvalues = next_value
+                else:
+                    nextnonterminal = 1.0 - dones[t + 1]
+                    nextvalues = values[t + 1]
+                delta = rewards[t] + args.gamma * nextvalues * nextnonterminal - values[t]
+                advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
+            returns = advantages + values
+            # Distributional λ-return target (mean-matches `returns`).
+            target_probs = distributional_lambda_returns(
+                rewards, dones, next_done, value_probs, bootstrap_probs,
+                support, args.v_min, args.v_max, bin_width, args.gamma, args.gae_lambda,
+            )
+            # Per-state return std sigma(s_t) from the OLD rollout Z(s_t). Note
+            # E[Z(s_t)] == values[t], so G_t - E[Z_t] == GAE advantage exactly.
+            sigma = (value_probs * (support - values.unsqueeze(-1)) ** 2).sum(-1).clamp_min(0).sqrt()  # (T,B)
+            sigma = sigma.clamp_min(args.sigma_floor_bins * bin_width)
+            # CDF-rank u (only used by the cdf_probit path; also a calibration probe).
+            cdf_frac = ((returns.unsqueeze(-1) - support) / bin_width + 0.5).clamp(0.0, 1.0)  # (T,B,n)
+            u = (value_probs * cdf_frac).sum(dim=-1)        # (T,B) CDF position
+            u_edge_frac = ((u < 0.05) | (u > 0.95)).float().mean().item()  # calib probe (uniform≈0.1)
+
+        b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
+        b_logprobs = logprobs.reshape(-1)
+        b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
+        b_latent_zs = latent_zs.reshape((-1,) + envs.single_action_space.shape)
+        b_advantages = advantages.reshape(-1)            # raw GAE (mean-value)
+        b_sigma = sigma.reshape(-1)
+        b_returns = returns.reshape(-1)
+        b_values = values.reshape(-1)
+        b_target_probs = target_probs.reshape(-1, args.num_bins)
+        # Policy advantage: reshape the GAE / distribution per `adv_transform`.
+        gae = b_advantages
+        if args.adv_transform == "v10":
+            b_policy_adv = gae
+        elif args.adv_transform == "tanh_std":
+            # Per-state-normalized, bounded, magnitude-preserving near 0 (THE FIX).
+            b_policy_adv = torch.tanh(gae / (args.tanh_kappa * b_sigma))
+        elif args.adv_transform == "tanh_gae":
+            gz = (gae - gae.mean()) / (gae.std() + 1e-8)
+            b_policy_adv = torch.tanh(gz / args.tanh_kappa)
+        elif args.adv_transform == "cdf_probit":
+            centered = (2.0 * u.reshape(-1) - 1.0)
+            c = args.cdf_probit_clamp
+            b_policy_adv = ((2.0 ** 0.5) * torch.erfinv(centered.clamp(-c, c).cpu())).to(device)
+        elif args.adv_transform == "clip_z":
+            # Winsorized z-score: ONE standardize + hard tail clip. tanh's hard cousin;
+            # preserves bulk magnitude exactly (linear in [-c,c]) and is ~self-normalizing
+            # (clipping a unit-var signal barely changes its std), so norm_adv ~ no-op.
+            gz = (gae - gae.mean()) / (gae.std() + 1e-8)
+            b_policy_adv = gz.clamp(-args.clip_z_c, args.clip_z_c)
+        elif args.adv_transform == "rankgauss":
+            # Rank-Gaussian: the principled single op. Replaces each advantage by the
+            # Gaussian quantile of its empirical rank -> self-normalizing (bounded,
+            # zero-mean, ~unit-scale, fully outlier-immune; no kappa, no double z-score).
+            # This is cdf_probit with the EMPIRICAL batch rank instead of the critic's
+            # per-state CDF (distribution-free; the distribution was shown incidental).
+            n = gae.numel()
+            ranks = gae.argsort().argsort().to(torch.float32)  # 0..n-1
+            uq = (ranks + 0.5) / n
+            c = args.cdf_probit_clamp
+            centered = (2.0 * uq - 1.0).clamp(-c, c)
+            b_policy_adv = ((2.0 ** 0.5) * torch.erfinv(centered.cpu())).to(device)
+        elif args.adv_transform == "rankgauss_signed":
+            # Sign-anchored rank-Gaussian: rank positives and negatives SEPARATELY so the
+            # advantage's zero-crossing is preserved exactly. Plain rankgauss anchors the
+            # sign flip at the batch MEDIAN, not 0, so on skewed GAE it can assign the
+            # wrong sign to near-median samples — and PPO needs the sign right. Each sign
+            # group is mapped to its half of the Gaussian by its within-group rank.
+            c = args.cdf_probit_clamp
+            b_policy_adv = torch.zeros_like(gae)
+            for side in (gae > 0, gae < 0):
+                if side.any():
+                    g = gae[side]
+                    r = g.argsort().argsort().to(torch.float32)
+                    half = (r + 0.5) / float(g.numel())                  # (0,1) in group
+                    uq = torch.where(g > 0, 0.5 + 0.5 * half, 0.5 * half)  # correct side
+                    ctr = (2.0 * uq - 1.0).clamp(-c, c)
+                    b_policy_adv[side] = ((2.0 ** 0.5) * torch.erfinv(ctr.cpu())).to(device)
+        elif args.adv_transform == "rankgauss_temp":
+            # Rank-Gaussian + tanh temperature: compress the Gaussian quantiles' extremes
+            # harder (rank_tanh_kappa < inf). Probes the "more robust still" axis the kappa
+            # sweep motivated (tanh_gae kappa=1 > kappa=2). Smaller kappa => harder.
+            n = gae.numel()
+            ranks = gae.argsort().argsort().to(torch.float32)
+            uq = (ranks + 0.5) / n
+            c = args.cdf_probit_clamp
+            centered = (2.0 * uq - 1.0).clamp(-c, c)
+            z = ((2.0 ** 0.5) * torch.erfinv(centered.cpu())).to(device)
+            b_policy_adv = torch.tanh(z / args.rank_tanh_kappa)
+        elif args.adv_transform == "rankgauss_signmag":
+            # Sign-correct WITHOUT count distortion: take plain rankgauss's GLOBAL-rank
+            # magnitude, then force the sign to match the raw advantage. Fixes the flaw in
+            # rankgauss_signed (per-group half-Gaussian over-amplifies the minority sign by
+            # COUNT); here magnitude still reflects global rank extremity and only the ~9%
+            # near-zero "flips" get re-signed. Nonlinear (not a shift) => survives norm_adv.
+            n = gae.numel()
+            ranks = gae.argsort().argsort().to(torch.float32)
+            uq = (ranks + 0.5) / n
+            c = args.cdf_probit_clamp
+            mag = ((2.0 ** 0.5) * torch.erfinv((2.0 * uq - 1.0).clamp(-c, c).cpu())).to(device).abs()
+            b_policy_adv = torch.sign(gae) * mag
+        else:
+            raise ValueError(f"unknown adv_transform {args.adv_transform}")
+        # Diagnostics: how different is the shaped advantage from raw GAE?
+        az = (gae - gae.mean()) / (gae.std() + 1e-8)
+        pz = (b_policy_adv - b_policy_adv.mean()) / (b_policy_adv.std() + 1e-8)
+        adv_corr = (az * pz).mean().item()
+        adv_sign_agree = (torch.sign(az) == torch.sign(pz)).float().mean().item()
+
+        b_inds = np.arange(args.batch_size)
+        clipfracs = []
+        for epoch in range(args.update_epochs):
+            np.random.shuffle(b_inds)
+            for start in range(0, args.batch_size, args.minibatch_size):
+                end = start + args.minibatch_size
+                mb_inds = b_inds[start:end]
+
+                _, _, newlogprob, entropy, value_logits = agent.get_action_and_value(
+                    b_obs[mb_inds], b_latent_zs[mb_inds]
+                )
+                logratio = newlogprob - b_logprobs[mb_inds]
+                ratio = logratio.exp()
+
+                with torch.no_grad():
+                    old_approx_kl = (-logratio).mean()
+                    approx_kl = ((ratio - 1) - logratio).mean()
+                    clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+
+                mb_raw_adv = b_policy_adv[mb_inds]
+                mb_advantages = mb_raw_adv
+                if args.norm_adv:
+                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+
+                # PMPO-style asymmetric pos/neg weighting: scale positive-advantage
+                # samples by 2*alpha and negatives by 2*(1-alpha) (alpha=0.5 => identity).
+                # alpha>0.5 emphasizes reinforcing good actions over suppressing bad ones.
+                # Split on the SHAPED advantage's sign (pre-norm = the true advantage sign).
+                if args.pos_neg_alpha != 0.5:
+                    mb_advantages = mb_advantages * torch.where(
+                        mb_raw_adv >= 0,
+                        2.0 * args.pos_neg_alpha,
+                        2.0 * (1.0 - args.pos_neg_alpha),
+                    )
+
+                # Asymmetric "clip-higher" when clip_coef_high is set: looser upper bound
+                # gives positive-advantage actions more room to grow (counters collapse).
+                clip_hi = args.clip_coef if args.clip_coef_high is None else args.clip_coef_high
+                pg_loss1 = -mb_advantages * ratio
+                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + clip_hi)
+                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+
+                # Distributional value loss: cross-entropy to the (fixed)
+                # distributional λ-return target. No value clipping.
+                value_log_probs = torch.log_softmax(value_logits, dim=-1)
+                v_loss = -(b_target_probs[mb_inds] * value_log_probs).sum(dim=-1).mean()
+
+                entropy_loss = entropy.mean()
+
+                if args.separate_grad_clip:
+                    # DUAL-BACKWARD decoupled clipping. Backprop value and policy
+                    # gradients separately, clip each to its own max-norm, then sum
+                    # on the (possibly shared) trunk so the critic's CE gradient
+                    # cannot swamp the policy's contribution to shared features.
+                    optimizer.zero_grad(set_to_none=True)
+                    (args.vf_coef * v_loss).backward(retain_graph=True)
+                    critic_gn = nn.utils.clip_grad_norm_(critic_params, args.critic_grad_clip)
+                    # Stash clipped value grads (must survive the zero before the
+                    # policy backward; the shared trunk is in this set).
+                    value_grads = [(p, p.grad.detach().clone()) for p in critic_params if p.grad is not None]
+                    optimizer.zero_grad(set_to_none=True)
+                    (pg_loss - args.ent_coef * entropy_loss).backward()
+                    actor_gn = nn.utils.clip_grad_norm_(actor_params, args.actor_grad_clip)
+                    # trunk.grad currently = clip_actor(d pg / d trunk); add the
+                    # stashed clip_critic(d vl / d trunk). critic_head gets value grad only.
+                    for p, g in value_grads:
+                        p.grad = g if p.grad is None else p.grad + g
+                    optimizer.step()
+                else:
+                    loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                    optimizer.zero_grad()
+                    loss.backward()
+                    critic_gn = actor_gn = nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
+                    optimizer.step()
+
+            if args.target_kl is not None and approx_kl > args.target_kl:
+                break
+
+        y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
+        var_y = np.var(y_true)
+        explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+
+        # Support-adequacy instrumentation: edge-bin mass should stay ≈ 0.
+        edge_mass = (b_target_probs[:, 0] + b_target_probs[:, -1]).mean().item()
+
+        writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
+        writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
+        writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
+        writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
+        writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
+        writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
+        writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
+        writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        writer.add_scalar("losses/actor_grad_norm", float(actor_gn), global_step)
+        writer.add_scalar("losses/critic_grad_norm", float(critic_gn), global_step)
+        writer.add_scalar("debug/returns_mean", b_returns.mean().item(), global_step)
+        writer.add_scalar("debug/returns_std", b_returns.std().item(), global_step)
+        writer.add_scalar("debug/returns_absmax", b_returns.abs().max().item(), global_step)
+        writer.add_scalar("debug/target_edge_mass", edge_mass, global_step)
+        # corr≈1 -> shaped advantage ~ raw GAE (reshaping adds little); lower -> the
+        # transform genuinely changes the gradient direction/magnitude.
+        writer.add_scalar("debug/distpg_corr_with_gae", adv_corr, global_step)
+        writer.add_scalar("debug/distpg_sign_agree", adv_sign_agree, global_step)
+        writer.add_scalar("debug/u_edge_frac", u_edge_frac, global_step)
+        writer.add_scalar("debug/sigma_mean", b_sigma.mean().item(), global_step)
+        print("SPS:", int(global_step / (time.time() - start_time)))
+        writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+
+    envs.close()
+    writer.close()
