@@ -1,0 +1,418 @@
+"""LSTD perturb-amprange with latent-space OT-CFM mean only.
+
+This keeps the strong low-rank Gaussian PPO policy, but trains CFM in the
+policy's own whitened noise coordinates. Rollout residuals are mapped through
+the base covariance Cholesky into latent targets, so the CFM field learns which
+noise directions led to high advantage.
+
+At action selection the learned latent velocity shifts the mean through the
+base covariance. Direct covariance modulation is disabled to isolate whether
+the win comes from covariance-aware mean transport.
+"""
+import os
+import random
+import time
+from dataclasses import dataclass
+
+import gymnasium as gym
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import tyro
+from torch.distributions import LowRankMultivariateNormal
+from torch.utils.tensorboard import SummaryWriter
+
+
+FLOOR_LOG_STD = -3.0
+
+
+@dataclass
+class Args:
+    exp_name: str = os.path.basename(__file__)[: -len(".py")]
+    seed: int = 1
+    torch_deterministic: bool = True
+    cuda: bool = True
+    track: bool = False
+    wandb_project_name: str = "cleanRL"
+    wandb_entity: str = None
+    capture_video: bool = False
+    save_model: bool = False
+    upload_model: bool = False
+    hf_entity: str = ""
+    env_id: str = "HalfCheetah-v4"
+    total_timesteps: int = 8000000
+    learning_rate: float = 3e-4
+    num_envs: int = 1
+    num_steps: int = 2048
+    anneal_lr: bool = True
+    gamma: float = 0.99
+    gae_lambda: float = 0.95
+    num_minibatches: int = 32
+    update_epochs: int = 10
+    norm_adv: bool = True
+    clip_coef_low: float = 0.2
+    clip_coef_high: float = 0.28
+    ent_coef: float = 0.0
+    vf_coef: float = 0.5
+    max_grad_norm: float = 0.5
+    target_kl: float = None
+    clip_vloss: bool = True
+    cfm_coef: float = 0.02
+    """coefficient for advantage-weighted OT-CFM auxiliary loss"""
+    cfm_sigma_min: float = 0.05
+    """terminal std for Lipman OT Gaussian conditional path"""
+    cfm_weight_clip: float = 10.0
+    """maximum per-sample normalized advantage weight"""
+    cfm_mean_coef: float = 0.25
+    """policy mean residual from the learned latent CFM velocity field"""
+    cfm_cov_coef: float = 0.0
+    """bounded low-rank amplitude modulation from latent CFM velocity"""
+    cfm_latent_target_clip: float = 5.0
+    """clip whitened rollout residual targets for CFM stability"""
+    cfm_policy_source: bool = False
+    """use current policy samples as x0 instead of standard Gaussian source"""
+    batch_size: int = 0
+    minibatch_size: int = 0
+    num_iterations: int = 0
+
+
+def make_env(env_id, idx, capture_video, run_name, gamma):
+    def thunk():
+        if capture_video and idx == 0:
+            env = gym.make(env_id, render_mode="rgb_array")
+            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+        else:
+            env = gym.make(env_id)
+        env = gym.wrappers.FlattenObservation(env)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        env = gym.wrappers.ClipAction(env)
+        env = gym.wrappers.NormalizeObservation(env)
+        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
+        env = gym.wrappers.NormalizeReward(env, gamma=gamma)
+        env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
+        return env
+    return thunk
+
+
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
+
+class RMSNorm(nn.Module):
+    def __init__(self, dim, eps=1e-6):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(dim))
+        self.eps = eps
+
+    def forward(self, x):
+        rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
+        return x / rms * self.weight
+
+
+class Agent(nn.Module):
+    def __init__(self, envs, args):
+        super().__init__()
+        obs_dim = np.array(envs.single_observation_space.shape).prod()
+        act_dim = np.prod(envs.single_action_space.shape)
+        hidden_dim = 64
+        self.noise_rank = act_dim
+        self.act_dim = act_dim
+
+        self.actor_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
+        self.actor_norm1 = RMSNorm(hidden_dim)
+        self.actor_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.actor_norm2 = RMSNorm(hidden_dim)
+
+        self.actor_out = layer_init(nn.Linear(hidden_dim, act_dim), std=1.0)
+        self.mean_scale = nn.Parameter(torch.tensor(0.01))
+        self.cfm_mean_coef = float(args.cfm_mean_coef)
+        self.cfm_cov_coef = float(args.cfm_cov_coef)
+        self.cfm_sigma_min = float(args.cfm_sigma_min)
+        self.cfm_latent_target_clip = float(args.cfm_latent_target_clip)
+        self.cfm_policy_source = bool(args.cfm_policy_source)
+
+        basis = torch.empty(self.noise_rank, act_dim)
+        nn.init.orthogonal_(basis)
+        self.noise_basis = nn.Parameter(basis)
+
+        self.dir_head = layer_init(nn.Linear(hidden_dim, self.noise_rank), std=0.01)
+        nn.init.constant_(self.dir_head.bias, 0.0)
+
+        # Perturbation head: linear from hidden_dim to noise_rank*act_dim, init std=0.01
+        self.perturb_head = layer_init(nn.Linear(hidden_dim, self.noise_rank * act_dim), std=0.01)
+        nn.init.constant_(self.perturb_head.bias, 0.0)
+
+        # Learned per-direction amplitude range (from amprange ablation)
+        self.amp_floor = nn.Parameter(torch.full((self.noise_rank,), float(np.log(np.exp(0.05) - 1))))
+        self.amp_scale = nn.Parameter(torch.full((self.noise_rank,), float(np.log(np.exp(0.95) - 1))))
+
+        self.log_std_floor = nn.Parameter(torch.full((act_dim,), FLOOR_LOG_STD))
+
+        self.cfm_velocity_net = nn.Sequential(
+            layer_init(nn.Linear(hidden_dim + act_dim + 1, hidden_dim), std=0.5),
+            nn.SiLU(),
+            RMSNorm(hidden_dim),
+            layer_init(nn.Linear(hidden_dim, hidden_dim), std=0.5),
+            nn.SiLU(),
+            RMSNorm(hidden_dim),
+            layer_init(nn.Linear(hidden_dim, act_dim), std=0.0),
+        )
+
+        self.critic_fc1 = layer_init(nn.Linear(obs_dim, hidden_dim))
+        self.critic_norm1 = RMSNorm(hidden_dim)
+        self.critic_fc2 = layer_init(nn.Linear(hidden_dim, hidden_dim))
+        self.critic_norm2 = RMSNorm(hidden_dim)
+        self.value_out = layer_init(nn.Linear(hidden_dim, 1), std=1.0)
+
+    def _actor_features(self, x):
+        h = F.silu(self.actor_norm1(self.actor_fc1(x)))
+        h = F.silu(self.actor_norm2(self.actor_fc2(h)))
+        return h
+
+    def _get_distribution(self, h, action_mean, cov_amp_delta=None):
+        batch = h.shape[0]
+        act_dim = action_mean.shape[-1]
+        raw = self.dir_head(h)
+        # Learned per-direction amplitude range
+        amp = F.softplus(self.amp_floor) + F.softplus(self.amp_scale) * torch.sigmoid(raw)
+        if cov_amp_delta is not None:
+            amp = amp * torch.exp(cov_amp_delta)
+        # State-dependent perturbation of fixed basis
+        perturb = self.perturb_head(h).reshape(batch, self.noise_rank, act_dim) * 0.1
+        effective_basis = self.noise_basis.unsqueeze(0) + perturb  # (batch, noise_rank, act_dim)
+        # cov_factor = effective_basis.T * amp.unsqueeze(1)
+        # effective_basis is (batch, noise_rank, act_dim), we need (batch, act_dim, noise_rank)
+        cov_factor = effective_basis.transpose(-2, -1) * amp.unsqueeze(1)  # (batch, act_dim, noise_rank)
+        cov_diag = self.log_std_floor.exp().square().expand(batch, act_dim)
+        return LowRankMultivariateNormal(action_mean, cov_factor, cov_diag)
+
+    def _cov_cholesky(self, dist):
+        cov = dist.covariance_matrix
+        eye = torch.eye(cov.shape[-1], device=cov.device, dtype=cov.dtype).unsqueeze(0)
+        return torch.linalg.cholesky(cov + 1e-5 * eye)
+
+    def _cfm_velocity(self, h, x_t, t):
+        if t.ndim == 1:
+            t = t.unsqueeze(-1)
+        return self.cfm_velocity_net(torch.cat((h, x_t, t), dim=-1))
+
+    def cfm_loss(self, x, actions, advantages, weight_clip):
+        h = self._actor_features(x)
+        with torch.no_grad():
+            base_h = h.detach()
+            base_mean = self.actor_out(base_h) * self.mean_scale.detach()
+            base_dist = self._get_distribution(base_h, base_mean)
+            chol = self._cov_cholesky(base_dist)
+            residual = actions.detach() - base_mean
+            z1 = torch.linalg.solve_triangular(chol, residual.unsqueeze(-1), upper=False).squeeze(-1)
+            z1 = z1.clamp(-self.cfm_latent_target_clip, self.cfm_latent_target_clip)
+            z0 = torch.randn_like(z1)
+            t = torch.rand((z1.shape[0], 1), device=z1.device, dtype=z1.dtype)
+            sigma_t = 1.0 - (1.0 - self.cfm_sigma_min) * t
+            z_t = sigma_t * z0 + t * z1
+            target_velocity = z1 - (1.0 - self.cfm_sigma_min) * z0
+        pred_velocity = self._cfm_velocity(h, z_t, t)
+        per_sample_loss = (pred_velocity - target_velocity).square().mean(dim=-1)
+        with torch.no_grad():
+            adv = advantages.detach()
+            adv = (adv - adv.mean()) / (adv.std() + 1e-8)
+            weights = torch.softmax(adv, dim=0) * adv.numel()
+            weights = weights.clamp(max=weight_clip)
+        return (weights * per_sample_loss).mean()
+
+    def _cfm_policy_terms(self, h, base_mean):
+        if self.cfm_mean_coef == 0.0 and self.cfm_cov_coef == 0.0:
+            zero = base_mean.new_tensor(0.0)
+            return base_mean, None, zero, zero
+        t0 = torch.zeros((h.shape[0], 1), device=h.device, dtype=h.dtype)
+        z_anchor = torch.zeros_like(base_mean)
+        latent_velocity = self._cfm_velocity(h, z_anchor, t0)
+        base_dist = self._get_distribution(h, base_mean)
+        chol = self._cov_cholesky(base_dist)
+        mean_delta = torch.matmul(chol, latent_velocity.unsqueeze(-1)).squeeze(-1)
+        action_mean = base_mean + self.cfm_mean_coef * mean_delta
+        cov_amp_delta = self.cfm_cov_coef * torch.tanh(latent_velocity)
+        return (
+            action_mean,
+            cov_amp_delta,
+            (self.cfm_mean_coef * mean_delta).norm(dim=-1).mean(),
+            cov_amp_delta.norm(dim=-1).mean(),
+        )
+
+    def _critic_features(self, x):
+        h = F.silu(self.critic_norm1(self.critic_fc1(x)))
+        h = F.silu(self.critic_norm2(self.critic_fc2(h)))
+        return h
+
+    def get_value(self, x):
+        return self.value_out(self._critic_features(x))
+
+    def get_action_and_value(self, x, action=None):
+        h = self._actor_features(x)
+        base_mean = self.actor_out(h) * self.mean_scale
+        action_mean, cov_amp_delta, _, _ = self._cfm_policy_terms(h, base_mean)
+        dist = self._get_distribution(h, action_mean, cov_amp_delta=cov_amp_delta)
+        if action is None:
+            action = dist.sample()
+        return action, dist.log_prob(action), dist.entropy(), self.get_value(x)
+
+
+if __name__ == "__main__":
+    args = tyro.cli(Args)
+    args.batch_size = int(args.num_envs * args.num_steps)
+    args.minibatch_size = int(args.batch_size // args.num_minibatches)
+    args.num_iterations = args.total_timesteps // args.batch_size
+    run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+    if args.track:
+        import wandb
+        wandb.init(project=args.wandb_project_name, entity=args.wandb_entity,
+                   sync_tensorboard=True, config=vars(args), name=run_name,
+                   monitor_gym=True, save_code=True)
+    writer = SummaryWriter(f"runs/{run_name}")
+    writer.add_text("hyperparameters",
+        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])))
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = args.torch_deterministic
+    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+
+    envs = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, i, args.capture_video, run_name, args.gamma) for i in range(args.num_envs)])
+    assert isinstance(envs.single_action_space, gym.spaces.Box)
+
+    agent = Agent(envs, args).to(device)
+    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+
+    obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
+    actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
+    logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    values = torch.zeros((args.num_steps, args.num_envs)).to(device)
+
+    global_step = 0
+    start_time = time.time()
+    next_obs, _ = envs.reset(seed=args.seed)
+    next_obs = torch.Tensor(next_obs).to(device)
+    next_done = torch.zeros(args.num_envs).to(device)
+
+    for iteration in range(1, args.num_iterations + 1):
+        if args.anneal_lr:
+            frac = 1.0 - (iteration - 1.0) / args.num_iterations
+            optimizer.param_groups[0]["lr"] = frac * args.learning_rate
+
+        for step in range(0, args.num_steps):
+            global_step += args.num_envs
+            obs[step] = next_obs
+            dones[step] = next_done
+            with torch.no_grad():
+                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                values[step] = value.flatten()
+            actions[step] = action
+            logprobs[step] = logprob
+            next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
+            next_done = np.logical_or(terminations, truncations)
+            rewards[step] = torch.tensor(reward).to(device).view(-1)
+            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+            if "final_info" in infos:
+                for info in infos["final_info"]:
+                    if info and "episode" in info:
+                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
+                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
+                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+
+        with torch.no_grad():
+            next_value = agent.get_value(next_obs).reshape(1, -1)
+            advantages = torch.zeros_like(rewards).to(device)
+            lastgaelam = 0
+            for t in reversed(range(args.num_steps)):
+                if t == args.num_steps - 1:
+                    nextnonterminal = 1.0 - next_done
+                    nextvalues = next_value
+                else:
+                    nextnonterminal = 1.0 - dones[t + 1]
+                    nextvalues = values[t + 1]
+                delta = rewards[t] + args.gamma * nextvalues * nextnonterminal - values[t]
+                advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
+            returns = advantages + values
+
+        b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
+        b_logprobs = logprobs.reshape(-1)
+        b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
+        b_advantages = advantages.reshape(-1)
+        b_returns = returns.reshape(-1)
+        b_values = values.reshape(-1)
+
+        b_inds = np.arange(args.batch_size)
+        clipfracs = []
+        for epoch in range(args.update_epochs):
+            np.random.shuffle(b_inds)
+            for start in range(0, args.batch_size, args.minibatch_size):
+                end = start + args.minibatch_size
+                mb_inds = b_inds[start:end]
+                _, newlogprob, entropy, newvalue = agent.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                logratio = newlogprob - b_logprobs[mb_inds]
+                ratio = logratio.exp()
+                with torch.no_grad():
+                    approx_kl = ((ratio - 1) - logratio).mean()
+                    clipfracs += [((ratio < (1 - args.clip_coef_low)) | (ratio > (1 + args.clip_coef_high))).float().mean().item()]
+                mb_advantages = b_advantages[mb_inds]
+                if args.norm_adv:
+                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+                pg_loss1 = -mb_advantages * ratio
+                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef_low, 1 + args.clip_coef_high)
+                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+                newvalue = newvalue.view(-1)
+                if args.clip_vloss:
+                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
+                    v_clipped = b_values[mb_inds] + torch.clamp(newvalue - b_values[mb_inds], -args.clip_coef_low, args.clip_coef_high)
+                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
+                    v_loss = 0.5 * torch.max(v_loss_unclipped, v_loss_clipped).mean()
+                else:
+                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+                entropy_loss = entropy.mean()
+                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                cfm_loss = agent.cfm_loss(
+                    b_obs[mb_inds],
+                    b_actions[mb_inds],
+                    b_advantages[mb_inds],
+                    args.cfm_weight_clip,
+                )
+                loss = loss + args.cfm_coef * cfm_loss
+                optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
+                optimizer.step()
+            if args.target_kl is not None and approx_kl > args.target_kl:
+                break
+
+        y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
+        var_y = np.var(y_true)
+        explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+        writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
+        writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
+        writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
+        writer.add_scalar("losses/cfm_loss", cfm_loss.item(), global_step)
+        writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
+        writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
+        writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
+        writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        with torch.no_grad():
+            action_oob = ((b_actions < -1.0) | (b_actions > 1.0)).float().mean()
+            h_diag = agent._actor_features(b_obs[: min(4096, b_obs.shape[0])])
+            base_mean = agent.actor_out(h_diag) * agent.mean_scale
+            _, _, residual_norm, cov_amp_norm = agent._cfm_policy_terms(h_diag, base_mean)
+        writer.add_scalar("diagnostics/action_oob_frac", action_oob.item(), global_step)
+        writer.add_scalar("diagnostics/cfm_residual_norm", residual_norm.item(), global_step)
+        writer.add_scalar("diagnostics/cfm_cov_amp_norm", cov_amp_norm.item(), global_step)
+        print("SPS:", int(global_step / (time.time() - start_time)))
+        writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+
+    envs.close()
+    writer.close()
