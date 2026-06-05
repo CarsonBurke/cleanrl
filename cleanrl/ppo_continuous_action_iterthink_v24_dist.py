@@ -1,5 +1,14 @@
 # PPO + IterThink v24 (ACTION-DISTRIBUTION TOGGLE: dreamer4-faithful). From v21.
 #
+# SOFT MAX-ENTROPY add-on (--auto-entropy, gaussian only). This borrows SAC's
+# tanh-squashed log-prob, target-entropy heuristic, and temperature dual, but keeps
+# the PPO critic on the RAW reward return. Entropy enters the actor two ways:
+#   (1) a current-state squashed-entropy actor bonus, -alpha * log pi_sq(a|s);
+#   (2) a policy-only soft GAE whose one-step bootstrap adds alpha * H_sq(s_{t+1})
+#       using the rollout/bootstrapped squashed log-prob sample.
+# The distributional critic target is deliberately entropy-free so the fixed support
+# remains calibrated. Off (default) => byte-identical to the v24 base.
+#
 # WHY v24. The v22/v23 state-dependent Gaussian std hit a 1/sigma^2 pathology
 # (confident low-sigma states spike the mean gradient). dreamer4 avoids this two
 # ways, and v24 ports BOTH faithfully behind one `--actor-dist` toggle, on the
@@ -18,15 +27,18 @@
 #       offset). Bounded support => no squash saturation, no 1/sigma^2 blow-up,
 #       no boundary mass leak, no bang-bang (unimodal).
 #
-#   actor_dist="gaussian"  (the matched control = "direct log std" done right):
-#       dreamer4's Gaussian readout. A state-dependent log-VARIANCE head (not a
-#       flat Parameter, not log-std), SOFT-bounded by dreamer4's tanh-rescale
-#       (not a hard clamp, so the gradient never dies at the bound):
+#   actor_dist="gaussian"  (the matched control = state-dependent Gaussian scale):
+#       dreamer4's Gaussian readout. This is NOT SAC's exact log-std head. It is a
+#       state-dependent log-VARIANCE head (not a flat Parameter, not log-std),
+#       SOFT-bounded by dreamer4's tanh-rescale (not a hard clamp, so the gradient
+#       never dies at the bound):
 #           lv  = rescale(tanh(raw_lv/(hi-lo)), (-1,1), (lo,hi))   # symmetric (lo,hi) => lv=0 at init
 #           std = exp(0.5 * lv)
-#       then the iterthink tanh-squash + SAC Jacobian on the sample (mean stays
-#       raw), base-Normal entropy. (#1 soft-clamp + #2 log-var from the dreamer4
-#       parity review; the standing entropy bonus #3 was judged not relevant.)
+#       then the iterthink/SAC tanh-squash + stable Jacobian on the sample (mean
+#       stays raw). SAC continuous-action instead uses a state-dependent log_std
+#       head bounded to [-5, 2] and std = exp(log_std). Here logvar [-8, 8] implies
+#       log_std [-4, 4], so the family matches but the scale parameterization and
+#       bounds do not.
 #
 # PARITY NOTES (both dists): the rollout buffers the distribution-NATIVE sample
 # (latent_zs) — pre-tanh z for gaussian, z in (0,1) for beta — and replays it on
@@ -92,6 +104,7 @@ import random
 import time
 from dataclasses import dataclass
 from math import log
+from typing import Optional
 
 import gymnasium as gym
 import numpy as np
@@ -144,6 +157,21 @@ class Args:
     clip_coef: float = 0.2           # PPO clip (lower bound 1-clip_coef; also upper if no high)
     clip_coef_high: float = 0.28     # "clip-higher" (DAPO): looser UPPER bound 1+clip_coef_high
     ent_coef: float = 0.0
+    # SOFT-ADVANTAGE max-ent (gaussian only; --auto-entropy). Entropy enters the POLICY
+    # ADVANTAGE only, NEVER the critic's target. The critic regresses to the RAW reward
+    # return (fits the fixed support [v_min,v_max]); a SEPARATE soft-advantage GAE adds the
+    # bootstrap bonus b_t = α·H_sq(s_{t+1}), estimated as the single-sample SQUASHED entropy
+    # -logπ_sq(a|s), matching SAC's next_state_log_pi units. Rationale: forcing the bounded
+    # categorical critic to learn the soft value both wastes capacity and overflows the
+    # support (the softboot failure: edge_mass→0.9, expl_var→0). alpha is
+    # auto-tuned by SAC's exact dual (target_entropy = -|A|; alpha_loss = -α(logπ + tgt)).
+    # The explicit α·H actor bonus supplies the CURRENT-step entropy gradient (the soft
+    # advantage's current-state entropy is action-independent => cancels in the PG term);
+    # the soft advantage supplies FUTURE-entropy credit. Works WITH rankgauss: the soft
+    # value reorders advantages and rankgauss preserves order/sign (magnitude is incidental).
+    auto_entropy: bool = False
+    target_entropy: Optional[float] = None  # SAC heuristic default = -|A| (act_dim)
+    alpha_lr: float = 1e-3
     vf_coef: float = 0.5
     max_grad_norm: float = 0.5       # used only when separate_grad_clip=False (global clip)
     target_kl: float = 0.03          # KL early-stop leash (the iterthink-line winner; shared trunk runs hot without it)
@@ -167,8 +195,18 @@ class Args:
     #   "rankgauss" | "rankgauss_signed" | "rankgauss_temp" | "rankgauss_signmag"
     adv_transform: str = "rankgauss"
 
+    # Scope ablations: where advantage shaping / normalization are computed.
+    #   adv_transform_scope: "batch" (default) ranks/shapes over the whole rollout
+    #     once per iteration; "minibatch" recomputes the shaping within each
+    #     minibatch (the idiomatic scope of norm_adv). Only matters for shaping
+    #     transforms (rankgauss, ...); "v10" is identity so scope is moot.
+    #   norm_adv_scope: "minibatch" (default, idiomatic PPO) standardizes each
+    #     minibatch; "batch" standardizes once over the whole rollout.
+    adv_transform_scope: str = "batch"
+    norm_adv_scope: str = "minibatch"
+
     # v24: action distribution. "beta" (unimodal, dreamer4 default) | "gaussian"
-    # (dreamer4 direct-log-std: state-dependent log-VARIANCE head, soft tanh-rescale bound).
+    # (dreamer4 state-dependent log-VARIANCE head, not SAC log_std; soft tanh-rescale bound).
     actor_dist: str = "beta"
     logvar_min: float = -8.0         # gaussian: soft log-var bound (symmetric => std=1 at init)
     logvar_max: float = 8.0          # std in [exp(-4), exp(4)] = [0.018, 54.6]
@@ -306,10 +344,11 @@ class Agent(nn.Module):
         with torch.no_grad():
             z = torch.linspace(args.v_min, args.v_max, args.num_bins)
             self.critic_head.bias.copy_(-0.5 * (z / args.critic_init_tau) ** 2)
-        # v24: action distribution. Both parameterizations are dreamer4-faithful.
+        # v24: action distribution. Both parameterizations are dreamer4-faithful;
+        # the Gaussian path is tanh-squashed like SAC but uses log-variance, not log_std.
         self.actor_dist = args.actor_dist
         if self.actor_dist == "gaussian":
-            # dreamer4 direct-log-std: mean head + state-dependent log-VARIANCE head.
+            # dreamer4 Gaussian: mean head + state-dependent log-VARIANCE head.
             self.actor_head = layer_init(nn.Linear(H, act_dim), std=0.01)
             self.actor_logvar_head = layer_init(nn.Linear(H, act_dim), std=0.01)
             self.logvar_min, self.logvar_max = args.logvar_min, args.logvar_max
@@ -380,7 +419,19 @@ class Agent(nn.Module):
         action = to_action(z)
         log_prob = (dist.log_prob(z) - log_det_fn(z)).sum(1)
         value_logits = self.critic_head(critic_feat)
-        return action, z, log_prob, dist.entropy().sum(1), value_logits
+        if self.actor_dist == "gaussian":
+            # Reparameterized SQUASHED-entropy estimate H_sq = E_ε[-logπ_sq(tanh(μ+σε))].
+            # Base-Normal H = dist.entropy() is monotone↑ in σ, so an entropy bonus rails σ
+            # to the ceiling -> tanh saturates -> squashed H collapses, while the α-dual
+            # (which targets squashed H) cranks α up: a runaway. The squashed H is BOUNDED
+            # with an interior max in σ, so maximizing it settles σ at a finite optimum and
+            # is consistent with the α target. Fresh rsample => gradient flows to μ,σ
+            # (independent of the replayed z used for the PPO ratio).
+            zr = dist.rsample()
+            entropy = (dist.log_prob(zr) - log_det_fn(zr)).sum(1).neg()
+        else:
+            entropy = dist.entropy().sum(1)
+        return action, z, log_prob, entropy, value_logits
 
     def actor_parameters(self):
         # Params receiving the POLICY gradient (incl. the shared trunk). The two
@@ -430,6 +481,8 @@ def distributional_lambda_returns(
 
     Mean-matches the scalar GAE λ-return. Shapes: rewards/dones (T, B);
     value_probs (T, B, n); bootstrap_probs (B, n) = Z(s_T). Returns (T, B, n).
+    Entropy/soft-value terms are NOT injected here — the critic regresses to the raw
+    reward return; max-ent enters the policy advantage separately (see --auto-entropy).
     """
     T = rewards.shape[0]
     target = torch.zeros_like(value_probs)
@@ -449,11 +502,93 @@ def distributional_lambda_returns(
     return target
 
 
+def shape_advantage(gae, sigma, u, args, device):
+    """Map raw GAE -> policy advantage per args.adv_transform. Works on a full
+    batch or a single minibatch (sigma/u must be sliced to match gae)."""
+    if args.adv_transform == "v10":
+        return gae
+    elif args.adv_transform == "tanh_std":
+        # Per-state-normalized, bounded, magnitude-preserving near 0 (THE FIX).
+        return torch.tanh(gae / (args.tanh_kappa * sigma))
+    elif args.adv_transform == "tanh_gae":
+        gz = (gae - gae.mean()) / (gae.std() + 1e-8)
+        return torch.tanh(gz / args.tanh_kappa)
+    elif args.adv_transform == "cdf_probit":
+        centered = (2.0 * u - 1.0)
+        c = args.cdf_probit_clamp
+        return ((2.0 ** 0.5) * torch.erfinv(centered.clamp(-c, c).cpu())).to(device)
+    elif args.adv_transform == "clip_z":
+        # Winsorized z-score: ONE standardize + hard tail clip. tanh's hard cousin;
+        # preserves bulk magnitude exactly (linear in [-c,c]) and is ~self-normalizing
+        # (clipping a unit-var signal barely changes its std), so norm_adv ~ no-op.
+        gz = (gae - gae.mean()) / (gae.std() + 1e-8)
+        return gz.clamp(-args.clip_z_c, args.clip_z_c)
+    elif args.adv_transform == "rankgauss":
+        # Rank-Gaussian: the principled single op. Replaces each advantage by the
+        # Gaussian quantile of its empirical rank -> self-normalizing (bounded,
+        # zero-mean, ~unit-scale, fully outlier-immune; no kappa, no double z-score).
+        # This is cdf_probit with the EMPIRICAL batch rank instead of the critic's
+        # per-state CDF (distribution-free; the distribution was shown incidental).
+        n = gae.numel()
+        ranks = gae.argsort().argsort().to(torch.float32)  # 0..n-1
+        uq = (ranks + 0.5) / n
+        c = args.cdf_probit_clamp
+        centered = (2.0 * uq - 1.0).clamp(-c, c)
+        return ((2.0 ** 0.5) * torch.erfinv(centered.cpu())).to(device)
+    elif args.adv_transform == "rankgauss_signed":
+        # Sign-anchored rank-Gaussian: rank positives and negatives SEPARATELY so the
+        # advantage's zero-crossing is preserved exactly. Plain rankgauss anchors the
+        # sign flip at the batch MEDIAN, not 0, so on skewed GAE it can assign the
+        # wrong sign to near-median samples — and PPO needs the sign right. Each sign
+        # group is mapped to its half of the Gaussian by its within-group rank.
+        c = args.cdf_probit_clamp
+        out = torch.zeros_like(gae)
+        for side in (gae > 0, gae < 0):
+            if side.any():
+                g = gae[side]
+                r = g.argsort().argsort().to(torch.float32)
+                half = (r + 0.5) / float(g.numel())                  # (0,1) in group
+                uq = torch.where(g > 0, 0.5 + 0.5 * half, 0.5 * half)  # correct side
+                ctr = (2.0 * uq - 1.0).clamp(-c, c)
+                out[side] = ((2.0 ** 0.5) * torch.erfinv(ctr.cpu())).to(device)
+        return out
+    elif args.adv_transform == "rankgauss_temp":
+        # Rank-Gaussian + tanh temperature: compress the Gaussian quantiles' extremes
+        # harder (rank_tanh_kappa < inf). Probes the "more robust still" axis the kappa
+        # sweep motivated (tanh_gae kappa=1 > kappa=2). Smaller kappa => harder.
+        n = gae.numel()
+        ranks = gae.argsort().argsort().to(torch.float32)
+        uq = (ranks + 0.5) / n
+        c = args.cdf_probit_clamp
+        centered = (2.0 * uq - 1.0).clamp(-c, c)
+        z = ((2.0 ** 0.5) * torch.erfinv(centered.cpu())).to(device)
+        return torch.tanh(z / args.rank_tanh_kappa)
+    elif args.adv_transform == "rankgauss_signmag":
+        # Sign-correct WITHOUT count distortion: take plain rankgauss's GLOBAL-rank
+        # magnitude, then force the sign to match the raw advantage. Fixes the flaw in
+        # rankgauss_signed (per-group half-Gaussian over-amplifies the minority sign by
+        # COUNT); here magnitude still reflects global rank extremity and only the ~9%
+        # near-zero "flips" get re-signed. Nonlinear (not a shift) => survives norm_adv.
+        n = gae.numel()
+        ranks = gae.argsort().argsort().to(torch.float32)
+        uq = (ranks + 0.5) / n
+        c = args.cdf_probit_clamp
+        mag = ((2.0 ** 0.5) * torch.erfinv((2.0 * uq - 1.0).clamp(-c, c).cpu())).to(device).abs()
+        return torch.sign(gae) * mag
+    else:
+        raise ValueError(f"unknown adv_transform {args.adv_transform}")
+
+
 if __name__ == "__main__":
     args = tyro.cli(Args)
     args.batch_size = int(args.num_envs * args.num_steps)
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
     args.num_iterations = args.total_timesteps // args.batch_size
+    assert args.adv_transform_scope in ("batch", "minibatch")
+    assert args.norm_adv_scope in ("batch", "minibatch")
+    # batch-scope norm reuses the batch-shaped advantage, so it needs batch-scope shaping.
+    assert not (args.adv_transform_scope == "minibatch" and args.norm_adv_scope == "batch"), \
+        "norm_adv_scope=batch requires adv_transform_scope=batch"
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     if args.track:
         import wandb
@@ -491,6 +626,20 @@ if __name__ == "__main__":
     # appears in BOTH lists (it receives policy and value gradients separately).
     actor_params = agent.actor_parameters()
     critic_params = agent.critic_parameters()
+
+    # Soft max-entropy temperature (gaussian only). log_alpha is learned so the
+    # policy-only future-entropy bonus AND the actor entropy bonus self-tune to
+    # hold the SQUASHED entropy at target_entropy via SAC's temperature dual.
+    auto_alpha = args.auto_entropy and args.actor_dist == "gaussian"
+    if auto_alpha:
+        act_dim = int(np.prod(envs.single_action_space.shape))
+        # SAC heuristic: target the squashed-policy entropy at -|A| (sac_continuous_action.py
+        # target_entropy = -prod(action_space.shape)). The squashed entropy lives in the
+        # tanh-Gaussian space (action ∈ [-1,1] => bounded, can be negative), so this is the
+        # parity-correct target for the -logπ_squashed estimate (NOT base-Normal H).
+        target_entropy = args.target_entropy if args.target_entropy is not None else -float(act_dim)
+        log_alpha = torch.zeros(1, requires_grad=True, device=device)
+        alpha_optimizer = optim.Adam([log_alpha], lr=args.alpha_lr)
 
     hl_support = HLGaussSupport(
         args.num_bins,
@@ -530,7 +679,7 @@ if __name__ == "__main__":
             dones[step] = next_done
 
             with torch.no_grad():
-                action, z, logprob, _, value_logits = agent.get_action_and_value(next_obs)
+                action, z, logprob, ent, value_logits = agent.get_action_and_value(next_obs)
                 p = torch.softmax(value_logits, dim=-1)
                 value_probs[step] = p
                 values[step] = (p * support).sum(dim=-1)
@@ -551,9 +700,29 @@ if __name__ == "__main__":
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
         with torch.no_grad():
-            bootstrap_probs = torch.softmax(agent.get_value(next_obs), dim=-1)   # (B, n) = Z(s_T)
+            # SOFT-ADVANTAGE max-ent: entropy enters the POLICY ADVANTAGE only, NEVER the
+            # critic's regression target. The bonus b_t = α·H_sq(s_{t+1}) is estimated with
+            # a single squashed log-prob sample, in the same units as SAC's
+            # next_state_log_pi. Making the bounded categorical critic *learn* it would
+            # (a) waste its predictive capacity and (b) inflate the target off its fixed support
+            # [v_min,v_max] (the softboot failure: edge_mass→0.9, expl_var→0). Instead the
+            # critic regresses to the RAW reward return (control-proven to fit, edge_mass≈0)
+            # and the entropy is added to a SEPARATE soft advantage used only for the PG.
+            if auto_alpha:
+                # Sample a' ~ π(·|s_T) for the bootstrap entropy (SAC's single-sample).
+                _, _, boot_logprob, _, boot_logits = agent.get_action_and_value(next_obs)
+                bootstrap_probs = torch.softmax(boot_logits, dim=-1)            # (B, n) = Z(s_T)
+                alpha_r = log_alpha.exp().detach()
+                # b_t = α·H(s_{t+1}); H(s_{t+1}) = -logπ(a_{t+1}|s_{t+1}) from the rollout,
+                # and H(s_T) = -logπ(a'|s_T) for the final bootstrap step.
+                next_value_bonus = torch.zeros_like(rewards)
+                next_value_bonus[:-1] = alpha_r * (-logprobs[1:])
+                next_value_bonus[-1] = alpha_r * (-boot_logprob)
+            else:
+                bootstrap_probs = torch.softmax(agent.get_value(next_obs), dim=-1)   # (B, n) = Z(s_T)
+                next_value_bonus = None
             next_value = (bootstrap_probs * support).sum(dim=-1).reshape(1, -1)
-            # Scalar GAE (means) — advantage baseline is unchanged from v7.
+            # REWARD GAE: critic-consistent advantage + return (entropy-free => fits support).
             advantages = torch.zeros_like(rewards).to(device)
             lastgaelam = 0
             for t in reversed(range(args.num_steps)):
@@ -566,7 +735,25 @@ if __name__ == "__main__":
                 delta = rewards[t] + args.gamma * nextvalues * nextnonterminal - values[t]
                 advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + values
-            # Distributional λ-return target (mean-matches `returns`).
+            # SOFT-ADVANTAGE GAE (POLICY ONLY): same recursion with the entropy-augmented
+            # next value V(s')+α·H(s'). Unbiased (state-dependent baseline); its large
+            # magnitude is harmless — rankgauss at the optim step rank-normalizes it while
+            # PRESERVING the entropy-induced reordering (the actual exploration signal).
+            if auto_alpha:
+                policy_adv = torch.zeros_like(rewards).to(device)
+                lastgaelam = 0
+                for t in reversed(range(args.num_steps)):
+                    if t == args.num_steps - 1:
+                        nextnonterminal = 1.0 - next_done
+                        nextvalues = next_value
+                    else:
+                        nextnonterminal = 1.0 - dones[t + 1]
+                        nextvalues = values[t + 1]
+                    delta = rewards[t] + args.gamma * (nextvalues + next_value_bonus[t]) * nextnonterminal - values[t]
+                    policy_adv[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
+            else:
+                policy_adv = advantages
+            # Critic target: RAW reward λ-return (entropy-free => no support overflow).
             target_probs = distributional_lambda_returns(
                 rewards, dones, next_done, value_probs, bootstrap_probs,
                 support, args.v_min, args.v_max, bin_width, args.gamma, args.gae_lambda,
@@ -584,84 +771,21 @@ if __name__ == "__main__":
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
         b_latent_zs = latent_zs.reshape((-1,) + envs.single_action_space.shape)
-        b_advantages = advantages.reshape(-1)            # raw GAE (mean-value)
+        b_advantages = policy_adv.reshape(-1)            # policy GAE (soft when auto_alpha; else raw)
         b_sigma = sigma.reshape(-1)
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
         b_target_probs = target_probs.reshape(-1, args.num_bins)
-        # Policy advantage: reshape the GAE / distribution per `adv_transform`.
+        b_u = u.reshape(-1)
+        # Policy advantage: shape the GAE per `adv_transform`. With
+        # adv_transform_scope="minibatch" the shaping is deferred into the update
+        # loop (recomputed per minibatch); the batch shaping below is then used
+        # only for the diagnostics. norm_adv_scope="batch" standardizes the shaped
+        # advantage once here instead of per minibatch.
         gae = b_advantages
-        if args.adv_transform == "v10":
-            b_policy_adv = gae
-        elif args.adv_transform == "tanh_std":
-            # Per-state-normalized, bounded, magnitude-preserving near 0 (THE FIX).
-            b_policy_adv = torch.tanh(gae / (args.tanh_kappa * b_sigma))
-        elif args.adv_transform == "tanh_gae":
-            gz = (gae - gae.mean()) / (gae.std() + 1e-8)
-            b_policy_adv = torch.tanh(gz / args.tanh_kappa)
-        elif args.adv_transform == "cdf_probit":
-            centered = (2.0 * u.reshape(-1) - 1.0)
-            c = args.cdf_probit_clamp
-            b_policy_adv = ((2.0 ** 0.5) * torch.erfinv(centered.clamp(-c, c).cpu())).to(device)
-        elif args.adv_transform == "clip_z":
-            # Winsorized z-score: ONE standardize + hard tail clip. tanh's hard cousin;
-            # preserves bulk magnitude exactly (linear in [-c,c]) and is ~self-normalizing
-            # (clipping a unit-var signal barely changes its std), so norm_adv ~ no-op.
-            gz = (gae - gae.mean()) / (gae.std() + 1e-8)
-            b_policy_adv = gz.clamp(-args.clip_z_c, args.clip_z_c)
-        elif args.adv_transform == "rankgauss":
-            # Rank-Gaussian: the principled single op. Replaces each advantage by the
-            # Gaussian quantile of its empirical rank -> self-normalizing (bounded,
-            # zero-mean, ~unit-scale, fully outlier-immune; no kappa, no double z-score).
-            # This is cdf_probit with the EMPIRICAL batch rank instead of the critic's
-            # per-state CDF (distribution-free; the distribution was shown incidental).
-            n = gae.numel()
-            ranks = gae.argsort().argsort().to(torch.float32)  # 0..n-1
-            uq = (ranks + 0.5) / n
-            c = args.cdf_probit_clamp
-            centered = (2.0 * uq - 1.0).clamp(-c, c)
-            b_policy_adv = ((2.0 ** 0.5) * torch.erfinv(centered.cpu())).to(device)
-        elif args.adv_transform == "rankgauss_signed":
-            # Sign-anchored rank-Gaussian: rank positives and negatives SEPARATELY so the
-            # advantage's zero-crossing is preserved exactly. Plain rankgauss anchors the
-            # sign flip at the batch MEDIAN, not 0, so on skewed GAE it can assign the
-            # wrong sign to near-median samples — and PPO needs the sign right. Each sign
-            # group is mapped to its half of the Gaussian by its within-group rank.
-            c = args.cdf_probit_clamp
-            b_policy_adv = torch.zeros_like(gae)
-            for side in (gae > 0, gae < 0):
-                if side.any():
-                    g = gae[side]
-                    r = g.argsort().argsort().to(torch.float32)
-                    half = (r + 0.5) / float(g.numel())                  # (0,1) in group
-                    uq = torch.where(g > 0, 0.5 + 0.5 * half, 0.5 * half)  # correct side
-                    ctr = (2.0 * uq - 1.0).clamp(-c, c)
-                    b_policy_adv[side] = ((2.0 ** 0.5) * torch.erfinv(ctr.cpu())).to(device)
-        elif args.adv_transform == "rankgauss_temp":
-            # Rank-Gaussian + tanh temperature: compress the Gaussian quantiles' extremes
-            # harder (rank_tanh_kappa < inf). Probes the "more robust still" axis the kappa
-            # sweep motivated (tanh_gae kappa=1 > kappa=2). Smaller kappa => harder.
-            n = gae.numel()
-            ranks = gae.argsort().argsort().to(torch.float32)
-            uq = (ranks + 0.5) / n
-            c = args.cdf_probit_clamp
-            centered = (2.0 * uq - 1.0).clamp(-c, c)
-            z = ((2.0 ** 0.5) * torch.erfinv(centered.cpu())).to(device)
-            b_policy_adv = torch.tanh(z / args.rank_tanh_kappa)
-        elif args.adv_transform == "rankgauss_signmag":
-            # Sign-correct WITHOUT count distortion: take plain rankgauss's GLOBAL-rank
-            # magnitude, then force the sign to match the raw advantage. Fixes the flaw in
-            # rankgauss_signed (per-group half-Gaussian over-amplifies the minority sign by
-            # COUNT); here magnitude still reflects global rank extremity and only the ~9%
-            # near-zero "flips" get re-signed. Nonlinear (not a shift) => survives norm_adv.
-            n = gae.numel()
-            ranks = gae.argsort().argsort().to(torch.float32)
-            uq = (ranks + 0.5) / n
-            c = args.cdf_probit_clamp
-            mag = ((2.0 ** 0.5) * torch.erfinv((2.0 * uq - 1.0).clamp(-c, c).cpu())).to(device).abs()
-            b_policy_adv = torch.sign(gae) * mag
-        else:
-            raise ValueError(f"unknown adv_transform {args.adv_transform}")
+        b_policy_adv = shape_advantage(gae, b_sigma, b_u, args, device)
+        if args.norm_adv and args.norm_adv_scope == "batch":
+            b_policy_adv_normed = (b_policy_adv - b_policy_adv.mean()) / (b_policy_adv.std() + 1e-8)
         # Diagnostics: how different is the shaped advantage from raw GAE?
         az = (gae - gae.mean()) / (gae.std() + 1e-8)
         pz = (b_policy_adv - b_policy_adv.mean()) / (b_policy_adv.std() + 1e-8)
@@ -687,10 +811,16 @@ if __name__ == "__main__":
                     approx_kl = ((ratio - 1) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
 
-                mb_raw_adv = b_policy_adv[mb_inds]
+                if args.adv_transform_scope == "minibatch":
+                    mb_raw_adv = shape_advantage(b_advantages[mb_inds], b_sigma[mb_inds], b_u[mb_inds], args, device)
+                else:
+                    mb_raw_adv = b_policy_adv[mb_inds]
                 mb_advantages = mb_raw_adv
                 if args.norm_adv:
-                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+                    if args.norm_adv_scope == "batch":
+                        mb_advantages = b_policy_adv_normed[mb_inds]
+                    else:
+                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
                 # PMPO-style asymmetric pos/neg weighting: scale positive-advantage
                 # samples by 2*alpha and negatives by 2*(1-alpha) (alpha=0.5 => identity).
@@ -717,6 +847,22 @@ if __name__ == "__main__":
 
                 entropy_loss = entropy.mean()
 
+                if auto_alpha:
+                    # SAC's temperature dual (sac_continuous_action.py), on the
+                    # SQUASHED log-prob: alpha_loss = (-α·(logπ + target_entropy)).mean().
+                    # With target_entropy=-|A|, drives E[logπ_squashed] -> |A|,
+                    # equivalently E[-logπ_squashed] -> -|A|.
+                    # The SAME α weights the explicit CURRENT-step actor entropy bonus below
+                    # (the soft return's current-state entropy is action-independent => zero
+                    # in the PG term, so the bonus supplies the actual entropy gradient).
+                    ent_coef_eff = log_alpha.exp().detach()
+                    alpha_loss = (-log_alpha.exp() * (newlogprob.detach() + target_entropy)).mean()
+                    alpha_optimizer.zero_grad()
+                    alpha_loss.backward()
+                    alpha_optimizer.step()
+                else:
+                    ent_coef_eff = args.ent_coef
+
                 if args.separate_grad_clip:
                     # DUAL-BACKWARD decoupled clipping. Backprop value and policy
                     # gradients separately, clip each to its own max-norm, then sum
@@ -729,7 +875,7 @@ if __name__ == "__main__":
                     # policy backward; the shared trunk is in this set).
                     value_grads = [(p, p.grad.detach().clone()) for p in critic_params if p.grad is not None]
                     optimizer.zero_grad(set_to_none=True)
-                    (pg_loss - args.ent_coef * entropy_loss).backward()
+                    (pg_loss - ent_coef_eff * entropy_loss).backward()
                     actor_gn = nn.utils.clip_grad_norm_(actor_params, args.actor_grad_clip)
                     # trunk.grad currently = clip_actor(d pg / d trunk); add the
                     # stashed clip_critic(d vl / d trunk). critic_head gets value grad only.
@@ -737,7 +883,7 @@ if __name__ == "__main__":
                         p.grad = g if p.grad is None else p.grad + g
                     optimizer.step()
                 else:
-                    loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                    loss = pg_loss - ent_coef_eff * entropy_loss + v_loss * args.vf_coef
                     optimizer.zero_grad()
                     loss.backward()
                     critic_gn = actor_gn = nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
@@ -757,6 +903,15 @@ if __name__ == "__main__":
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
         writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
+        if auto_alpha:
+            writer.add_scalar("losses/alpha", log_alpha.exp().item(), global_step)
+            writer.add_scalar("losses/target_entropy", target_entropy, global_step)
+            # squashed entropy H(s) = -logπ; per-step bonus; and the entropy-domination
+            # probe: ratio of soft-advantage std to reward-advantage std (>>1 => entropy
+            # swamps the reward signal in the ranking; should fall toward ~1 as alpha anneals).
+            writer.add_scalar("debug/squashed_entropy", (-logprobs).mean().item(), global_step)
+            writer.add_scalar("debug/soft_bootstrap_bonus", next_value_bonus.mean().item(), global_step)
+            writer.add_scalar("debug/soft_adv_std_ratio", (policy_adv.std() / (advantages.std() + 1e-8)).item(), global_step)
         writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
