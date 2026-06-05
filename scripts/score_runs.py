@@ -5,6 +5,8 @@ Usage:
     python cleanrl/score_runs.py "directamp" "fixedfloor" "amprange"
     python cleanrl/score_runs.py "dirnoise" --env HalfCheetah-v4
     python cleanrl/score_runs.py "dirnoise" --last 50
+    python cleanrl/score_runs.py "dirnoise" --before 1780625004
+    python cleanrl/score_runs.py "dirnoise" --before 2026-06-04T18:00:00
     python cleanrl/score_runs.py "hlgauss" --runs-dir hl-gauss-ablations
     python cleanrl/score_runs.py "hlgauss" --runs-dir runs hl-gauss-ablations
 
@@ -14,6 +16,7 @@ Ranks runs by mean. Groups by environment when multiple envs present.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import sys
 from pathlib import Path
 from typing import NamedTuple
@@ -30,6 +33,34 @@ class RunResult(NamedTuple):
 
 
 TAG = "charts/episodic_return"
+
+
+def parse_cutoff(value: str) -> float:
+    """Parse --before as epoch seconds or an ISO local date/datetime."""
+    try:
+        return float(value)
+    except ValueError:
+        pass
+
+    text = value.strip()
+    try:
+        parsed = dt.datetime.fromisoformat(text)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "--before must be an epoch timestamp or ISO date/datetime "
+            "(for example 1780625004 or 2026-06-04T18:00:00)"
+        ) from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.datetime.now().astimezone().tzinfo)
+    return parsed.timestamp()
+
+
+def run_timestamp(run_dir: Path) -> float | None:
+    """Return trailing run timestamp from 'env__variant__seed__timestamp'."""
+    try:
+        return float(run_dir.name.rsplit("__", 1)[1])
+    except (IndexError, ValueError):
+        return None
 
 
 def load_returns(run_dir: Path, last_n: int = 20) -> RunResult | None:
@@ -68,7 +99,12 @@ def load_returns(run_dir: Path, last_n: int = 20) -> RunResult | None:
     )
 
 
-def find_runs(runs_dirs: list[Path], patterns: list[str], env_filter: str | None) -> list[Path]:
+def find_runs(
+    runs_dirs: list[Path],
+    patterns: list[str],
+    env_filter: str | None,
+    before: float | None,
+) -> list[Path]:
     """Find run directories matching any pattern across multiple directories."""
     matched = []
     for runs_dir in runs_dirs:
@@ -80,6 +116,10 @@ def find_runs(runs_dirs: list[Path], patterns: list[str], env_filter: str | None
             name = d.name
             if env_filter and env_filter not in name:
                 continue
+            if before is not None:
+                started = run_timestamp(d)
+                if started is None or started >= before:
+                    continue
             if any(p in name for p in patterns):
                 matched.append(d)
     return matched
@@ -111,11 +151,20 @@ def main():
     parser.add_argument("patterns", nargs="+", help="Patterns to match in run directory names")
     parser.add_argument("--env", default=None, help="Filter by environment (e.g. HalfCheetah-v4)")
     parser.add_argument("--last", type=int, default=20, help="Number of final episodes to evaluate")
+    parser.add_argument(
+        "--before",
+        type=parse_cutoff,
+        default=None,
+        help=(
+            "Only include runs whose trailing directory timestamp is before this "
+            "cutoff. Accepts epoch seconds or ISO date/datetime."
+        ),
+    )
     parser.add_argument("--runs-dir", nargs="*", default=["runs"], help="Directories containing TensorBoard runs")
     args = parser.parse_args()
 
     runs_dirs = [Path(d) for d in args.runs_dir]
-    matched = find_runs(runs_dirs, args.patterns, args.env)
+    matched = find_runs(runs_dirs, args.patterns, args.env, args.before)
     if not matched:
         dirs_str = ", ".join(str(d) for d in runs_dirs)
         print(f"No runs found matching {args.patterns} in {dirs_str}")
