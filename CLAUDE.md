@@ -15,7 +15,7 @@ Many ideas in these files are implemented poorly and are regressions on standard
 - `ppo_continuous_action.py` Baseline PPO
 - Generally stick to single-file implementations, but for larger projects and testing, more is fine
 - Achieve state-of-the-art performance on continuous control benchmarks.
-- The best solution may combine ideas from control theory, signal processing, information geometry, or dynamical systems in ways no one has tried.
+- The best solutions come from effortful understanding of the dynamics at play: gradient flow, model incentives; create a mental model of what you're doing and extrapolate.
 
 ## How to Work
 
@@ -38,10 +38,14 @@ cleanrl/ppo_continuous_action_<your_method_name>.py
 
 - Always run experiments such thawt they appear in your harness UI.
 - Generally do not run more than 3 experiments at once, which already saturate compute.
-- If a run is clearly underperforming after 1-2M steps you may wawnt to stop it
+- If a run is clearly underperforming after 1-2M steps you may want to stop it
 - After a benchmark completes (or enough data to judge): re-evaluate your hypothesis, determine if it should be iterate on futher, and parse what worked and what didn't.
 - Never do smoke tests
-- Use `cleanrl/scripts/score_runs.py` to get a clear picture of results. Run with `uv run python cleanrl/scripts/score_runs.py <pattern> [--env <env>] [--last N] [--runs-dir <from root dir>]`.
+- Helpers in `scripts/` (run from repo root; shared tfevents logic in `scripts/_runs.py` — reuse it, don't grep `/tmp` logs or `pgrep`):
+  - `score_runs.py <pattern> [--env <env>] [--last N]` — ranked returns; `--at 500k,1M,2M` for matched-step comparison; `--metrics <tags>` for extra columns.
+  - `watch_run.py <pattern> [--env <env>]` — live status; `--until 2M` blocks until that step or stall. Launch as a tracked background task (plain blocking call, not `nohup … &`) such that it shows up in your harness UI.
+- Typically only do half cheetah and for 8 million steps
+- Always use seed=1
 
 First use or activate venv at `.venv/bin/python`
 
@@ -52,7 +56,7 @@ Run with **16 parallel environments** and **versioned experiment names**:
     --env-id HalfCheetah-v4 \
     --num-envs 16 \
     --exp-name <method>_v<N> \
-    --total-timesteps 1000000 \
+    --total-timesteps 8000000 \
     --seed 1
 ```
 
