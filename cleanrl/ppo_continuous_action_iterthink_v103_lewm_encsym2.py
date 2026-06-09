@@ -1,3 +1,56 @@
+# PPO + IterThink v103 (v102 + LeWM fidelity round 2). From v102.
+#
+# Four targeted alignments to the le-wm reference, found by an adversarial
+# code-vs-code audit (v102 fixed encoder SIGReg/detach symmetry; v103 continues):
+#   (1) SIGReg projections 256 -> 1024 (lewm_sigreg_num_proj). The Epps-Pulley ECF
+#       statistic is Monte-Carlo over random projections; le-wm uses 1024. At 256
+#       the isotropy-gradient std-error is ~2x larger. Free fidelity.
+#   (3) WARM-START imagination context. v102 seeded each dream from a LENGTH-1
+#       context (single encoded state), the weakest regime the predictor sees. v103
+#       seeds from the real preceding rollout window (up to lewm_context states +
+#       their real actions), restricting seeds to boundary-clean windows (no episode
+#       reset inside the window; falls back to length-1 if none). The first dreamed
+#       step now sees a full real context, matching le-wm rollouts (which never query
+#       with fewer than history_size frames).
+#   (6) WM weight decay + larger clip. le-wm trains the WM with AdamW wd=1e-3 and
+#       grad-clip 1.0; v102 shared the policy's plain Adam (no wd) and clipped the WM
+#       to 0.5. v103 uses AdamW with a WM-only weight-decay param group
+#       (lewm_weight_decay, others 0 so PPO is unchanged) and clips the WM to
+#       lewm_grad_clip=1.0. SIGReg + weight decay jointly bound embedding norm in
+#       le-wm; v102 relied on SIGReg alone.
+#   (7) TEMPORAL POSITION via RoPE on the predictor time axis. v102 had NO temporal
+#       position signal (causal mask only). le-wm adds a learned ABSOLUTE temporal
+#       pos embedding; we instead use ROTARY (relative) on the time-axis attention
+#       because imagination is an autoregressive SLIDING-WINDOW process -- a learned
+#       absolute-within-window code would relabel the same physical state as the
+#       window advances, whereas RoPE depends only on relative offset (i-j) and is
+#       slide-invariant (and parameter-free). Space-axis/encoder attention unchanged;
+#       obs tokens already carry per-feature identity so the space axis needs none.
+#
+# --- inherited v102 notes ---
+#
+# PPO + IterThink v102 (v100 + LeWM encoder-symmetry fixes). From v100.
+#
+# MOTIVATION. The LeWM design (see paper diagram) is encoder-SYMMETRIC: a single
+# shared encoder produces z_t (predictor input/context) and z_{t+1} (target), and
+# BOTH receive (a) prediction-loss gradient — le-wm computes pred_loss on
+# emb[:ctx] and emb[n_preds:] with NEITHER detached — and (b) SIGReg, applied to
+# the FULL embedding sequence (sigreg(emb) over all timesteps). v100 was
+# target-side-only on both counts: the predictor context was detached (so the
+# encoder got no "good input rep" gradient) and SIGReg covered only the z_1..z_H
+# targets, leaving the z_0 rollout anchor — the state imagination actually rolls
+# FROM — unconstrained. v102 restores both symmetries:
+#   (1) Context un-detached: the encoder is shaped as both a good input and a good
+#       target representation (faithful to le-wm). NOTE: this reverses v85, which
+#       detached the context specifically so the predicted-outcome (reward/cont)
+#       head losses would not push gradient through historical encoder summaries.
+#       le-wm has no outcome heads, so this confound is ours alone — watch for the
+#       outcome heads destabilizing the encoder via the now-live context path.
+#   (2) SIGReg on BOTH z_0 and z_1..z_H (anchor + targets), matching sigreg(emb).
+# Everything else is identical to v100.
+#
+# --- inherited v100 notes ---
+#
 # PPO + IterThink v100 (v24 Beta + LeWM dreamer4-style imagination training).
 # From v99.
 #
@@ -423,9 +476,11 @@ class Args:
     lewm_reward_v_min: float = -3.0
     lewm_reward_v_max: float = 3.0
     lewm_sigreg_coef: float = 0.09
-    lewm_sigreg_num_proj: int = 256
+    lewm_sigreg_num_proj: int = 1024  # v103: 256->1024, matches le-wm (halves ECF estimator std-error)
     lewm_sigreg_knots: int = 17
     lewm_sigreg_min_valid: int = 32
+    lewm_weight_decay: float = 1e-3   # v103: AdamW weight decay on WM params only (le-wm parity); 0 elsewhere
+    lewm_grad_clip: float = 1.0       # v103: WM grad-norm clip (le-wm uses 1.0); PPO keeps max_grad_norm=0.5
     detach_world_model_from_agent: bool = True
 
     # v100 dreamer4-style imagination training. The frozen (detached) WM is used as
@@ -613,6 +668,62 @@ class LeWMTransformerBlock(nn.Module):
         return x
 
 
+def rotate_half(x):
+    x1, x2 = x.chunk(2, dim=-1)
+    return torch.cat((-x2, x1), dim=-1)
+
+
+class RoPETimeBlock(nn.Module):
+    # Transformer block for the predictor's TIME axis, with ROTARY position
+    # embedding on q/k. Same pre-norm / residual-scale / relu^2-FFN structure as
+    # LeWMTransformerBlock, but a manual multi-head attention (nn.MultiheadAttention
+    # cannot inject RoPE). Relative positions are the right inductive bias for the
+    # autoregressive sliding-window dynamics model: attention depends only on (i-j),
+    # so the imagination window can slide without relabelling states (v103 note 7).
+    def __init__(self, dim, num_heads, ffn_mult, rope_theta=10000.0):
+        super().__init__()
+        if dim % num_heads != 0:
+            raise ValueError(f"dim {dim} not divisible by num_heads {num_heads}")
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        if self.head_dim % 2 != 0:
+            raise ValueError(f"head_dim {self.head_dim} must be even for RoPE")
+        self.attn_norm = nn.RMSNorm(dim)
+        self.ffn_norm = nn.RMSNorm(dim)
+        self.qkv = xavier_linear(nn.Linear(dim, 3 * dim, bias=False))
+        self.proj = xavier_linear(nn.Linear(dim, dim, bias=False))
+        self.attn_scale = nn.Parameter(torch.ones(dim))
+        self.ffn_scale = nn.Parameter(torch.ones(dim))
+        self.w1 = xavier_linear(nn.Linear(dim, dim * ffn_mult, bias=False))
+        self.w2 = xavier_linear(nn.Linear(dim * ffn_mult, dim, bias=False))
+        inv_freq = 1.0 / (rope_theta ** (torch.arange(0, self.head_dim, 2).float() / self.head_dim))
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
+
+    def _rope_cos_sin(self, seq_len, device, dtype):
+        pos = torch.arange(seq_len, device=device, dtype=torch.float32)
+        freqs = torch.outer(pos, self.inv_freq.to(device))  # (T, head_dim/2)
+        emb = torch.cat((freqs, freqs), dim=-1)             # (T, head_dim)
+        return emb.cos().to(dtype), emb.sin().to(dtype)
+
+    def forward(self, x, causal=True):
+        batch, seq_len, width = x.shape
+        h = self.attn_norm(x)
+        qkv = self.qkv(h).reshape(batch, seq_len, 3, self.num_heads, self.head_dim)
+        qkv = qkv.permute(2, 0, 3, 1, 4)                    # (3, B, heads, T, head_dim)
+        q, k, v = qkv[0], qkv[1], qkv[2]
+        cos, sin = self._rope_cos_sin(seq_len, x.device, q.dtype)
+        cos = cos.view(1, 1, seq_len, self.head_dim)
+        sin = sin.view(1, 1, seq_len, self.head_dim)
+        q = q * cos + rotate_half(q) * sin
+        k = k * cos + rotate_half(k) * sin
+        attn_out = F.scaled_dot_product_attention(q, k, v, is_causal=causal)
+        attn_out = attn_out.transpose(1, 2).reshape(batch, seq_len, width)
+        x = x + self.attn_scale.view(1, 1, -1).to(x.dtype) * self.proj(attn_out)
+        h = self.ffn_norm(x)
+        x = x + self.ffn_scale.view(1, 1, -1).to(x.dtype) * self.w2(relu_sq(self.w1(h)))
+        return x
+
+
 class LeWMAxialPredictorBlock(nn.Module):
     def __init__(self, dim, num_heads, ffn_mult, axis):
         super().__init__()
@@ -620,7 +731,12 @@ class LeWMAxialPredictorBlock(nn.Module):
             raise ValueError(f"unknown predictor axis {axis}")
         self.axis = axis
         self.cond_proj = xavier_linear(nn.Linear(dim, dim, bias=False))
-        self.block = LeWMTransformerBlock(dim, num_heads, ffn_mult)
+        # v103: time-axis attention is RoPE (relative position); space axis stays
+        # plain self-attention (no positional code needed across feature tokens).
+        if axis == "time":
+            self.block = RoPETimeBlock(dim, num_heads, ffn_mult)
+        else:
+            self.block = LeWMTransformerBlock(dim, num_heads, ffn_mult)
 
     def forward(self, x, action_features):
         # x: (B, T, S, D), action_features: (B, T, D)
@@ -1080,12 +1196,24 @@ if __name__ == "__main__":
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
 
     agent = Agent(envs, args).to(device)
-    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    # v103: AdamW with a WM-only weight-decay group (le-wm uses AdamW wd=1e-3 on the
+    # world model). Non-WM params keep weight_decay=0, where AdamW is identical to
+    # the previous plain Adam, so PPO dynamics are unchanged. eps preserved at 1e-5.
+    world_model_params = list(agent.world_model.parameters())
+    wm_param_ids = {id(p) for p in world_model_params}
+    non_wm_params = [p for p in agent.parameters() if id(p) not in wm_param_ids]
+    optimizer = optim.AdamW(
+        [
+            {"params": non_wm_params, "weight_decay": 0.0},
+            {"params": world_model_params, "weight_decay": args.lewm_weight_decay},
+        ],
+        lr=args.learning_rate,
+        eps=1e-5,
+    )
     # Param groups for decoupled clipping. With a shared backbone, the trunk
     # appears in BOTH lists (it receives policy and value gradients separately).
     actor_params = agent.actor_parameters()
     critic_params = agent.critic_parameters()
-    world_model_params = list(agent.world_model.parameters())
     wm_outcome_io_params = (
         list(agent.world_model.outcome_norm.parameters())
         + list(agent.world_model.reward_action_proj.parameters())
@@ -1224,7 +1352,8 @@ if __name__ == "__main__":
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
-            optimizer.param_groups[0]["lr"] = lrnow
+            for pg in optimizer.param_groups:  # v103: anneal both the non-WM and WM groups
+                pg["lr"] = lrnow
 
         rollout_actor_active = global_step >= args.wm_warmup_steps
         for step in range(0, args.num_steps):
@@ -1502,6 +1631,10 @@ if __name__ == "__main__":
                     )
                     # Recurrent stream is obs-only; semantic slots of the (teacher-forced)
                     # encoder summaries are not fed back as predictor input.
+                    # v102: context is NOT detached -- the encoder receives gradient
+                    # through the predictor-input path too (faithful to le-wm, where
+                    # emb feeds both ctx_emb and tgt_emb with no detach). The encoder
+                    # is now shaped as both a good *input* and a good *target* rep.
                     obs_start = agent.world_model.obs_token_start
                     teacher_history = torch.cat(
                         [
@@ -1509,7 +1642,7 @@ if __name__ == "__main__":
                             target_summaries[:, :-1, obs_start:],
                         ],
                         dim=1,
-                    ).detach()
+                    )
                     pred_mtp = agent.world_model.predict_mtp_from_history(teacher_history, future_actions)
 
                     prev_continues = torch.cat(
@@ -1664,10 +1797,23 @@ if __name__ == "__main__":
                     wm_pred_termination_loss = torch.stack(termination_losses).sum()
                     wm_reward_loss = wm_pred_reward_loss + target_reward_loss
                     wm_termination_loss = wm_pred_termination_loss + target_termination_loss
-                    wm_sigreg_loss = masked_token_sigreg(
-                        target_summaries[:, :, agent.world_model.obs_token_start :],
-                        latent_weight,
+                    # v102: SIGReg on BOTH sides (z_0 anchor + z_1..z_H targets),
+                    # matching the LeWM diagram where the shared encoder's full
+                    # embedding sequence is isotropy-constrained. Previously only the
+                    # targets were regularized, leaving the rollout-anchor z_0 (the
+                    # state imagination actually rolls from) unconstrained.
+                    sigreg_latents = torch.cat(
+                        [
+                            initial_summary[:, agent.world_model.obs_token_start :].unsqueeze(1),
+                            target_summaries[:, :, agent.world_model.obs_token_start :],
+                        ],
+                        dim=1,
                     )
+                    sigreg_weight = torch.cat(
+                        [torch.ones(mb_size, 1, device=device), latent_weight],
+                        dim=1,
+                    )
+                    wm_sigreg_loss = masked_token_sigreg(sigreg_latents, sigreg_weight)
                     wm_loss = (
                         args.lewm_loss_coef * wm_latent_loss
                         + args.lewm_reward_loss_coef * wm_reward_loss
@@ -1683,10 +1829,10 @@ if __name__ == "__main__":
                     (wm_loss / wm_accum_divisor).backward()
                     wm_accum_count += 1
                     if wm_accum_count >= wm_accum_steps or end >= args.batch_size:
-                        wm_gn = nn.utils.clip_grad_norm_(wm_latent_params, args.max_grad_norm)
+                        wm_gn = nn.utils.clip_grad_norm_(wm_latent_params, args.lewm_grad_clip)
                         wm_outcome_io_gn = nn.utils.clip_grad_norm_(
                             wm_outcome_io_params,
-                            args.max_grad_norm,
+                            args.lewm_grad_clip,
                         )
                         optimizer.step()
                         wm_grad_norms.append(float(wm_gn))
@@ -1878,7 +2024,7 @@ if __name__ == "__main__":
                     optimizer.step()
                 else:
                     loss = pg_loss - ent_coef_eff * entropy_loss + v_loss * args.vf_coef
-                    optimizer.zero_grad()
+                    optimizer.zero_grad(set_to_none=True)  # v103: None (not 0) so AdamW wd skips ungraded WM params
                     loss.backward()
                     critic_gn = actor_gn = nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                     optimizer.step()
@@ -1906,29 +2052,63 @@ if __name__ == "__main__":
             im_reward_sum = torch.zeros((), device=device)
             im_continue_sum = torch.zeros((), device=device)
             im_edge_sum = torch.zeros((), device=device)
+            # v103 warm-start: a seed at (step j, env e) is "clean" if the window
+            # [j-W+1 .. j] lies within one episode and j>=W-1. dones[s]=1 marks an
+            # episode-start obs, so a reset between window steps p-1,p shows as
+            # dones[p]=1; require dones==0 at j, j-1, ..., j-(W-2) (the W-1 internal
+            # transitions). Seeds restricted to clean windows get a full real context;
+            # if none exist we fall back to the length-1 seed.
+            W_im = min(agent.world_model.context, args.num_steps)
+            clean_seed = (torch.arange(args.num_steps, device=device) >= (W_im - 1)).unsqueeze(1)
+            clean_seed = clean_seed.expand(args.num_steps, args.num_envs).clone()
+            for d in range(0, W_im - 1):  # positions j-d for d=0..W-2 -> roll(dones, d)[j]=dones[j-d]
+                clean_seed &= torch.roll(dones, shifts=d, dims=0) == 0
+            clean_flat = clean_seed.reshape(-1).nonzero(as_tuple=False).squeeze(-1)
             for _ in range(args.imagine_batches):
                 with torch.no_grad():
                     # Start dreams from real rollout states (encode WM summaries with
                     # the freshly-updated WM, matching the rollout encoding path).
-                    flat_idx = torch.randint(0, args.batch_size, (B_im,), device=device)
+                    if clean_flat.numel() > 0:
+                        sel = torch.randint(0, clean_flat.numel(), (B_im,), device=device)
+                        flat_idx = clean_flat[sel]
+                    else:
+                        flat_idx = torch.randint(0, args.batch_size, (B_im,), device=device)
                     step_idx = flat_idx // args.num_envs
                     env_idx = flat_idx % args.num_envs
-                    s = agent.world_model.encode_summary_with_outcomes(
-                        obs[step_idx, env_idx],
-                        prev_reward_probs[step_idx, env_idx],
-                        prev_outcome_continues[step_idx, env_idx],
-                    ).detach()
                     ag_inputs, im_zs, im_lps, im_rs, im_cs, im_vps = [], [], [], [], [], []
                     # Recurrent imagination: carry a GROWING (latent, action) history and
                     # condition the predictor on it, exactly like the teacher-forced
-                    # training path (predict_mtp_from_history, whose context grows from 1
-                    # up to self.context across the horizon). _predictor_trunk truncates to
-                    # self.context, so this also matches the rollout belief context —
-                    # instead of querying the WM with a length-1 context at every step,
-                    # which it only ever saw at position 0 during training.
+                    # training path (predict_mtp_from_history, whose context grows up to
+                    # self.context). v103 WARM-START: seed the history with the real
+                    # preceding rollout window (W states + W-1 real actions) instead of a
+                    # length-1 context, so the first dreamed step sees a full real context
+                    # — the regime the predictor is strongest in. _predictor_trunk truncates
+                    # to self.context as the window then slides forward through the dream.
                     obs_start = agent.world_model.obs_token_start
-                    hist_latents = [s[:, obs_start:]]   # obs-only recurrent state l_0..l_t
-                    hist_actions = []           # actions taken a_0..a_{t-1}
+                    if clean_flat.numel() > 0:
+                        win_d = torch.arange(W_im - 1, -1, -1, device=device)         # [W-1,...,0]
+                        win_steps = step_idx.unsqueeze(0) - win_d.unsqueeze(1)        # (W, B_im): l_{j-W+1}..l_j
+                        ws = win_steps.reshape(-1)
+                        we = env_idx.unsqueeze(0).expand(W_im, -1).reshape(-1)
+                        win_summ = agent.world_model.encode_summary_with_outcomes(
+                            obs[ws, we],
+                            prev_reward_probs[ws, we],
+                            prev_outcome_continues[ws, we],
+                        ).detach().reshape(
+                            W_im, B_im, agent.world_model.num_latent_tokens, agent.world_model.dim
+                        )
+                        # W real states l_{j-W+1}..l_j; W-1 real actions a_{j-W+1}..a_{j-1}
+                        # (action[d] is taken FROM state[d], pairing as the predictor expects).
+                        hist_latents = [win_summ[d][:, obs_start:] for d in range(W_im)]
+                        hist_actions = [actions[win_steps[d], env_idx] for d in range(W_im - 1)]
+                    else:
+                        s = agent.world_model.encode_summary_with_outcomes(
+                            obs[step_idx, env_idx],
+                            prev_reward_probs[step_idx, env_idx],
+                            prev_outcome_continues[step_idx, env_idx],
+                        ).detach()
+                        hist_latents = [s[:, obs_start:]]   # obs-only recurrent state l_t
+                        hist_actions = []                   # no real history available
                     for t in range(H_im):
                         latent_hist = torch.stack(hist_latents, dim=1)               # (B, t+1, obs_tok, dim)
                         # Belief the actor acts on: current action slot is neutral (the
@@ -2043,7 +2223,7 @@ if __name__ == "__main__":
                     optimizer.step()
                 else:
                     loss_im = pg_loss_im - imagine_ent_coef * entropy_loss_im + v_loss_im * args.vf_coef
-                    optimizer.zero_grad()
+                    optimizer.zero_grad(set_to_none=True)  # v103: None (not 0) so AdamW wd skips ungraded WM params
                     loss_im.backward()
                     im_critic_gn = im_actor_gn = nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                     optimizer.step()

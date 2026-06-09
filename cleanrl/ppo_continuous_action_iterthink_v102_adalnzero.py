@@ -1,3 +1,49 @@
+# PPO + IterThink v102 (AdaLN-zero action conditioning + predictor dropout).
+# Derives from v101 (rolling-window imagination seeding) + the v100 d4hlgauss critic.
+#
+# WHAT'S NEW vs v101 — faithful port of le-wm's action conditioning (../le-wm/module.py):
+#   1. AdaLN-zero injection (le-wm ConditionalBlock). The predictor's ungated additive
+#      FiLM (x += cond_proj(action_features)) is replaced by per-block AdaLN-zero
+#      modulation around attention and FFN: affine-free RMSNorm -> modulate(shift, scale)
+#      -> sublayer -> gate * residual, with the per-block modulation Linear ZERO-INIT so
+#      each predictor block is identity at init and learns conditioning gradually (the
+#      DiT/le-wm stability property we previously lacked: no scale, no gate, no zero-init).
+#      Conditioning is per-frame (action_features) broadcast over the space-token axis.
+#      Action TOKENS (per-obs-dim routing) are KEPT: in our axial multi-token state they
+#      provide a capability AdaLN's per-frame modulation structurally cannot.
+#   2. Nonlinear action-conditioning encoder (ActionEmbedder): action_cond goes from a
+#      single Linear to le-wm's Embedder shape (pointwise Linear + MLP).
+#   3. Predictor dropout 0.1 (paper: +18 SR), in the predictor blocks only (attn + FFN);
+#      the encoder stays dropout-free. NOTE: active in train mode, so it also injects
+#      MC-dropout stochasticity into rollout beliefs and imagined rollouts (le-wm has no
+#      imagination; this is our regime) — plausibly beneficial (a stochastic WM is less
+#      exploitable) but worth watching for behavior-policy noise.
+#   ACTIVATION NOTE: the new modules use relu_sq (our WM's activation), not le-wm's SiLU.
+#
+# PPO + IterThink v101 (rolling-window imagination seeding).
+# Derives from ppo_continuous_action_iterthink_v100_v24beta_lewm_imagine_dreamer.py
+# (the v100 dreamer file, which uses the d4hlgauss-nocriticbias-MTP scalar HL-Gauss
+# critic) and changes ONLY the seed-state distribution of the imagination block.
+#
+# WHAT'S NEW vs v100. The dreamer imagination block seeds dreamed rollouts from real
+# rollout states. v100 seeds ONLY from the current iteration's rollout buffer, so the
+# imagined updates see a narrow, instantaneous slice of the state distribution. v101
+# maintains a FIFO rolling window of the last K=4 real rollouts (DETACHED CLONES of
+# the seed buffers, since those buffers are overwritten in place each iteration) and
+# pools them into the seed distribution. Each imagine cycle samples seeds uniformly
+# from W*batch_size pooled states (W ramps 1..K as the window fills).
+#
+# This is PURELY a change to the SEED-STATE distribution: the dream still re-rolls the
+# CURRENT policy from each seed, so the imagined data is on-policy and NO off-policy
+# correction is needed. The dream rollout, the actor/critic losses, and the scalar
+# HL-Gauss critic are all UNTOUCHED from v100.
+#
+# HYPOTHESIS. More diverse, less narrowly-on-policy seed states give the imagined
+# updates better coverage of the state manifold and reduce overfitting of those
+# updates to the instantaneous (current-iteration) state distribution, improving
+# benchmark return.
+#
+# --- v100 description (inherited) ---
 # PPO + IterThink v100 (v24 Beta + LeWM dreamer4-style imagination training).
 # From v99.
 #
@@ -406,6 +452,7 @@ class Args:
     lewm_dim: int = 64
     lewm_encoder_layers: int = 2
     lewm_predictor_layers: int = 4
+    lewm_predictor_dropout: float = 0.1   # dropout in predictor blocks only (paper: +18 SR)
     lewm_heads: int = 4
     lewm_kv_heads: int = 2
     lewm_ffn_mult: int = 2
@@ -439,6 +486,7 @@ class Args:
     imagine_batch_size: int = 4096    # starting states per imagined block (parallel envs in dream)
     imagine_horizon: int = 6          # imagined rollout length; block = horizon * batch_size transitions
     imagine_warmup_steps: int = 100000  # let real PPO + WM establish before imagining
+    imagine_state_window: int = 4     # K: seed imagination from the last K real rollouts (state diversity)
 
     batch_size: int = 0
     minibatch_size: int = 0
@@ -613,25 +661,92 @@ class LeWMTransformerBlock(nn.Module):
         return x
 
 
+def modulate(x, shift, scale):
+    # AdaLN-zero modulation (DiT / le-wm module.py): x * (1 + scale) + shift.
+    return x * (1 + scale) + shift
+
+
+class ActionEmbedder(nn.Module):
+    # Nonlinear action-conditioning encoder, le-wm Embedder analog (pointwise
+    # "smoothing" Linear + MLP). Uses relu_sq (our WM's activation) in place of
+    # le-wm's SiLU, for consistency with the rest of the predictor.
+    def __init__(self, act_dim, dim, mlp_scale=4):
+        super().__init__()
+        self.proj = xavier_linear(nn.Linear(act_dim, dim))
+        self.fc1 = xavier_linear(nn.Linear(dim, mlp_scale * dim))
+        self.fc2 = xavier_linear(nn.Linear(mlp_scale * dim, dim))
+
+    def forward(self, a):
+        # a: (..., act_dim) -> (..., dim)
+        return self.fc2(relu_sq(self.fc1(self.proj(a))))
+
+
+class LeWMConditionalBlock(nn.Module):
+    # Inner axial transformer block with AdaLN-zero conditioning (faithful to
+    # le-wm's ConditionalBlock): affine-free norm -> modulate(shift, scale) ->
+    # sublayer -> gate * residual. Keeps our RMSNorm / relu_sq-FFN / MHA internals;
+    # the learned attn_scale/ffn_scale of LeWMTransformerBlock are replaced by the
+    # AdaLN gates. Dropout (predictor-only) lives in attn weights + the FFN.
+    def __init__(self, dim, num_heads, ffn_mult, dropout=0.0):
+        super().__init__()
+        self.attn_norm = nn.RMSNorm(dim, elementwise_affine=False)
+        self.ffn_norm = nn.RMSNorm(dim, elementwise_affine=False)
+        self.attn = nn.MultiheadAttention(
+            dim, num_heads, batch_first=True, bias=False, dropout=dropout
+        )
+        self.w1 = xavier_linear(nn.Linear(dim, dim * ffn_mult, bias=False))
+        self.w2 = xavier_linear(nn.Linear(dim * ffn_mult, dim, bias=False))
+        self.drop = nn.Dropout(dropout)
+        for name, param in self.attn.named_parameters():
+            if "weight" in name:
+                nn.init.xavier_uniform_(param)
+
+    def forward(self, x, shift_a, scale_a, gate_a, shift_f, scale_f, gate_f, causal=False):
+        attn_mask = None
+        if causal:
+            seq = x.shape[1]
+            attn_mask = torch.ones(seq, seq, dtype=torch.bool, device=x.device).triu(1)
+        h = modulate(self.attn_norm(x), shift_a, scale_a)
+        attn_out, _ = self.attn(h, h, h, attn_mask=attn_mask, need_weights=False)
+        x = x + gate_a * attn_out
+        h = modulate(self.ffn_norm(x), shift_f, scale_f)
+        x = x + gate_f * self.drop(self.w2(relu_sq(self.w1(h))))
+        return x
+
+
 class LeWMAxialPredictorBlock(nn.Module):
-    def __init__(self, dim, num_heads, ffn_mult, axis):
+    def __init__(self, dim, num_heads, ffn_mult, axis, dropout=0.0):
         super().__init__()
         if axis not in {"space", "time"}:
             raise ValueError(f"unknown predictor axis {axis}")
         self.axis = axis
-        self.cond_proj = xavier_linear(nn.Linear(dim, dim, bias=False))
-        self.block = LeWMTransformerBlock(dim, num_heads, ffn_mult)
+        # Per-block AdaLN-zero conditioner: relu_sq(action_features) -> Linear(dim, 6*dim).
+        # ZERO-INIT (weight and bias) so shift=scale=gate=0 at init => each predictor
+        # block is identity at init and learns conditioning gradually (DiT/le-wm trick).
+        self.adaLN = nn.Linear(dim, 6 * dim)
+        nn.init.zeros_(self.adaLN.weight)
+        nn.init.zeros_(self.adaLN.bias)
+        self.block = LeWMConditionalBlock(dim, num_heads, ffn_mult, dropout=dropout)
 
     def forward(self, x, action_features):
-        # x: (B, T, S, D), action_features: (B, T, D)
-        x = x + self.cond_proj(action_features).unsqueeze(2)
+        # x: (B, T, S, D); action_features: (B, T, D) -> per-frame conditioning,
+        # broadcast over the space (token) axis. Replaces the old ungated additive
+        # FiLM (x += cond_proj(action_features)) with AdaLN-zero modulation.
         batch, time_len, space_len, width = x.shape
+        mod = self.adaLN(relu_sq(action_features))   # (B, T, 6D)
         if self.axis == "space":
             y = x.reshape(batch * time_len, space_len, width)
-            y = self.block(y, causal=False)
+            m = mod.reshape(batch * time_len, 1, 6 * width)            # broadcast over S
+            sa, ca, ga, sf, cf, gf = m.chunk(6, dim=-1)
+            y = self.block(y, sa, ca, ga, sf, cf, gf, causal=False)
             return y.reshape(batch, time_len, space_len, width)
+        # time axis: tokens along T (causal); conditioning is per-frame, broadcast over S.
         y = x.permute(0, 2, 1, 3).contiguous().reshape(batch * space_len, time_len, width)
-        y = self.block(y, causal=True)
+        m = mod.unsqueeze(1).expand(batch, space_len, time_len, 6 * width).reshape(
+            batch * space_len, time_len, 6 * width
+        )
+        sa, ca, ga, sf, cf, gf = m.chunk(6, dim=-1)
+        y = self.block(y, sa, ca, ga, sf, cf, gf, causal=True)
         return y.reshape(batch, space_len, time_len, width).permute(0, 2, 1, 3).contiguous()
 
 
@@ -676,11 +791,14 @@ class LeWMBackbone(nn.Module):
         self.action_in = xavier_linear(nn.Linear(1, self.dim))
         self.action_dim_embed = nn.Parameter(torch.empty(act_dim, self.dim))
         nn.init.xavier_uniform_(self.action_dim_embed)
-        self.action_cond = xavier_linear(nn.Linear(act_dim, self.dim))
+        self.action_cond = ActionEmbedder(act_dim, self.dim)
         axes = ["space", "time"] * ((args.lewm_predictor_layers + 1) // 2)
         self.predictor_layers = nn.ModuleList(
             [
-                LeWMAxialPredictorBlock(self.dim, args.lewm_heads, args.lewm_ffn_mult, axis)
+                LeWMAxialPredictorBlock(
+                    self.dim, args.lewm_heads, args.lewm_ffn_mult, axis,
+                    dropout=args.lewm_predictor_dropout,
+                )
                 for axis in axes[: args.lewm_predictor_layers]
             ]
         )
@@ -1220,6 +1338,14 @@ if __name__ == "__main__":
         belief_actions = torch.stack(past_actions + [neutral_action], dim=1)
         return agent.agent_input_from_history(belief_latents, belief_actions), current_latent
 
+    # Rolling FIFO window of the last K real rollouts, used to seed imagination
+    # from a more diverse start-state distribution. Each entry is a tuple of
+    # DETACHED CLONES of (obs, prev_reward_probs, prev_outcome_continues); clones
+    # are mandatory because those buffers are overwritten IN PLACE each iteration,
+    # so storing references would alias to the latest rollout. Appended once per
+    # iteration after the rollout completes (see below); capped at K, oldest evicted.
+    imagine_seed_window = []
+
     for iteration in range(1, args.num_iterations + 1):
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
@@ -1326,6 +1452,23 @@ if __name__ == "__main__":
                         print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+
+        # Rollout buffers are now fully populated for this iteration. Push a
+        # DETACHED CLONE snapshot of the seed buffers into the rolling window
+        # BEFORE the imagination block. This runs every iteration (including any
+        # world_model_only warmup iterations that `continue` past imagination),
+        # so by the time imagine_warmup_steps passes the window holds up to K
+        # rollouts. Clones are required: obs/prev_reward_probs/prev_outcome_continues
+        # are overwritten in place next iteration, so references would alias.
+        imagine_seed_window.append(
+            (
+                obs.detach().clone(),
+                prev_reward_probs.detach().clone(),
+                prev_outcome_continues.detach().clone(),
+            )
+        )
+        if len(imagine_seed_window) > args.imagine_state_window:
+            imagine_seed_window.pop(0)  # evict oldest (FIFO)
 
         with torch.no_grad():
             next_transition_value_logits = agent.get_value_from_agent_input(
@@ -1906,17 +2049,32 @@ if __name__ == "__main__":
             im_reward_sum = torch.zeros((), device=device)
             im_continue_sum = torch.zeros((), device=device)
             im_edge_sum = torch.zeros((), device=device)
+            # Pool the rolling window of the last W (<=K) real rollouts into flat seed
+            # tensors. Each snapshot is (num_steps, num_envs, ...); flatten the leading
+            # two axes and cat along the sample axis -> pools of shape (W*batch_size, ...).
+            # W ramps 1..K as the window fills. This ONLY changes the seed-state
+            # distribution; the dream re-rolls the current policy from each seed, so the
+            # imagined data stays on-policy and no off-policy correction is needed.
+            W = len(imagine_seed_window)
+            pooled_obs = torch.cat(
+                [snap[0].reshape((-1,) + snap[0].shape[2:]) for snap in imagine_seed_window], dim=0
+            )
+            pooled_reward_probs = torch.cat(
+                [snap[1].reshape((-1,) + snap[1].shape[2:]) for snap in imagine_seed_window], dim=0
+            )
+            pooled_continues = torch.cat(
+                [snap[2].reshape((-1,) + snap[2].shape[2:]) for snap in imagine_seed_window], dim=0
+            )
             for _ in range(args.imagine_batches):
                 with torch.no_grad():
-                    # Start dreams from real rollout states (encode WM summaries with
-                    # the freshly-updated WM, matching the rollout encoding path).
-                    flat_idx = torch.randint(0, args.batch_size, (B_im,), device=device)
-                    step_idx = flat_idx // args.num_envs
-                    env_idx = flat_idx % args.num_envs
+                    # Start dreams from real rollout states drawn from the pooled window
+                    # (encode WM summaries with the freshly-updated WM, matching the
+                    # rollout encoding path). The pool is already flat, so index directly.
+                    idx = torch.randint(0, W * args.batch_size, (B_im,), device=device)
                     s = agent.world_model.encode_summary_with_outcomes(
-                        obs[step_idx, env_idx],
-                        prev_reward_probs[step_idx, env_idx],
-                        prev_outcome_continues[step_idx, env_idx],
+                        pooled_obs[idx],
+                        pooled_reward_probs[idx],
+                        pooled_continues[idx],
                     ).detach()
                     ag_inputs, im_zs, im_lps, im_rs, im_cs, im_vps = [], [], [], [], [], []
                     # Recurrent imagination: carry a GROWING (latent, action) history and

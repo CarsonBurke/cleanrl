@@ -1,3 +1,25 @@
+# PPO + IterThink v102 (v100 + LeWM encoder-symmetry fixes). From v100.
+#
+# MOTIVATION. The LeWM design (see paper diagram) is encoder-SYMMETRIC: a single
+# shared encoder produces z_t (predictor input/context) and z_{t+1} (target), and
+# BOTH receive (a) prediction-loss gradient — le-wm computes pred_loss on
+# emb[:ctx] and emb[n_preds:] with NEITHER detached — and (b) SIGReg, applied to
+# the FULL embedding sequence (sigreg(emb) over all timesteps). v100 was
+# target-side-only on both counts: the predictor context was detached (so the
+# encoder got no "good input rep" gradient) and SIGReg covered only the z_1..z_H
+# targets, leaving the z_0 rollout anchor — the state imagination actually rolls
+# FROM — unconstrained. v102 restores both symmetries:
+#   (1) Context un-detached: the encoder is shaped as both a good input and a good
+#       target representation (faithful to le-wm). NOTE: this reverses v85, which
+#       detached the context specifically so the predicted-outcome (reward/cont)
+#       head losses would not push gradient through historical encoder summaries.
+#       le-wm has no outcome heads, so this confound is ours alone — watch for the
+#       outcome heads destabilizing the encoder via the now-live context path.
+#   (2) SIGReg on BOTH z_0 and z_1..z_H (anchor + targets), matching sigreg(emb).
+# Everything else is identical to v100.
+#
+# --- inherited v100 notes ---
+#
 # PPO + IterThink v100 (v24 Beta + LeWM dreamer4-style imagination training).
 # From v99.
 #
@@ -1502,6 +1524,10 @@ if __name__ == "__main__":
                     )
                     # Recurrent stream is obs-only; semantic slots of the (teacher-forced)
                     # encoder summaries are not fed back as predictor input.
+                    # v102: context is NOT detached -- the encoder receives gradient
+                    # through the predictor-input path too (faithful to le-wm, where
+                    # emb feeds both ctx_emb and tgt_emb with no detach). The encoder
+                    # is now shaped as both a good *input* and a good *target* rep.
                     obs_start = agent.world_model.obs_token_start
                     teacher_history = torch.cat(
                         [
@@ -1509,7 +1535,7 @@ if __name__ == "__main__":
                             target_summaries[:, :-1, obs_start:],
                         ],
                         dim=1,
-                    ).detach()
+                    )
                     pred_mtp = agent.world_model.predict_mtp_from_history(teacher_history, future_actions)
 
                     prev_continues = torch.cat(
@@ -1664,10 +1690,23 @@ if __name__ == "__main__":
                     wm_pred_termination_loss = torch.stack(termination_losses).sum()
                     wm_reward_loss = wm_pred_reward_loss + target_reward_loss
                     wm_termination_loss = wm_pred_termination_loss + target_termination_loss
-                    wm_sigreg_loss = masked_token_sigreg(
-                        target_summaries[:, :, agent.world_model.obs_token_start :],
-                        latent_weight,
+                    # v102: SIGReg on BOTH sides (z_0 anchor + z_1..z_H targets),
+                    # matching the LeWM diagram where the shared encoder's full
+                    # embedding sequence is isotropy-constrained. Previously only the
+                    # targets were regularized, leaving the rollout-anchor z_0 (the
+                    # state imagination actually rolls from) unconstrained.
+                    sigreg_latents = torch.cat(
+                        [
+                            initial_summary[:, agent.world_model.obs_token_start :].unsqueeze(1),
+                            target_summaries[:, :, agent.world_model.obs_token_start :],
+                        ],
+                        dim=1,
                     )
+                    sigreg_weight = torch.cat(
+                        [torch.ones(mb_size, 1, device=device), latent_weight],
+                        dim=1,
+                    )
+                    wm_sigreg_loss = masked_token_sigreg(sigreg_latents, sigreg_weight)
                     wm_loss = (
                         args.lewm_loss_coef * wm_latent_loss
                         + args.lewm_reward_loss_coef * wm_reward_loss

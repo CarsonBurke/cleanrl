@@ -1,3 +1,13 @@
+# PPO + IterThink v101 (v100 semantic LeWM + TD-MPC2-style latent planner).
+#
+# KEY IDEA. Keep v100's already-useful semantic LeWM and PPO latent interface, but
+# select real environment actions with a TD-MPC2-style MPPI/CEM planner. The planner
+# rolls candidate action sequences through the frozen LeWM recurrent predictor,
+# scores predicted rewards plus existing critic bootstrap value, updates an elite
+# action distribution, and executes the first planned action. No new world-model
+# architecture is introduced here; this is a planner transplant over the current
+# latent/reward/readout system.
+#
 # PPO + IterThink v100 (v24 Beta + LeWM dreamer4-style imagination training).
 # From v99.
 #
@@ -259,6 +269,7 @@
 import os
 import random
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from math import log
 from typing import Optional
@@ -439,6 +450,34 @@ class Args:
     imagine_batch_size: int = 4096    # starting states per imagined block (parallel envs in dream)
     imagine_horizon: int = 6          # imagined rollout length; block = horizon * batch_size transitions
     imagine_warmup_steps: int = 100000  # let real PPO + WM establish before imagining
+
+    # v101: TD-MPC2-style latent planner over the existing semantic LeWM. This is
+    # behavior selection only: candidate action sequences are scored by predicted
+    # reward/continuation plus the current critic bootstrap in the final imagined
+    # belief. Actions are converted back to the actor's native sample space so PPO
+    # can still replay log-probs for the planner-selected behavior action.
+    planner_enable: bool = True
+    planner_start_step: int = 100000
+    planner_horizon: int = 3
+    # TD-MPC2's official 512 samples x 6 iterations is for one env action at a
+    # time with a compact MLP model. This variant plans 16 vector-env actions
+    # through the existing recurrent LeWM transformer, so the default keeps the
+    # official horizon/std/temperature/noise structure and elite fraction but uses
+    # a WM-realistic CEM budget. Official-strength is available via CLI.
+    planner_iterations: int = 2
+    planner_num_samples: int = 64
+    planner_num_elites: int = 8
+    planner_num_pi_trajs: int = 3
+    planner_temperature: float = 0.5
+    planner_min_std: float = 0.05
+    planner_max_std: float = 2.0
+    planner_execute_noise: bool = True
+    planner_disable_pg: bool = True  # planner behavior is not actor-sampled; mask it out of PPO PG/KL by default
+    planner_prior_update: bool = True
+    planner_prior_batches: int = 4
+    planner_prior_batch_size: int = 2048
+    planner_prior_coef: float = 1.0
+    planner_prior_entropy_coef: float = 1e-4
 
     batch_size: int = 0
     minibatch_size: int = 0
@@ -941,6 +980,25 @@ class Agent(nn.Module):
             entropy = dist.entropy().sum(1)
         return action, z, log_prob, entropy, value_logits
 
+    def rsample_action_from_agent_input(self, agent_input):
+        actor_feat, _ = self._trunks_from_agent_input(None, agent_input)
+        dist, to_action, log_det_fn = self._actor_dist(actor_feat)
+        z = dist.rsample()
+        if self.actor_dist == "beta":
+            z = z.clamp(SAMPLE_EPS, 1.0 - SAMPLE_EPS)
+        action = to_action(z)
+        log_prob = (dist.log_prob(z) - log_det_fn(z)).sum(1)
+        entropy = dist.entropy().sum(1)
+        return action, log_prob, entropy
+
+    def native_from_action(self, action):
+        if self.actor_dist == "beta":
+            z = (action - self.action_low) / (self.action_high - self.action_low)
+            return z.clamp(SAMPLE_EPS, 1.0 - SAMPLE_EPS)
+        # Invert tanh for Gaussian replay. Clamp away from |a|=1 to avoid inf.
+        a = action.clamp(-1.0 + SAMPLE_EPS, 1.0 - SAMPLE_EPS)
+        return 0.5 * (torch.log1p(a) - torch.log1p(-a))
+
     def actor_parameters(self):
         # Params receiving the POLICY gradient (incl. the shared trunk). The two
         # distribution heads are clipped together as one actor group (2-way
@@ -952,6 +1010,11 @@ class Agent(nn.Module):
         else:
             heads = list(self.actor_alpha_head.parameters()) + list(self.actor_beta_head.parameters())
         return list(trunk.parameters()) + heads
+
+    def actor_head_parameters(self):
+        if self.actor_dist == "gaussian":
+            return list(self.actor_head.parameters()) + list(self.actor_logvar_head.parameters())
+        return list(self.actor_alpha_head.parameters()) + list(self.actor_beta_head.parameters())
 
     def critic_parameters(self):
         # Params receiving the VALUE gradient (incl. the shared trunk).
@@ -968,7 +1031,7 @@ def shape_advantage(gae, sigma, u, args, device):
         # Per-state-normalized, bounded, magnitude-preserving near 0 (THE FIX).
         return torch.tanh(gae / (args.tanh_kappa * sigma))
     elif args.adv_transform == "tanh_gae":
-        gz = (gae - gae.mean()) / (gae.std() + 1e-8)
+        gz = (gae - gae.mean()) / (gae.std(unbiased=False) + 1e-8)
         return torch.tanh(gz / args.tanh_kappa)
     elif args.adv_transform == "cdf_probit":
         centered = (2.0 * u - 1.0)
@@ -978,7 +1041,7 @@ def shape_advantage(gae, sigma, u, args, device):
         # Winsorized z-score: ONE standardize + hard tail clip. tanh's hard cousin;
         # preserves bulk magnitude exactly (linear in [-c,c]) and is ~self-normalizing
         # (clipping a unit-var signal barely changes its std), so norm_adv ~ no-op.
-        gz = (gae - gae.mean()) / (gae.std() + 1e-8)
+        gz = (gae - gae.mean()) / (gae.std(unbiased=False) + 1e-8)
         return gz.clamp(-args.clip_z_c, args.clip_z_c)
     elif args.adv_transform == "rankgauss":
         # Rank-Gaussian: the principled single op. Replaces each advantage by the
@@ -1034,6 +1097,321 @@ def shape_advantage(gae, sigma, u, args, device):
         return torch.sign(gae) * mag
     else:
         raise ValueError(f"unknown adv_transform {args.adv_transform}")
+
+
+def repeat_planner_history(latent_history, action_history, repeats):
+    batch = latent_history.shape[0]
+    latent_history = latent_history[:, None].expand(batch, repeats, *latent_history.shape[1:])
+    action_history = action_history[:, None].expand(batch, repeats, *action_history.shape[1:])
+    return (
+        latent_history.reshape(batch * repeats, *latent_history.shape[2:]).contiguous(),
+        action_history.reshape(batch * repeats, *action_history.shape[2:]).contiguous(),
+    )
+
+
+def init_planner_buffers(latent_history, action_history, repeats, context):
+    latent_hist, action_hist = repeat_planner_history(latent_history, action_history, repeats)
+    hist_len = min(context, latent_hist.shape[1])
+    if latent_hist.shape[1] > hist_len:
+        latent_hist = latent_hist[:, -hist_len:]
+        action_hist = action_hist[:, -hist_len:]
+    if hist_len < context:
+        latent_buf = torch.zeros(
+            latent_hist.shape[0],
+            context,
+            latent_hist.shape[2],
+            latent_hist.shape[3],
+            device=latent_hist.device,
+            dtype=latent_hist.dtype,
+        )
+        action_buf = torch.zeros(
+            action_hist.shape[0],
+            context,
+            action_hist.shape[2],
+            device=action_hist.device,
+            dtype=action_hist.dtype,
+        )
+        latent_buf[:, :hist_len] = latent_hist
+        action_buf[:, :hist_len] = action_hist
+        return latent_buf, action_buf, hist_len
+    return latent_hist.contiguous(), action_hist.contiguous(), hist_len
+
+
+def append_planner_step(latent_hist, action_hist, hist_len, next_obs_tokens, act_dim):
+    if hist_len < action_hist.shape[1]:
+        latent_hist[:, hist_len] = next_obs_tokens
+        action_hist[:, hist_len].zero_()
+        return latent_hist, action_hist, hist_len + 1
+    latent_hist = torch.cat([latent_hist[:, 1:], next_obs_tokens.unsqueeze(1)], dim=1)
+    neutral = torch.zeros(
+        action_hist.shape[0],
+        1,
+        act_dim,
+        device=action_hist.device,
+        dtype=action_hist.dtype,
+    )
+    action_hist = torch.cat([action_hist[:, 1:], neutral], dim=1)
+    return latent_hist, action_hist, hist_len
+
+
+def planner_imagine_step(agent, latent_hist, action_hist, hist_len, action):
+    action_hist[:, hist_len - 1] = action
+    return agent.world_model.imagine_step_from_history(
+        latent_hist[:, :hist_len],
+        action_hist[:, :hist_len],
+    )
+
+
+@contextmanager
+def freeze_params(params):
+    params = list(params)
+    old_flags = [p.requires_grad for p in params]
+    for p in params:
+        p.requires_grad_(False)
+    try:
+        yield
+    finally:
+        for p, flag in zip(params, old_flags):
+            p.requires_grad_(flag)
+
+
+def differentiable_action_value(agent, latent_hist, action_hist, action, args, support, reward_support):
+    # Full-context histories from rollout storage. Build action_history by concat so
+    # gradients from the model-value objective flow to `action`.
+    dyn_actions = torch.cat([action_hist[:, :-1], action.unsqueeze(1)], dim=1)
+    next_summary, reward_logits, continuation_logits = agent.world_model.imagine_step_from_history(
+        latent_hist,
+        dyn_actions,
+    )
+    next_obs_tokens = next_summary[:, agent.world_model.obs_token_start :]
+    next_latent_hist = torch.cat([latent_hist[:, 1:], next_obs_tokens.unsqueeze(1)], dim=1)
+    neutral = torch.zeros(
+        action_hist.shape[0],
+        1,
+        action_hist.shape[-1],
+        device=action_hist.device,
+        dtype=action_hist.dtype,
+    )
+    next_action_hist = torch.cat([dyn_actions[:, 1:], neutral], dim=1)
+    next_belief = agent.world_model.belief_from_history(next_latent_hist, next_action_hist)
+    next_agent_input = next_belief.reshape(next_belief.shape[0], -1)
+    old_detach = agent.detach_world_model_from_agent
+    agent.detach_world_model_from_agent = False
+    try:
+        next_value_logits = agent.get_value_from_agent_input(None, next_agent_input)[:, 0]
+    finally:
+        agent.detach_world_model_from_agent = old_detach
+    next_value_probs = torch.softmax(next_value_logits, dim=-1)
+    next_value = (next_value_probs * support).sum(dim=-1)
+    reward = reward_support.to_scalar(reward_logits)
+    continuation = torch.sigmoid(continuation_logits)
+    return reward + args.gamma * continuation * next_value
+
+
+@torch.no_grad()
+def evaluate_planner_sequences(agent, initial_latent_history, initial_action_history,
+                               candidate_actions, args, support, reward_support):
+    # candidate_actions: (B, N, H, A), in environment action space.
+    batch, num_samples, horizon, act_dim = candidate_actions.shape
+    flat_actions = candidate_actions.reshape(batch * num_samples, horizon, act_dim)
+    latent_hist, action_hist, hist_len = init_planner_buffers(
+        initial_latent_history,
+        initial_action_history,
+        num_samples,
+        agent.world_model.context,
+    )
+    total_return = torch.zeros(batch * num_samples, device=flat_actions.device)
+    discount = torch.ones_like(total_return)
+    alive = torch.ones_like(total_return)
+    for h in range(horizon):
+        next_summary, reward_logits, continuation_logits = planner_imagine_step(
+            agent,
+            latent_hist,
+            action_hist,
+            hist_len,
+            flat_actions[:, h],
+        )
+        reward = reward_support.to_scalar(reward_logits)
+        continuation = torch.sigmoid(continuation_logits)
+        total_return = total_return + discount * alive * reward
+        alive = alive * continuation
+        discount = discount * args.gamma
+        next_obs_tokens = next_summary[:, agent.world_model.obs_token_start :].detach()
+        latent_hist, action_hist, hist_len = append_planner_step(
+            latent_hist,
+            action_hist,
+            hist_len,
+            next_obs_tokens,
+            act_dim,
+        )
+
+    final_belief = agent.world_model.belief_from_history(
+        latent_hist[:, :hist_len],
+        action_hist[:, :hist_len],
+    )
+    final_agent_input = agent.agent_input_from_latent(final_belief)
+    final_action, _, _, _, _ = agent.get_action_and_value_from_agent_input(None, final_agent_input)
+    next_summary, reward_logits, continuation_logits = planner_imagine_step(
+        agent,
+        latent_hist,
+        action_hist,
+        hist_len,
+        final_action,
+    )
+    next_obs_tokens = next_summary[:, agent.world_model.obs_token_start :].detach()
+    latent_hist, action_hist, hist_len = append_planner_step(
+        latent_hist,
+        action_hist,
+        hist_len,
+        next_obs_tokens,
+        act_dim,
+    )
+    next_belief = agent.world_model.belief_from_history(
+        latent_hist[:, :hist_len],
+        action_hist[:, :hist_len],
+    )
+    next_agent_input = agent.agent_input_from_latent(next_belief)
+    next_value_logits = agent.get_value_from_agent_input(None, next_agent_input)[:, 0]
+    next_value_probs = torch.softmax(next_value_logits, dim=-1)
+    next_value = (next_value_probs * support).sum(dim=-1)
+    final_value = (
+        reward_support.to_scalar(reward_logits)
+        + args.gamma * torch.sigmoid(continuation_logits) * next_value
+    )
+    total_return = total_return + discount * alive * final_value
+    return total_return.reshape(batch, num_samples)
+
+
+@torch.no_grad()
+def sample_policy_prior_sequences(agent, initial_latent_history, initial_action_history,
+                                  num_samples, horizon):
+    batch = initial_latent_history.shape[0]
+    act_dim = agent.world_model.act_dim
+    latent_hist, action_hist, hist_len = init_planner_buffers(
+        initial_latent_history,
+        initial_action_history,
+        num_samples,
+        agent.world_model.context,
+    )
+    actions = []
+    for _ in range(horizon):
+        belief = agent.world_model.belief_from_history(
+            latent_hist[:, :hist_len],
+            action_hist[:, :hist_len],
+        )
+        agent_input = agent.agent_input_from_latent(belief)
+        action, _, _, _, _ = agent.get_action_and_value_from_agent_input(None, agent_input)
+        actions.append(action.reshape(batch, num_samples, act_dim))
+        next_summary, _, _ = planner_imagine_step(agent, latent_hist, action_hist, hist_len, action)
+        next_obs_tokens = next_summary[:, agent.world_model.obs_token_start :].detach()
+        latent_hist, action_hist, hist_len = append_planner_step(
+            latent_hist,
+            action_hist,
+            hist_len,
+            next_obs_tokens,
+            act_dim,
+        )
+    return torch.stack(actions, dim=2)
+
+
+@torch.no_grad()
+def tdmpc2_plan(agent, initial_latent_history, initial_action_history,
+                planner_prev_mean, t0_mask, args, support, reward_support):
+    batch = initial_latent_history.shape[0]
+    act_dim = agent.world_model.act_dim
+    horizon = args.planner_horizon
+    num_samples = max(1, args.planner_num_samples)
+    num_elites = min(max(1, args.planner_num_elites), num_samples)
+    num_pi = min(max(0, args.planner_num_pi_trajs), num_samples)
+    rand_samples = num_samples - num_pi
+    device = initial_action_history.device
+    dtype = initial_action_history.dtype
+
+    mean = torch.zeros(batch, horizon, act_dim, device=device, dtype=dtype)
+    if planner_prev_mean is not None and planner_prev_mean.shape[1] == horizon:
+        mean[:, :-1] = planner_prev_mean[:, 1:]
+        mean[t0_mask.bool()] = 0.0
+    std = torch.full_like(mean, args.planner_max_std)
+
+    pi_actions = None
+    if num_pi > 0:
+        pi_actions = sample_policy_prior_sequences(
+            agent,
+            initial_latent_history,
+            initial_action_history,
+            num_pi,
+            horizon,
+        )
+
+    last_values = None
+    last_elite_values = None
+    last_elite_actions = None
+    last_scores = None
+    for _ in range(max(1, args.planner_iterations)):
+        candidate_actions = torch.empty(
+            batch,
+            num_samples,
+            horizon,
+            act_dim,
+            device=device,
+            dtype=dtype,
+        )
+        if num_pi > 0:
+            candidate_actions[:, :num_pi] = pi_actions
+        if rand_samples > 0:
+            noise = torch.randn(
+                batch,
+                rand_samples,
+                horizon,
+                act_dim,
+                device=device,
+                dtype=dtype,
+            )
+            sampled = mean[:, None] + std[:, None] * noise
+            candidate_actions[:, num_pi:] = sampled.clamp(-1.0, 1.0)
+
+        values = evaluate_planner_sequences(
+            agent,
+            initial_latent_history,
+            initial_action_history,
+            candidate_actions,
+            args,
+            support,
+            reward_support,
+        ).nan_to_num(0.0)
+        elite_values, elite_idxs = torch.topk(values, num_elites, dim=1)
+        gather_idx = elite_idxs[:, :, None, None].expand(batch, num_elites, horizon, act_dim)
+        elite_actions = candidate_actions.gather(1, gather_idx)
+        max_value = elite_values.max(dim=1, keepdim=True).values
+        scores = torch.exp(args.planner_temperature * (elite_values - max_value))
+        scores = scores / scores.sum(dim=1, keepdim=True).clamp_min(1e-9)
+        mean = (scores[:, :, None, None] * elite_actions).sum(dim=1)
+        centered = elite_actions - mean[:, None]
+        std = (scores[:, :, None, None] * centered.square()).sum(dim=1).sqrt()
+        std = std.clamp(args.planner_min_std, args.planner_max_std)
+        last_values = values
+        last_elite_values = elite_values
+        last_elite_actions = elite_actions
+        last_scores = scores
+
+    choice = torch.multinomial(last_scores.clamp_min(1e-9), 1)
+    chosen_seq = last_elite_actions.gather(
+        1,
+        choice[:, :, None, None].expand(batch, 1, horizon, act_dim),
+    ).squeeze(1)
+    action = chosen_seq[:, 0]
+    if args.planner_execute_noise:
+        action = action + std[:, 0] * torch.randn_like(action)
+    action = action.clamp(-1.0, 1.0)
+    if planner_prev_mean is not None:
+        planner_prev_mean.copy_(mean.detach())
+    metrics = {
+        "planner/value_mean": last_values.mean().detach(),
+        "planner/value_max": last_values.max(dim=1).values.mean().detach(),
+        "planner/elite_value_mean": last_elite_values.mean().detach(),
+        "planner/action_std": std[:, 0].mean().detach(),
+    }
+    return action, metrics
 
 
 if __name__ == "__main__":
@@ -1182,6 +1560,23 @@ if __name__ == "__main__":
     transition_valids = torch.ones((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
     value_probs = torch.zeros((args.num_steps, args.num_envs, args.num_bins)).to(device)
+    planner_executed = torch.zeros((args.num_steps, args.num_envs), device=device)
+    planner_latent_histories = torch.zeros(
+        args.num_steps,
+        args.num_envs,
+        args.lewm_context,
+        agent.world_model.num_obs_tokens,
+        agent.world_model.dim,
+        device=device,
+    )
+    planner_action_histories = torch.zeros(
+        args.num_steps,
+        args.num_envs,
+        args.lewm_context,
+        int(np.prod(envs.single_action_space.shape)),
+        device=device,
+    )
+    planner_history_full = torch.zeros((args.num_steps, args.num_envs), device=device, dtype=torch.bool)
 
     global_step = 0
     start_time = time.time()
@@ -1195,6 +1590,12 @@ if __name__ == "__main__":
     current_prev_reward_probs = neutral_reward_probs(args.num_envs)
     neutral_env_reward_probs = current_prev_reward_probs
     current_prev_continues = torch.ones(args.num_envs, device=device)
+    planner_prev_mean = torch.zeros(
+        args.num_envs,
+        args.planner_horizon,
+        int(np.prod(envs.single_action_space.shape)),
+        device=device,
+    )
 
     def build_belief_agent_input(obs_tensor, reward_probs, continuations):
         current_latent = agent.world_model.encode_summary_with_outcomes(obs_tensor, reward_probs, continuations)
@@ -1218,7 +1619,12 @@ if __name__ == "__main__":
             ]
         belief_latents = torch.stack(past_latents + [current_latent], dim=1)
         belief_actions = torch.stack(past_actions + [neutral_action], dim=1)
-        return agent.agent_input_from_history(belief_latents, belief_actions), current_latent
+        return (
+            agent.agent_input_from_history(belief_latents, belief_actions),
+            current_latent,
+            belief_latents,
+            belief_actions,
+        )
 
     for iteration in range(1, args.num_iterations + 1):
         if args.anneal_lr:
@@ -1227,6 +1633,8 @@ if __name__ == "__main__":
             optimizer.param_groups[0]["lr"] = lrnow
 
         rollout_actor_active = global_step >= args.wm_warmup_steps
+        rollout_planner_metrics = []
+        planner_executed.zero_()
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
@@ -1235,7 +1643,7 @@ if __name__ == "__main__":
             prev_outcome_continues[step] = current_prev_continues
 
             with torch.no_grad():
-                agent_input, current_latent = build_belief_agent_input(
+                agent_input, current_latent, belief_latents, belief_actions = build_belief_agent_input(
                     next_obs,
                     current_prev_reward_probs,
                     current_prev_continues,
@@ -1246,14 +1654,45 @@ if __name__ == "__main__":
                     logprob = torch.zeros(args.num_envs, device=device)
                     value_logits = agent.get_value_from_agent_input(next_obs, agent_input)
                 else:
-                    action, z, logprob, ent, value_logits = agent.get_action_and_value_from_agent_input(
-                        next_obs,
-                        agent_input,
+                    planner_active = (
+                        args.planner_enable
+                        and rollout_actor_active
+                        and global_step >= args.planner_start_step
                     )
+                    if planner_active:
+                        planned_action, planner_metrics = tdmpc2_plan(
+                            agent,
+                            belief_latents,
+                            belief_actions,
+                            planner_prev_mean,
+                            next_done.bool(),
+                            args,
+                            support,
+                            reward_support,
+                        )
+                        z = agent.native_from_action(planned_action)
+                        action, z, logprob, ent, value_logits = agent.get_action_and_value_from_agent_input(
+                            next_obs,
+                            agent_input,
+                            z,
+                        )
+                        planner_executed[step] = 1.0
+                        rollout_planner_metrics.append(planner_metrics)
+                    else:
+                        action, z, logprob, ent, value_logits = agent.get_action_and_value_from_agent_input(
+                            next_obs,
+                            agent_input,
+                        )
                 p = torch.softmax(value_logits[:, 0], dim=-1)   # horizon 0 = V(s_t)
                 agent_inputs[step] = agent_input
                 value_probs[step] = p
                 values[step] = (p * support).sum(dim=-1)
+                hist_len = belief_latents.shape[1]
+                planner_latent_histories[step].zero_()
+                planner_action_histories[step].zero_()
+                planner_latent_histories[step, :, -hist_len:] = belief_latents.detach()
+                planner_action_histories[step, :, -hist_len:] = belief_actions.detach()
+                planner_history_full[step] = hist_len == args.lewm_context
             actions[step] = action
             latent_zs[step] = z
             logprobs[step] = logprob
@@ -1298,7 +1737,7 @@ if __name__ == "__main__":
             transition_reward_probs = reward_support.project(reward_tensor)
             transition_continues = 1.0 - termination_tensor
             with torch.no_grad():
-                next_transition_agent_input, _ = build_belief_agent_input(
+                next_transition_agent_input, _, _, _ = build_belief_agent_input(
                     transition_next_obs_t,
                     transition_reward_probs,
                     transition_continues,
@@ -1760,6 +2199,7 @@ if __name__ == "__main__":
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
         b_latent_zs = latent_zs.reshape((-1,) + envs.single_action_space.shape)
+        b_planner_executed = planner_executed.reshape(-1)
         b_advantages = policy_adv.reshape(-1)            # policy GAE (soft when auto_alpha; else raw)
         b_sigma = sigma.reshape(-1)
         b_returns = returns.reshape(-1)
@@ -1767,23 +2207,59 @@ if __name__ == "__main__":
         b_target_probs = target_probs.reshape(-1, args.critic_mtp_horizon, args.num_bins)
         b_target_mask = return_mtp_mask.reshape(-1, args.critic_mtp_horizon)
         b_u = u.reshape(-1)
+        b_planner_latent_histories = planner_latent_histories.reshape(
+            args.batch_size,
+            args.lewm_context,
+            agent.world_model.num_obs_tokens,
+            agent.world_model.dim,
+        )
+        b_planner_action_histories = planner_action_histories.reshape(
+            args.batch_size,
+            args.lewm_context,
+            int(np.prod(envs.single_action_space.shape)),
+        )
+        b_planner_history_full = planner_history_full.reshape(-1)
+        if args.planner_disable_pg:
+            b_pg_weight_all = (1.0 - b_planner_executed).to(dtype=b_advantages.dtype)
+        else:
+            b_pg_weight_all = torch.ones_like(b_advantages)
+        b_pg_mask_all = b_pg_weight_all > 0.0
         # Policy advantage: shape the GAE per `adv_transform`. With
         # adv_transform_scope="minibatch" the shaping is deferred into the update
         # loop (recomputed per minibatch); the batch shaping below is then used
         # only for the diagnostics. norm_adv_scope="batch" standardizes the shaped
         # advantage once here instead of per minibatch.
         gae = b_advantages
-        b_policy_adv = shape_advantage(gae, b_sigma, b_u, args, device)
+        b_policy_adv = torch.zeros_like(gae)
+        if bool(b_pg_mask_all.any().item()):
+            b_policy_adv[b_pg_mask_all] = shape_advantage(
+                gae[b_pg_mask_all],
+                b_sigma[b_pg_mask_all],
+                b_u[b_pg_mask_all],
+                args,
+                device,
+            )
         if args.norm_adv and args.norm_adv_scope == "batch":
-            b_policy_adv_normed = (b_policy_adv - b_policy_adv.mean()) / (b_policy_adv.std() + 1e-8)
+            adv_denom_all = b_pg_weight_all.sum().clamp_min(1.0)
+            adv_mean_all = (b_policy_adv * b_pg_weight_all).sum() / adv_denom_all
+            adv_var_all = (
+                b_pg_weight_all * (b_policy_adv - adv_mean_all).square()
+            ).sum() / adv_denom_all
+            b_policy_adv_normed = (b_policy_adv - adv_mean_all) / (adv_var_all.sqrt() + 1e-8)
         # Diagnostics: how different is the shaped advantage from raw GAE?
-        az = (gae - gae.mean()) / (gae.std() + 1e-8)
-        pz = (b_policy_adv - b_policy_adv.mean()) / (b_policy_adv.std() + 1e-8)
+        diag_gae = gae[b_pg_mask_all] if bool(b_pg_mask_all.any().item()) else gae
+        diag_policy_adv = b_policy_adv[b_pg_mask_all] if bool(b_pg_mask_all.any().item()) else b_policy_adv
+        az = (diag_gae - diag_gae.mean()) / (diag_gae.std(unbiased=False) + 1e-8)
+        pz = (diag_policy_adv - diag_policy_adv.mean()) / (diag_policy_adv.std(unbiased=False) + 1e-8)
         adv_corr = (az * pz).mean().item()
         adv_sign_agree = (torch.sign(az) == torch.sign(pz)).float().mean().item()
 
         b_inds = np.arange(args.batch_size)
         clipfracs = []
+        pg_loss_logs = []
+        entropy_logs = []
+        old_approx_kl_logs = []
+        approx_kl_logs = []
         for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
@@ -1797,14 +2273,30 @@ if __name__ == "__main__":
                 )
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
+                pg_weight = b_pg_weight_all[mb_inds].to(dtype=ratio.dtype)
+                has_policy_samples = bool((pg_weight.sum() > 0.0).item())
+                pg_denom = pg_weight.sum().clamp_min(1.0)
 
                 with torch.no_grad():
-                    old_approx_kl = (-logratio).mean()
-                    approx_kl = ((ratio - 1) - logratio).mean()
-                    clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+                    old_approx_kl = ((-logratio) * pg_weight).sum() / pg_denom
+                    approx_kl = (((ratio - 1) - logratio) * pg_weight).sum() / pg_denom
+                    clipfrac = ((ratio - 1.0).abs() > args.clip_coef).to(dtype=ratio.dtype)
+                    if has_policy_samples:
+                        old_approx_kl_logs.append(old_approx_kl.item())
+                        approx_kl_logs.append(approx_kl.item())
+                        clipfracs.append(((clipfrac * pg_weight).sum() / pg_denom).item())
 
                 if args.adv_transform_scope == "minibatch":
-                    mb_raw_adv = shape_advantage(b_advantages[mb_inds], b_sigma[mb_inds], b_u[mb_inds], args, device)
+                    mb_raw_adv = torch.zeros_like(b_advantages[mb_inds])
+                    mb_pg_mask = pg_weight > 0.0
+                    if has_policy_samples:
+                        mb_raw_adv[mb_pg_mask] = shape_advantage(
+                            b_advantages[mb_inds][mb_pg_mask],
+                            b_sigma[mb_inds][mb_pg_mask],
+                            b_u[mb_inds][mb_pg_mask],
+                            args,
+                            device,
+                        )
                 else:
                     mb_raw_adv = b_policy_adv[mb_inds]
                 mb_advantages = mb_raw_adv
@@ -1812,7 +2304,10 @@ if __name__ == "__main__":
                     if args.norm_adv_scope == "batch":
                         mb_advantages = b_policy_adv_normed[mb_inds]
                     else:
-                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+                        adv_denom = pg_weight.sum().clamp_min(1.0)
+                        adv_mean = (mb_advantages * pg_weight).sum() / adv_denom
+                        adv_var = (pg_weight * (mb_advantages - adv_mean).square()).sum() / adv_denom
+                        mb_advantages = (mb_advantages - adv_mean) / (adv_var.sqrt() + 1e-8)
 
                 # PMPO-style asymmetric pos/neg weighting: scale positive-advantage
                 # samples by 2*alpha and negatives by 2*(1-alpha) (alpha=0.5 => identity).
@@ -1830,7 +2325,9 @@ if __name__ == "__main__":
                 clip_hi = args.clip_coef if args.clip_coef_high is None else args.clip_coef_high
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + clip_hi)
-                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+                pg_loss = (torch.max(pg_loss1, pg_loss2) * pg_weight).sum() / pg_denom
+                if has_policy_samples:
+                    pg_loss_logs.append(pg_loss.item())
 
                 # HL-Gauss MTP value loss: per-horizon CE to the scalar-return target,
                 # summed across valid future horizons per row. No value clipping.
@@ -1839,7 +2336,9 @@ if __name__ == "__main__":
                 value_mask = b_target_mask[mb_inds].to(dtype=value_ce.dtype)
                 v_loss = (value_ce * value_mask).sum(dim=-1).mean()
 
-                entropy_loss = entropy.mean()
+                entropy_loss = (entropy * pg_weight).sum() / pg_denom
+                if has_policy_samples:
+                    entropy_logs.append(entropy_loss.item())
 
                 if auto_alpha:
                     # SAC's temperature dual (sac_continuous_action.py), on the
@@ -1850,7 +2349,11 @@ if __name__ == "__main__":
                     # (the soft return's current-state entropy is action-independent => zero
                     # in the PG term, so the bonus supplies the actual entropy gradient).
                     ent_coef_eff = log_alpha.exp().detach()
-                    alpha_loss = (-log_alpha.exp() * (newlogprob.detach() + target_entropy)).mean()
+                    alpha_loss = (
+                        -log_alpha.exp()
+                        * ((newlogprob.detach() + target_entropy) * pg_weight).sum()
+                        / pg_denom
+                    )
                     alpha_optimizer.zero_grad()
                     alpha_loss.backward()
                     alpha_optimizer.step()
@@ -1883,8 +2386,56 @@ if __name__ == "__main__":
                     critic_gn = actor_gn = nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                     optimizer.step()
 
-            if args.target_kl is not None and approx_kl > args.target_kl:
+            if args.target_kl is not None and has_policy_samples and approx_kl > args.target_kl:
                 break
+
+        prior_losses = []
+        prior_qs = []
+        prior_entropies = []
+        prior_grad_norms = []
+        if args.planner_prior_update and global_step >= args.planner_start_step:
+            valid_prior_inds = torch.where(b_planner_history_full)[0]
+            if valid_prior_inds.numel() > 0:
+                actor_head_params = agent.actor_head_parameters()
+                actor_head_param_ids = {id(p) for p in actor_head_params}
+                frozen_for_prior = [p for p in agent.parameters() if id(p) not in actor_head_param_ids]
+                prior_batch_size = min(args.planner_prior_batch_size, valid_prior_inds.numel())
+                for _ in range(args.planner_prior_batches):
+                    sample_pos = torch.randint(
+                        0,
+                        valid_prior_inds.numel(),
+                        (prior_batch_size,),
+                        device=device,
+                    )
+                    prior_inds = valid_prior_inds[sample_pos]
+                    with freeze_params(frozen_for_prior):
+                        prior_agent_input = b_agent_inputs[prior_inds].detach()
+                        prior_action, _, prior_entropy = agent.rsample_action_from_agent_input(
+                            prior_agent_input
+                        )
+                        prior_q = differentiable_action_value(
+                            agent,
+                            b_planner_latent_histories[prior_inds],
+                            b_planner_action_histories[prior_inds],
+                            prior_action,
+                            args,
+                            support,
+                            reward_support,
+                        )
+                        prior_loss = -args.planner_prior_coef * (
+                            prior_q + args.planner_prior_entropy_coef * prior_entropy
+                        ).mean()
+                        optimizer.zero_grad(set_to_none=True)
+                        prior_loss.backward()
+                        prior_gn = nn.utils.clip_grad_norm_(
+                            actor_head_params,
+                            args.actor_grad_clip,
+                        )
+                        optimizer.step()
+                    prior_losses.append(prior_loss.item())
+                    prior_qs.append(prior_q.detach().mean().item())
+                    prior_entropies.append(prior_entropy.detach().mean().item())
+                    prior_grad_norms.append(float(prior_gn))
 
         # =========================== IMAGINATION TRAINING ===========================
         # dreamer4-style: with the WM frozen as a DETACHED simulator, generate fresh
@@ -2076,8 +2627,8 @@ if __name__ == "__main__":
 
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
-        writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
-        writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
+        writer.add_scalar("losses/policy_loss", float(np.mean(pg_loss_logs)) if pg_loss_logs else 0.0, global_step)
+        writer.add_scalar("losses/entropy", float(np.mean(entropy_logs)) if entropy_logs else 0.0, global_step)
         if auto_alpha:
             writer.add_scalar("losses/alpha", log_alpha.exp().item(), global_step)
             writer.add_scalar("losses/target_entropy", target_entropy, global_step)
@@ -2087,12 +2638,26 @@ if __name__ == "__main__":
             writer.add_scalar("debug/squashed_entropy", (-logprobs).mean().item(), global_step)
             writer.add_scalar("debug/soft_bootstrap_bonus", next_value_bonus.mean().item(), global_step)
             writer.add_scalar("debug/soft_adv_std_ratio", (policy_adv.std() / (advantages.std() + 1e-8)).item(), global_step)
-        writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
-        writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
-        writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
+        writer.add_scalar("losses/old_approx_kl", float(np.mean(old_approx_kl_logs)) if old_approx_kl_logs else 0.0, global_step)
+        writer.add_scalar("losses/approx_kl", float(np.mean(approx_kl_logs)) if approx_kl_logs else 0.0, global_step)
+        writer.add_scalar("losses/clipfrac", float(np.mean(clipfracs)) if clipfracs else 0.0, global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         writer.add_scalar("losses/actor_grad_norm", float(actor_gn), global_step)
         writer.add_scalar("losses/critic_grad_norm", float(critic_gn), global_step)
+        writer.add_scalar("planner/execute_frac", planner_executed.mean().item(), global_step)
+        if rollout_planner_metrics:
+            planner_metric_keys = rollout_planner_metrics[0].keys()
+            for key in planner_metric_keys:
+                writer.add_scalar(
+                    key,
+                    torch.stack([metrics[key] for metrics in rollout_planner_metrics]).mean().item(),
+                    global_step,
+                )
+        if prior_losses:
+            writer.add_scalar("planner_prior/loss", float(np.mean(prior_losses)), global_step)
+            writer.add_scalar("planner_prior/q", float(np.mean(prior_qs)), global_step)
+            writer.add_scalar("planner_prior/entropy", float(np.mean(prior_entropies)), global_step)
+            writer.add_scalar("planner_prior/grad_norm", float(np.mean(prior_grad_norms)), global_step)
         if wm_losses:
             writer.add_scalar("lewm/loss", float(np.mean(wm_losses)), global_step)
             writer.add_scalar("lewm/obs_latent_mse", float(np.mean(wm_latent_losses)), global_step)

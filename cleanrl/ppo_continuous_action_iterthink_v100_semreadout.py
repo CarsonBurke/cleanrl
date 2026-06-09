@@ -19,28 +19,14 @@
 #           the actor samples an action from the (detached) summary belief, the WM
 #           predicts next summary / reward / continuation (all detached simulator
 #           outputs), repeat;
-#        c. compute SCALAR HL-Gauss lambda-returns over the imagined horizon using
+#        c. compute distributional lambda-returns over the imagined horizon using
 #           the WM's soft continuation as the discount mask and the existing critic
-#           to bootstrap the final imagined state (critic target, see CRITIC below);
+#           to bootstrap the final imagined state;
 #        d. take ONE 1-epoch gradient step: train the existing critic on the
 #           imagined return target (CE) and the existing actor on the imagined
 #           advantage (PPO/clip), at full strength.
 #      Each cycle regenerates fresh data from the just-updated policy, so the
 #      imagined data is on-policy and the PPO ratio starts at 1 (clean PG).
-#
-# CRITIC (ported from iterthink_v24_beta_d4hlgauss_nocriticbias_mtp_v1):
-#   The distributional categorical C51-projected lambda-return critic was replaced
-#   by the Dreamer4-style "d4hlgauss nocriticbias mtp" critic:
-#     - Target: SCALAR GAE lambda-return projected onto a fixed support with HL-Gauss
-#       (Gaussian-smoothed two-hot, support_is_edges, sigma=value_sigma_to_bin_ratio
-#       bins), NOT a categorical Bellman backup. Applied in BOTH the real and the
-#       imagined critic-training paths.
-#     - MTP: the critic head emits critic_mtp_horizon return rows; horizon 0 is
-#       V(s_t), horizons 1..H-1 predict returns[t+h] from the same features. Loss is
-#       per-horizon CE summed over a validity mask (episode-boundary + tail masked in
-#       the real path; tail-only in the dream, where continuation is folded into GAE).
-#     - nocriticbias: the peaked zero-return logit-bias prior is removed; the head
-#       keeps layer_init's plain zero bias so the scalar HL-Gauss target sets the scale.
 #
 # DESIGN CHOICES / FAITHFULNESS:
 #   - WM stays detached from agent gradients (detach_world_model_from_agent). The
@@ -325,6 +311,7 @@ class Args:
     env_id: str = "HalfCheetah-v4"
     total_timesteps: int = 8000000
     learning_rate: float = 3e-4
+    imagine_learning_rate: float = -1.0  # separate LR for imagination-only updates; <0 => follow main (annealed) LR. Anneals by the same fraction as the main LR.
     num_envs: int = 16
     num_steps: int = 2048
     anneal_lr: bool = True
@@ -365,10 +352,8 @@ class Args:
     num_bins: int = 511
     v_min: float = -10.0
     v_max: float = 10.0
-    critic_init_tau: float = 0.5   # init Z ≈ N(0, tau^2), sharp at 0 (unused by the nocriticbias head)
+    critic_init_tau: float = 0.5   # init Z ≈ N(0, tau^2), sharp at 0
     value_symlog: bool = False
-    value_sigma_to_bin_ratio: float = 2.0  # HL-Gauss projection sigma (Dreamer4 / hl_gauss default)
-    critic_mtp_horizon: int = 6            # critic MTP: predict H future return rows per state
 
     # Advantage shaping (v19). Selects how the policy advantage is formed from the
     # GAE advantage and/or the value distribution Z(s). See header.
@@ -436,7 +421,7 @@ class Args:
                                       # Scaled 8->3: at 8 the imagined updates swamped real-PPO and
                                       # drove the entropy collapse (return stuck -180 while base v99
                                       # reached +2200); fewer cycles reduce that update-volume pressure.
-    imagine_batch_size: int = 4096    # starting states per imagined block (parallel envs in dream)
+    imagine_batch_size: int = 1024    # starting states per imagined block (parallel envs in dream)
     imagine_horizon: int = 6          # imagined rollout length; block = horizon * batch_size transitions
     imagine_warmup_steps: int = 100000  # let real PPO + WM establish before imagining
 
@@ -689,16 +674,6 @@ class LeWMBackbone(nn.Module):
         self.pred_mtp_projs = nn.ModuleList(
             [xavier_linear(nn.Linear(self.dim, self.dim)) for _ in range(max(0, self.mtp_len - 1))]
         )
-        # Fixed learned query seeds for the predictor's semantic (reward/continuation)
-        # input slots. The semantic tokens are PMA-style pooling queries: the predictor
-        # pools reward/continuation info from the obs state into its semantic OUTPUT
-        # tokens each step, which are decoded as readouts -- but those outputs are never
-        # fed back as input. So reward/continuation are NOT autoregressive recurrent state
-        # (matching DreamerV3, where the dynamics ingest only state+action). The recurrent
-        # histories store obs tokens only; _predictor_trunk prepends these query seeds.
-        self.predictor_semantic_query = nn.Parameter(torch.empty(self.num_semantic_tokens, self.dim))
-        nn.init.xavier_uniform_(self.predictor_semantic_query)
-
     def neutral_reward_probs(self, batch, device, dtype):
         support = torch.linspace(self.reward_v_min, self.reward_v_max, self.reward_num_bins, device=device, dtype=dtype)
         bin_width = (self.reward_v_max - self.reward_v_min) / (self.reward_num_bins - 1)
@@ -745,22 +720,11 @@ class LeWMBackbone(nn.Module):
         return reward_logits, continuation_logits
 
     def _predictor_trunk(self, latent_history, action_history):
-        # latent_history is the OBS-ONLY recurrent stream (B, T, num_obs_tokens, dim);
-        # semantic (reward/continuation) tokens are never stored here.
-        batch, context_len, num_obs, width = latent_history.shape
+        batch, context_len, num_tokens, width = latent_history.shape
         if context_len > self.context:
             latent_history = latent_history[:, -self.context :]
             action_history = action_history[:, -self.context :]
             context_len = self.context
-        # Readout-only reward/continuation: prepend the fixed learned query seeds as the
-        # predictor's semantic INPUT slots, so the predictor has slots to pool
-        # reward/continuation into for its semantic OUTPUT tokens (decoded as readouts).
-        # Those outputs are never fed back -- obs tokens are the sole recurrent state.
-        sem_query = self.predictor_semantic_query.to(latent_history.dtype)
-        sem_query = sem_query.view(1, 1, self.num_semantic_tokens, width).expand(
-            latent_history.shape[0], latent_history.shape[1], -1, -1
-        )
-        latent_history = torch.cat([sem_query, latent_history], dim=2)
         action_tokens = self.action_in(action_history.unsqueeze(-1))
         action_tokens = action_tokens + self.action_dim_embed.view(1, 1, self.act_dim, width)
         tokens = torch.cat([action_tokens, latent_history], dim=2)
@@ -768,7 +732,7 @@ class LeWMBackbone(nn.Module):
         for layer in self.predictor_layers:
             tokens = layer(tokens, action_features)
         tokens = self.predictor_norm(tokens)
-        return tokens[:, :, self.act_dim : self.act_dim + self.num_latent_tokens]
+        return tokens[:, :, self.act_dim : self.act_dim + num_tokens]
 
     def belief_from_history(self, latent_history, action_history):
         return self._predictor_trunk(latent_history, action_history)[:, -1]
@@ -812,17 +776,13 @@ class Agent(nn.Module):
         else:
             self.critic_trunk = ThinkTrunk(self.agent_input_dim, H, args.k_blocks, args.n_experts)
             self.actor_trunk = ThinkTrunk(self.agent_input_dim, H, args.k_blocks, args.n_experts)
-        # Categorical critic, HL-Gauss MTP head (d4hlgauss nocriticbias parity):
-        # outputs critic_mtp_horizon * num_bins logits; horizon 0 is V(s_t), later
-        # horizons are critic-only MTP predictions of returns[t+h]. The peaked
-        # zero-return bias prior is deliberately removed (the "nocriticbias"
-        # ablation) — layer_init's plain zero bias is kept so the D4-style scalar
-        # HL-Gauss target sets the critic's scale.
-        self.num_bins = args.num_bins
-        self.critic_mtp_horizon = args.critic_mtp_horizon
-        self.critic_head = layer_init(
-            nn.Linear(H, args.critic_mtp_horizon * args.num_bins), std=0.1
-        )
+        # Categorical critic with a PEAKED init: small weight + Gaussian-logit
+        # bias so the initial value distribution is sharp at 0 (not uniform),
+        # preventing the distributional-bootstrap blowup that sank v9.
+        self.critic_head = layer_init(nn.Linear(H, args.num_bins), std=0.1)
+        with torch.no_grad():
+            z = torch.linspace(args.v_min, args.v_max, args.num_bins)
+            self.critic_head.bias.copy_(-0.5 * (z / args.critic_init_tau) ** 2)
         # v24: action distribution. Both parameterizations are dreamer4-faithful;
         # the Gaussian path is tanh-squashed like SAC but uses log-variance, not log_std.
         self.actor_dist = args.actor_dist
@@ -902,14 +862,13 @@ class Agent(nn.Module):
         return self._trunks_from_agent_input(x, self.agent_input_from_obs(x))
 
     def get_value(self, x):
-        # Returns value LOGITS (B, mtp, num_bins); horizon 0 is V(s_t), later
-        # horizons are critic-only MTP predictions. Caller converts via support.
+        # Returns value LOGITS (B, num_bins); caller converts via support.
         _, critic_feat = self._trunks(x)
-        return self.critic_head(critic_feat).view(-1, self.critic_mtp_horizon, self.num_bins)
+        return self.critic_head(critic_feat)
 
     def get_value_from_agent_input(self, obs, agent_input):
         _, critic_feat = self._trunks_from_agent_input(obs, agent_input)
-        return self.critic_head(critic_feat).view(-1, self.critic_mtp_horizon, self.num_bins)
+        return self.critic_head(critic_feat)
 
     def get_action_and_value(self, x, z=None):
         return self.get_action_and_value_from_agent_input(x, self.agent_input_from_obs(x), z)
@@ -926,7 +885,7 @@ class Agent(nn.Module):
                 z = z.clamp(SAMPLE_EPS, 1.0 - SAMPLE_EPS)
         action = to_action(z)
         log_prob = (dist.log_prob(z) - log_det_fn(z)).sum(1)
-        value_logits = self.critic_head(critic_feat).view(-1, self.critic_mtp_horizon, self.num_bins)
+        value_logits = self.critic_head(critic_feat)
         if self.actor_dist == "gaussian":
             # Reparameterized SQUASHED-entropy estimate H_sq = E_ε[-logπ_sq(tanh(μ+σε))].
             # Base-Normal H = dist.entropy() is monotone↑ in σ, so an entropy bonus rails σ
@@ -957,6 +916,92 @@ class Agent(nn.Module):
         # Params receiving the VALUE gradient (incl. the shared trunk).
         trunk = self.trunk if self.share_backbone else self.critic_trunk
         return list(trunk.parameters()) + list(self.critic_head.parameters())
+
+
+def categorical_project(probs, atoms, support, v_min, v_max, bin_width):
+    """C51 projection: distribute `probs` (B, n) sitting at positions `atoms`
+    (B, n) onto the fixed `support` (n,) via linear interpolation between
+    neighbouring bins. Mass-preserving (atoms are pre-clamped to [v_min, v_max]).
+    """
+    n = support.shape[0]
+    tz = atoms.clamp(v_min, v_max)
+    b = (tz - v_min) / bin_width                       # (B, n) fractional bin pos
+    lo = b.floor()
+    hi = b.ceil()
+    lo_idx = lo.clamp(0, n - 1).long()
+    hi_idx = hi.clamp(0, n - 1).long()
+    m = torch.zeros_like(probs)
+    m.scatter_add_(1, lo_idx, probs * (hi - b))        # mass to lower bin
+    m.scatter_add_(1, hi_idx, probs * (b - lo))        # mass to upper bin
+    # When b is integer, lo == hi and both weights are 0; (1 - (hi - lo)) == 1
+    # routes the full mass to that bin. Otherwise hi - lo == 1 → adds 0.
+    m.scatter_add_(1, lo_idx, probs * (1.0 - (hi - lo)))
+    return m
+
+
+def distributional_lambda_returns(
+    rewards,
+    transition_terminations,
+    transition_boundaries,
+    transition_valids,
+    next_transition_probs,
+    support,
+    v_min,
+    v_max,
+    bin_width,
+    gamma,
+    gae_lambda,
+):
+    """Backward recursion for the distributional λ-return G^λ (probs per step).
+
+        G^λ_t =_D r_t + γ·nonterm·[ (1-λ)·Z(s_{t+1}) + λ·G^λ_{t+1} ]
+
+    Uses the actual transition-next belief, not the reset observation after a
+    truncation. Lambda carryover stops at reset boundaries, but truncations still
+    bootstrap from final_observation when Gym provides one.
+    Shapes: rewards/boundaries (T, B); next_transition_probs (T, B, n).
+    Returns (T, B, n).
+    Entropy/soft-value terms are NOT injected here — the critic regresses to the raw
+    reward return; max-ent enters the policy advantage separately (see --auto-entropy).
+    """
+    T = rewards.shape[0]
+    target = torch.zeros_like(next_transition_probs)
+    g_next = next_transition_probs[-1]
+    for t in reversed(range(T)):
+        bootstrap_nonterminal = (1.0 - transition_terminations[t]) * transition_valids[t]
+        lambda_nonterminal = 1.0 - transition_boundaries[t]
+        z_next = next_transition_probs[t]
+        lambda_w = gae_lambda * lambda_nonterminal.unsqueeze(-1)
+        mix = (1.0 - lambda_w) * z_next + lambda_w * g_next
+        gn = (gamma * bootstrap_nonterminal).unsqueeze(-1)
+        atoms = rewards[t].unsqueeze(-1) + gn * support  # (B, n) transformed atoms
+        g_next = categorical_project(mix, atoms, support, v_min, v_max, bin_width)
+        target[t] = g_next
+    return target
+
+
+def imagined_distributional_lambda_returns(
+    rewards, continues, next_value_probs, support, v_min, v_max, bin_width, gamma, gae_lambda
+):
+    """Distributional λ-returns for an IMAGINED rollout (v100). Identical recursion
+    to distributional_lambda_returns, but the WM's soft continuation probability
+    ĉ_t∈[0,1] replaces the hard (1-termination) nonterminal mask, and there is no
+    truncation/boundary distinction inside a dream (imagination never resets — it
+    just discounts by ĉ_t). next_value_probs[t] = Z(s_{t+1}); the final entry
+    Z(s_H) is the bootstrap. Shapes: rewards/continues (H,B); next_value_probs
+    (H,B,n). Returns (H,B,n)."""
+    H = rewards.shape[0]
+    target = torch.zeros_like(next_value_probs)
+    g_next = next_value_probs[-1]                       # bootstrap Z(s_H)
+    for t in reversed(range(H)):
+        cont = continues[t].unsqueeze(-1)              # (B,1) soft continuation
+        z_next = next_value_probs[t]                   # Z(s_{t+1})
+        lambda_w = gae_lambda * cont
+        mix = (1.0 - lambda_w) * z_next + lambda_w * g_next
+        atoms = rewards[t].unsqueeze(-1) + (gamma * cont) * support
+        g_next = categorical_project(mix, atoms, support, v_min, v_max, bin_width)
+        target[t] = g_next
+    return target
 
 
 def shape_advantage(gae, sigma, u, args, device):
@@ -1113,12 +1158,11 @@ if __name__ == "__main__":
         args.num_bins,
         args.v_min,
         args.v_max,
-        args.value_sigma_to_bin_ratio,  # HL-Gauss projection sigma (D4 scalar-return target)
+        0.5,  # sigma_ratio unused (categorical Bellman target, no Gaussian projection)
         device,
         use_symlog=args.value_symlog,
-        support_is_edges=True,
     )
-    support = hl_support.support                       # (num_bins,) bin centers
+    support = hl_support.support                       # (num_bins,) linear support
     bin_width = hl_support.bin_width
 
     reward_support = HLGaussSupport(
@@ -1200,8 +1244,6 @@ if __name__ == "__main__":
         current_latent = agent.world_model.encode_summary_with_outcomes(obs_tensor, reward_probs, continuations)
         if agent.detach_world_model_from_agent:
             current_latent = current_latent.detach()
-        # Recurrent stream stores obs tokens only; semantic slots are never fed back.
-        current_latent = current_latent[:, agent.world_model.obs_token_start :]
         context_len = min(args.lewm_context, len(rollout_latent_history) + 1)
         n_past = context_len - 1
         past_latents = rollout_latent_history[-n_past:] if n_past > 0 else []
@@ -1225,6 +1267,8 @@ if __name__ == "__main__":
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             lrnow = frac * args.learning_rate
             optimizer.param_groups[0]["lr"] = lrnow
+        else:
+            lrnow = args.learning_rate
 
         rollout_actor_active = global_step >= args.wm_warmup_steps
         for step in range(0, args.num_steps):
@@ -1250,7 +1294,7 @@ if __name__ == "__main__":
                         next_obs,
                         agent_input,
                     )
-                p = torch.softmax(value_logits[:, 0], dim=-1)   # horizon 0 = V(s_t)
+                p = torch.softmax(value_logits, dim=-1)
                 agent_inputs[step] = agent_input
                 value_probs[step] = p
                 values[step] = (p * support).sum(dim=-1)
@@ -1328,12 +1372,12 @@ if __name__ == "__main__":
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
 
         with torch.no_grad():
-            next_transition_value_logits = agent.get_value_from_agent_input(
-                next_obses.reshape((-1,) + envs.single_observation_space.shape),
-                next_transition_agent_inputs.reshape(-1, agent.agent_input_dim),
-            )[:, 0]  # horizon 0 = V(s')
             next_transition_value_probs = torch.softmax(
-                next_transition_value_logits, dim=-1
+                agent.get_value_from_agent_input(
+                    next_obses.reshape((-1,) + envs.single_observation_space.shape),
+                    next_transition_agent_inputs.reshape(-1, agent.agent_input_dim),
+                ),
+                dim=-1,
             ).reshape(args.num_steps, args.num_envs, args.num_bins)
             next_transition_values = (next_transition_value_probs * support).sum(dim=-1)
             # SOFT-ADVANTAGE max-ent: entropy enters the POLICY ADVANTAGE only, NEVER the
@@ -1391,34 +1435,15 @@ if __name__ == "__main__":
                     )
             else:
                 policy_adv = advantages
-            # Critic target: Dreamer4-style scalar HL-Gauss returns with Orbit-Wars
-            # MTP. Horizon 0 regresses returns[t]; horizon h regresses returns[t+h]
-            # from the SAME critic features. Horizons crossing an episode boundary
-            # (transition_boundaries) or running off the rollout tail are masked; the
-            # loss sums valid horizons per row. returns is the entropy-free RAW reward
-            # λ-return (== advantages + values), so the fixed support never overflows.
-            mtp = args.critic_mtp_horizon
-            return_mtp = returns.new_zeros((*returns.shape, mtp))
-            return_mtp_mask = torch.zeros(
-                (*returns.shape, mtp), dtype=torch.bool, device=returns.device
+            # Critic target: RAW reward λ-return (entropy-free => no support overflow).
+            target_probs = distributional_lambda_returns(
+                rewards,
+                transition_terminations,
+                transition_boundaries,
+                transition_valids,
+                next_transition_value_probs,
+                support, args.v_min, args.v_max, bin_width, args.gamma, args.gae_lambda,
             )
-            for h in range(mtp):
-                valid_len = args.num_steps - h
-                if valid_len <= 0:
-                    break
-                valid_h = torch.ones(
-                    (valid_len, args.num_envs), dtype=torch.bool, device=returns.device
-                )
-                # A boundary at index j separates s_j from s_{j+1} (s_{j+1} is the
-                # first state of a fresh episode). Row t' predicts returns[t'+h], which
-                # is in the same episode as s_{t'} iff NONE of steps t'..t'+h-1 is a
-                # boundary. So check boundaries at offsets k=0..h-1 (NOT 1..h): a
-                # boundary AT the target step t'+h is fine, but one at t' itself leaks.
-                for k in range(0, h):
-                    valid_h &= transition_boundaries[k : k + valid_len] == 0
-                return_mtp[:valid_len, :, h] = returns[h : h + valid_len]
-                return_mtp_mask[:valid_len, :, h] = valid_h
-            target_probs = hl_support.project(return_mtp)   # (T,B,mtp,num_bins)
             # Per-state return std sigma(s_t) from the OLD rollout Z(s_t). Note
             # E[Z(s_t)] == values[t], so G_t - E[Z_t] == GAE advantage exactly.
             sigma = (value_probs * (support - values.unsqueeze(-1)) ** 2).sum(-1).clamp_min(0).sqrt()  # (T,B)
@@ -1500,15 +1525,8 @@ if __name__ == "__main__":
                         agent.world_model.num_latent_tokens,
                         agent.world_model.dim,
                     )
-                    # Recurrent stream is obs-only; semantic slots of the (teacher-forced)
-                    # encoder summaries are not fed back as predictor input.
-                    obs_start = agent.world_model.obs_token_start
                     teacher_history = torch.cat(
-                        [
-                            initial_summary[:, obs_start:].unsqueeze(1),
-                            target_summaries[:, :-1, obs_start:],
-                        ],
-                        dim=1,
+                        [initial_summary.unsqueeze(1), target_summaries[:, :-1]], dim=1
                     ).detach()
                     pred_mtp = agent.world_model.predict_mtp_from_history(teacher_history, future_actions)
 
@@ -1526,7 +1544,8 @@ if __name__ == "__main__":
                         # the predictor its OWN predicted summaries back (detached) — the
                         # exact path the dream takes, so reward/continuation/latent error
                         # captures compounding off-manifold drift per horizon offset.
-                        probe_hist_lat = [initial_summary[:, obs_start:].detach()]
+                        obs_start = agent.world_model.obs_token_start
+                        probe_hist_lat = [initial_summary.detach()]
                         probe_hist_act = []
                         for h in range(horizon):
                             probe_hist_act.append(future_actions[:, h])
@@ -1556,7 +1575,7 @@ if __name__ == "__main__":
                             wm_imagine_reward_error_sum[h] += (probe_reward_error * w_h).sum()
                             wm_imagine_continuation_bce_sum[h] += (probe_continuation_bce * w_h).sum()
                             wm_imagine_probe_weight[h] += w_h.sum()
-                            probe_hist_lat.append(probe_next_summary[:, obs_start:].detach())
+                            probe_hist_lat.append(probe_next_summary.detach())
                     reward_target_probs = reward_target_probs_flat.reshape(mb_size, horizon, -1)
                     # Target-side semantic CLS losses train the encoder slots
                     # from real future states without feeding labels as inputs.
@@ -1764,8 +1783,7 @@ if __name__ == "__main__":
         b_sigma = sigma.reshape(-1)
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
-        b_target_probs = target_probs.reshape(-1, args.critic_mtp_horizon, args.num_bins)
-        b_target_mask = return_mtp_mask.reshape(-1, args.critic_mtp_horizon)
+        b_target_probs = target_probs.reshape(-1, args.num_bins)
         b_u = u.reshape(-1)
         # Policy advantage: shape the GAE per `adv_transform`. With
         # adv_transform_scope="minibatch" the shaping is deferred into the update
@@ -1832,12 +1850,10 @@ if __name__ == "__main__":
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + clip_hi)
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # HL-Gauss MTP value loss: per-horizon CE to the scalar-return target,
-                # summed across valid future horizons per row. No value clipping.
+                # Distributional value loss: cross-entropy to the (fixed)
+                # distributional λ-return target. No value clipping.
                 value_log_probs = torch.log_softmax(value_logits, dim=-1)
-                value_ce = -(b_target_probs[mb_inds] * value_log_probs).sum(dim=-1)
-                value_mask = b_target_mask[mb_inds].to(dtype=value_ce.dtype)
-                v_loss = (value_ce * value_mask).sum(dim=-1).mean()
+                v_loss = -(b_target_probs[mb_inds] * value_log_probs).sum(dim=-1).mean()
 
                 entropy_loss = entropy.mean()
 
@@ -1906,6 +1922,15 @@ if __name__ == "__main__":
             im_reward_sum = torch.zeros((), device=device)
             im_continue_sum = torch.zeros((), device=device)
             im_edge_sum = torch.zeros((), device=device)
+            # Optionally run the imagined-rollout updates at a separate LR (annealed
+            # by the same fraction as the main LR) to localize where the long-run LR
+            # sensitivity lives: imagination-only vs the whole optimization. Restored
+            # to the main LR after the loop so real-data updates are unaffected.
+            imagine_lr_used = lrnow
+            if args.imagine_learning_rate >= 0.0:
+                frac_im = lrnow / args.learning_rate if args.learning_rate > 0 else 1.0
+                imagine_lr_used = frac_im * args.imagine_learning_rate
+                optimizer.param_groups[0]["lr"] = imagine_lr_used
             for _ in range(args.imagine_batches):
                 with torch.no_grad():
                     # Start dreams from real rollout states (encode WM summaries with
@@ -1926,11 +1951,10 @@ if __name__ == "__main__":
                     # self.context, so this also matches the rollout belief context —
                     # instead of querying the WM with a length-1 context at every step,
                     # which it only ever saw at position 0 during training.
-                    obs_start = agent.world_model.obs_token_start
-                    hist_latents = [s[:, obs_start:]]   # obs-only recurrent state l_0..l_t
+                    hist_latents = [s]          # encoded/imagined summaries l_0..l_t
                     hist_actions = []           # actions taken a_0..a_{t-1}
                     for t in range(H_im):
-                        latent_hist = torch.stack(hist_latents, dim=1)               # (B, t+1, obs_tok, dim)
+                        latent_hist = torch.stack(hist_latents, dim=1)               # (B, t+1, tok, dim)
                         # Belief the actor acts on: current action slot is neutral (the
                         # action is not chosen yet), matching build_belief_agent_input.
                         belief_actions = torch.stack(hist_actions + [imagine_neutral], dim=1)
@@ -1948,18 +1972,16 @@ if __name__ == "__main__":
                         ag_inputs.append(agent_input)
                         im_zs.append(z)
                         im_lps.append(logprob)
-                        im_vps.append(torch.softmax(value_logits[:, 0], dim=-1))   # Z(s_t), horizon 0
+                        im_vps.append(torch.softmax(value_logits, dim=-1))   # Z(s_t)
                         im_rs.append(reward_support.to_scalar(reward_logits))
                         im_cs.append(torch.sigmoid(cont_logits))
-                        hist_latents.append(next_s[:, obs_start:].detach())
+                        hist_latents.append(next_s.detach())
                     # Bootstrap value at the final imagined state s_H (same recurrent belief).
                     latent_hist = torch.stack(hist_latents, dim=1)
                     belief_actions_H = torch.stack(hist_actions + [imagine_neutral], dim=1)
                     belief_H = agent.world_model.belief_from_history(latent_hist, belief_actions_H)
                     value_probs_H = torch.softmax(
-                        agent.get_value_from_agent_input(
-                            None, agent.agent_input_from_latent(belief_H)
-                        )[:, 0],  # horizon 0 = V(s_H)
+                        agent.get_value_from_agent_input(None, agent.agent_input_from_latent(belief_H)),
                         dim=-1,
                     )
                     value_probs_t = torch.stack(im_vps, dim=0)                  # (H,B,n) Z(s_0..s_{H-1})
@@ -1977,22 +1999,10 @@ if __name__ == "__main__":
                         lastgae = delta + args.gamma * args.gae_lambda * nonterminal * lastgae
                         adv[t] = lastgae
                     returns_t = adv + values_t
-                    # Dreamer4-style scalar HL-Gauss returns with MTP over the dream
-                    # horizon: horizon h regresses returns_t[t+h]. Soft continuation is
-                    # already folded into returns_t via the GAE discount, so horizons
-                    # are masked only where they run off the rollout tail (t+h >= H_im).
-                    mtp = args.critic_mtp_horizon
-                    return_mtp_im = returns_t.new_zeros((H_im, B_im, mtp))
-                    return_mtp_mask_im = torch.zeros(
-                        (H_im, B_im, mtp), dtype=torch.bool, device=device
+                    target_probs_im = imagined_distributional_lambda_returns(
+                        im_rewards, im_continues, next_value_probs,
+                        support, args.v_min, args.v_max, bin_width, args.gamma, args.gae_lambda,
                     )
-                    for h in range(mtp):
-                        valid_len = H_im - h
-                        if valid_len <= 0:
-                            break
-                        return_mtp_im[:valid_len, :, h] = returns_t[h : h + valid_len]
-                        return_mtp_mask_im[:valid_len, :, h] = True
-                    target_probs_im = hl_support.project(return_mtp_im)  # (H,B,mtp,num_bins)
                     sigma_im = (
                         value_probs_t * (support - values_t.unsqueeze(-1)) ** 2
                     ).sum(-1).clamp_min(0).sqrt().clamp_min(args.sigma_floor_bins * bin_width)
@@ -2004,14 +2014,11 @@ if __name__ == "__main__":
                     f_adv = adv.reshape(-1)
                     f_sigma = sigma_im.reshape(-1)
                     f_u = u_im.reshape(-1)
-                    f_target = target_probs_im.reshape(-1, args.critic_mtp_horizon, args.num_bins)
-                    f_target_mask = return_mtp_mask_im.reshape(-1, args.critic_mtp_horizon)
+                    f_target = target_probs_im.reshape(-1, args.num_bins)
                     im_return_sum += returns_t.mean()
                     im_reward_sum += im_rewards.mean()
                     im_continue_sum += im_continues.mean()
-                    im_edge_per_h = target_probs_im[..., 0] + target_probs_im[..., -1]
-                    im_edge_mask_f = return_mtp_mask_im.to(im_edge_per_h.dtype)
-                    im_edge_sum += (im_edge_per_h * im_edge_mask_f).sum() / im_edge_mask_f.sum().clamp_min(1)
+                    im_edge_sum += (target_probs_im[..., 0] + target_probs_im[..., -1]).mean()
 
                 # Single 1-epoch gradient step on the imagined block (ratio starts at 1).
                 _, _, newlogprob, entropy, value_logits = agent.get_action_and_value_from_agent_input(
@@ -2026,9 +2033,7 @@ if __name__ == "__main__":
                 pg_loss1 = -shaped * ratio
                 pg_loss2 = -shaped * torch.clamp(ratio, 1 - args.clip_coef, 1 + clip_hi)
                 pg_loss_im = torch.max(pg_loss1, pg_loss2).mean()
-                value_log_probs_im = torch.log_softmax(value_logits, dim=-1)
-                value_ce_im = -(f_target * value_log_probs_im).sum(dim=-1)
-                v_loss_im = (value_ce_im * f_target_mask.to(value_ce_im.dtype)).sum(dim=-1).mean()
+                v_loss_im = -(f_target * torch.log_softmax(value_logits, dim=-1)).sum(dim=-1).mean()
                 entropy_loss_im = entropy.mean()
                 if args.separate_grad_clip:
                     optimizer.zero_grad(set_to_none=True)
@@ -2052,6 +2057,8 @@ if __name__ == "__main__":
                 im_entropies.append(entropy_loss_im.item())
                 im_actor_gns.append(float(im_actor_gn))
                 im_critic_gns.append(float(im_critic_gn))
+            if args.imagine_learning_rate >= 0.0:
+                optimizer.param_groups[0]["lr"] = lrnow
             n_im = max(1, args.imagine_batches)
             imagine_metrics = {
                 "imagine/policy_loss": float(np.mean(im_pg_losses)),
@@ -2063,6 +2070,7 @@ if __name__ == "__main__":
                 "imagine/target_edge_mass": (im_edge_sum / n_im).item(),
                 "imagine/actor_grad_norm": float(np.mean(im_actor_gns)),
                 "imagine/critic_grad_norm": float(np.mean(im_critic_gns)),
+                "imagine/learning_rate": float(imagine_lr_used),
             }
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
@@ -2070,9 +2078,7 @@ if __name__ == "__main__":
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
         # Support-adequacy instrumentation: edge-bin mass should stay ≈ 0.
-        edge_per_h = b_target_probs[..., 0] + b_target_probs[..., -1]   # (N, mtp)
-        edge_mask_f = b_target_mask.to(dtype=edge_per_h.dtype)
-        edge_mass = ((edge_per_h * edge_mask_f).sum() / edge_mask_f.sum().clamp_min(1)).item()
+        edge_mass = (b_target_probs[:, 0] + b_target_probs[:, -1]).mean().item()
 
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)

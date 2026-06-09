@@ -1,3 +1,27 @@
+# PPO + IterThink v101 (rolling-window imagination seeding).
+# Derives from ppo_continuous_action_iterthink_v100_v24beta_lewm_imagine_dreamer.py
+# (the v100 dreamer file, which uses the d4hlgauss-nocriticbias-MTP scalar HL-Gauss
+# critic) and changes ONLY the seed-state distribution of the imagination block.
+#
+# WHAT'S NEW vs v100. The dreamer imagination block seeds dreamed rollouts from real
+# rollout states. v100 seeds ONLY from the current iteration's rollout buffer, so the
+# imagined updates see a narrow, instantaneous slice of the state distribution. v101
+# maintains a FIFO rolling window of the last K=4 real rollouts (DETACHED CLONES of
+# the seed buffers, since those buffers are overwritten in place each iteration) and
+# pools them into the seed distribution. Each imagine cycle samples seeds uniformly
+# from W*batch_size pooled states (W ramps 1..K as the window fills).
+#
+# This is PURELY a change to the SEED-STATE distribution: the dream still re-rolls the
+# CURRENT policy from each seed, so the imagined data is on-policy and NO off-policy
+# correction is needed. The dream rollout, the actor/critic losses, and the scalar
+# HL-Gauss critic are all UNTOUCHED from v100.
+#
+# HYPOTHESIS. More diverse, less narrowly-on-policy seed states give the imagined
+# updates better coverage of the state manifold and reduce overfitting of those
+# updates to the instantaneous (current-iteration) state distribution, improving
+# benchmark return.
+#
+# --- v100 description (inherited) ---
 # PPO + IterThink v100 (v24 Beta + LeWM dreamer4-style imagination training).
 # From v99.
 #
@@ -439,6 +463,7 @@ class Args:
     imagine_batch_size: int = 4096    # starting states per imagined block (parallel envs in dream)
     imagine_horizon: int = 6          # imagined rollout length; block = horizon * batch_size transitions
     imagine_warmup_steps: int = 100000  # let real PPO + WM establish before imagining
+    imagine_state_window: int = 4     # K: seed imagination from the last K real rollouts (state diversity)
 
     batch_size: int = 0
     minibatch_size: int = 0
@@ -1220,6 +1245,14 @@ if __name__ == "__main__":
         belief_actions = torch.stack(past_actions + [neutral_action], dim=1)
         return agent.agent_input_from_history(belief_latents, belief_actions), current_latent
 
+    # Rolling FIFO window of the last K real rollouts, used to seed imagination
+    # from a more diverse start-state distribution. Each entry is a tuple of
+    # DETACHED CLONES of (obs, prev_reward_probs, prev_outcome_continues); clones
+    # are mandatory because those buffers are overwritten IN PLACE each iteration,
+    # so storing references would alias to the latest rollout. Appended once per
+    # iteration after the rollout completes (see below); capped at K, oldest evicted.
+    imagine_seed_window = []
+
     for iteration in range(1, args.num_iterations + 1):
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
@@ -1326,6 +1359,23 @@ if __name__ == "__main__":
                         print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
                         writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
                         writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+
+        # Rollout buffers are now fully populated for this iteration. Push a
+        # DETACHED CLONE snapshot of the seed buffers into the rolling window
+        # BEFORE the imagination block. This runs every iteration (including any
+        # world_model_only warmup iterations that `continue` past imagination),
+        # so by the time imagine_warmup_steps passes the window holds up to K
+        # rollouts. Clones are required: obs/prev_reward_probs/prev_outcome_continues
+        # are overwritten in place next iteration, so references would alias.
+        imagine_seed_window.append(
+            (
+                obs.detach().clone(),
+                prev_reward_probs.detach().clone(),
+                prev_outcome_continues.detach().clone(),
+            )
+        )
+        if len(imagine_seed_window) > args.imagine_state_window:
+            imagine_seed_window.pop(0)  # evict oldest (FIFO)
 
         with torch.no_grad():
             next_transition_value_logits = agent.get_value_from_agent_input(
@@ -1906,17 +1956,32 @@ if __name__ == "__main__":
             im_reward_sum = torch.zeros((), device=device)
             im_continue_sum = torch.zeros((), device=device)
             im_edge_sum = torch.zeros((), device=device)
+            # Pool the rolling window of the last W (<=K) real rollouts into flat seed
+            # tensors. Each snapshot is (num_steps, num_envs, ...); flatten the leading
+            # two axes and cat along the sample axis -> pools of shape (W*batch_size, ...).
+            # W ramps 1..K as the window fills. This ONLY changes the seed-state
+            # distribution; the dream re-rolls the current policy from each seed, so the
+            # imagined data stays on-policy and no off-policy correction is needed.
+            W = len(imagine_seed_window)
+            pooled_obs = torch.cat(
+                [snap[0].reshape((-1,) + snap[0].shape[2:]) for snap in imagine_seed_window], dim=0
+            )
+            pooled_reward_probs = torch.cat(
+                [snap[1].reshape((-1,) + snap[1].shape[2:]) for snap in imagine_seed_window], dim=0
+            )
+            pooled_continues = torch.cat(
+                [snap[2].reshape((-1,) + snap[2].shape[2:]) for snap in imagine_seed_window], dim=0
+            )
             for _ in range(args.imagine_batches):
                 with torch.no_grad():
-                    # Start dreams from real rollout states (encode WM summaries with
-                    # the freshly-updated WM, matching the rollout encoding path).
-                    flat_idx = torch.randint(0, args.batch_size, (B_im,), device=device)
-                    step_idx = flat_idx // args.num_envs
-                    env_idx = flat_idx % args.num_envs
+                    # Start dreams from real rollout states drawn from the pooled window
+                    # (encode WM summaries with the freshly-updated WM, matching the
+                    # rollout encoding path). The pool is already flat, so index directly.
+                    idx = torch.randint(0, W * args.batch_size, (B_im,), device=device)
                     s = agent.world_model.encode_summary_with_outcomes(
-                        obs[step_idx, env_idx],
-                        prev_reward_probs[step_idx, env_idx],
-                        prev_outcome_continues[step_idx, env_idx],
+                        pooled_obs[idx],
+                        pooled_reward_probs[idx],
+                        pooled_continues[idx],
                     ).detach()
                     ag_inputs, im_zs, im_lps, im_rs, im_cs, im_vps = [], [], [], [], [], []
                     # Recurrent imagination: carry a GROWING (latent, action) history and
