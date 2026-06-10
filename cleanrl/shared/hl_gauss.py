@@ -59,13 +59,30 @@ class HLGaussSupport:
             self.support = torch.linspace(v_min, v_max, num_bins, device=device)
         self.use_symlog = use_symlog
 
-    def to_scalar(self, logits):
-        """Convert logits to scalar value via E[z] = sum(softmax(logits) * support)."""
-        probs = torch.softmax(logits, dim=-1)
+    def probs_to_scalar(self, probs):
+        """Decode probabilities via inverse_transform(E[transformed bin])."""
         value = (probs * self.support).sum(dim=-1)
         if self.use_symlog:
             value = symexp(value)
         return value
+
+    def to_scalar(self, logits):
+        """Decode logits via inverse_transform(E[transformed bin]).
+
+        This matches hl-gauss-pytorch's transform_from_logits semantics. For
+        symlog supports this is symexp(E[z]), not E[symexp(z)].
+        """
+        probs = torch.softmax(logits, dim=-1)
+        return self.probs_to_scalar(probs)
+
+    def probs_to_expected_scalar(self, probs):
+        """Decode probabilities as E[value(bin)] in scalar space."""
+        scalar_support = symexp(self.support) if self.use_symlog else self.support
+        return (probs * scalar_support).sum(dim=-1)
+
+    def to_expected_scalar(self, logits):
+        """Decode logits as E[value(bin)] in scalar space."""
+        return self.probs_to_expected_scalar(torch.softmax(logits, dim=-1))
 
     def project(self, targets):
         """Project scalar targets onto HL-Gauss categorical distribution.
@@ -95,6 +112,10 @@ class HLGaussSupport:
         probs = 0.5 * (torch.erf(upper / np.sqrt(2)) - torch.erf(lower / np.sqrt(2)))
         probs = probs / probs.sum(dim=-1, keepdim=True)
         return probs
+
+    def project_to_logprobs(self, targets, eps=1e-20):
+        """Project targets and return finite log-probabilities."""
+        return self.project(targets).clamp_min(eps).log()
 
 
 class HLGaussCDFSupport:
