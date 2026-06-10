@@ -1,5 +1,17 @@
-# nGPT hypersphere satransformer v4: iterthink_v24_beta action distribution,
-# persistent per-observation identity tokens, and in-stream actor/critic roles.
+# nGPT hypersphere satransformer v5: role-token v4 plus metadata-rich scalar
+# tokenization without positional/topology bias.
+#
+# Diff vs v4: keep the best role-token architecture, but replace
+#     justnorm(obs_id[i] + 0.5 * x_i * obs_value[i])
+# with a factorized token:
+#     justnorm(channel_id[i] + obs_type
+#              + shared_value_encoder(phi(x_i))
+#              + channel_value_encoder_i(phi(x_i)))
+# where phi is a bounded, non-periodic scalar basis over the clipped normalized
+# observation value. This gives attention/FFNs stable identity, token-role
+# type, transferable numeric features, and per-channel numeric semantics,
+# without RoPE, body graph masks, hand-coded topology, or permutation
+# invariance. Role tokens are likewise factored into learned ID + role type.
 #
 # Diff vs previous v4 draft: the capped mode/nu Beta is removed. The default
 # actor is exactly the iterthink_v24_beta unimodal Beta:
@@ -9,12 +21,11 @@
 # aligned with the iterthink_v24_beta lineage rather than introducing a new
 # exploration-floor parameterization.
 #
-# Diff vs latent_ngpt_v3: RoPE stays removed, but observation tokens are no
-# longer effectively identity-free near x=0. Each scalar observation is encoded
-# as justnorm(obs_id[i] + x_i * obs_value[i]); both row embeddings are projected
-# to the hypersphere after optimizer steps. This preserves fixed body/muscle
-# identity without imposing permutation invariance, while still letting the
-# scalar value move the token direction.
+# Diff vs latent_ngpt_v3: RoPE stays removed. Fixed body/muscle identity is
+# represented by learned channel IDs plus obs token-type embeddings, while
+# scalar values use shared and per-channel bounded value encoders. This avoids
+# the v4 failure mode where large |x| rotates a token almost entirely away from
+# its stable identity direction.
 #
 # Diff vs latent_ngpt_v1 (shared with v2/v3):
 #   - 4 nGPT SA blocks (was 1). Actor/critic readouts are now learned role
@@ -93,7 +104,7 @@ NUM_HEADS = 4
 FFN_MULT = 2
 NUM_SA_BLOCKS = 4
 NUM_LATENTS = 3  # learnable scratch tokens that participate in SA (no readout role)
-OBS_VALUE_SCALE = 0.5
+OBS_VALUE_FEATURE_DIM = 6
 GLOBAL_ACTOR_MIX = 0.25
 
 # nGPT scale parameterization: param stored at init_scaling, used at
@@ -109,6 +120,7 @@ SUV_INIT_SCALING = 1.0
 
 SAMPLE_EPS = 1e-6  # clamp Beta samples off the open-interval boundary (avoid log(0))
 LOG_2 = float(np.log(2.0))
+SYMLOG_10 = float(np.log(11.0))
 
 
 @dataclass
@@ -170,7 +182,13 @@ class Args:
     vf_coef: float = 0.5
     """coefficient of the value function"""
     max_grad_norm: float = 0.5
-    """the maximum norm for the gradient clipping"""
+    """the maximum norm for global gradient clipping when separate_grad_clip=False"""
+    separate_grad_clip: bool = True
+    """clip policy and value gradients separately before summing shared-trunk gradients"""
+    actor_grad_clip: float = 0.25
+    """max norm for policy gradient clipping when separate_grad_clip=True"""
+    critic_grad_clip: float = 0.25
+    """max norm for value gradient clipping when separate_grad_clip=True"""
 
     # Action distribution (ported from iterthink_v24_beta)
     actor_dist: str = "beta"
@@ -241,6 +259,31 @@ def justnorm(x, dim=-1):
     dtype = x.dtype
     x = x.float()
     return (x / x.norm(p=2, dim=dim, keepdim=True).clamp_min(1e-12)).to(dtype)
+
+
+def scalar_value_features(x):
+    """Bounded, non-periodic scalar basis for normalized MuJoCo observations.
+
+    These are value features, not token-position features: no RoPE or sequence
+    index signal is introduced. Every component is bounded to keep value
+    information from erasing channel identity before the transformer can learn
+    how much to use it.
+    """
+    z = x.clamp(-10.0, 10.0)
+    mag = (z.abs() / 10.0).clamp(0.0, 1.0)
+    signed_sqrt = z.sign() * mag.sqrt()
+    signed_square = z.sign() * mag.square()
+    return torch.stack(
+        (
+            z / 10.0,
+            torch.tanh(z),
+            symlog(z) / SYMLOG_10,
+            signed_sqrt,
+            signed_square,
+            mag,
+        ),
+        dim=-1,
+    )
 
 
 def flash_attention(q, k, v, scale):
@@ -374,14 +417,41 @@ class Agent(nn.Module):
         self.actor_dist = args.actor_dist
 
         # Tokenizer: each obs dim is a fixed body/muscle channel, not an
-        # exchangeable set member. A persistent identity direction survives
-        # x_i ~= 0, while the scalar value moves that token along its own
-        # learned value direction.
+        # exchangeable set member. Identity, token type, shared scalar
+        # semantics, and per-channel scalar semantics are separate learnable
+        # factors so the transformer gets stable labels without RoPE/topology.
         embed_std = MODEL_DIM ** -0.5
         self.obs_id_embed = nn.Parameter(torch.empty(self.obs_dim, MODEL_DIM))
-        self.obs_value_embed = nn.Parameter(torch.empty(self.obs_dim, MODEL_DIM))
+        self.obs_channel_value_embed = nn.Parameter(
+            torch.empty(self.obs_dim, OBS_VALUE_FEATURE_DIM, MODEL_DIM)
+        )
+        self.obs_shared_value_encoder = nn.Linear(OBS_VALUE_FEATURE_DIM, MODEL_DIM, bias=False)
+        # Branch scales are learned, not fixed: all start equal so v5 does not
+        # hard-code how much identity/type/value information should dominate.
+        # The final token direction is normalized, so these relative weights
+        # control initial geometry and remain free to adapt.
+        self.obs_branch_scale = nn.Parameter(torch.ones(4))
+        self.obs_type_embed = nn.Parameter(torch.empty(1, MODEL_DIM))
+        self.latent_type_embed = nn.Parameter(torch.empty(1, MODEL_DIM))
+        self.action_role_type_embed = nn.Parameter(torch.empty(1, MODEL_DIM))
+        self.global_actor_type_embed = nn.Parameter(torch.empty(1, MODEL_DIM))
+        self.critic_type_embed = nn.Parameter(torch.empty(1, MODEL_DIM))
         nn.init.trunc_normal_(self.obs_id_embed, std=embed_std, a=-2 * embed_std, b=2 * embed_std)
-        nn.init.trunc_normal_(self.obs_value_embed, std=embed_std, a=-2 * embed_std, b=2 * embed_std)
+        nn.init.trunc_normal_(
+            self.obs_channel_value_embed,
+            std=embed_std,
+            a=-2 * embed_std,
+            b=2 * embed_std,
+        )
+        for token in (
+            self.obs_type_embed,
+            self.latent_type_embed,
+            self.action_role_type_embed,
+            self.global_actor_type_embed,
+            self.critic_type_embed,
+        ):
+            nn.init.trunc_normal_(token, std=embed_std, a=-2 * embed_std, b=2 * embed_std)
+        init_linear_(self.obs_shared_value_encoder, init_scale=1.0)
 
         # SA latent tokens: positionless learnable scratch slots that
         # participate in self-attention with the obs tokens. No readout role.
@@ -444,7 +514,18 @@ class Agent(nn.Module):
             for module in (block.wo, block.w2):
                 module.weight.data.copy_(justnorm(module.weight.data, dim=0))
         self.obs_id_embed.data.copy_(justnorm(self.obs_id_embed.data, dim=-1))
-        self.obs_value_embed.data.copy_(justnorm(self.obs_value_embed.data, dim=-1))
+        self.obs_channel_value_embed.data.copy_(justnorm(self.obs_channel_value_embed.data, dim=-1))
+        # Linear weight is (D, F); columns are the D-dimensional basis
+        # directions for scalar features. Column projection makes the shared
+        # branch geometry comparable to obs_channel_value_embed[:, f, :].
+        self.obs_shared_value_encoder.weight.data.copy_(
+            justnorm(self.obs_shared_value_encoder.weight.data, dim=0)
+        )
+        self.obs_type_embed.data.copy_(justnorm(self.obs_type_embed.data, dim=-1))
+        self.latent_type_embed.data.copy_(justnorm(self.latent_type_embed.data, dim=-1))
+        self.action_role_type_embed.data.copy_(justnorm(self.action_role_type_embed.data, dim=-1))
+        self.global_actor_type_embed.data.copy_(justnorm(self.global_actor_type_embed.data, dim=-1))
+        self.critic_type_embed.data.copy_(justnorm(self.critic_type_embed.data, dim=-1))
         self.latent_tokens.data.copy_(justnorm(self.latent_tokens.data, dim=-1))
         self.action_role_tokens.data.copy_(justnorm(self.action_role_tokens.data, dim=-1))
         self.global_actor_token.data.copy_(justnorm(self.global_actor_token.data, dim=-1))
@@ -455,22 +536,34 @@ class Agent(nn.Module):
         role states → sqrt(D) head scale. Returns actor features
         (B, action_dim, D) and critic feature (B, D)."""
         B = x.shape[0]
-        # Tokenize: (B, obs_dim) → (B, obs_dim, MODEL_DIM) via per-dim
-        # identity + scalar value displacement.
+        # Tokenize: (B, obs_dim) → (B, obs_dim, MODEL_DIM) via stable channel
+        # identity + token type + shared and channel-local bounded value bases.
+        value_features = scalar_value_features(x)
+        shared_value = self.obs_shared_value_encoder(value_features)
+        channel_value = torch.einsum(
+            "bif,ifd->bid",
+            value_features,
+            self.obs_channel_value_embed,
+        )
         obs_tokens = (
-            self.obs_id_embed.unsqueeze(0)
-            + OBS_VALUE_SCALE * x.unsqueeze(-1) * self.obs_value_embed.unsqueeze(0)
+            self.obs_branch_scale[0] * self.obs_id_embed.unsqueeze(0)
+            + self.obs_branch_scale[1] * self.obs_type_embed.view(1, 1, MODEL_DIM)
+            + self.obs_branch_scale[2] * shared_value
+            + self.obs_branch_scale[3] * channel_value
         )
 
+        action_roles = self.action_role_tokens + self.action_role_type_embed
+        global_actor = self.global_actor_token + self.global_actor_type_embed
+        critic = self.critic_token + self.critic_type_embed
         role_tokens = torch.cat(
-            [self.action_role_tokens, self.global_actor_token, self.critic_token],
+            [action_roles, global_actor, critic],
             dim=0,
         ).unsqueeze(0).expand(B, -1, -1)
 
         # Concat all tokens upfront (positionless NoPE). Role tokens are first
         # only so their final states are cheap to slice; order carries no
         # semantic positional signal.
-        latent = self.latent_tokens.unsqueeze(0).expand(B, -1, -1)  # (B, NUM_LATENTS, D)
+        latent = (self.latent_tokens + self.latent_type_embed).unsqueeze(0).expand(B, -1, -1)
         sa_tokens = torch.cat([role_tokens, latent, obs_tokens], dim=1)
         sa_tokens = justnorm(sa_tokens)
         for sa_block in self.sa_blocks:
@@ -493,6 +586,45 @@ class Agent(nn.Module):
         else:
             actor_feat, critic_feat = self._encode(x)
         return actor_feat.float(), critic_feat.float()
+
+    def shared_parameters(self):
+        """Parameters intentionally shared by policy and value gradients."""
+        params = [
+            self.obs_id_embed,
+            self.obs_channel_value_embed,
+            self.obs_branch_scale,
+            self.obs_type_embed,
+            self.latent_type_embed,
+            self.latent_tokens,
+        ]
+        params += list(self.obs_shared_value_encoder.parameters())
+        params += list(self.sa_blocks.parameters())
+        return params
+
+    def actor_parameters(self):
+        params = self.shared_parameters()
+        params += [
+            self.action_role_tokens,
+            self.global_actor_token,
+            self.action_role_type_embed,
+            self.global_actor_type_embed,
+        ]
+        if self.actor_dist == "gaussian":
+            params += list(self.actor_head.parameters())
+            params += list(self.actor_logvar_head.parameters())
+        else:
+            params += list(self.actor_alpha_head.parameters())
+            params += list(self.actor_beta_head.parameters())
+        return params
+
+    def critic_parameters(self):
+        params = self.shared_parameters()
+        params += [
+            self.critic_token,
+            self.critic_type_embed,
+        ]
+        params += list(self.critic_head.parameters())
+        return params
 
     def _actor_dist(self, actor_feat):
         """Build the action distribution and the native-space transforms
@@ -625,6 +757,8 @@ if __name__ == "__main__":
         betas=(args.adam_beta1, args.adam_beta2),
         eps=1e-5,
     )
+    actor_params = agent.actor_parameters()
+    critic_params = agent.critic_parameters()
     support_min, support_max = value_support_bounds(args)
     hl_support = HLGaussSupport(
         args.num_bins,
@@ -714,6 +848,8 @@ if __name__ == "__main__":
         old_approx_kl = torch.zeros((), device=device)
         approx_kl = torch.zeros((), device=device)
         spo_penalty_mean = torch.zeros((), device=device)
+        actor_gn = torch.zeros((), device=device)
+        critic_gn = torch.zeros((), device=device)
         for epoch in range(args.update_epochs):
             np.random.shuffle(b_inds)
             for start in range(0, args.batch_size, args.minibatch_size):
@@ -757,11 +893,27 @@ if __name__ == "__main__":
                 v_loss = -(target_probs * log_probs_v).sum(dim=-1).mean()
 
                 entropy_loss = entropy.mean()  # logged only; no entropy term in the loss
-                loss = pg_loss + v_loss * args.vf_coef
 
-                optimizer.zero_grad()
-                loss.backward()
-                nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
+                if args.separate_grad_clip:
+                    optimizer.zero_grad(set_to_none=True)
+                    (args.vf_coef * v_loss).backward(retain_graph=True)
+                    critic_gn = nn.utils.clip_grad_norm_(critic_params, args.critic_grad_clip)
+                    critic_grads = [
+                        (p, p.grad.detach().clone())
+                        for p in critic_params
+                        if p.grad is not None
+                    ]
+
+                    optimizer.zero_grad(set_to_none=True)
+                    pg_loss.backward()
+                    actor_gn = nn.utils.clip_grad_norm_(actor_params, args.actor_grad_clip)
+                    for p, g in critic_grads:
+                        p.grad = g if p.grad is None else p.grad + g
+                else:
+                    loss = pg_loss + v_loss * args.vf_coef
+                    optimizer.zero_grad(set_to_none=True)
+                    loss.backward()
+                    actor_gn = critic_gn = nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
                 # nGPT: project backbone weights back onto the hypersphere
                 # after every optimizer step.
@@ -797,12 +949,18 @@ if __name__ == "__main__":
         writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("diag/spo_penalty", spo_penalty_mean.item(), global_step)
+        writer.add_scalar("grad/actor_norm", actor_gn.item(), global_step)
+        writer.add_scalar("grad/critic_norm", critic_gn.item(), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
         writer.add_scalar("diag/dist_entropy", diag_entropy, global_step)
         writer.add_scalar("diag/conc_alpha_or_absmean", diag_conc_a, global_step)
         writer.add_scalar("diag/conc_beta_or_std", diag_conc_b, global_step)
         writer.add_scalar("diag/ngpt_sa_attn_lr", sa_attn_lr, global_step)
         writer.add_scalar("diag/ngpt_sa_mlp_lr", sa_mlp_lr, global_step)
+        writer.add_scalar("diag/obs_branch_id_scale", agent.obs_branch_scale[0].item(), global_step)
+        writer.add_scalar("diag/obs_branch_type_scale", agent.obs_branch_scale[1].item(), global_step)
+        writer.add_scalar("diag/obs_branch_shared_value_scale", agent.obs_branch_scale[2].item(), global_step)
+        writer.add_scalar("diag/obs_branch_channel_value_scale", agent.obs_branch_scale[3].item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
