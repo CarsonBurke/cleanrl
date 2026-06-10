@@ -95,3 +95,79 @@ class HLGaussSupport:
         probs = 0.5 * (torch.erf(upper / np.sqrt(2)) - torch.erf(lower / np.sqrt(2)))
         probs = probs / probs.sum(dim=-1, keepdim=True)
         return probs
+
+
+class HLGaussCDFSupport:
+    """Cumulative-CDF ("survival") variant of HLGaussSupport: K-1 sigmoid thresholds.
+
+    The head emits K-1 threshold logits predicting survival probabilities
+    s_k = P(Z > e_k) at the K-1 INTERIOR BIN EDGES e_k (midpoints between the
+    K uniform bin centers spanning [v_min, v_max]). Training is per-threshold
+    BCE against the smoothed survival labels of the HL-Gauss target,
+    y_k = Phi((t - e_k)/sigma). The scalar decode is the exact tail-sum
+    identity for a distribution on the centers:
+        E[Z] = v_min + bin_width * sum_k s_k.
+    (Edge thresholds, not centers: with thresholds at centers the tail-sum
+    becomes a left-endpoint Riemann sum of the survival function and decodes
+    with a systematic +bin_width/2 bias.)
+
+    Why not softmax+CE: CE prices a probability-mass misplacement independently
+    of how far it moves the expectation decode (eps mass at distance d costs
+    ~eps nats but shifts E[Z] by eps*d). Per-threshold BCE decomposes the decode
+    error exactly -- d loss / d logit_k = s_k - y_k while the decode error is
+    bin_width * sum_k (s_k - y_k) -- so the loss geometry matches mean
+    consumption while each threshold remains a proper scoring rule (the full
+    CDF is calibrated at optimum). The implied survival curve is not forced
+    monotone (no simplex constraint); harmless when only the tail-sum mean is
+    read, but enforce monotonicity before reading quantiles from it.
+    """
+
+    def __init__(
+        self,
+        num_bins,
+        v_min,
+        v_max,
+        sigma_ratio,
+        device,
+        use_symlog=False,
+        clamp_targets=True,
+    ):
+        self.num_bins = num_bins
+        self.num_thresholds = num_bins - 1
+        self.v_min = v_min
+        self.v_max = v_max
+        self.bin_width = (v_max - v_min) / (num_bins - 1)
+        self.sigma = sigma_ratio * self.bin_width
+        self.use_symlog = use_symlog
+        self.clamp_targets = clamp_targets
+        # Thresholds at the K-1 interior bin edges (center midpoints), so
+        # sum_k s_k in [0, K-1] maps the decode onto [v_min, v_max] and the
+        # tail-sum identity is exact for mass on the bin centers.
+        centers = torch.linspace(v_min, v_max, num_bins, device=device)
+        self.thresholds = (centers[:-1] + centers[1:]) / 2.0
+
+    def to_scalar(self, logits):
+        """Tail-sum decode E[Z] = v_min + w * sum_k sigmoid(logit_k).
+
+        Note: with use_symlog=True this is symexp(E[z]) (HLGaussSupport's
+        convention), NOT the Jensen-correct E[symexp(z)] some callers compute
+        externally via a scalar_support — don't swap one in for the other.
+        """
+        value = self.v_min + self.bin_width * torch.sigmoid(logits).sum(dim=-1)
+        if self.use_symlog:
+            value = symexp(value)
+        return value
+
+    def cdf_labels(self, targets):
+        """Smoothed survival labels y_k = P(N(target, sigma) > e_k), shape (..., K-1).
+
+        Uses the untruncated Gaussian survival, so perfect labels at a clamped
+        target decode ~0.28*bin_width inward of v_min/v_max; renormalize over
+        [v_min, v_max] if exact edge targets ever matter.
+        """
+        if self.use_symlog:
+            targets = symlog(targets)
+        if self.clamp_targets:
+            targets = targets.clamp(self.v_min, self.v_max)
+        z = (targets.unsqueeze(-1) - self.thresholds) / (self.sigma * np.sqrt(2.0))
+        return 0.5 * (1.0 + torch.erf(z))
