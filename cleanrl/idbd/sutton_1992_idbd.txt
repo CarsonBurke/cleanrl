@@ -1,0 +1,444 @@
+Appeared in Proceedings of the Tenth National Conf. on Artificial Intelligence, pp. 171–176, MIT Press, 1992.
+
+
+
+
+                  Adapting Bias by Gradient Descent:
+               An Incremental Version of Delta-Bar-Delta
+                                           Richard S. Sutton
+                                       GTE Laboratories Incorporated
+                                           Waltham, MA 02254
+                                             sutton@gte.com
+
+                     Abstract                              and the importance of representations is a recurring
+                                                           theme in AI. But in both of these cases the focus has
+  Appropriate bias is widely viewed as the key to          always been on designing in a good bias, not on acquir-
+  efficient learning and generalization. I present a       ing one automatically. This has resulted in an accu-
+  new algorithm, the Incremental Delta-Bar-Delta           mulation of specialized and non-extensible techniques.
+  (IDBD) algorithm, for the learning of appropri-          Is there an alternative? If bias is what a learner brings
+  ate biases based on previous learning experience.        to a learning problem, then how could the learner itself
+  The IDBD algorithm is developed for the case             generate an appropriate bias? The only way is to gen-
+  of a simple, linear learning system—the LMS or           erate the bias from previous learning experience (e.g.,
+  delta rule with a separate learning-rate parameter       Rendell, Seshu, & Tcheng 1987). And this is possible
+  for each input. The IDBD algorithm adjusts the           only if the learner encounters a series of different prob-
+  learning-rate parameters, which are an important         lems requiring the same or similar biases. I believe
+  form of bias for this system. Because bias in this       that is a correct characterization of the learning task
+  approach is adapted based on previous learning           facing people and real-world learning machines.
+  experience, the appropriate testbeds are drifting           In this paper, I present a new algorithm for learn-
+  or non-stationary learning tasks. For particular         ing appropriate biases for a linear learning system
+  tasks of this type, I show that the IDBD algo-           based on previous learning experience. The new al-
+  rithm performs better than ordinary LMS and in           gorithm is an extension of the Delta-Bar-Delta algo-
+  fact finds the optimal learning rates. The IDBD          rithm (Jacobs 1988; Sutton 1982; Barto & Sutton 1981;
+  algorithm extends and improves over prior work           Kesten 1958) such that it is applicable to incremen-
+  by Jacobs and by me in that it is fully incremen-        tal tasks—supervised learning tasks in which the ex-
+  tal and has only a single free parameter. This           amples are processed one by one and then discarded.
+  paper also extends previous work by presenting           Accordingly, I call the new algorithm the Incremental
+  a derivation of the IDBD algorithm as gradient           Delta-Bar-Delta (IDBD) algorithm. The IDBD algo-
+  descent in the space of learning-rate parameters.        rithm can be used to accelerate learning even on sin-
+  Finally, I offer a novel interpretation of the IDBD      gle problems, and that is the primary way in which
+  algorithm as an incremental form of hold-one-out         its predecessors have been justified (e.g., Jacobs 1988;
+  cross validation.                                        Silva & Almeida 1990; Lee & Lippmann 1990; Sutton
+                                                           1986), but its greatest significance I believe is for non-
+                   Introduction                            stationary tasks or for sequences of related tasks, and
+                                                           it is on the former that I test it here.
+People can learn very rapidly and generalize extremely
+accurately. Information theoretic arguments suggest
+that their inferences are too rapid to be justified by                  The IDBD Algorithm
+the data that they have immediately available to them.
+People can learn as fast as they do only because they      The IDBD algorithm is a meta-learning algorithm in
+bring to the learning situation a set of appropriate bi-   the sense that it learns the learning-rate parameters of
+ases which direct them to prefer certain hypotheses        an underlying base learning system. The base learn-
+over others. To approach human performance, ma-            ing system is the Least-Mean-Square (LMS) rule, also
+chine learning systems will also need an appropriate       known as the delta rule, the ADALINE, the Rescorla-
+set of biases. Where are these to come from?               Wagner rule, and the Widrow-Hoff rule (see, e.g.,
+  Although this problem is well known, there are few       Widrow & Stearns 1985). This learning system is of-
+general answers. The field of pattern recognition has      ten thought of as a single connectionist unit as shown
+long known about the importance of feature selection,      in figure 1. The unit is linear, meaning that its out-
+                                                           put y(t), at each time step (example number) t, is a
+                                    y                         This exponential relationship between the learning
+                                                              rate, αi , and the memory parameter that is actually
+                                                              modified, βi , has two advantages. First, it is a natural
+                                                              way of assuring that αi will always be positive. Second,
+                                                              it is a mechanism for making geometric steps in αi : if
+
+                                   !                          βi is incremented up and down by a fixed step-size,
+                                                              then αi will move up or down by a fixed fraction of
+                                                              its current value, e.g., up or down by 10%. This is de-
+                         W1
+                              W2         Wn
+                                                              sirable because some αi must become very small while
+                                                              others remain large; no fixed step-size would work well
+                                                              for all the αi .
+               X1
+                       X2                          Xn            The IDBD algorithm updates the βi by
+                                                                        βi (t + 1) = βi (t) + θδ(t)xi (t)hi (t),    (5)
+Figure 1: The base-level learning system is a single
+linear unit using the LMS or delta rule.                      where θ is a positive constant, the meta-learning rate,
+                                                              and hi is an additional per-input memory parameter
+                                                              updated by
+weighted sum of its real-valued inputs xi (t):                                 h                 i+
+                             n
+                                                              hi (t+1) = hi (t) 1−αi (t+1)x2i (t) +αi (t+1)δ(t)xi (t),
+                             X
+                    y(t) =         wi (t)xi (t),        (1)                                                          (6)
+                             i=1                              where [x]+ is x, if x > 0, else 0. The first term
+                                                              in the above equation is a decay term; the product
+were each wi (t) is the value at time t of a modifiable       αi (t + 1)x2i (t) is normally zero or a positive fraction,
+weight wi associated with xi . At each time step, the         so this term causes a decay of hi towards zero. The
+learner receives a set of inputs, xi (t), computes its out-   second term increments hi by the last weight change
+put, y(t), and compares it to a given desired output,         (cf. (3)). The memory hi is thus a decaying trace of
+y ∗ (t). The aim of learning is to minimize the squared       the cumulative sum of recent changes to wi .
+error δ 2 (t), where δ(t) = y ∗ (t) − y(t), on future time       The intuitive idea behind the IDBD algorithm is a
+steps. The LMS learning rule updates the weights at           simple one. Note that the increment to βi in (5) is pro-
+each time step according to:                                  portional to the product of the current weight change,
+                                                              δ(t)xi (t), and a trace of recent weight changes, hi (t).
+            wi (t + 1) = wi (t) + αδ(t)xi (t),          (2)   By accumulating this product, the overall change in βi
+                                                              becomes proportional to the correlation between cur-
+where α is a positive constant called the learning rate.      rent and recent weight changes. If the current step
+  In the IDBD algorithm there is a different learning         is positively correlated with past steps, that indicates
+rate, αi , for each input xi , and these change according     that the past steps should have been larger (and equa-
+to a meta-learning process (cf. Hampson & Volper              tion (5) accordingly increases βi ). If the current step
+1986). The base-level learning rule is 1                      is negatively correlated with past steps, that indicates
+                                                              that the past steps were too large; the algorithm is
+        wi (t + 1) = wi (t) + αi (t + 1)δ(t)xi (t).     (3)
+                                                              overshooting the best weight values and then having
+                                                              to re-correct in the opposite direction (here equation
+The learning rates are a powerful form of bias in this
+                                                              (5) decreases βi ).
+system. Learning about irrelevant inputs acts as noise,
+                                                                 The intuitive idea of the IDBD algorithm as de-
+interfering with learning about relevant inputs. A
+                                                              scribed above is the same as that of Jacob’s (1988)
+rough rule of thumb is that learning time is propor-
+                                                              Delta-Bar-Delta algorithm. The primary difference is
+tional to the sum of the squares of the learning rates
+                                                              that Jacobs’s algorithm can be applied only on a batch-
+(assuming all inputs have equal variance; see Widrow
+                                                              by-batch basis, with updates after a complete presen-
+& Stearns 1985). In effect, learning rates are a valu-
+                                                              tation of a training set, whereas here we assume exam-
+able resource that must be distributed carefully. In-
+                                                              ples arrive one-by-one and are not necessarily revisited
+puts that are likely to be irrelevant should be given
+                                                              afterwards. The key to making the new algorithm in-
+small learning rates, whereas inputs that are likely to
+                                                              cremental is the way the trace hi is defined such that
+be relevant should be given large learning rates.
+                                                              it fades away only to the extent that the correspond-
+   In the IDBD algorithm, the learning rates are all of
+                                                              ing input xi is present, as indicated by x2i (t). The new
+the form
+                                                              algorithm also improves over Jacobs’s in that the de-
+                     αi (t) = eβi (t) .             (4)       cay rate is not a separate free parameter, but is tied to
+   1
+     The αi are indexed by t + 1 rather than t simply to      the current learning rate. The new algorithm in fact
+indicate that their update, by a process described below,     has only one free parameter, the meta-learning rate, θ,
+occurs before the wi update (see figure 2).                   whereas Jacobs’s algorithm has three free parameters.
+Initialize hi to 0, and wi , βi as desired, i = 1, . . . , n
+Repeat for each new example (x1 , . . . , xn , y ∗ ):                                             0     0.02     0.04    0.06    0.08   !
+
+
+
+                                                                       Asymptotic Error
+            Pn
+       y ← i=1 wi xi
+       δ ← y∗ − y                                                                         8
+       Repeat for i = 1, . . . , n:
+                                                                                          6
+              βi ← βi + θδxi hi                                                                       LMS(!)
+              αi ← eβi                                                                    4
+              wi ← wi + αi δxi
+              hi ← hi [1 − αi x2i ]+ + αi δxi                                             2                    IDBD(")
+
+                                                                                              0        0.005     0.01    0.015   0.02   "
+    Figure 2: The IDBD Algorithm in Pseudocode
+
+                                                               Figure 3: Comparison of the average asymptotic per-
+On the other hand, Jacobs’s algorithm was designed             formances of IDBD and LMS algorithms over the rel-
+for nonlinear networks. While I do not foresee great           evant ranges of their step-size parameters (α, upper
+difficulties extending the IDBD algorithm to the non-          axis, for LMS, and θ, lower axis, for IDBD). The IDBD
+linear case, that is beyond the scope of this paper.           algorithm results in less than half the level of error over
+   In practice, it is often useful to bound each βi from       a broad range of values of its step-size parameter. For
+below by, say, −10, to prevent arithmetic underflows.          parameter values above those shown, both algorithms
+In addition, it is prudent to limit the change in βi on        can become unstable.
+any one step to, say, ±2. However, these boundings
+were not required to obtain the empirical results pre-
+                                                               vant, then it should be able to track the drifting target
+sented in the next section.
+                                                               function more accurately than ordinary LMS.
+                         Results                                  Because this is a tracking task, it suffices to per-
+                                                               form one long run and measure the asymptotic track-
+The capabilities of the IDBD algorithm were assessed           ing performance of the algorithms. In this experiment
+using a series of tracking tasks—supervised-learning           I ran each algorithm for 20,000 examples so as to get
+or concept-learning tasks in which the target concept          past any initial transients, and then ran another 10,000
+drifts over time and has to be tracked (cf. Schlimmer          examples. The average mean-squared error over that
+1987). Non-stationary tasks are more appropriate here          10,000 examples was used as the asymptotic perfor-
+than conventional learning tasks because we are trying         mance measure of the algorithm. The algorithms used
+to assess the IDBD algorithm’s ability to learn biases         were ordinary LMS with a range of learning rates and
+during early learning and then use them in later learn-        the IDBD algorithm with a range of meta-learning
+ing. To study this one needs a continuing learning             rates. The βi in the IDBD algorithm were set initially
+problem, not one that can be solved once and is then           such that αi = 0.05, for all i (but of course this choice
+finished.                                                      has no affect on asymptotic performance).
+Experiment 1: Does IDBD help?                                     The results for both algorithms are summarized in
+                                                               figure 3. With its best learning rate, ordinary LMS
+Experiment 1 was designed to answer the question:
+                                                               attains a mean squared error of about 3.5, while the
+Does the IDBD algorithm perform better than the or-
+                                                               IDBD algorithm performs substantially better over a
+dinary LMS algorithm without IDBD? The task in-
+                                                               wide range of θ values, attaining a mean squared er-
+volved 20 real-valued inputs and one output. The in-
+                                                               ror of about 1.5. The standard errors of all of these
+puts were chosen independently and randomly accord-
+                                                               means are less that 0.1, so this difference is highly sta-
+ing to a normal distribution with mean zero and unit
+                                                               tistically significant. The IDBD algorithm apparently
+variance. The target concept was the sum of the first
+                                                               learns biases (learning rates) that enable substantially
+five inputs, each multiplied either by +1 or −1, i.e.:
+                                                               more accurate tracking on this task.
+      y ∗ = s1 x1 + s2 x2 + s3 x3 + s4 x4 + s5 x5              Exp. 2: Does IDBD find the optimal αi ?
+                   + 0x6 + 0x7 + · · · + 0x20 ,                Experiment 1 shows that the IDBD algorithm finds a
+                                                               distribution of learning rates across inputs that is bet-
+where all the si are either +1 or −1. To make it a
+                                                               ter than any single learning rate shared by all, but it
+tracking problem, every 20 examples one of the five
+                                                               does not show that it finds the best possible distribu-
+si was selected at random and switched in sign, from
+                                                               tion of learning rates. While this may be difficult to
++1 to −1, or vice versa. Thus, the same five inputs
+                                                               show as a general result, it is relatively easy to confirm
+were always relevant, but their relationship to the tar-
+                                                               empirically for special cases. To do this for the task
+get concept occasionally changed. If the IDBD algo-
+                                                               used in Experiment 1, I chose a small value for the
+rithm can successfully identify which inputs are rele-
+                     0.15
+
+
+
+
+                                                                                          Asymptotic Error
+                                                                                                             2.2
+
+
+
+
+LEARNING RATE (!)
+                                                                                                             2.0
+                      0.1                     RELEVANT
+                                                                                                                     Performance
+                                                                                                             1.8
+                                                                                                                      with fixed !'s
+
+                     0.05                                                                                    1.6
+
+                                                             IRRELEVANT                                      1.4
+                        0
+                            0      50      100     150       200           250                                  0.05     0.10     0.15   0.20
+                                   TIME STEPS (1000's of Examples)                                                 !'s of Relevant Inputs
+                                                                                 Figure 5: Average error as a function of the learning-
+                    Figure 4: Time course of learning-rate parameters, un-       rate parameter of the relevant inputs (the irrelevant
+                    der IDBD, for one relevant and one irrelevant input.         inputs had zero learning-rate parameters). Error is
+                                                                                 minimized near α = 0.13, the value found by the IDBD
+                    meta-learning rate, θ = 0.001, and ran for a very large      algorithm.
+                    number of examples (250,000) to observe the asymp-
+                    totic distribution of learning rates found by the algo-      ing rule, the LMS rule (2), can be derived as gradient
+                    rithm (as before, the learning rates were initialized to     descent. Recall that we are trying to minimize the
+                    0.05). Figure 4 shows the behavior over time of two of       expected value of the squared error δ 2 (t), where δ(t) =
+                    the αi , one for a relevant input and one for an irrele-     y ∗ (t) − y(t). The expected error as a function of the
+                    vant input.                                                  weights forms a surface. In gradient descent, a current
+                       After 250,000 steps, the learning rates for the 15 ir-    value for w is moved in the opposite direction of the
+                    relevant inputs were all found to be less than 0.007         slope of that surface. This is the direction in which
+                    while the learning rates for the 5 relevant inputs were      the expected error falls most rapidly, the direction of
+                    all 0.13±0.015. The learning rates for the irrelevant in-    steepest descent. Because the expected error is not
+                    puts were apparently heading towards zero (recall that       itself known, we use instead the gradient of the sample
+                    they cannot be exactly zero unless βi = −∞), which is        error δ 2 (t):
+                    clearly optimal, but what of the relevant inputs? They
+                    should all share the same optimal learning rate, but                                                      1 ∂δ 2 (t)
+                    is it ≈ 0.13, as found by the IDBD algorithm, or is it                               wi (t + 1) = wi (t) − α         .             (7)
+                                                                                                                              2 ∂wi (t)
+                    some other value? We can determine this empirically
+                    simply by trying various sets of fixed learning rates.       The scalar quantity 12 α is the step-size, determining
+                    The irrelevant inputs were all given fixed zero learning     how far the weight vector moves in the direction of
+                    rates and the relevant inputs were fixed at a variety of     steepest descent. The 21 drops out as we expand the
+                    values between 0.05 and 0.25. Again I ran for 20,000         righthand side:
+                    examples, to get past transients, and then recorded the
+                    average squared error over the next 10,000 examples.                                                1 ∂δ 2 (t)
+                                                                                  wi (t + 1)                 = wi (t) − α
+                    The results, plotted in figure 5, show a clear minimum                                              2 ∂wi (t)
+                    somewhere near 0.13 ± 0.01, confirming that the IDBD                                                      ∂δ(t)
+                    algorithm found learning rates that were close to opti-                                  = wi (t) − αδ(t)
+                                                                                                                              ∂wi (t)
+                    mal on this task.                                                                                         ∂[y ∗ (t) − y(t)]
+                                                                                                             = wi (t) − αδ(t)                           (8)
+                       Derivation of the IDBD Algorithm                                                                            ∂wi (t)
+                              as Gradient Descent                                                                             ∂y(t)
+                                                                                                             = wi (t) + αδ(t)
+                                                                                                                              ∂wi (t)
+                    Many useful learning algorithms can be understood as                                                                 n
+                    gradient descent, including the LMS rule, backpropa-                                                        ∂ hX                    i
+                                                                                                             = wi (t) + αδ(t)               wj (t)xj (t)
+                    gation, Boltzmann machines, and reinforcement learn-                                                      ∂wi (t) j=1
+                    ing methods. Gradient descent analysis can also be
+                                                                                                             = wi (t) + αδ(t)xi (t),
+                    used to derive learning algorithms, and that in fact is
+                    the way in which the IDBD algorithm was invented. In         thus deriving the LMS rule (2).
+                    this section I derive the IDBD algorithm as gradient            The derivation for the IDBD algorithm is very sim-
+                    descent.                                                     ilar in principle. In place of (7), we start with
+                      To illustrate the basic idea of gradient-descent anal-
+                    ysis, it is useful to first review how the base learn-                                                        1 ∂δ 2 (t)
+                                                                                                             βi (t + 1) = βi (t) − θ         ,         (9)
+                                                                                                                                  2 ∂βi
+where now 12 θ is the (meta) step-size. In this equa-                     It is often not recognized that the size of the step in
+tion, the partial derivitive with respect to βi without                   the direction of the gradient may depend on the cur-
+a time index should be interpretted as the derivative                     rent value of the parameters being modified. Moreover,
+with repect to an infintesimal change in βi at all time                   even the direction of the step can be changed, as long
+steps. A similar technique is used in gradient-descent                    as it it is in the same general direction as the gradi-
+analyses of recurrent connectionist networks (c.f., e.g.,                 ent (positive inner product), without losing these key
+Williams & Zipser 1989). We then similarly rewrite                        properties.2 For example, one could add a factor of αip ,
+and expand (9) as:                                                        for any p, to the increment of βi in (9) to obtain an en-
+                                                                          tire new family of algorithms. In fact, experiments in
+                              1 X ∂δ 2 (t) ∂wj (t)                        progress suggest that some members of this family may
+      βi (t + 1)    = βi (t) − θ
+                              2 j ∂wj (t) ∂βi                             be more efficient than the IDBD algorithm at finding
+                                                                          optimal learning rates. There is little reason beyond
+                              1 ∂δ 2 (t) ∂wi (t)
+                    ≈ βi (t) − θ                 .          (10)          simplicity for prefering the IDBD algorithm over these
+                              2 ∂wi (t) ∂βi                               other possibilities a priori.
+The approximation above is reasonable in so far as the                       The gradient analysis presented in this section tells
+primary effect of changing the ith learning rate should                   us something about the IDBD algorithm, but it may
+                                         ∂w (t)
+be on the ith weight. Thus we assume ∂βj i ≈ 0 for                        also tell us something about incremental bias-learning
+                                   ∂δ (t)     2                           algorithms in general. In particular, it suggests how
+i 6= j. From (8) we know that − 12 ∂w i (t)
+                                            = δ(t)xi (t);                 one might derive bias-learning algorithms for other
+therefore we can rewrite (10) as                                          base learning methods, such as instance-based learn-
+                                                                          ing methods. In instance-based learning systems an
+             βi (t + 1) ≈ βi (t) + θδ(t)xi (t)hi (t),       (11)          important source of bias is the parameters of the inter-
+                                                                          instance distance metric. Currently these parameters
+where hi (t) is defined as ∂w i (t)
+                            ∂βi . The update rule for hi                  are established by people or by offline cross-validation
+is in turn derived as follows:
+                                                                          methods. An interesting direction for further research
+                   ∂wi (t + 1)                                            would be to attempt to repeat the sort of derivation
+hi (t + 1)    =                                                           presented here, but for instance-based methods.
+                       ∂βi
+                    ∂ h                              i
+              =         wi (t) + eβi (t+1) δ(t)xi (t)              (12)                        Conclusion
+                   ∂βi
+                                                       ∂δ(t)           The results presented in this paper provide evidence
+              = hi (t) + eβi (t+1) δ(t)xi (t) + eβi (t+1)      xi (t), that the IDBD algorithm is able to distinguish relevant
+                                                        ∂βi
+                                                                       from irrelevant inputs and to find the optimal learning
+using the product rule of calculus. Using the same                     rates on incremental tracking tasks. Depending on the
+approximation as before (in (10)), we write                            problem, such an ability to find appropriate biases can
+                                                                       result in a dramatic reduction in error. In the tasks
+      ∂δ(t)          ∂y(t)        ∂ X                                  used here, for example, squared error was reduced by
+              = −          =−            wj (t)xj (t)
+       ∂βi            ∂βi        ∂βi j                                 approximately 60%. The IDBD algorithm achieves this
+                                                                       while requiring only a linear increase in memory and
+                      ∂ h             i
+              ≈ −         wi (t)xi (t) = −hi (t)xi (t).                computation (both increase by roughly a factor of three
+                     ∂βi
+                                                                       over plain LMS). This algorithm extends prior work
+Finally, plugging this back into (12) yields                           both because it is an incremental algorithm, operating
+                                                                       on an example-by-example basis, and because it has
+hi (t + 1) ≈ hi (t) + eβi (t+1) δ(t)xi (t) − eβi (t+1) x2i (t)hi (t) fewer free parameters that must be picked by the user.
+                                                                       Also presented in this paper is a derivation of the IDBD
+                      h                   i
+            ≈ hi (t) 1 − αi (t + 1)x2i (t) +αi (t + 1)δ(t)xi (t),
+                                                                       algorithm as gradient descent. This analysis refines
+                                                                       previous analyses by improving certain approximations
+which, after adding a positive-bounding operation, is
+                                                                       and by being applicable to incremental training.
+the original update rule for hi , (6), while the derived
+                                                                          On the other hand, only a linear version of the IDBD
+update (11) for βi is the same as (5).
+                                                                       algorithm has been explored here. In addition, the
+   The above demonstrates that the IDBD algorithm is
+                                                                       results presented do not show that the IDBD algorithm
+a form of stochastic gradient descent in the learning-
+                                                                       is the best or fastest way to find optimal learning rates.
+rate parameters βi . In other words, the algorithm will
+                                                                       Further work is needed to clarify these points.
+tend to cause changes according to their effect on over-
+                                                                          A good way of understanding the IDBD algorithm
+all error. At local optima, the algorithm will tend to be
+                                                                       may be as an incremental form of cross validation.
+stable; elsewhere, it will tend to reduce the expected
+                                                                       Consider the form of cross validation in which one ex-
+error. These might be considered necessary properties
+for a good learning algorithm, but they alone are not
+sufficient. For example, there is the issue of step-size.                  2
+                                                                             Such algorithms are no longer steepest-descent algo-
+                                                                          rithms, but they are still descent algorithms.
+ample is held out, all the others are used for training,    Chris Matheus, Ming Tan, Nick Littlestone, Gregory
+and then generalization is measured to the one held         Piatetsky, and Judy Franklin for reading and providing
+out. Typically, this is repeated N times for a training     comments on an earlier draft of this paper.
+set of size N, with a different example held out each
+time, and then the parameters are set (or stepped, fol-                            References
+lowing the gradient) to optimize generalization to the      Barto, A.G. & Sutton, R.S. (1981) Adaptation of learn-
+one held out, averaged over all N cases. Obviously, this    ing rate parameters, Appendix C of Goal Seeking Com-
+algorithm can not be done incrementally, but some-          ponents for Adaptive Intelligence: An Initial Assessment.
+thing similar can be. At each time step, one could          Air Force Wright Aeronautical Laboratories/Avionics Lab-
+                                                            oratory Technical Report AFWAL-TR-81-1070, Wright-
+take the new example as the one held out, and see how       Patterson AFB, Ohio.
+all the training on the prior examples generalized to
+                                                            Gluck, M.A. & Glauthier P.T. (in preparation) Representa-
+the new one. One could then adjust parameters to im-        tion of dimensional stimulus structure in network theories
+prove the generalization, as the IDBD algorithm does,       of associative learning.
+and thereby achieve an effect very similar to that of       Gluck, M.A., Glauthier, P.T., & Sutton, R.S. (in prepara-
+conventional cross validation. Such methods differ fun-     tion) Dynamically modifiable stimulus associability in net-
+damentally from ordinary learning algorithms in that        work models of category learning.
+performance on the new example is optimized without         Hampson, S.E. & Volper, D.J. (1986) Linear function neu-
+using the new example.                                      rons: Structure and training. Biological Cybernetics 53,
+                                                            203-217.
+   The IDBD algorithm is being explored elsewhere as
+a psychological model. The base learning algorithm          Hurwitz, J.B. (1990) A hidden-pattern unit network model
+                                                            of category learning. PhD thesis, Harvard Psychology
+used here, the LMS rule, has often been used to model       Dept.
+human and animal learning behavior. Although that           Jacobs, R.A. (1988) Increased rates of convergence through
+modeling has been generally successful, there have also     learning rate adaptation. Neural Networks 1, 295–307.
+been a number of areas of divergence between model          Kesten, H. (1958) Accelerated stochastic approximation.
+and emperiment. In many cases the discrepancies can         Annals of Mathematical Statistics 29, 41–59.
+be significantly reduced by augmenting the LMS model        Kruschke, J.K. (1992) ALCOVE: An exemplar-based con-
+with relevance-learning methods (e.g., Kruschke 1992;       nectionist model of category learning. Psychological Re-
+Hurwitz 1990). The IDBD algorithm is also being ex-         view.
+plored in this regard, and the initial results are very     Lee, Y. & Lippmann, R.P. (1990) Practical characteristics
+encouraging (Gluck, Glauthier, & Sutton, in prepara-        of neural network and conventional pattern classifiers on
+                                                            artificial and speech problems. In Advances in Neural In-
+tion; Gluck & Glauthier, in preparation; see also Sut-
+                                                            formation Processing Systems 2, D.S. Touretzky, Ed., 168–
+ton 1982).                                                  177.
+   One possible use of the IDBD algorithm is                Rendell, L.A., Seshu, R.M., and Tcheng, D.K. (1987) Lay-
+to assess the utility (relevance) of features cre-          ered concept learning and dynamically-variable bias man-
+ated by constructive-induction methods or other             agement, Proc. Tenth International Joint Conference on
+representation-change methods. It is intriguing to          Artificial Intelligence, 308-314.
+think of using IDBD’s assessments in some way to ac-        Schlimmer, J.C. (1987) Concept acquisition through rep-
+tually direct the feature-construction process.             resentation adjustment. PhD thesis, University of Califor-
+                                                            nia, Information and Computer Science Dept., Technical
+   Finally, a broad conclusion that I make from this        Report 87-19.
+work has to do with the importance of looking at a          Silva, F.M. & Almeida, L.B. (1990) Acceleration tech-
+series of related tasks, such as here in a non-stationary   niques for the backpropagation algorithm. In Neural Net-
+tracking task, as opposed to conventional single learn-     works: EURASIP Workshop 1990, L.B. Almeida and C.J.
+ing tasks. Single learning tasks have certainly proved      Wellekens, Eds., 110-119. Berlin: Springer-Verlag.
+extremely useful, but they are also limited as ways         Sutton, R.S. (1982) A theory of salience change dependent
+of exploring important issues such as representation        on the relationship between discrepancies on successive tri-
+change and identification of relevant and irrelevant        als on which the stimulus is present. Unpublished working
+                                                            paper.
+features. Such meta-learning issues may have only a
+                                                            Sutton, R.S. (1986) Two problems with backpropagation
+small, second-order effect in a single learning task, but   and other steepest-descent learning procedures for net-
+a very large effect in a continuing sequence of related     works. Proceedings of the Eighth Annual Conference of the
+learning tasks. Such cross-task learning may well be        Cognitive Science Society, 823–831.
+key to powerful human-level learning abilities.             Widrow, B. & Stearns, S.D. Adaptive Signal Processing.
+                                                            Englewood Cliffs, NJ: Prentice-Hall, 1985.
+              Acknowledgements                              Williams, R.J. & Zipser, D. (1989) Experimental analysis
+                                                            of the real-time recurrent learning algorithm. Connection
+The author wishes to thank Mark Gluck, without              Science 1, 87–111.
+whose prodding, interest, and assistance this paper
+would never have been written, and Oliver Selfridge,        This is a digitally re-mastered version of the original article.
+who originally suggested the general approach. I also       A small error (an extra plus sign) was removed from the
+thank Richard Yee, Glenn Iba, Hamid Benbrahim,              last line of figure 2.
+
