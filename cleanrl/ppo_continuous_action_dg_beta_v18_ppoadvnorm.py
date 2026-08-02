@@ -728,6 +728,10 @@ if __name__ == "__main__":
         b_advantages = advantages.reshape(-1)
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
+        # Pre-whitening U scale (raw GAE after optional ret_ema_norm). Hot std≈1 under batch/mb
+        # advnorm; cool self-annealing under batch_retstd / d3perc (std ≈ sqrt(1-EV) or smaller).
+        raw_u_std = b_advantages.std().detach()
+        raw_ret_std = b_returns.std().detach()
 
         # v18 standard PPO advnorm, batch scope: standardize once over the whole rollout.
         # (minibatch scope is applied per-mb inside the actor loop below.)
@@ -741,6 +745,7 @@ if __name__ == "__main__":
             # the DG gate stays gentle -- unlike "batch"/"minibatch" advnorm which force std=1 (hot U).
             # vs v17/d3perc this swaps the percentile spread (P95-P5) for the plain std and drops the EMA.
             b_advantages = b_advantages / b_returns.std().clamp(min=args.ret_perc_floor)
+        u_std = b_advantages.std().detach()
 
         b_inds = np.arange(args.batch_size)
 
@@ -866,6 +871,9 @@ if __name__ == "__main__":
         writer.add_scalar("losses/analytic_kl", mean_kl, global_step)
         writer.add_scalar("losses/kl_beta", kl_beta, global_step)
         writer.add_scalar("losses/ret_ema_std", ema_ret_std, global_step)
+        writer.add_scalar("charts/raw_u_std", raw_u_std.item(), global_step)
+        writer.add_scalar("charts/u_std", u_std.item(), global_step)
+        writer.add_scalar("charts/ret_std", raw_ret_std.item(), global_step)
         writer.add_scalar("losses/analytic_kl_max", float(np.max(kl_terms)) if kl_terms else 0.0, global_step)
         writer.add_scalar("losses/kl_cap_hit", float(n_capped), global_step)
         writer.add_scalar("losses/actor_steps", n_steps, global_step)
