@@ -36,29 +36,47 @@ cleanrl/ppo_continuous_action_<your_method_name>.py
 
 ### Benchmarking and iterating
 
-- Always run experiments such thawt they appear in your harness UI.
-- Generally do not run more than 3 experiments at once, which already saturate compute.
-- If a run is clearly underperforming after 1-2M steps you may want to stop it
-- After a benchmark completes (or enough data to judge): re-evaluate your hypothesis, determine if it should be iterate on futher, and parse what worked and what didn't.
+- Always run experiments such that they appear in your harness UI.
+- **All local ML work MUST go through the machine-wide `mlq` daemon** — never launch training, preprocessing, or benchmarks directly with Python, `nohup`, detached terminals, or a repo-local scheduler. If the daemon is unavailable, start it with `mlq daemon install` (or `mlq daemon run` without systemd); do not bypass it.
+- Set `--max-parallel-runs` from expected per-run GPU saturation and peak VRAM, not model family or queue delay. Use **3** only for measured lightweight runs; default novel or world-model/attention-heavy runs to **1** until characterized. This is a global compatibility limit, not a utilization target.
+- Keep the submitted command and all descendants in the runner's foreground process group; do not daemonize inside an `mlq` job.
+- If a run is clearly underperforming after 1-2M steps, stop it with `mlq cancel JOB_ID`; use `--force` only when graceful cancellation fails.
+- After a benchmark completes (or enough data to judge): re-evaluate your hypothesis, determine if it should be iterated on further, and parse what worked and what didn't.
 - Never do smoke tests
-- Helpers in `scripts/` (run from repo root; shared tfevents logic in `scripts/_runs.py` — reuse it, don't grep `/tmp` logs or `pgrep`):
-  - `score_runs.py <pattern> [--env <env>] [--last N]` — ranked returns; `--at 500k,1M,2M` for matched-step comparison; `--metrics <tags>` for extra columns.
-  - `watch_run.py <pattern> [--env <env>]` — live status; `--until 2M` blocks until that step or stall. Launch as a tracked background task (plain blocking call, not `nohup … &`) such that it shows up in your harness UI.
-- Typically only do half cheetah and for 8 million steps
+- Typically only do HalfCheetah and for 8 million steps
 - Always use seed=1
 
 First use or activate venv at `.venv/bin/python`
 
-Run with **16 parallel environments** and **versioned experiment names**:
+#### Machine-wide ML queue (required)
 
 ```bash
-.venv/bin/python -u cleanrl/ppo_continuous_action_<method>.py \
-    --env-id HalfCheetah-v4 \
-    --num-envs 16 \
-    --exp-name <method>_v<N> \
-    --total-timesteps 8000000 \
-    --seed 1
+# Replace these two values, then submit from the repo root.
+MLQ_RUN_NAME=my_method_v1
+MLQ_SCRIPT=cleanrl/ppo_continuous_action_my_method_v1.py
+mlq submit --name "$MLQ_RUN_NAME" --max-parallel-runs 3 --cwd "$PWD" -- \
+  .venv/bin/python -u "$MLQ_SCRIPT" \
+  --env-id HalfCheetah-v4 --num-envs 16 --exp-name "$MLQ_RUN_NAME" \
+  --total-timesteps 8000000 --seed 1 \
+  --compile --compile-mode reduce-overhead
+
+# Inspect and control jobs through mlq, not ad-hoc process inspection.
+mlq daemon status
+mlq status
+mlq show JOB_ID
+mlq logs JOB_ID --follow
+mlq logs JOB_ID --stderr
+mlq cancel JOB_ID
+# Failed or lost jobs only:
+mlq retry JOB_ID
 ```
+
+Record and report the job ID returned by `mlq submit` and the declared limit. Use `--after-success JOB_ID` for dependent experiment chains and `--max-attempts N --retry-delay 30s` only for genuinely flaky jobs. Pass non-default environment variables explicitly with `--env` or `--inherit-env`; never put secrets in queue metadata because it is stored in plaintext.
+
+Other helpers in `scripts/` (run from repo root; shared tfevents logic in `scripts/_runs.py` — reuse it, don't grep `/tmp` logs or `pgrep`):
+
+  - `score_runs.py <pattern> [--env <env>] [--last N]` — ranked returns; `--at 500k,1M,2M` for matched-step comparison; `--metrics <tags>` for extra columns.
+  - `watch_run.py <pattern> [--env <env>]` — TensorBoard-metric status; `--until 2M` blocks until that step or stall. Use it alongside `mlq status` / `mlq logs`; do not use it to infer queue state.
 
 ## Independence
 
@@ -70,8 +88,8 @@ Your workflow loop:
 
 1. **Hypothesize**: form a clear, specific hypothesis about what will improve performance
 2. **Implement**: write clean, well-documented code in a new or modified file
-3. **Test**: run all three benchmarks as background tasks with versioned names and check in on them at set intervals
-4. **Monitor**: Run as a background task, and if relevant, periodically check progress and stop underperforming runs early.
+3. **Test**: submit versioned jobs with `mlq submit` and an explicit `--max-parallel-runs` (do not bare-launch ML work). Prefer HalfCheetah first.
+4. **Monitor**: use `mlq status` / `mlq show` / `mlq logs` for job state and `watch_run.py` / `score_runs.py` for learning metrics; cancel underperformers early with `mlq cancel`.
 5. **Analyze**: compare against baselines, understand what worked and why
 6. **Iterate**: keep improvements, rethink or roll back failures with documented reasoning, form new hypotheses
 
