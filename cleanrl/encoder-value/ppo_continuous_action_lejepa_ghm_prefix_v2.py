@@ -1,0 +1,978 @@
+# PPO + LeJEPA geometric-horizon model with grounded-prefix credit v2.
+# =============================================================================
+# A state-conditioned model predicts the normalized successor-outcome mean
+#
+#   mu(s) = (1-gamma) E[sum_{k>=0} gamma^k y_{t+k} | s_t=s]
+#   y_t   = [sg(LeJEPA(s_{t+1})), a_t, a_t^2, r_t].
+#
+# The actor sums a fixed prefix of Bellman innovations
+#
+#   d_t = ((1-gamma)y_t + gamma mu_target(s_{t+1}) - mu_target(s_t))
+#         / (1-gamma)
+#   c_t = sum_{i=0}^{H-1} gamma^i d_{t+i}, H=32 by default.
+#
+# This is not a horizon-32 prediction.  Every tail mu is still a learned infinite
+# geometric future.  H is only the amount of real on-policy evidence used to
+# telescope away local model bias before the final full-horizon bootstrap.  Episode
+# resets cut the prefix; truncations retain their final-observation bootstrap.
+#
+# v1's TD2 arm was decisively falsified: its held-out state-conditioning skill was
+# negative while direct MC-CFM was positive.  v2 therefore uses MC-CFM only, for
+# both the conditional flow and its successor-mean head.
+#
+# There is no scalar critic, GAE, Q/action conditioning, EMA, contrastive loss,
+# PopArt, or replay.  GHM output scales are recomputed from each current rollout.
+# A fresh affine Procrustes isometry removes LeJEPA's otherwise unidentifiable
+# frame rotation and translation without adding a loss or moving target.
+# =============================================================================
+import copy
+import os
+import random
+import time
+from dataclasses import dataclass
+from typing import Optional
+
+import gymnasium as gym
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import tyro
+from torch.distributions.beta import Beta
+from torch.distributions.normal import Normal
+from torch.utils.tensorboard import SummaryWriter
+
+from cleanrl.shared.lejepa import (
+    ActionEncoder,
+    ARPredictor,
+    CompiledModule,
+    MLP,
+    SIGReg,
+    StateEncoder,
+)
+
+
+SAMPLE_EPS = 1e-6
+
+
+@dataclass
+class Args:
+    exp_name: str = os.path.basename(__file__)[: -len(".py")]
+    seed: int = 1
+    torch_deterministic: bool = True
+    cuda: bool = True
+    track: bool = False
+    wandb_project_name: str = "cleanRL"
+    wandb_entity: Optional[str] = None
+    capture_video: bool = False
+
+    env_id: str = "HalfCheetah-v4"
+    total_timesteps: int = 8_000_000
+    learning_rate: float = 3e-4
+    num_envs: int = 16
+    num_steps: int = 2048
+    anneal_lr: bool = True
+    gamma: float = 0.99
+    num_minibatches: int = 32
+    update_epochs: int = 10
+    norm_adv: bool = True
+    clip_coef: float = 0.2
+    clip_coef_high: float = 0.28
+    ent_coef: float = 0.0
+    actor_grad_clip: float = 0.25
+    target_kl: Optional[float] = 0.03
+
+    actor_dist: str = "beta"
+    logvar_min: float = -8.0
+    logvar_max: float = 8.0
+    hidden: int = 64
+    k_blocks: int = 3
+    n_experts: int = 16
+
+    emb_dim: int = 32
+    ssl_hidden: int = 256
+    pred_depth: int = 2
+    pred_heads: int = 4
+    pred_dim_head: int = 32
+    pred_mlp_dim: int = 256
+    seq_len: int = 4
+    sigreg_weight: float = 0.09
+    sigreg_num_proj: int = 1024
+    sigreg_proj_chunk: int = 256
+    ssl_lr: float = 5e-5
+    ssl_weight_decay: float = 1e-3
+    ssl_batch: int = 1024
+    ssl_epochs: int = 8
+    ssl_grad_clip: float = 1.0
+
+    ghm_hidden: int = 256
+    ghm_lr: float = 1e-4
+    ghm_weight_decay: float = 1e-4
+    ghm_batch: int = 1024
+    ghm_epochs: int = 4
+    ghm_grad_clip: float = 1.0
+    flow_steps: int = 10
+    credit_steps: int = 32
+    outcome_prox_coef: float = 0.02
+    outcome_scale_floor: float = 0.1
+
+    compile: bool = False
+    compile_mode: str = "reduce-overhead"
+
+    normalize_reward: bool = False
+    clip_reward: bool = False
+
+    batch_size: int = 0
+    minibatch_size: int = 0
+    num_iterations: int = 0
+
+
+def make_env(env_id, idx, capture_video, run_name, gamma, normalize_reward, clip_reward):
+    def thunk():
+        if capture_video and idx == 0:
+            env = gym.make(env_id, render_mode="rgb_array")
+            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+        else:
+            env = gym.make(env_id)
+        env = gym.wrappers.FlattenObservation(env)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        env = gym.wrappers.ClipAction(env)
+        env = gym.wrappers.NormalizeObservation(env)
+        env = gym.wrappers.TransformObservation(env, lambda x: np.clip(x, -10, 10))
+        if normalize_reward:
+            env = gym.wrappers.NormalizeReward(env, gamma=gamma)
+        if clip_reward:
+            env = gym.wrappers.TransformReward(env, lambda r: np.clip(r, -10, 10))
+        return env
+
+    return thunk
+
+
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    nn.init.orthogonal_(layer.weight, std)
+    if layer.bias is not None:
+        nn.init.constant_(layer.bias, bias_const)
+    return layer
+
+
+class ReLUSquared(nn.Module):
+    def forward(self, x):
+        return torch.relu(x).square()
+
+
+def _branch_body(width):
+    return nn.Sequential(
+        layer_init(nn.Linear(width, width)),
+        ReLUSquared(),
+        layer_init(nn.Linear(width, width)),
+    )
+
+
+class ThinkBlock(nn.Module):
+    def __init__(self, in_dim, width, n_experts):
+        super().__init__()
+        self.in_proj = layer_init(nn.Linear(in_dim, width))
+        self.resid_gate = nn.Parameter(torch.full((width,), 4.0))
+        self.dense_norm = nn.RMSNorm(width, elementwise_affine=False)
+        self.dense = _branch_body(width)
+        self.moe_norm = nn.RMSNorm(width, elementwise_affine=False)
+        self.gate = layer_init(nn.Linear(width, n_experts))
+        self.experts = nn.ModuleList([_branch_body(width) for _ in range(n_experts)])
+
+    def forward(self, cat_feats, x0):
+        x = self.in_proj(cat_feats)
+        gate = torch.sigmoid(self.resid_gate)
+        x = gate * x + (1.0 - gate) * x0
+        dense = self.dense(self.dense_norm(x))
+        moe_in = self.moe_norm(x)
+        weights = self.gate(moe_in).softmax(-1)
+        experts = torch.stack([expert(moe_in) for expert in self.experts], dim=1)
+        return x + dense + (weights.unsqueeze(-1) * experts).sum(1)
+
+
+class ThinkTrunk(nn.Module):
+    def __init__(self, in_dim, width, n_blocks, n_experts):
+        super().__init__()
+        self.entry = layer_init(nn.Linear(in_dim, width))
+        self.blocks = nn.ModuleList(
+            [ThinkBlock(width * (i + 1), width, n_experts) for i in range(n_blocks)]
+        )
+        self.out_norm = nn.RMSNorm(width * (n_blocks + 1), elementwise_affine=False)
+        self.out_proj = layer_init(nn.Linear(width * (n_blocks + 1), width))
+
+    def forward(self, x):
+        x0 = self.entry(x)
+        feats = [x0]
+        for block in self.blocks:
+            feats.append(block(torch.cat(feats, -1), x0))
+        return self.out_proj(self.out_norm(torch.cat(feats, -1)))
+
+
+class Agent(nn.Module):
+    """Policy only.  The state-only GHM is intentionally a separate module."""
+
+    def __init__(self, envs, args):
+        super().__init__()
+        obs_dim = int(np.prod(envs.single_observation_space.shape))
+        act_dim = int(np.prod(envs.single_action_space.shape))
+        self.actor_dist = args.actor_dist
+        self.logvar_min = args.logvar_min
+        self.logvar_max = args.logvar_max
+        self.trunk = ThinkTrunk(obs_dim, args.hidden, args.k_blocks, args.n_experts)
+        if self.actor_dist == "beta":
+            self.alpha_head = layer_init(nn.Linear(args.hidden, act_dim), std=0.01)
+            self.beta_head = layer_init(nn.Linear(args.hidden, act_dim), std=0.01)
+        elif self.actor_dist == "gaussian":
+            self.mean_head = layer_init(nn.Linear(args.hidden, act_dim), std=0.01)
+            self.logvar_head = layer_init(nn.Linear(args.hidden, act_dim), std=0.01)
+        else:
+            raise ValueError(f"unknown actor_dist={self.actor_dist!r}")
+
+    def get_action(self, obs, latent=None):
+        feat = self.trunk(obs)
+        if self.actor_dist == "beta":
+            alpha = F.softplus(self.alpha_head(feat)) + 1.0
+            beta = F.softplus(self.beta_head(feat)) + 1.0
+            dist = Beta(alpha, beta)
+            z = dist.sample() if latent is None else latent
+            z = z.clamp(SAMPLE_EPS, 1.0 - SAMPLE_EPS)
+            action = 2.0 * z - 1.0
+            logprob = dist.log_prob(z).sum(-1) - action.shape[-1] * np.log(2.0)
+            entropy = dist.entropy().sum(-1) + action.shape[-1] * np.log(2.0)
+        else:
+            mean = self.mean_head(feat)
+            raw = self.logvar_head(feat)
+            logvar = self.logvar_min + (self.logvar_max - self.logvar_min) * torch.sigmoid(raw)
+            dist = Normal(mean, torch.exp(0.5 * logvar))
+            z = dist.sample() if latent is None else latent
+            action = torch.tanh(z)
+            log_det = 2.0 * (np.log(2.0) - z - F.softplus(-2.0 * z))
+            logprob = (dist.log_prob(z) - log_det).sum(-1)
+            zr = dist.rsample()
+            entropy = -(dist.log_prob(zr) - 2.0 * (
+                np.log(2.0) - zr - F.softplus(-2.0 * zr)
+            )).sum(-1)
+        return action, z, logprob, entropy
+
+
+class LeJepaSSL(nn.Module):
+    """Attached-target LeJEPA prediction plus SIGReg; no EMA or contrastive term."""
+
+    def __init__(self, obs_dim, act_dim, args):
+        super().__init__()
+        self.encoder = StateEncoder(obs_dim, args.emb_dim, args.ssl_hidden)
+        self.action_encoder = ActionEncoder(act_dim, args.emb_dim)
+        self.predictor = ARPredictor(
+            num_frames=args.seq_len,
+            depth=args.pred_depth,
+            heads=args.pred_heads,
+            mlp_dim=args.pred_mlp_dim,
+            input_dim=args.emb_dim,
+            hidden_dim=args.emb_dim,
+            dim_head=args.pred_dim_head,
+            dropout=0.0,
+            emb_dropout=0.0,
+        )
+        self.pred_proj = MLP(args.emb_dim, args.ssl_hidden, args.emb_dim)
+        self.sigreg = SIGReg(num_proj=args.sigreg_num_proj, proj_chunk=args.sigreg_proj_chunk)
+
+    def forward(self, obs_seq, act_seq, mask_seq, sigreg_weight):
+        emb = self.encoder(obs_seq)
+        act_emb = self.action_encoder(act_seq)
+        pred = self.pred_proj(self.predictor(emb, act_emb))
+        err = (pred[:, :-1] - emb[:, 1:]).square().mean(-1)
+        pred_loss = (err * mask_seq).sum() / mask_seq.sum().clamp_min(1.0)
+        sigreg_loss = self.sigreg(emb.transpose(0, 1))
+        return pred_loss + sigreg_weight * sigreg_loss, pred_loss, sigreg_loss
+
+
+def chunk_sequences(x, seq_len):
+    steps = (x.shape[0] // seq_len) * seq_len
+    x = x[:steps]
+    return x.reshape(steps // seq_len, seq_len, x.shape[1], *x.shape[2:]).transpose(
+        1, 2
+    ).reshape(-1, seq_len, *x.shape[2:])
+
+
+def outcome_features(next_embedding, action, reward):
+    """The GHM outcome.  LeJEPA is deliberately detached from control losses."""
+    return torch.cat(
+        [next_embedding.detach(), action, action.square(), reward.unsqueeze(-1)], dim=-1
+    )
+
+
+def outcome_block_slices(emb_dim, act_dim):
+    return (
+        slice(0, emb_dim),
+        slice(emb_dim, emb_dim + act_dim),
+        slice(emb_dim + act_dim, emb_dim + 2 * act_dim),
+        slice(emb_dim + 2 * act_dim, emb_dim + 2 * act_dim + 1),
+    )
+
+
+def fresh_block_scales(outcomes, emb_dim, act_dim, floor=0.1, valid=None):
+    """One isotropic scale per semantic block, recomputed from this rollout."""
+    flat = outcomes.reshape(-1, outcomes.shape[-1])
+    if valid is not None:
+        flat = flat[valid.reshape(-1) > 0]
+    scales = []
+    for block in outcome_block_slices(emb_dim, act_dim):
+        centered = flat[:, block] - flat[:, block].mean(0)
+        scales.append(centered.square().mean().sqrt().clamp_min(floor))
+    return torch.stack(scales)
+
+
+def scale_outcome_blocks(x, scales, emb_dim, act_dim):
+    parts = [
+        x[..., block] / scale
+        for block, scale in zip(outcome_block_slices(emb_dim, act_dim), scales)
+    ]
+    return torch.cat(parts, -1)
+
+
+def affine_frame_transport(after, before, current_rotation, current_offset):
+    """Compose the isometry mapping a new LeJEPA frame into the persistent GHM frame."""
+    after_mean = after.mean(0)
+    before_mean = before.mean(0)
+    after_centered = after - after_mean
+    before_centered = before - before_mean
+    u, _, vh = torch.linalg.svd(
+        after_centered.double().T @ before_centered.double(), full_matrices=False
+    )
+    frame_step = (u @ vh).to(after.dtype)
+    new_rotation = frame_step @ current_rotation
+    new_offset = (
+        before_mean @ current_rotation + current_offset - after_mean @ new_rotation
+    )
+    return new_rotation, new_offset
+
+
+def normalized_successor_target(outcome, next_mean, termination, valid, gamma):
+    bootstrap = (1.0 - termination) * valid
+    return (1.0 - gamma) * outcome + gamma * bootstrap.unsqueeze(-1) * next_mean
+
+
+def successor_innovation(outcome, mean, next_mean, termination, valid, gamma):
+    target = normalized_successor_target(outcome, next_mean, termination, valid, gamma)
+    return (target - mean) / (1.0 - gamma)
+
+
+def fixed_prefix_credit(one_step_innovation, boundaries, gamma, credit_steps):
+    """Telescope at most `credit_steps` real transitions without crossing a reset.
+
+    The final included innovation retains its own learned next-state bootstrap.
+    Consequently a rollout tail, a shorter remaining episode, and H=1 are all
+    well-defined without padding or a separately predicted fixed horizon.
+    """
+    if credit_steps < 1:
+        raise ValueError("credit_steps must be at least 1")
+    credit = one_step_innovation
+    continuation = (1.0 - boundaries).unsqueeze(-1)
+    for _ in range(1, credit_steps):
+        shifted = torch.zeros_like(credit)
+        shifted[:-1] = credit[1:]
+        credit = one_step_innovation + gamma * continuation * shifted
+    return credit
+
+
+def outcome_proximal_loss(logratio, vector_credit):
+    """Norm of the batch's vector probability displacement.
+
+    Unlike a per-sample energy penalty, this preserves direction and cross-sample
+    cancellation: PPO may move probability between transitions whose successor
+    innovations cancel, but pays for a coherent displacement of the predicted
+    outcome distribution.  Orthogonal rotations preserve the norm.
+    """
+    displacement = (logratio.exp() - 1.0).unsqueeze(-1) * vector_credit
+    return displacement.mean(0).square().sum()
+
+
+class GeometricHorizonModel(nn.Module):
+    """State-conditioned normalized successor mean and conditional flow field."""
+
+    def __init__(self, obs_dim, outcome_dim, hidden):
+        super().__init__()
+        self.condition = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, hidden)),
+            nn.SiLU(),
+            nn.RMSNorm(hidden),
+            layer_init(nn.Linear(hidden, hidden)),
+            nn.SiLU(),
+        )
+        self.mean_head = layer_init(nn.Linear(hidden, outcome_dim), std=0.0)
+        self.register_buffer("time_freq", 2.0 ** torch.arange(6, dtype=torch.float32))
+        flow_in = outcome_dim + hidden + 12
+        self.flow = nn.Sequential(
+            layer_init(nn.Linear(flow_in, hidden)),
+            nn.SiLU(),
+            nn.RMSNorm(hidden),
+            layer_init(nn.Linear(hidden, hidden)),
+            nn.SiLU(),
+            layer_init(nn.Linear(hidden, outcome_dim), std=0.01),
+        )
+
+    def mean(self, obs):
+        return self.mean_head(self.condition(obs))
+
+    def velocity(self, time_, x, obs):
+        return self.velocity_from_condition(time_, x, self.condition(obs))
+
+    def velocity_from_condition(self, time_, x, condition):
+        time_ = torch.as_tensor(time_, device=x.device, dtype=x.dtype)
+        if time_.ndim == 0:
+            time_ = time_.expand(x.shape[0], 1)
+        if time_.ndim == 1:
+            time_ = time_.unsqueeze(-1)
+        phase = 2.0 * np.pi * time_ * self.time_freq
+        time_emb = torch.cat([phase.sin(), phase.cos()], -1)
+        return self.flow(torch.cat([x, condition, time_emb], -1))
+
+
+@torch.no_grad()
+def hard_update(target, online):
+    target.load_state_dict(online.state_dict())
+    target.requires_grad_(False)
+    target.eval()
+
+
+@torch.no_grad()
+def rk2_midpoint_flow(model, obs, x0, end_time, steps, condition=None):
+    """Integrate dx/dt=v(t,x|s) with the actual explicit-midpoint RK2 method."""
+    x = x0
+    dt = end_time / float(steps)
+    if condition is None and hasattr(model, "velocity_from_condition"):
+        condition = model.condition(obs)
+
+    def velocity(time_, state):
+        if condition is None:
+            return model.velocity(time_, state, obs)
+        return model.velocity_from_condition(time_, state, condition)
+
+    for i in range(steps):
+        t0 = dt * i
+        k1 = velocity(t0, x)
+        x_mid = x + 0.5 * dt * k1
+        k2 = velocity(t0 + 0.5 * dt, x_mid)
+        x = x + dt * k2
+    return x
+
+
+def sample_geometric_future_indices(boundaries, gamma, offsets=None):
+    """Sample y[t+K] with P(K=k)=(1-gamma)gamma^k, never crossing an episode."""
+    steps, envs = boundaries.shape
+    if offsets is None:
+        uniform = torch.rand_like(boundaries).clamp_(1e-7, 1.0 - 1e-7)
+        offsets = torch.floor(torch.log1p(-uniform) / np.log(gamma)).long()
+    else:
+        offsets = offsets.long()
+    available = torch.ones_like(offsets)
+    for t in range(steps - 2, -1, -1):
+        available[t] = torch.where(
+            boundaries[t] > 0, torch.ones_like(available[t]), available[t + 1] + 1
+        )
+    valid = offsets < available
+    indices = (
+        torch.arange(steps, device=boundaries.device).unsqueeze(1) + offsets
+    ).clamp_max(steps - 1)
+    return indices, valid
+
+
+def cfm_regression_loss(prediction, target, scales, emb_dim, act_dim, mask=None):
+    error = scale_outcome_blocks(prediction - target, scales, emb_dim, act_dim)
+    row = error.square().mean(-1)
+    if mask is None:
+        return row.mean()
+    weight = mask.to(row.dtype)
+    return (row * weight).sum() / weight.sum().clamp_min(1.0)
+
+
+def geometric_future_outcomes(
+    outcomes, boundaries, terminations, valids, gamma, offsets=None
+):
+    """Draw from the episodic normalized successor measure.
+
+    A draw beyond a true terminal is the zero absorbing outcome and remains valid.
+    A draw beyond a time-limit truncation or the rollout tail is censored because
+    its same-trajectory future was not observed.
+    """
+    indices, geometric_valid = sample_geometric_future_indices(
+        boundaries, gamma, offsets=offsets
+    )
+    env_index = torch.arange(outcomes.shape[1], device=outcomes.device).unsqueeze(0)
+    future = outcomes[indices, env_index]
+    target_valid = valids[indices, env_index]
+    has_boundary = torch.zeros_like(boundaries, dtype=torch.bool)
+    next_boundary_terminal = torch.zeros_like(boundaries, dtype=torch.bool)
+    for t in range(boundaries.shape[0] - 1, -1, -1):
+        at_boundary = boundaries[t] > 0
+        if t == boundaries.shape[0] - 1:
+            has_boundary[t] = at_boundary
+            next_boundary_terminal[t] = at_boundary & (terminations[t] > 0)
+        else:
+            has_boundary[t] = at_boundary | has_boundary[t + 1]
+            next_boundary_terminal[t] = torch.where(
+                at_boundary,
+                terminations[t] > 0,
+                next_boundary_terminal[t + 1],
+            )
+    absorbing = (~geometric_valid) & has_boundary & next_boundary_terminal
+    future = torch.where(absorbing.unsqueeze(-1), torch.zeros_like(future), future)
+    valid = (geometric_valid & (target_valid > 0)) | absorbing
+    return future, valid
+
+
+def flat_mc_cfm_loss(model, obs, future_outcome, valid, scales, emb_dim, act_dim):
+    x0 = torch.randn_like(future_outcome)
+    time_ = torch.rand(future_outcome.shape[0], 1, device=future_outcome.device)
+    xt = (1.0 - time_) * x0 + time_ * future_outcome
+    prediction = model.velocity(time_, xt, obs)
+    return cfm_regression_loss(
+        prediction, future_outcome - x0, scales, emb_dim, act_dim, valid
+    )
+
+
+def main():
+    args = tyro.cli(Args)
+    args.batch_size = args.num_envs * args.num_steps
+    args.minibatch_size = args.batch_size // args.num_minibatches
+    args.num_iterations = args.total_timesteps // args.batch_size
+    if args.credit_steps < 1:
+        raise ValueError("--credit-steps must be at least 1")
+    if not args.cuda or not torch.cuda.is_available():
+        raise RuntimeError("CUDA is required")
+    if args.num_steps % args.seq_len:
+        raise ValueError("num_steps must be divisible by seq_len")
+
+    run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+    if args.track:
+        import wandb
+
+        wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=vars(args),
+            name=run_name,
+        )
+    writer = SummaryWriter(f"runs/{run_name}")
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n"
+        + "\n".join(f"|{key}|{value}|" for key, value in vars(args).items()),
+    )
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = args.torch_deterministic
+    device = torch.device("cuda")
+
+    envs = gym.vector.SyncVectorEnv(
+        [
+            make_env(
+                args.env_id,
+                i,
+                args.capture_video,
+                run_name,
+                args.gamma,
+                args.normalize_reward,
+                args.clip_reward,
+            )
+            for i in range(args.num_envs)
+        ]
+    )
+    assert isinstance(envs.single_action_space, gym.spaces.Box)
+    obs_dim = int(np.prod(envs.single_observation_space.shape))
+    act_dim = int(np.prod(envs.single_action_space.shape))
+    outcome_dim = args.emb_dim + 2 * act_dim + 1
+    reward_index = outcome_dim - 1
+
+    agent = Agent(envs, args).to(device)
+    ssl = LeJepaSSL(obs_dim, act_dim, args).to(device)
+    ghm = GeometricHorizonModel(obs_dim, outcome_dim, args.ghm_hidden).to(device)
+    ghm_target = copy.deepcopy(ghm).to(device)
+    ghm_target.requires_grad_(False)
+    ghm_target.eval()
+    if args.compile:
+        agent.trunk = CompiledModule(agent.trunk, mode=args.compile_mode, cudagraphs=False)
+        for name in ("encoder", "action_encoder", "predictor"):
+            setattr(
+                ssl,
+                name,
+                CompiledModule(getattr(ssl, name), mode=args.compile_mode, cudagraphs=False),
+            )
+        for model in (ghm, ghm_target):
+            model.condition = CompiledModule(
+                model.condition, mode=args.compile_mode, cudagraphs=False
+            )
+            model.flow = CompiledModule(model.flow, mode=args.compile_mode, cudagraphs=False)
+    actor_optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    ssl_optimizer = optim.AdamW(
+        ssl.parameters(), lr=args.ssl_lr, weight_decay=args.ssl_weight_decay
+    )
+    ghm_optimizer = optim.AdamW(
+        ghm.parameters(), lr=args.ghm_lr, weight_decay=args.ghm_weight_decay
+    )
+
+    shape_obs = (args.num_steps, args.num_envs) + envs.single_observation_space.shape
+    shape_act = (args.num_steps, args.num_envs) + envs.single_action_space.shape
+    obs_buf = torch.zeros(shape_obs, device=device)
+    next_obs_buf = torch.zeros(shape_obs, device=device)
+    action_buf = torch.zeros(shape_act, device=device)
+    latent_buf = torch.zeros(shape_act, device=device)
+    logprob_buf = torch.zeros((args.num_steps, args.num_envs), device=device)
+    reward_buf = torch.zeros_like(logprob_buf)
+    termination_buf = torch.zeros_like(logprob_buf)
+    boundary_buf = torch.zeros_like(logprob_buf)
+    valid_buf = torch.zeros_like(logprob_buf)
+
+    global_step = 0
+    start_time = time.time()
+    # LeJEPA's attached loss and isotropic SIGReg do not pin an orientation.  Keep
+    # GHM outcomes in one persistent coordinate frame by transporting each new
+    # encoder frame back with a fresh affine Procrustes isometry.  This is an exact
+    # coordinate change, not a learned loss, moving average, or target network.
+    embedding_to_ghm = torch.eye(args.emb_dim, device=device)
+    embedding_ghm_offset = torch.zeros(args.emb_dim, device=device)
+    next_obs_np, _ = envs.reset(seed=args.seed)
+    next_obs = torch.as_tensor(next_obs_np, device=device, dtype=torch.float32)
+
+    for iteration in range(1, args.num_iterations + 1):
+        if args.anneal_lr:
+            frac = 1.0 - (iteration - 1.0) / args.num_iterations
+            actor_optimizer.param_groups[0]["lr"] = frac * args.learning_rate
+            ssl_optimizer.param_groups[0]["lr"] = frac * args.ssl_lr
+            ghm_optimizer.param_groups[0]["lr"] = frac * args.ghm_lr
+
+        for step in range(args.num_steps):
+            global_step += args.num_envs
+            obs_buf[step] = next_obs
+            with torch.no_grad():
+                action, latent, logprob, _ = agent.get_action(next_obs)
+            action_buf[step] = action
+            latent_buf[step] = latent
+            logprob_buf[step] = logprob
+
+            next_obs_np, reward, terminations, truncations, infos = envs.step(
+                action.cpu().numpy()
+            )
+            boundary = np.logical_or(terminations, truncations)
+            transition_next_obs = np.array(next_obs_np, copy=True)
+            valid = (~boundary).astype(np.float32)
+            final_obs = infos.get("final_observation")
+            final_mask = infos.get("_final_observation")
+            if final_obs is not None:
+                if final_mask is None:
+                    final_mask = [x is not None for x in final_obs]
+                for env_idx, has_final in enumerate(final_mask):
+                    if has_final and final_obs[env_idx] is not None:
+                        transition_next_obs[env_idx] = final_obs[env_idx]
+                        valid[env_idx] = 1.0
+
+            next_obs_buf[step] = torch.as_tensor(
+                transition_next_obs, device=device, dtype=torch.float32
+            )
+            reward_buf[step] = torch.as_tensor(reward, device=device)
+            termination_buf[step] = torch.as_tensor(
+                terminations, device=device, dtype=torch.float32
+            )
+            boundary_buf[step] = torch.as_tensor(boundary, device=device, dtype=torch.float32)
+            valid_buf[step] = torch.as_tensor(valid, device=device)
+            next_obs = torch.as_tensor(next_obs_np, device=device, dtype=torch.float32)
+
+            if "final_info" in infos:
+                for info in infos["final_info"]:
+                    if info and "episode" in info:
+                        writer.add_scalar(
+                            "charts/episodic_return", info["episode"]["r"], global_step
+                        )
+                        writer.add_scalar(
+                            "charts/episodic_length", info["episode"]["l"], global_step
+                        )
+
+        # Freeze one coordinate frame and one hard target for every control target
+        # and GHM update made from this rollout.
+        with torch.no_grad():
+            next_emb_raw = ssl.encoder(next_obs_buf.reshape(-1, obs_dim)).reshape(
+                args.num_steps, args.num_envs, args.emb_dim
+            )
+            next_emb = next_emb_raw @ embedding_to_ghm + embedding_ghm_offset
+            outcomes = outcome_features(next_emb, action_buf, reward_buf)
+            means = ghm_target.mean(obs_buf.reshape(-1, obs_dim)).reshape(
+                args.num_steps, args.num_envs, outcome_dim
+            )
+            next_means = ghm_target.mean(next_obs_buf.reshape(-1, obs_dim)).reshape_as(means)
+            one_step_credits = successor_innovation(
+                outcomes,
+                means,
+                next_means,
+                termination_buf,
+                valid_buf,
+                args.gamma,
+            )
+            reward_credit = fixed_prefix_credit(
+                one_step_credits[..., reward_index : reward_index + 1],
+                boundary_buf,
+                args.gamma,
+                args.credit_steps,
+            )
+            vector_credit_raw = fixed_prefix_credit(
+                one_step_credits[..., :reward_index] * valid_buf.unsqueeze(-1),
+                boundary_buf,
+                args.gamma,
+                args.credit_steps,
+            )
+            reward_adv = reward_credit.squeeze(-1)
+            scales = fresh_block_scales(
+                outcomes,
+                args.emb_dim,
+                act_dim,
+                args.outcome_scale_floor,
+                valid=valid_buf,
+            )
+            vector_credit = scale_outcome_blocks(
+                vector_credit_raw,
+                scales[:3],
+                args.emb_dim,
+                act_dim,
+            )
+
+        b_obs = obs_buf.reshape(-1, obs_dim)
+        b_latents = latent_buf.reshape(-1, act_dim)
+        b_logprobs = logprob_buf.reshape(-1)
+        b_adv = reward_adv.reshape(-1)
+        b_vector_credit = vector_credit.reshape(-1, reward_index)
+
+        if args.norm_adv:
+            adv_mean = b_adv.mean()
+            adv_std = b_adv.std().clamp_min(1e-8)
+            b_adv = (b_adv - adv_mean) / adv_std
+
+        indices = np.arange(args.batch_size)
+        clipfracs = []
+        approx_kl = torch.tensor(0.0, device=device)
+        pg_loss = prox_loss = entropy_loss = torch.tensor(0.0, device=device)
+        actor_gn = torch.tensor(0.0, device=device)
+        epochs_taken = 0
+        for epoch in range(args.update_epochs):
+            np.random.shuffle(indices)
+            epoch_kls = []
+            for start in range(0, args.batch_size, args.minibatch_size):
+                mb = indices[start : start + args.minibatch_size]
+                _, _, new_logprob, entropy = agent.get_action(b_obs[mb], b_latents[mb])
+                logratio = new_logprob - b_logprobs[mb]
+                ratio = logratio.exp()
+                with torch.no_grad():
+                    approx_kl = ((ratio - 1.0) - logratio).mean()
+                    epoch_kls.append(approx_kl)
+                    clipfracs.append(
+                        ((ratio - 1.0).abs() > args.clip_coef).float().mean().item()
+                    )
+                clip_hi = args.clip_coef if args.clip_coef_high is None else args.clip_coef_high
+                loss_unclipped = -b_adv[mb] * ratio
+                loss_clipped = -b_adv[mb] * ratio.clamp(
+                    1.0 - args.clip_coef, 1.0 + clip_hi
+                )
+                pg_loss = torch.maximum(loss_unclipped, loss_clipped).mean()
+                prox_loss = outcome_proximal_loss(logratio, b_vector_credit[mb])
+                entropy_loss = entropy.mean()
+                loss = pg_loss + args.outcome_prox_coef * prox_loss - args.ent_coef * entropy_loss
+                actor_optimizer.zero_grad(set_to_none=True)
+                loss.backward()
+                actor_gn = nn.utils.clip_grad_norm_(agent.parameters(), args.actor_grad_clip)
+                actor_optimizer.step()
+            epochs_taken = epoch + 1
+            approx_kl = torch.stack(epoch_kls).mean()
+            if args.target_kl is not None and approx_kl > args.target_kl:
+                break
+
+        # Fit the mean and flow in the same frozen LeJEPA frame used by the actor.
+        # Draw direct geometric targets once; the held-out split is never optimized.
+        mc_future, mc_valid = geometric_future_outcomes(
+            outcomes,
+            boundary_buf,
+            termination_buf,
+            valid_buf,
+            args.gamma,
+        )
+        mc_future = mc_future.reshape(-1, outcome_dim)
+        mc_valid = mc_valid.reshape(-1)
+        split = torch.randperm(args.batch_size, device=device)
+        holdout_size = min(2048, max(1, args.batch_size // 10))
+        holdout_indices = split[:holdout_size]
+        train_indices = split[holdout_size:]
+        ghm_mean_loss = ghm_flow_loss = ghm_direct_loss = torch.tensor(0.0, device=device)
+        ghm_gn = torch.tensor(0.0, device=device)
+        for _ in range(args.ghm_epochs):
+            perm = train_indices[torch.randperm(train_indices.numel(), device=device)]
+            for start in range(0, train_indices.numel(), args.ghm_batch):
+                mb = perm[start : start + args.ghm_batch]
+                mean_pred = ghm.mean(b_obs[mb])
+                ghm_mean_loss = cfm_regression_loss(
+                    mean_pred,
+                    mc_future[mb],
+                    scales,
+                    args.emb_dim,
+                    act_dim,
+                    mc_valid[mb],
+                )
+                ghm_flow_loss = flat_mc_cfm_loss(
+                    ghm,
+                    b_obs[mb],
+                    mc_future[mb],
+                    mc_valid[mb],
+                    scales,
+                    args.emb_dim,
+                    act_dim,
+                )
+                ghm_direct_loss = ghm_flow_loss
+                ghm_loss = ghm_mean_loss + ghm_flow_loss
+                ghm_optimizer.zero_grad(set_to_none=True)
+                ghm_loss.backward()
+                ghm_gn = nn.utils.clip_grad_norm_(ghm.parameters(), args.ghm_grad_clip)
+                ghm_optimizer.step()
+
+        # Held-out checks use independently held-out geometric outcomes.  The
+        # unconditional comparator makes state-collapse visible rather than merely
+        # reporting an absolute MSE that reward/outcome scale can dominate.
+        with torch.no_grad():
+            diag_obs = b_obs[holdout_indices]
+            diag_target = mc_future[holdout_indices]
+            diag_valid = mc_valid[holdout_indices]
+            diag_pred = ghm.mean(diag_obs)
+            ghm_heldout_mse = cfm_regression_loss(
+                diag_pred,
+                diag_target,
+                scales,
+                args.emb_dim,
+                act_dim,
+                diag_valid,
+            )
+            valid_targets = diag_target[diag_valid]
+            if valid_targets.shape[0] > 0:
+                marginal = valid_targets.mean(0, keepdim=True).expand_as(diag_target)
+                ghm_marginal_mse = cfm_regression_loss(
+                    marginal,
+                    diag_target,
+                    scales,
+                    args.emb_dim,
+                    act_dim,
+                    diag_valid,
+                )
+            else:
+                ghm_marginal_mse = torch.zeros((), device=device)
+            diag_pred_scaled = scale_outcome_blocks(
+                diag_pred, scales, args.emb_dim, act_dim
+            )
+            ghm_context_variance = diag_pred_scaled.var(0).mean()
+
+            flow_conditions = diag_obs[: min(256, diag_obs.shape[0])]
+            flow_draws = 4
+            repeated_obs = flow_conditions.repeat(flow_draws, 1)
+            flow_x0 = torch.randn(
+                repeated_obs.shape[0], outcome_dim, device=device
+            )
+            flow_samples = rk2_midpoint_flow(
+                ghm, repeated_obs, flow_x0, torch.ones_like(flow_x0[:, :1]), args.flow_steps
+            ).reshape(flow_draws, flow_conditions.shape[0], outcome_dim)
+            flow_sample_mean = flow_samples.mean(0)
+            mean_for_flow = ghm.mean(flow_conditions)
+            ghm_flow_mean_consistency = cfm_regression_loss(
+                flow_sample_mean,
+                mean_for_flow,
+                scales,
+                args.emb_dim,
+                act_dim,
+            )
+
+        # One discrete policy-evaluation step: no EMA and no intra-update target motion.
+        hard_update(ghm_target, ghm)
+
+        # LeJEPA moves only after all consumers of this rollout's embedding frame finish.
+        frame_probe_obs = b_obs[:: max(args.batch_size // 2048, 1)][:2048]
+        with torch.no_grad():
+            frame_before = ssl.encoder(frame_probe_obs)
+        seq_obs = chunk_sequences(obs_buf, args.seq_len)
+        seq_act = chunk_sequences(action_buf, args.seq_len)
+        seq_continue = chunk_sequences(1.0 - boundary_buf, args.seq_len)
+        seq_mask = seq_continue.cumprod(1)[:, :-1]
+        ssl_pred = ssl_sig = ssl_gn = torch.tensor(0.0, device=device)
+        ssl_steps = 0
+        n_seq = seq_obs.shape[0]
+        if n_seq < args.ssl_batch:
+            raise ValueError("ssl_batch exceeds the number of rollout sequences")
+        for _ in range(args.ssl_epochs):
+            perm = torch.randperm(n_seq, device=device)
+            for start in range(0, n_seq - args.ssl_batch + 1, args.ssl_batch):
+                mb = perm[start : start + args.ssl_batch]
+                ssl_loss, ssl_pred, ssl_sig = ssl(
+                    seq_obs[mb], seq_act[mb], seq_mask[mb], args.sigreg_weight
+                )
+                ssl_optimizer.zero_grad(set_to_none=True)
+                ssl_loss.backward()
+                ssl_gn = nn.utils.clip_grad_norm_(ssl.parameters(), args.ssl_grad_clip)
+                ssl_optimizer.step()
+                ssl_steps += 1
+        with torch.no_grad():
+            frame_after = ssl.encoder(frame_probe_obs)
+            new_rotation, new_offset = affine_frame_transport(
+                frame_after,
+                frame_before,
+                embedding_to_ghm,
+                embedding_ghm_offset,
+            )
+            aligned_after = frame_after @ new_rotation + new_offset
+            aligned_before = frame_before @ embedding_to_ghm + embedding_ghm_offset
+            frame_residual = (
+                (aligned_after - aligned_before).square().mean().sqrt()
+                / (
+                    aligned_before - aligned_before.mean(0)
+                ).square().mean().sqrt().clamp_min(1e-8)
+            )
+            embedding_to_ghm = new_rotation
+            embedding_ghm_offset = new_offset
+
+        reward_credit_raw = reward_adv
+        vector_energy = b_vector_credit.square().mean(-1)
+        writer.add_scalar("charts/learning_rate", actor_optimizer.param_groups[0]["lr"], global_step)
+        writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+        writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
+        writer.add_scalar("losses/outcome_prox", prox_loss.item(), global_step)
+        writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
+        writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
+        writer.add_scalar("losses/clipfrac", float(np.mean(clipfracs)), global_step)
+        writer.add_scalar("losses/actor_grad_norm", float(actor_gn), global_step)
+        writer.add_scalar("ghm/mean_loss", ghm_mean_loss.item(), global_step)
+        writer.add_scalar("ghm/flow_loss", ghm_flow_loss.item(), global_step)
+        writer.add_scalar("ghm/direct_loss", ghm_direct_loss.item(), global_step)
+        writer.add_scalar("ghm/grad_norm", float(ghm_gn), global_step)
+        writer.add_scalar("ghm/reward_credit_mean", reward_credit_raw.mean().item(), global_step)
+        writer.add_scalar("ghm/reward_credit_std", reward_credit_raw.std().item(), global_step)
+        writer.add_scalar("ghm/vector_credit_energy", vector_energy.mean().item(), global_step)
+        writer.add_scalar("ghm/credit_steps", args.credit_steps, global_step)
+        writer.add_scalar("ghm/heldout_geometric_mse", ghm_heldout_mse.item(), global_step)
+        writer.add_scalar("ghm/heldout_unconditional_mse", ghm_marginal_mse.item(), global_step)
+        writer.add_scalar(
+            "ghm/heldout_skill_vs_unconditional",
+            (1.0 - ghm_heldout_mse / ghm_marginal_mse.clamp_min(1e-8)).item(),
+            global_step,
+        )
+        writer.add_scalar("ghm/context_mean_variance", ghm_context_variance.item(), global_step)
+        writer.add_scalar(
+            "ghm/flow_mean_consistency", ghm_flow_mean_consistency.item(), global_step
+        )
+        writer.add_scalar("ppo/epochs_taken", epochs_taken, global_step)
+        writer.add_scalar("ssl/pred_loss", ssl_pred.item(), global_step)
+        writer.add_scalar("ssl/sigreg_epps_pulley", ssl_sig.item(), global_step)
+        writer.add_scalar("ssl/grad_norm", float(ssl_gn), global_step)
+        writer.add_scalar("ssl/steps_per_iter", ssl_steps, global_step)
+        writer.add_scalar("ssl/frame_transport_residual", frame_residual.item(), global_step)
+        print("SPS:", int(global_step / (time.time() - start_time)))
+
+    envs.close()
+    writer.close()
+
+
+if __name__ == "__main__":
+    main()
