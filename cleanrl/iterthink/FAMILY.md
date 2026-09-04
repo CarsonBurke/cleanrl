@@ -10,7 +10,8 @@ Subfamilies:
   critic line (`rawret` = raw-return heads incl. TPO-MD transfer probes,
   `invobs` = inverse-obs slots, `dg` = delight-gated, `dsrg` = decoupled
   reward-gain variants).
-- `v24_d3bucket/{ppo,pmpo,other}/` — multi-token-prediction critic line.
+- `v24_d3bucket/{ppo,pmpo,dg,other}/` — multi-token-prediction critic line
+  (`dg` = delight-gated nextlat variants: dg_abs series, dg_rel, v4_dg).
 - `dg/`, `critic_variants/`, `policy_dist/` — v24 delight-gate, v162/critic10/
   C51/rawsymlog critics, and policy-distribution sweeps (logit-flow, autoreg,
   mixture, full-cov, sacbeta).
