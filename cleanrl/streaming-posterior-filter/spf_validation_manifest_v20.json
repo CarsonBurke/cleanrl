@@ -1,0 +1,422 @@
+{
+  "schema_version": 1,
+  "created_for": "SPF/PPO incumbent optimization and cross-environment validation",
+  "constraints": {
+    "q_critic": false,
+    "causal_fast_state": true,
+    "stored_behavior_time_context": true,
+    "critic_reward": "raw environment reward",
+    "gpu_scheduler": "mlq",
+    "total_timesteps": 8000000,
+    "num_envs": 16,
+    "seeds": [1, 2, 3],
+    "environments": ["HalfCheetah-v4", "Hopper-v4", "Walker2d-v4"]
+  },
+  "sources": {
+    "v2_incumbent_reference": {
+      "path": "cleanrl/streaming-posterior-filter/ppo_continuous_action_spf_fastmemory_v2.py",
+      "sha256": "eea228cda84dd8d808a7f69a610164b7640a5be6ec72bdb29b4a77c4fbee7e84"
+    },
+    "v2_checkpointed_reference": {
+      "path": "cleanrl/streaming-posterior-filter/ppo_continuous_action_spf_fastmemory_repro_v3.py",
+      "sha256": "eda665f8d7c4c4d6ec812ee8c0e8033446856dfcdcfb85458eb0cd443008a975",
+      "training_delta_from_v2": "none; final artifact writes only"
+    },
+    "v19_incumbent": {
+      "path": "cleanrl/streaming-posterior-filter/ppo_continuous_action_spf_hybrid_fractionalsurprise_v19.py",
+      "sha256": "c3e6276b64bbfb17f65ded3b06275819e2f8b269632962f011c1d10f62d3d1ab"
+    },
+    "v20_candidate": {
+      "path": "cleanrl/streaming-posterior-filter/ppo_continuous_action_spf_hybrid_fractionalsurprise_fused_v20.py",
+      "sha256": "13843e7d854b9160b3dddfbab695fa2ea968c78ae446311088c134fcdd591216",
+      "lineage": "v19 objective and recurrence; functional torch.compile fast-memory read/update; final checkpoints"
+    },
+    "v20_tests": {
+      "path": "tests/test_ppo_fastmemory_hybrid_fractionalsurprise_fused_v20.py",
+      "sha256": "09addcba311514116150f91b75bf84e0b3605e0cb64ad5bd4591a0310236dd53"
+    }
+  },
+  "existing_seed1_runs": [
+    {
+      "job_id": 3307,
+      "variant": "v2",
+      "environment": "HalfCheetah-v4",
+      "seed": 1,
+      "max_parallel_runs": 1,
+      "time_limit": "6h",
+      "run_dir": "runs/HalfCheetah-v4__spf_fastmemory_ppo_v2__1__1787438331",
+      "command": ".venv/bin/python -u cleanrl/streaming-posterior-filter/ppo_continuous_action_spf_fastmemory_v2.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name spf_fastmemory_ppo_v2 --total-timesteps 8000000 --seed 1"
+    },
+    {
+      "job_id": 3438,
+      "variant": "v19",
+      "environment": "HalfCheetah-v4",
+      "seed": 1,
+      "max_parallel_runs": 1,
+      "time_limit": null,
+      "run_dir": "runs/HalfCheetah-v4__spf_hybrid_fractionalsurprise_v19__1__1787533052",
+      "command": ".venv/bin/python -u cleanrl/streaming-posterior-filter/ppo_continuous_action_spf_hybrid_fractionalsurprise_v19.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name spf_hybrid_fractionalsurprise_v19 --total-timesteps 8000000 --seed 1"
+    }
+  ],
+  "queued_jobs": [
+    {"job_id": 3447, "variant": "v20-contracts", "max_parallel_runs": 3, "time_limit": "20m", "after_success": null},
+    {"job_id": 3448, "variant": "v20", "environment": "HalfCheetah-v4", "seed": 1, "compiled": true, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3449, "variant": "v19-reproduction", "environment": "HalfCheetah-v4", "seed": 2, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3450, "variant": "v19-reproduction", "environment": "HalfCheetah-v4", "seed": 3, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3449},
+    {"job_id": 3451, "variant": "v20", "environment": "HalfCheetah-v4", "seed": 2, "compiled": true, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3448},
+    {"job_id": 3452, "variant": "v20", "environment": "HalfCheetah-v4", "seed": 3, "compiled": true, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3451},
+    {"job_id": 3454, "variant": "v2-reproduction", "environment": "HalfCheetah-v4", "seed": 2, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3455, "variant": "v2-reproduction", "environment": "HalfCheetah-v4", "seed": 3, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3456, "variant": "v2-reproduction", "environment": "Hopper-v4", "seed": 1, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3457, "variant": "v2-reproduction", "environment": "Hopper-v4", "seed": 2, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3458, "variant": "v2-reproduction", "environment": "Hopper-v4", "seed": 3, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3459, "variant": "v19-reproduction", "environment": "Hopper-v4", "seed": 1, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3460, "variant": "v19-reproduction", "environment": "Hopper-v4", "seed": 2, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3461, "variant": "v19-reproduction", "environment": "Hopper-v4", "seed": 3, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3462, "variant": "v2-reproduction", "environment": "Walker2d-v4", "seed": 1, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3463, "variant": "v2-reproduction", "environment": "Walker2d-v4", "seed": 2, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3464, "variant": "v2-reproduction", "environment": "Walker2d-v4", "seed": 3, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3465, "variant": "v19-reproduction", "environment": "Walker2d-v4", "seed": 1, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3466, "variant": "v19-reproduction", "environment": "Walker2d-v4", "seed": 2, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447},
+    {"job_id": 3467, "variant": "v19-reproduction", "environment": "Walker2d-v4", "seed": 3, "compiled": false, "max_parallel_runs": 1, "time_limit": "2h", "after_success": 3447}
+  ],
+  "command_template": ".venv/bin/python -u {source} --env-id {environment} --num-envs 16 --exp-name {mlq_name} --total-timesteps 8000000 --seed {seed} {compile_override}",
+  "expected_artifacts_per_new_run": [
+    "runs/{run_name}/events.out.tfevents.*",
+    "runs/{run_name}/{exp_name}.cleanrl_model",
+    "runs/{run_name}/{exp_name}.faststate.pt",
+    "mlq attempt stdout/stderr logs"
+  ],
+  "contract_result": {
+    "job_id": 3447,
+    "status": "succeeded",
+    "result": "18 passed in 6.26s",
+    "attempt_logs": "/home/marvin/.local/state/mlqueue/attempts/2588"
+  },
+  "cancelled_requeue_after_protected_trading_job_3444": {
+    "status": "cancelled before start by external request",
+    "jobs": [
+      {"job_id": 3468, "variant": "v19-reproduction", "environment": "HalfCheetah-v4", "seed": 2},
+      {"job_id": 3469, "variant": "v19-reproduction", "environment": "HalfCheetah-v4", "seed": 3},
+      {"job_id": 3470, "variant": "v2-reproduction", "environment": "HalfCheetah-v4", "seed": 2},
+      {"job_id": 3471, "variant": "v2-reproduction", "environment": "HalfCheetah-v4", "seed": 3},
+      {"job_id": 3472, "variant": "v2-reproduction", "environment": "Hopper-v4", "seed": 1},
+      {"job_id": 3473, "variant": "v2-reproduction", "environment": "Hopper-v4", "seed": 2},
+      {"job_id": 3474, "variant": "v2-reproduction", "environment": "Hopper-v4", "seed": 3},
+      {"job_id": 3475, "variant": "v19-reproduction", "environment": "Hopper-v4", "seed": 1},
+      {"job_id": 3476, "variant": "v19-reproduction", "environment": "Hopper-v4", "seed": 2},
+      {"job_id": 3477, "variant": "v19-reproduction", "environment": "Hopper-v4", "seed": 3},
+      {"job_id": 3478, "variant": "v2-reproduction", "environment": "Walker2d-v4", "seed": 1},
+      {"job_id": 3479, "variant": "v2-reproduction", "environment": "Walker2d-v4", "seed": 2},
+      {"job_id": 3480, "variant": "v2-reproduction", "environment": "Walker2d-v4", "seed": 3},
+      {"job_id": 3481, "variant": "v19-reproduction", "environment": "Walker2d-v4", "seed": 1},
+      {"job_id": 3482, "variant": "v19-reproduction", "environment": "Walker2d-v4", "seed": 2},
+      {"job_id": 3483, "variant": "v19-reproduction", "environment": "Walker2d-v4", "seed": 3}
+    ]
+  },
+  "active_requeue_after_protected_trading_job_3444": [
+    {"job_id": 3488, "job_name": "spf_fractionalsurprise_v19repro_hc_s2_r2", "variant": "v19-reproduction", "environment": "HalfCheetah-v4", "seed": 2},
+    {"job_id": 3489, "job_name": "spf_fractionalsurprise_v19repro_hc_s3_r2", "variant": "v19-reproduction", "environment": "HalfCheetah-v4", "seed": 3},
+    {"job_id": 3490, "job_name": "spf_fastmemory_v2repro_hc_s2_r2", "variant": "v2-reproduction", "environment": "HalfCheetah-v4", "seed": 2},
+    {"job_id": 3491, "job_name": "spf_fastmemory_v2repro_hc_s3_r2", "variant": "v2-reproduction", "environment": "HalfCheetah-v4", "seed": 3},
+    {"job_id": 3492, "job_name": "spf_fastmemory_v2repro_hopper_s1_r2", "variant": "v2-reproduction", "environment": "Hopper-v4", "seed": 1},
+    {"job_id": 3493, "job_name": "spf_fastmemory_v2repro_hopper_s2_r2", "variant": "v2-reproduction", "environment": "Hopper-v4", "seed": 2},
+    {"job_id": 3494, "job_name": "spf_fastmemory_v2repro_hopper_s3_r2", "variant": "v2-reproduction", "environment": "Hopper-v4", "seed": 3},
+    {"job_id": 3495, "job_name": "spf_fractionalsurprise_v19repro_hopper_s1_r2", "variant": "v19-reproduction", "environment": "Hopper-v4", "seed": 1},
+    {"job_id": 3496, "job_name": "spf_fractionalsurprise_v19repro_hopper_s2_r2", "variant": "v19-reproduction", "environment": "Hopper-v4", "seed": 2},
+    {"job_id": 3497, "job_name": "spf_fractionalsurprise_v19repro_hopper_s3_r2", "variant": "v19-reproduction", "environment": "Hopper-v4", "seed": 3},
+    {"job_id": 3498, "job_name": "spf_fastmemory_v2repro_walker_s1_r2", "variant": "v2-reproduction", "environment": "Walker2d-v4", "seed": 1},
+    {"job_id": 3499, "job_name": "spf_fastmemory_v2repro_walker_s2_r2", "variant": "v2-reproduction", "environment": "Walker2d-v4", "seed": 2},
+    {"job_id": 3500, "job_name": "spf_fastmemory_v2repro_walker_s3_r2", "variant": "v2-reproduction", "environment": "Walker2d-v4", "seed": 3},
+    {"job_id": 3501, "job_name": "spf_fractionalsurprise_v19repro_walker_s1_r2", "variant": "v19-reproduction", "environment": "Walker2d-v4", "seed": 1},
+    {"job_id": 3502, "job_name": "spf_fractionalsurprise_v19repro_walker_s2_r2", "variant": "v19-reproduction", "environment": "Walker2d-v4", "seed": 2},
+    {"job_id": 3503, "job_name": "spf_fractionalsurprise_v19repro_walker_s3_r2", "variant": "v19-reproduction", "environment": "Walker2d-v4", "seed": 3}
+  ],
+  "requeue_terminal_outcome": {
+    "dependency_job_3444": {
+      "state": "cancelled by another controller after attempt 14",
+      "attempt_count": 14,
+      "max_attempts": 20,
+      "last_attempt_state": "failed",
+      "last_attempt_exit_code": 101
+    },
+    "jobs_3488_3503": {
+      "state": "skipped",
+      "attempt_count_each": 0,
+      "reason": "prerequisite job 3444 did not satisfy the required successful outcome",
+      "matched_evidence_produced": false
+    },
+    "decision": "No cull, incumbent replacement, or architecture claim is permitted because none of the validation jobs ran. Do not recreate, retry, reprioritize, or bypass these jobs or dependency 3444."
+  },
+  "active_requeue_command_contracts": {
+    "v19-reproduction": {
+      "source": "cleanrl/streaming-posterior-filter/ppo_continuous_action_spf_hybrid_fractionalsurprise_fused_v20.py",
+      "sha256": "13843e7d854b9160b3dddfbab695fa2ea968c78ae446311088c134fcdd591216",
+      "command_template": ".venv/bin/python -u cleanrl/streaming-posterior-filter/ppo_continuous_action_spf_hybrid_fractionalsurprise_fused_v20.py --env-id {environment} --num-envs 16 --exp-name {job_name} --total-timesteps 8000000 --seed {seed} --no-compile-fast-memory"
+    },
+    "v2-reproduction": {
+      "source": "cleanrl/streaming-posterior-filter/ppo_continuous_action_spf_fastmemory_repro_v3.py",
+      "sha256": "eda665f8d7c4c4d6ec812ee8c0e8033446856dfcdcfb85458eb0cd443008a975",
+      "command_template": ".venv/bin/python -u cleanrl/streaming-posterior-filter/ppo_continuous_action_spf_fastmemory_repro_v3.py --env-id {environment} --num-envs 16 --exp-name {job_name} --total-timesteps 8000000 --seed {seed}"
+    },
+    "scheduler": {
+      "after_success": 3444,
+      "max_parallel_runs": 1,
+      "priority": 0,
+      "time_limit_ms": 7200000
+    },
+    "binding_rule": "Substitute each active_requeue entry's environment, seed, and MLQ job name exactly; no other flags are implicit."
+  },
+  "requeue_contract": {
+    "after_success": 3444,
+    "max_parallel_runs": 1,
+    "time_limit": "2h per job",
+    "priority": 0,
+    "reason": "Guarantees no SPF run bypasses either protected trading_bot_0 job."
+  },
+  "observed_outcomes": {
+    "candidate_job_3448": {
+      "status": "cancelled_by_external_request_at_1888000_steps",
+      "matched_returns": {"500000": 1339.6, "1000000": 2755.0, "1500000": 3863.8},
+      "incumbent_returns": {"500000": 1472.2, "1000000": 3249.8, "1500000": 4753.2},
+      "sps_near_1800000": 2200,
+      "incumbent_sps_near_1800000": 2714,
+      "decision": "ineligible; compiled carrier is slower and behind at every observed checkpoint"
+    },
+    "job_3449": "cancelled by external request before a logged step",
+    "jobs_3450_3452": "skipped because candidate or seed-two prerequisite was cancelled",
+    "jobs_3454_3467": "cancelled before start by external request",
+    "jobs_3488_3503": "skipped with zero attempts after dependency 3444 was cancelled by another controller after its failed attempt 14; no matched evidence produced"
+  },
+  "matched_wall_clock_evidence": {
+    "method": "TensorBoard charts/episodic_return averaged within plus or minus 50000 steps around the latest step reached by each elapsed-time checkpoint; elapsed time starts at the run's first scalar event",
+    "hours": [0.1, 0.2, 0.3],
+    "HalfCheetah-v4_seed1": {
+      "spf_fastmemory_v2": {
+        "steps": [1312000, 2912000, 4544000],
+        "returns": [3807.4, 5350.0, 7407.8]
+      },
+      "spf_fractionalsurprise_v19": {
+        "steps": [848000, 2016000, 3248000],
+        "returns": [2750.0, 5946.7, 7501.6]
+      },
+      "hopsd_v27_sdgate": {
+        "steps": [448000, 880000, 1344000],
+        "returns": [1887.3, 3817.6, 5016.1]
+      },
+      "covtilt_v1_w4": {
+        "steps": [464000, 976000, 1504000],
+        "returns": [2339.6, 3561.2, 4098.9]
+      },
+      "covtilt_v2_e12": {
+        "steps": [560000, 1136000, 1696000],
+        "returns": [2510.8, 3563.8, 3809.0]
+      }
+    },
+    "interpretation": "v2 is strongest at 0.1h; v19 is strongest from 0.2h onward and at every main matched-step checkpoint through 8M. HOPSD and CovTilt sample-efficiency gains do not overcome their throughput cost in the observed wall-clock windows.",
+    "caveat": "CovTilt v1 has a 10.7h event-time gap after 1.5M, so later wall-clock points are excluded."
+  },
+  "latest_completed_comparison": {
+    "environment": "HalfCheetah-v4",
+    "seed": 1,
+    "matched_steps": [500000, 1000000, 1500000, 2000000, 4000000, 6000000, 8000000],
+    "returns": {
+      "spf_fractionalsurprise_v19": [1472.2, 3249.8, 4753.2, 5972.2, 7989.2, 8626.1, 9223.3],
+      "spf_fastmemory_v2": [1452.9, 3096.3, 4133.1, 4210.7, 6765.2, 8114.2, 8852.1],
+      "hopsd_v27_sdgate": [2165.4, 4207.7, 5259.4, 6033.7, 7029.6, 7629.1, 8171.1],
+      "covtilt_v1_w4": [2460.2, 3623.3, 4112.3, 4324.3, 5055.5, 5516.0, 5742.9],
+      "covtilt_v2_e18": [2114.2, 3542.4, 3798.7, 3947.2, 3566.0, 3743.0, null],
+      "covtilt_v2_e12": [2114.2, 3542.4, 3798.7, 3947.2, 3614.8, 3414.4, null]
+    },
+    "decision": "v19 remains the strongest completed Q-free causal incumbent by the full matched-step curve and by wall clock from 0.2h onward.",
+    "cull_action": "none; no queued SPF or CovTilt v3 arm has completed, and the v2 matrix remains a necessary control."
+  },
+  "pending_architecture_iteration": {
+    "name": "OPSD-CovTilt v3 feasible-mixture teacher",
+    "path": "cleanrl/ppo_continuous_action_opsd_covtilt_v3.py",
+    "sha256": "729e19b7db42c133561d2e0ad7b20b1139f71d26673f7e276f409f95fba5459b",
+    "contract": {
+      "q_critic": false,
+      "critic_reward": "raw environment reward",
+      "behavior_replay_inputs": "rollout-stored observations, native Beta samples, and old Beta moments only",
+      "future_behavior_information": false,
+      "actor_objective": "detached teacher-to-student forward KL; no PPO ratio or direct policy-gradient term"
+    },
+    "mechanism": "Moment-match the full mixture (1-eta)*pi_rollout + eta*q_raw back to one Beta and choose the largest empirically feasible eta under batch-mean KL and entropy-drop constraints.",
+    "review": {
+      "verdict": "approved for seed-1 full-run characterization",
+      "eta_zero_identity": "exactly returns rollout alpha/beta, zero KL, and rollout entropy",
+      "randomized_projection_trials": 80,
+      "joint_feasible_interval_trials": 80,
+      "blockers": 0,
+      "risks": [
+        "joint-feasibility interval is empirically validated rather than analytically proven",
+        "batch-mean constraints permit individual-state violations",
+        "teacher entropy control does not itself bound cumulative student entropy drift"
+      ]
+    },
+    "cancelled_before_start": [
+      3515,
+      3516,
+      3517,
+      3518,
+      3521,
+      3522,
+      3527,
+      3528,
+      3529
+    ],
+    "concurrent_covtilt_run_history": [
+      {
+        "job_id": 3527,
+        "name": "covtilt_v3_mix_e12",
+        "state_at_reconciliation": "queued",
+        "eligibility_at_reconciliation": "backfill_window_open: job 3523",
+        "final_observed_state": "cancelled before start by another controller; attempts 0/1",
+        "declared_max_parallel_runs": 3,
+        "priority": 0,
+        "time_limit": "8h",
+        "environment": "HalfCheetah-v4",
+        "seed": 1,
+        "total_timesteps": 8000000,
+        "num_envs": 16,
+        "command": ".venv/bin/python -u cleanrl/ppo_continuous_action_opsd_covtilt_v3.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name covtilt_v3_mix_e12 --total-timesteps 8000000 --seed 1 --raw-omega 4.0 --no-omega-dual --max-ent-drop 0.12"
+      },
+      {
+        "job_id": 3528,
+        "name": "covtilt_v3_mix_e04",
+        "state_at_reconciliation": "queued",
+        "eligibility_at_reconciliation": "backfill_window_open: job 3523",
+        "final_observed_state": "cancelled before start by another controller; attempts 0/1",
+        "declared_max_parallel_runs": 3,
+        "priority": 0,
+        "time_limit": "8h",
+        "environment": "HalfCheetah-v4",
+        "seed": 1,
+        "total_timesteps": 8000000,
+        "num_envs": 16,
+        "command": ".venv/bin/python -u cleanrl/ppo_continuous_action_opsd_covtilt_v3.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name covtilt_v3_mix_e04 --total-timesteps 8000000 --seed 1 --raw-omega 4.0 --no-omega-dual --max-ent-drop 0.04"
+      },
+      {
+        "job_id": 3529,
+        "name": "covtilt_v3_dual12",
+        "state_at_reconciliation": "queued",
+        "eligibility_at_reconciliation": "backfill_window_open: job 3523",
+        "final_observed_state": "cancelled before start by another controller; attempts 0/1",
+        "declared_max_parallel_runs": 3,
+        "priority": 0,
+        "time_limit": "8h",
+        "environment": "HalfCheetah-v4",
+        "seed": 1,
+        "total_timesteps": 8000000,
+        "num_envs": 16,
+        "command": ".venv/bin/python -u cleanrl/ppo_continuous_action_opsd_covtilt_v3.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name covtilt_v3_dual12 --total-timesteps 8000000 --seed 1 --raw-omega 32.0 --omega-dual --max-ent-drop 0.12"
+      }
+    ],
+    "scheduler_reconciliation_snapshots": [
+      {
+        "active_job": 3511,
+        "active_job_repository": "/home/marvin/Documents/repositories/NetworkIDBD",
+        "protected_job": 3520,
+        "shared_effective_limit": 1,
+        "active_leases": 1
+      },
+      {
+        "active_job": 3520,
+        "active_job_repository": "/home/marvin/Documents/repositories/cleanrl",
+        "protected_job": 3523,
+        "shared_effective_limit": 1,
+        "active_leases": 1
+      },
+      {
+        "active_job": 3523,
+        "active_job_repository": "/home/marvin/Documents/repositories/cleanrl",
+        "protected_job": 3524,
+        "shared_effective_limit": 1,
+        "active_leases": 1
+      },
+      {
+        "active_job": 3534,
+        "active_job_repository": "/home/marvin/Documents/repositories/cleanrl",
+        "protected_job": 3535,
+        "shared_effective_limit": 1,
+        "active_leases": 1
+      },
+      {
+        "active_job": 3544,
+        "active_job_repository": "/home/marvin/Documents/repositories/cleanrl",
+        "protected_job": 3545,
+        "shared_effective_limit": 1,
+        "active_leases": 1
+      }
+    ],
+    "scheduler_policy": "Snapshots are historical because concurrent controllers advance the protected drain. Refresh MLQ before every action; never mutate another controller's job. The observed shared effective limit permits only one active workload despite CovTilt's explicit declared limit of 3.",
+    "comparison_contract": {
+      "matched_steps": [
+        500000,
+        1000000,
+        1500000,
+        2000000,
+        4000000,
+        6000000,
+        8000000
+      ],
+      "return_window_steps": 50000,
+      "matched_wall_clock_hours": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "wall_clock_source": "TensorBoard event wall time from the first scalar, cross-checked against MLQ attempt duration and charts/SPS",
+      "incumbent": "spf_hybrid_fractionalsurprise_v19",
+      "selection_rule": "Replace v19 only with completed evidence showing stronger matched-step and matched-wall-clock returns without entropy, projection, validity, or throughput regression."
+    }
+  },
+  "compute_transition_history": [
+    {
+      "event": "initial reconciliation snapshot",
+      "active_job": 3511,
+      "active_name": "nidbd-sweep-swifttd",
+      "active_repository": "/home/marvin/Documents/repositories/NetworkIDBD",
+      "protected_job": 3520,
+      "shared_effective_limit": 1
+    },
+    {
+      "event": "concurrent controller advanced the drain",
+      "active_job": 3520,
+      "active_name": "iterthink_v24_beta_d3bucket_mtp_ppoadvnorm_batch_statedynlr_v8_postadam",
+      "active_repository": "/home/marvin/Documents/repositories/cleanrl",
+      "protected_job": 3523,
+      "protected_name": "hopsd_v44_itertarget",
+      "shared_effective_limit": 1
+    },
+    {
+      "event": "concurrent HOPSD controller advanced the drain",
+      "active_job": 3523,
+      "active_name": "hopsd_v44_itertarget",
+      "active_repository": "/home/marvin/Documents/repositories/cleanrl",
+      "protected_job": 3524,
+      "protected_name": "hopsd_v44_ema02",
+      "shared_effective_limit": 1
+    },
+    {
+      "event": "concurrent controllers advanced the shared drain after trading dependency attempt 13",
+      "active_job": 3534,
+      "active_name": "iterthink_v24_beta_d3bucket_mtp_ppoadvnorm_batch_statedynlr_v9_unitid",
+      "active_repository": "/home/marvin/Documents/repositories/cleanrl",
+      "protected_job": 3535,
+      "protected_name": "kagg-econ-pastself-s1",
+      "protected_repository": "/home/marvin/Documents/repositories/kraggiculture",
+      "shared_effective_limit": 1
+    },
+    {
+      "job_id": 3444,
+      "name": "idbd-full-smd-v6mom-r7-s24301",
+      "repository": "/home/marvin/Documents/repositories/trading_bot_0",
+      "state_at_latest_snapshot": "cancelled by another controller after failed attempt 14 of 20",
+      "max_parallel_runs": 1,
+      "policy": "SPF jobs 3488-3503 were skipped with zero attempts because they required this job's success; do not modify or bypass"
+    }
+  ],
+  "pending_decision_gate": "Blocked on external scheduling state: dependency 3444 was cancelled by another controller after failed attempt 14, so SPF jobs 3488-3503 were skipped with zero attempts and produced no evidence. Preserve the validated v19 incumbent; perform no cull or architecture promotion. Do not recreate, retry, reprioritize, or bypass the SPF jobs or dependency, and do not touch unrelated workloads. Resume only if the existing dependency contract is made runnable by its owner or the user explicitly authorizes a replacement contract."
+}
