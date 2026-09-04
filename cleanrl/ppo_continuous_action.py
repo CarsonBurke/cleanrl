@@ -103,6 +103,56 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
     return thunk
 
 
+def bootstrap_observations(next_obs, truncations, infos):
+    """Replace autoreset observations with final observations at time limits."""
+    bootstrap_obs = np.array(next_obs, copy=True)
+    truncations = np.asarray(truncations, dtype=bool)
+    if not np.any(truncations):
+        return bootstrap_obs
+
+    final_observations = infos.get("final_observation")
+    final_mask = infos.get("_final_observation")
+    if final_observations is None:
+        raise RuntimeError("truncated transition missing infos['final_observation']")
+
+    for env_idx in np.flatnonzero(truncations):
+        if final_mask is not None and not final_mask[env_idx]:
+            raise RuntimeError(f"truncated environment {env_idx} has no final observation")
+        final_observation = final_observations[env_idx]
+        if final_observation is None:
+            raise RuntimeError(f"truncated environment {env_idx} has no final observation")
+        bootstrap_obs[env_idx] = final_observation
+    return bootstrap_obs
+
+
+def compute_gae(
+    rewards,
+    values,
+    terminations,
+    truncations,
+    truncation_bootstrap_values,
+    rollout_tail_value,
+    gamma,
+    gae_lambda,
+):
+    """Compute GAE with distinct bootstrap and reset-boundary semantics."""
+    advantages = torch.zeros_like(rewards)
+    last_advantage = torch.zeros_like(rollout_tail_value)
+    for t in reversed(range(rewards.shape[0])):
+        ordinary_next_value = rollout_tail_value if t == rewards.shape[0] - 1 else values[t + 1]
+        next_value = torch.where(
+            truncations[t].bool(),
+            truncation_bootstrap_values[t],
+            ordinary_next_value,
+        )
+        bootstrap_nonterminal = 1.0 - terminations[t]
+        trace_nonterminal = 1.0 - torch.maximum(terminations[t], truncations[t])
+        delta = rewards[t] + gamma * bootstrap_nonterminal * next_value - values[t]
+        last_advantage = delta + gamma * gae_lambda * trace_nonterminal * last_advantage
+        advantages[t] = last_advantage
+    return advantages, advantages + values
+
+
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
@@ -187,7 +237,9 @@ if __name__ == "__main__":
     actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
     logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
-    dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    terminations_buffer = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    truncations_buffer = torch.zeros((args.num_steps, args.num_envs)).to(device)
+    truncation_bootstrap_values = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
 
     # TRY NOT TO MODIFY: start the game
@@ -195,7 +247,6 @@ if __name__ == "__main__":
     start_time = time.time()
     next_obs, _ = envs.reset(seed=args.seed)
     next_obs = torch.Tensor(next_obs).to(device)
-    next_done = torch.zeros(args.num_envs).to(device)
 
     for iteration in range(1, args.num_iterations + 1):
         # Annealing the rate if instructed to do so.
@@ -207,7 +258,6 @@ if __name__ == "__main__":
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
-            dones[step] = next_done
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
@@ -217,10 +267,22 @@ if __name__ == "__main__":
             logprobs[step] = logprob
 
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
-            next_done = np.logical_or(terminations, truncations)
+            next_obs_np, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
             rewards[step] = torch.tensor(reward).to(device).view(-1)
-            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+            terminations_buffer[step] = torch.as_tensor(terminations, dtype=torch.float32, device=device)
+            truncations_buffer[step] = torch.as_tensor(truncations, dtype=torch.float32, device=device)
+            if np.any(truncations):
+                final_obs_np = bootstrap_observations(next_obs_np, truncations, infos)
+                final_obs = torch.as_tensor(final_obs_np, dtype=torch.float32, device=device)
+                with torch.no_grad():
+                    final_values = agent.get_value(final_obs).flatten()
+                truncation_mask = torch.as_tensor(truncations, dtype=torch.bool, device=device)
+                truncation_bootstrap_values[step] = torch.where(
+                    truncation_mask,
+                    final_values,
+                    torch.zeros_like(final_values),
+                )
+            next_obs = torch.as_tensor(next_obs_np, dtype=torch.float32, device=device)
 
             if "final_info" in infos:
                 for info in infos["final_info"]:
@@ -231,19 +293,17 @@ if __name__ == "__main__":
 
         # bootstrap value if not done
         with torch.no_grad():
-            next_value = agent.get_value(next_obs).reshape(1, -1)
-            advantages = torch.zeros_like(rewards).to(device)
-            lastgaelam = 0
-            for t in reversed(range(args.num_steps)):
-                if t == args.num_steps - 1:
-                    nextnonterminal = 1.0 - next_done
-                    nextvalues = next_value
-                else:
-                    nextnonterminal = 1.0 - dones[t + 1]
-                    nextvalues = values[t + 1]
-                delta = rewards[t] + args.gamma * nextvalues * nextnonterminal - values[t]
-                advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
-            returns = advantages + values
+            rollout_tail_value = agent.get_value(next_obs).flatten()
+            advantages, returns = compute_gae(
+                rewards,
+                values,
+                terminations_buffer,
+                truncations_buffer,
+                truncation_bootstrap_values,
+                rollout_tail_value,
+                args.gamma,
+                args.gae_lambda,
+            )
 
         # flatten the batch
         b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
