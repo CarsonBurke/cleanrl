@@ -38,11 +38,21 @@ def last_active(run_dir: Path) -> float:
 
     A run still being written has a recent mtime; this is how `live` decides
     liveness without tracking PIDs. Returns 0.0 if no event files are found.
+
+    Tolerates files that disappear between the listing and the stat: archiving a run
+    (`mv runs/<x> runs/_dead/`) while another process walks `runs/` is routine here, and the
+    raised FileNotFoundError propagated all the way out of autocull's supervisor loop.
     """
     files = list(run_dir.glob("events.out.tfevents.*")) or [
         f for f in run_dir.rglob("*") if f.is_file()
     ]
-    return max((f.stat().st_mtime for f in files), default=0.0)
+    mtimes = []
+    for f in files:
+        try:
+            mtimes.append(f.stat().st_mtime)
+        except OSError:
+            continue
+    return max(mtimes, default=0.0)
 
 
 def parse_run_name(dirname: str) -> tuple[str, str]:

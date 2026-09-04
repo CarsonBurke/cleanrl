@@ -17,7 +17,26 @@ Ranks runs by mean. Groups by environment when multiple envs present.
 
 With --at, additionally prints windowed-mean episodic_return at each given
 global step (so variants are compared at matched steps, not just at the end).
-With --metrics, appends the latest value of extra scalar tags as columns.
+With --metrics, appends extra scalar tags AT A MATCHED STEP (not their latest
+value -- see below).
+
+READ THIS BEFORE COMPARING TWO RUNS OF DIFFERENT LENGTHS.
+  Mean / +-CI95 / Avg all are END-OF-RUN statistics. A run stopped at 2M and a
+  run finished at 8M are at different points on their own learning curves, so
+  those columns do not compare them -- they compare "wherever each happened to
+  stop". Only the --at columns are matched-step. When run lengths differ
+  materially this script now prints a warning saying exactly that.
+
+  --metrics is matched-step for the same reason. It reports each tag at the last
+  --at step (or, with no --at, at the shortest run's final step) and puts that
+  step in the column header. Asking for losses/approx_kl across a 2.4M run and a
+  finished 8M run used to silently contrast a mid-training value with a
+  converged one, which reads as a large effect and is an artifact. Pass
+  --metrics-latest to get the old last-value behaviour back, explicitly.
+
+  Steps beyond a run's data are NEVER extrapolated: they print `--`. A value
+  prefixed `~` means the run ended inside the averaging window, so the mean
+  covers less data than the others.
 """
 from __future__ import annotations
 
@@ -69,6 +88,21 @@ def load_returns(run_dir: Path, last_n: int = 20) -> RunResult | None:
     )
 
 
+def _cell(r: RunResult, tag: str, step: int, window: int) -> str:
+    """Matched-step cell, with out-of-range made VISIBLE rather than extrapolated.
+
+    RunScalars.window_mean falls back to the nearest sample when the requested
+    step lies past the end of a run, which formats an extrapolation exactly like
+    a measurement -- the single easiest way to misread this table. Here a step
+    the run never reached prints `--`, and a step it only partially covers is
+    prefixed `~`.
+    """
+    if step - window > r.max_step:
+        return "--"
+    text = _fmt_metric(r.scalars.window_mean(tag, step, window))
+    return f"~{text}" if step > r.max_step else text
+
+
 def _fmt_metric(v: float | None) -> str:
     """Compact formatting for appended metric/at columns."""
     if v is None:
@@ -88,6 +122,7 @@ def print_group(
     at_steps: list[int],
     metrics: list[str],
     window: int,
+    metrics_latest: bool,
 ):
     """Print a ranked table for one environment group.
 
@@ -99,33 +134,66 @@ def print_group(
     variants = [label for label, _ in ranked]
     vw = max(len(v) for v in variants)
 
+    # Metrics are read at a MATCHED step: the last --at step, else the shortest
+    # run's end (the latest point every run in the group actually reached).
+    steps_seen = [r.max_step for _, r in ranked]
+    metric_step = at_steps[-1] if at_steps else min(steps_seen)
+
     at_labels = [f"@{fmt_step(s)}" for s in at_steps]
-    metric_labels = [m.split("/", 1)[-1] for m in metrics]
+    metric_labels = [
+        m.split("/", 1)[-1] + ("(last)" if metrics_latest else f"@{fmt_step(metric_step)}")
+        for m in metrics
+    ]
 
     # Precompute appended cells so columns can be width-sized.
     at_cells = {
-        (label, s): _fmt_metric(r.scalars.window_mean(TAG, s, window))
-        for label, r in ranked
+        (i, s): _cell(r, TAG, s, window)
+        for i, (_, r) in enumerate(ranked)
         for s in at_steps
     }
     metric_cells = {
-        (label, m): _fmt_metric(r.scalars.latest(m))
-        for label, r in ranked
+        (i, m): (
+            _fmt_metric(r.scalars.latest(m))
+            if metrics_latest
+            else _cell(r, m, metric_step, window)
+        )
+        for i, (_, r) in enumerate(ranked)
         for m in metrics
     }
-    at_w = [max([len(lbl)] + [len(at_cells[(v, s)]) for v in variants]) for s, lbl in zip(at_steps, at_labels)]
-    m_w = [max([len(lbl)] + [len(metric_cells[(v, m)]) for v in variants]) for m, lbl in zip(metrics, metric_labels)]
+    rows = range(len(ranked))
+    at_w = [max([len(lbl)] + [len(at_cells[(i, s)]) for i in rows]) for s, lbl in zip(at_steps, at_labels)]
+    m_w = [max([len(lbl)] + [len(metric_cells[(i, m)]) for i in rows]) for m, lbl in zip(metrics, metric_labels)]
 
     print(f"  {env}  ({len(ranked)} runs, last {last_n} eps)")
+    # The trap this warning exists for: end-of-run columns silently compare runs
+    # at different points on their own learning curves.
+    dupes = {v for v in variants if variants.count(v) > 1}
+    if dupes:
+        print(
+            f"  ! {len(dupes)} variant name(s) appear more than once "
+            f"({', '.join(sorted(dupes))}) -- rows are distinct RUNS, often a cancelled "
+            f"job and its relaunch, which may not be the same code."
+        )
+    if steps_seen and max(steps_seen) > 1.1 * min(steps_seen):
+        print(
+            f"  ! run lengths differ ({fmt_step(min(steps_seen))}..{fmt_step(max(steps_seen))}):"
+            f" Mean / +-CI95 / Avg all are END-OF-RUN and NOT comparable here."
+        )
+        if not at_steps:
+            print("    add --at 500k,1M,2M for a matched-step comparison.")
+        if metrics and metrics_latest:
+            print("    --metrics-latest is also end-of-run; drop it for matched-step values.")
     header = f"  {'#':>2}  {'Variant':<{vw}}  {'Mean':>7}  {'±CI95':>6}  {'Avg all':>7}  {'Steps':>9}"
     header += "".join(f"  {lbl:>{w}}" for lbl, w in zip(at_labels, at_w))
     header += "".join(f"  {lbl:>{w}}" for lbl, w in zip(metric_labels, m_w))
     print(header)
     for i, (variant, r) in enumerate(ranked):
         row = f"  {i+1:>2}  {variant:<{vw}}  {r.mean_end:>7.1f}  {r.ci95:>6.1f}  {r.mean_all:>7.1f}  {r.max_step:>9}"
-        row += "".join(f"  {at_cells[(variant, s)]:>{w}}" for s, w in zip(at_steps, at_w))
-        row += "".join(f"  {metric_cells[(variant, m)]:>{w}}" for m, w in zip(metrics, m_w))
+        row += "".join(f"  {at_cells[(i, s)]:>{w}}" for s, w in zip(at_steps, at_w))
+        row += "".join(f"  {metric_cells[(i, m)]:>{w}}" for m, w in zip(metrics, m_w))
         print(row)
+    if any(c.startswith(("~", "-")) for c in {**at_cells, **metric_cells}.values()):
+        print("    (-- = run never reached this step; ~ = run ended inside the averaging window)")
     print()
 
 
@@ -158,7 +226,19 @@ def main():
     parser.add_argument(
         "--metrics",
         default=None,
-        help="Comma-separated extra scalar tags to append as latest-value columns",
+        help=(
+            "Comma-separated extra scalar tags, reported AT A MATCHED STEP (the last "
+            "--at step, else the shortest run's end). The step appears in the header."
+        ),
+    )
+    parser.add_argument(
+        "--metrics-latest",
+        action="store_true",
+        help=(
+            "Report --metrics at each run's LAST logged step instead of a matched one. "
+            "Only meaningful when every run is the same length; across runs of "
+            "different lengths this contrasts mid-training with converged values."
+        ),
     )
     args = parser.parse_args()
 
@@ -188,7 +268,10 @@ def main():
     print(f"\n  {total} runs across {len(by_env)} env(s)\n")
 
     for env in sorted(by_env.keys()):
-        print_group(env, by_env[env], args.last, at_steps, metrics, args.at_window)
+        print_group(
+            env, by_env[env], args.last, at_steps, metrics, args.at_window,
+            args.metrics_latest,
+        )
 
 
 if __name__ == "__main__":
