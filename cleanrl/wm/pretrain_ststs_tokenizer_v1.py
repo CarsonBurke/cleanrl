@@ -35,6 +35,11 @@ from cleanrl.wm.wm_sde_stateent_twohot_v6_relusq_hlgauss_v1 import (
     relusq_mlp,
     relusq_mlp_prenorm_out,
 )
+from cleanrl_utils.checkpointing import (
+    DEFAULT_CHECKPOINT_INTERVAL_SECONDS,
+    CheckpointCadence,
+    atomic_save,
+)
 
 
 @dataclass
@@ -53,6 +58,7 @@ class Args:
     gamma: float = 0.99
     max_grad_norm: float = 0.5
     save_dir: str = "checkpoints/tokenizers"
+    checkpoint_interval_seconds: float = DEFAULT_CHECKPOINT_INTERVAL_SECONDS
 
     obs_recon_coef: float = 1.0
     dyn_obs_coef: float = 0.5
@@ -174,6 +180,21 @@ if __name__ == "__main__":
     checkpoint_path = save_dir / f"{run_name}.pt"
     global_step = 0
     last_metrics = {}
+    checkpoint_cadence = CheckpointCadence(args.checkpoint_interval_seconds)
+
+    def save_checkpoint():
+        atomic_save(
+            checkpoint_path,
+            lambda staging_path: torch.save(
+                {
+                    "tokenizer_backbone": model.backbone.state_dict(),
+                    "args": vars(args),
+                    "global_step": global_step,
+                },
+                staging_path,
+            ),
+        )
+        checkpoint_cadence.record_commit(global_step)
 
     for iteration in range(1, args.num_iterations + 1):
         obs_seqs = torch.zeros(args.num_steps, args.num_envs, CONTEXT_LEN, obs_dim, device=device)
@@ -235,23 +256,11 @@ if __name__ == "__main__":
             f"transition={last_metrics['losses/transition'].item():.4f}, "
             f"dyn_std={last_metrics['charts/dyn_std'].item():.4f}"
         )
-        torch.save(
-            {
-                "tokenizer_backbone": model.backbone.state_dict(),
-                "args": vars(args),
-                "global_step": global_step,
-            },
-            checkpoint_path,
-        )
+        if checkpoint_cadence.periodic_due():
+            save_checkpoint()
 
-    torch.save(
-        {
-            "tokenizer_backbone": model.backbone.state_dict(),
-            "args": vars(args),
-            "global_step": global_step,
-        },
-        checkpoint_path,
-    )
+    if checkpoint_cadence.needs_terminal_commit(global_step):
+        save_checkpoint()
     print(f"saved tokenizer checkpoint: {checkpoint_path}")
     envs.close()
     writer.close()

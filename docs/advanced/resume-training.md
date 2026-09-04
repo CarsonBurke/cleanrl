@@ -5,23 +5,50 @@ A common question we get asked is how to set up model checkpoints to continue tr
 
 ## Save model checkpoints
 
-The first step is to save models periodically. By default, we save the model to `wandb`.
+Checkpoint only after a completed update. The example below uses a monotonic ten-minute cadence, atomically replaces one rolling local artifact, and writes a final state only when that update has not already been committed.
 
-```python linenums="1" hl_lines="3 4 6 9-14"
+```python linenums="1"
+import random
+import time
+from pathlib import Path
+
+import numpy as np
+import torch
+
+from cleanrl_utils.checkpointing import atomic_save
+
 num_updates = args.total_timesteps // args.batch_size
+checkpoint_path = Path(wandb.run.dir if args.track else "checkpoints") / "agent.pt"
+checkpoint_interval_seconds = 600
+next_checkpoint_at = time.monotonic() + checkpoint_interval_seconds
+last_checkpointed_update = None
 
-CHECKPOINT_FREQUENCY = 50
-starting_update = 1
+def save_checkpoint(update):
+    payload = {
+        "agent": agent.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "update": update,
+        "global_step": global_step,
+        "python_rng_state": random.getstate(),
+        "numpy_rng_state": np.random.get_state(),
+        "torch_rng_state": torch.get_rng_state(),
+        "torch_cuda_rng_state": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+    }
+    atomic_save(checkpoint_path, lambda staging_path: torch.save(payload, staging_path))
+    if args.track:
+        wandb.save(str(checkpoint_path), policy="now")
 
-for update in range(starting_update, num_updates + 1):
+for update in range(1, num_updates + 1):
     # ... do rollouts and train models
 
-    if args.track:
-        # make sure to tune `CHECKPOINT_FREQUENCY` 
-        # so models are not saved too frequently
-        if update % CHECKPOINT_FREQUENCY == 0:
-            torch.save(agent.state_dict(), f"{wandb.run.dir}/agent.pt")
-            wandb.save(f"{wandb.run.dir}/agent.pt", policy="now")
+    # This boundary is safe: the update and optimizer step are complete.
+    if time.monotonic() >= next_checkpoint_at:
+        save_checkpoint(update)
+        last_checkpointed_update = update
+        next_checkpoint_at = time.monotonic() + checkpoint_interval_seconds
+
+if last_checkpointed_update != num_updates:
+    save_checkpoint(num_updates)
 ```
 
 Then we could run the following to train our agents
@@ -37,36 +64,54 @@ If the training was terminated early, we can still see the last updated model `a
 
 ## Resume training
 
-The second step is to automatically download the `agent.pt` from the URL above and resume training as follows:
+The checkpoint contains the model, optimizer, progress counters, and process RNG state rather than model weights alone. Download and restore it before continuing:
+
+This is a parameter-and-process resume recipe, not a bit-exact simulator resume.
+Most Gym environments and wrappers do not expose their live state, current
+observation, or action-space RNG for serialization, so a reconstructed
+environment starts a different rollout. Exact continuation requires an
+environment that explicitly supports saving and restoring all of that state at
+the same update boundary.
 
 
-```python linenums="1" hl_lines="6-16"
+```python linenums="1"
 num_updates = args.total_timesteps // args.batch_size
-
-CHECKPOINT_FREQUENCY = 50
 starting_update = 1
+last_checkpointed_update = None
 
 if args.track and wandb.run.resumed:
-    starting_update = run.summary.get("charts/update") + 1
-    global_step = starting_update * args.batch_size
     api = wandb.Api()
-    run = api.run(f"{run.entity}/{run.project}/{run.id}")
+    run = api.run(f"{wandb.run.entity}/{wandb.run.project}/{wandb.run.id}")
     model = run.file("agent.pt")
-    model.download(f"models/{experiment_name}/")
-    agent.load_state_dict(torch.load(
-        f"models/{experiment_name}/agent.pt", map_location=device))
-    agent.eval()
-    print(f"resumed at update {starting_update}")
+    model.download(f"models/{experiment_name}/", replace=True)
+    checkpoint = torch.load(
+        f"models/{experiment_name}/agent.pt",
+        map_location=device,
+        weights_only=False,
+    )
+    agent.load_state_dict(checkpoint["agent"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
+    random.setstate(checkpoint["python_rng_state"])
+    np.random.set_state(checkpoint["numpy_rng_state"])
+    torch.set_rng_state(checkpoint["torch_rng_state"])
+    if checkpoint["torch_cuda_rng_state"] is not None:
+        torch.cuda.set_rng_state_all(checkpoint["torch_cuda_rng_state"])
+    global_step = checkpoint["global_step"]
+    starting_update = checkpoint["update"] + 1
+    last_checkpointed_update = checkpoint["update"]
+    print(f"resumed after update {checkpoint['update']}")
 
+next_checkpoint_at = time.monotonic() + checkpoint_interval_seconds
 for update in range(starting_update, num_updates + 1):
     # ... do rollouts and train models
 
-    if args.track:
-        # make sure to tune `CHECKPOINT_FREQUENCY` 
-        # so models are not saved too frequently
-        if update % CHECKPOINT_FREQUENCY == 0:
-            torch.save(agent.state_dict(), f"{wandb.run.dir}/agent.pt")
-            wandb.save(f"{wandb.run.dir}/agent.pt", policy="now")
+    if time.monotonic() >= next_checkpoint_at:
+        save_checkpoint(update)
+        last_checkpointed_update = update
+        next_checkpoint_at = time.monotonic() + checkpoint_interval_seconds
+
+if last_checkpointed_update != num_updates:
+    save_checkpoint(num_updates)
 ```
 
 To resume training, note the ID of the experiment is `21421tda` as in the URL [https://wandb.ai/costa-huang/cleanRL/runs/21421tda](https://wandb.ai/costa-huang/cleanRL/runs/21421tda), so we need to pass in the ID via environment variable to trigger the resume mode of W&B:

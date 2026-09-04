@@ -31,6 +31,12 @@ from cleanrl_utils.atari_wrappers import (
     NoopResetEnv,
 )
 from cleanrl_utils.buffers import ReplayBuffer
+from cleanrl_utils.checkpointing import (
+    DEFAULT_CHECKPOINT_INTERVAL_SECONDS,
+    CheckpointCadence,
+    atomic_hardlink,
+    atomic_write_bytes,
+)
 from cleanrl_utils.evals.dqn_jax_eval import evaluate
 
 
@@ -96,6 +102,8 @@ class Args:
     """the number of steps to run the teacher policy to generate the replay buffer"""
     offline_steps: int = 500000
     """the number of steps to run the student policy with the teacher's replay buffer"""
+    offline_checkpoint_interval_seconds: float = DEFAULT_CHECKPOINT_INTERVAL_SECONDS
+    """minimum wall-clock seconds between rolling offline evaluation checkpoints"""
     temperature: float = 1.0
     """the temperature parameter for qdagger"""
 
@@ -314,6 +322,29 @@ if __name__ == "__main__":
         q_state = q_state.apply_gradients(grads=grads)
         return loss_value, q_loss, q_pred, distill_loss, q_state
 
+    assert args.offline_steps > 0, "offline_steps must complete at least one update"
+    offline_latest_path = f"runs/{run_name}/{args.exp_name}-offline-latest.cleanrl_model"
+    offline_final_path = f"runs/{run_name}/{args.exp_name}-offline-final.cleanrl_model"
+    offline_checkpoint_cadence = CheckpointCadence(args.offline_checkpoint_interval_seconds)
+
+    def commit_offline_model(model_path, completed_steps):
+        atomic_write_bytes(model_path, flax.serialization.to_bytes(q_state.params))
+        offline_checkpoint_cadence.record_commit(completed_steps)
+        print(f"model saved to {model_path}")
+
+    def evaluate_offline_model(model_path, completed_steps):
+        episodic_returns = evaluate(
+            model_path,
+            make_env,
+            args.env_id,
+            eval_episodes=10,
+            run_name=f"{run_name}-eval",
+            Model=QNetwork,
+            epsilon=args.end_e,
+        )
+        print(episodic_returns)
+        writer.add_scalar("charts/offline/avg_episodic_return", np.mean(episodic_returns), completed_steps)
+
     # offline training phase: train the student model using the qdagger loss
     for global_step in track(range(args.offline_steps), description="offline student training"):
         data = teacher_rb.sample(args.batch_size)
@@ -337,24 +368,18 @@ if __name__ == "__main__":
             writer.add_scalar("charts/offline/q_loss", jax.device_get(q_loss), global_step)
             writer.add_scalar("charts/offline/distill_loss", jax.device_get(distill_loss), global_step)
 
-        if global_step % 100000 == 0:
-            # evaluate the student model
-            model_path = f"runs/{run_name}/{args.exp_name}-offline-{global_step}.cleanrl_model"
-            with open(model_path, "wb") as f:
-                f.write(flax.serialization.to_bytes(q_state.params))
-            print(f"model saved to {model_path}")
+        completed_offline_steps = global_step + 1
+        if completed_offline_steps < args.offline_steps and offline_checkpoint_cadence.periodic_due():
+            commit_offline_model(offline_latest_path, completed_offline_steps)
+            evaluate_offline_model(offline_latest_path, completed_offline_steps)
 
-            episodic_returns = evaluate(
-                model_path,
-                make_env,
-                args.env_id,
-                eval_episodes=10,
-                run_name=f"{run_name}-eval",
-                Model=QNetwork,
-                epsilon=args.end_e,
-            )
-            print(episodic_returns)
-            writer.add_scalar("charts/offline/avg_episodic_return", np.mean(episodic_returns), global_step)
+    completed_offline_steps = args.offline_steps
+    if offline_checkpoint_cadence.needs_terminal_commit(completed_offline_steps):
+        commit_offline_model(offline_final_path, completed_offline_steps)
+        evaluate_offline_model(offline_final_path, completed_offline_steps)
+    else:
+        atomic_hardlink(offline_latest_path, offline_final_path)
+        print(f"model saved to {offline_final_path}")
 
     rb = ReplayBuffer(
         args.buffer_size,
