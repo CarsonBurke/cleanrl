@@ -5,8 +5,8 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-import cleanrl.ppo_continuous_action_pc_fisher_clamped_td_lambda_v3 as v3
-import cleanrl.ppo_continuous_action_pc_fisher_rawreward_td_lambda_v10 as v10
+import cleanrl.pc.ppo_continuous_action_pc_fisher_clamped_td_lambda_v3 as v3
+import cleanrl.pc.ppo_continuous_action_pc_fisher_rawreward_td_lambda_v10 as v10
 
 
 class RawRewardEnv(gym.Env):

@@ -6,8 +6,7 @@ import torch
 
 SCRIPT = (
     Path(__file__).parents[1]
-    / "cleanrl"
-    / "ppo_continuous_action_lejepa_geotangent_pg_v3.py"
+    / "cleanrl" / "lejepa" / "ppo_continuous_action_lejepa_geotangent_pg_v3.py"
 )
 SPEC = importlib.util.spec_from_file_location("lejepa_geotangent_pg_v3", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)

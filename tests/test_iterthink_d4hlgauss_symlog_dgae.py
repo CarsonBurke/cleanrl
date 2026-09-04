@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dgae_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.dg.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dgae_v1 import (
     Args,
     distributional_raw_mean,
     value_support_bounds,

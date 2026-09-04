@@ -6,9 +6,9 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-import cleanrl.ppo_continuous_action_pc_fisher_clamped_td_lambda_v3 as v3
-import cleanrl.ppo_continuous_action_pc_fisher_dreamer_retnorm_twohot_v13 as v13
-import cleanrl.ppo_continuous_action_pc_fisher_rewardnorm_twohot_v14 as v14
+import cleanrl.pc.ppo_continuous_action_pc_fisher_clamped_td_lambda_v3 as v3
+import cleanrl.pc.ppo_continuous_action_pc_fisher_dreamer_retnorm_twohot_v13 as v13
+import cleanrl.pc.ppo_continuous_action_pc_fisher_rewardnorm_twohot_v14 as v14
 
 
 class ConstantRewardEnv(gym.Env):

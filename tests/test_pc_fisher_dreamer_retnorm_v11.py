@@ -4,8 +4,8 @@ from types import SimpleNamespace
 import gymnasium as gym
 import torch
 
-import cleanrl.ppo_continuous_action_pc_fisher_dreamer_retnorm_v11 as v11
-import cleanrl.ppo_continuous_action_pc_fisher_rawreward_td_lambda_v10 as v10
+import cleanrl.pc.ppo_continuous_action_pc_fisher_dreamer_retnorm_v11 as v11
+import cleanrl.pc.ppo_continuous_action_pc_fisher_rawreward_td_lambda_v10 as v10
 
 
 def make_retnorm(**overrides):

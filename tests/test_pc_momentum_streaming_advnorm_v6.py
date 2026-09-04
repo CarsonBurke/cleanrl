@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from torch.distributions.beta import Beta
 
-from cleanrl.ppo_continuous_action_pc_momentum_streaming_advnorm_v6 import (
+from cleanrl.pc.ppo_continuous_action_pc_momentum_streaming_advnorm_v6 import (
     Agent,
     Args,
     AugmentedAdam,

@@ -1,0 +1,730 @@
+# Native direct policy gradient with sigma/trust-region ablations v11.
+#
+# This score-first successor to the DG experiments keeps the successful raw
+# native-reward update, but removes the ineffective 0.5 gate convention.  It
+# factors state-dependent versus global sigma against an optional exact-KL
+# backtrack of one fresh Adam proposal.  No data, gradient, or gate is reused.
+
+import copy
+import os
+import random
+import time
+from dataclasses import dataclass
+from functools import partial
+from typing import Literal
+
+import gymnasium as gym
+import numpy as np
+import torch
+import tyro
+from torch import nn, optim
+from torch.distributions import Normal, kl_divergence
+from torch.utils.tensorboard import SummaryWriter
+
+
+LOG_STD_MIN = -5.0
+LOG_STD_MAX = 2.0
+INITIAL_LOG_STD = -1.5
+RAW_LOG_STD_INIT = float(
+    np.arctanh(
+        2.0 * (INITIAL_LOG_STD - LOG_STD_MIN) / (LOG_STD_MAX - LOG_STD_MIN) - 1.0
+    )
+)
+
+
+@dataclass
+class Args:
+    exp_name: str = os.path.basename(__file__)[: -len(".py")]
+    seed: int = 1
+    torch_deterministic: bool = True
+    cuda: bool = True
+    track: bool = False
+    wandb_project_name: str = "cleanRL"
+    wandb_entity: str | None = None
+    capture_video: bool = False
+    compile: bool = False
+    compile_mode: str = "reduce-overhead"
+    save_model: bool = False
+    upload_model: bool = False
+    hf_entity: str = ""
+
+    env_id: str = "HalfCheetah-v4"
+    total_timesteps: int = 1_000_000
+    learning_rate: float = 3e-4
+    num_envs: int = 16
+    num_steps: int = 128
+    target_actor_batch_size: int = 2048
+    anneal_lr: bool = False
+    gamma: float = 0.99
+    gae_lambda: float = 0.95
+    num_minibatches: int = 32
+    update_epochs: int = 10
+    max_grad_norm: float = 0.5
+    sigma_mode: Literal["state", "global"] = "state"
+    max_mean_kl: float = 0.0
+    """maximum accepted old-to-new mean KL; zero disables backtracking"""
+    backtrack_factor: float = 0.5
+    max_backtracks: int = 10
+
+    batch_size: int = 0
+    minibatch_size: int = 0
+    num_iterations: int = 0
+
+
+def make_env(env_id, idx, capture_video, run_name, gamma):
+    del gamma
+
+    def thunk():
+        if capture_video and idx == 0:
+            env = gym.make(env_id, render_mode="rgb_array")
+            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+        else:
+            env = gym.make(env_id)
+        env = gym.wrappers.FlattenObservation(env)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        env = gym.wrappers.NormalizeObservation(env)
+        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
+        return env
+
+    return thunk
+
+
+def layer_init(layer, std=np.sqrt(2.0), bias_const=0.0):
+    nn.init.orthogonal_(layer.weight, std)
+    nn.init.constant_(layer.bias, bias_const)
+    return layer
+
+
+def smooth_logstd_bound(raw_logstd):
+    bounded = torch.tanh(raw_logstd)
+    return LOG_STD_MIN + 0.5 * (LOG_STD_MAX - LOG_STD_MIN) * (bounded + 1.0)
+
+
+def transition_info_values(infos, key, num_envs):
+    values = np.full(num_envs, np.nan, dtype=np.float32)
+    if key in infos:
+        current = np.asarray(infos[key], dtype=np.float32)
+        mask = np.asarray(infos.get(f"_{key}", np.ones(num_envs, dtype=bool)), dtype=bool)
+        values[mask] = current[mask]
+    for index, final_info in enumerate(infos.get("final_info", ())):
+        if final_info is not None and key in final_info:
+            values[index] = final_info[key]
+    return values
+
+
+def finite_mean(values):
+    finite = torch.isfinite(values)
+    return values[finite].mean().item() if finite.any() else float("nan")
+
+
+def parameter_norm(parameters):
+    total = torch.zeros((), device=parameters[0].device)
+    for parameter in parameters:
+        total += parameter.detach().float().square().sum()
+    return total.sqrt()
+
+
+def parameter_delta_norm(parameters, references):
+    total = torch.zeros((), device=parameters[0].device)
+    for parameter, reference in zip(parameters, references, strict=True):
+        total += (parameter.detach().float() - reference.float()).square().sum()
+    return total.sqrt()
+
+
+def interpolate_parameters(parameters, old_parameters, candidate_parameters, fraction):
+    with torch.no_grad():
+        for parameter, old, candidate in zip(
+            parameters, old_parameters, candidate_parameters, strict=True
+        ):
+            if fraction == 0.0:
+                parameter.copy_(old)
+            else:
+                parameter.copy_(old + fraction * (candidate - old))
+
+
+def backtrack_parameters(
+    parameters,
+    old_parameters,
+    candidate_parameters,
+    evaluate_policy_change,
+    max_mean_kl,
+    backtrack_factor,
+    max_backtracks,
+):
+    """Select a finite KL-safe fraction of one already-computed proposal."""
+    policy_change = evaluate_policy_change()
+    proposal_exact_kl = policy_change[-1].clone()
+    if max_mean_kl == 0.0:
+        if torch.isfinite(proposal_exact_kl).all():
+            return True, 1.0, 0, policy_change, proposal_exact_kl
+        interpolate_parameters(parameters, old_parameters, candidate_parameters, 0.0)
+        return False, 0.0, 1, evaluate_policy_change(), proposal_exact_kl
+
+    for backtracks in range(max_backtracks + 1):
+        accepted_fraction = backtrack_factor**backtracks
+        if backtracks:
+            interpolate_parameters(
+                parameters,
+                old_parameters,
+                candidate_parameters,
+                accepted_fraction,
+            )
+            policy_change = evaluate_policy_change()
+        mean_kl = policy_change[-1].mean()
+        if torch.isfinite(mean_kl) and mean_kl.item() <= max_mean_kl:
+            return (
+                True,
+                accepted_fraction,
+                backtracks,
+                policy_change,
+                proposal_exact_kl,
+            )
+
+    # This must be a direct copy: 0 * NaN is still NaN.
+    interpolate_parameters(parameters, old_parameters, candidate_parameters, 0.0)
+    return (
+        False,
+        0.0,
+        max_backtracks + 1,
+        evaluate_policy_change(),
+        proposal_exact_kl,
+    )
+
+
+class Agent(nn.Module):
+    def __init__(self, envs, sigma_mode="state"):
+        super().__init__()
+        if sigma_mode not in ("state", "global"):
+            raise ValueError(f"unknown sigma mode: {sigma_mode!r}")
+        self.sigma_mode = sigma_mode
+        obs_dim = int(np.prod(envs.single_observation_space.shape))
+        action_dim = int(np.prod(envs.single_action_space.shape))
+        self.critic = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 1), std=1.0),
+        )
+        self.actor_trunk = nn.Sequential(
+            layer_init(nn.Linear(obs_dim, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+        )
+        self.actor_mean = layer_init(nn.Linear(64, action_dim), std=0.01)
+        if sigma_mode == "state":
+            self.actor_logstd_head = layer_init(
+                nn.Linear(64, action_dim), std=0.01, bias_const=RAW_LOG_STD_INIT
+            )
+            self.register_parameter("actor_logstd_param", None)
+        else:
+            self.actor_logstd_head = None
+            self.actor_logstd_param = nn.Parameter(
+                torch.full((1, action_dim), RAW_LOG_STD_INIT)
+            )
+        self.register_buffer(
+            "action_scale",
+            torch.as_tensor(
+                (envs.single_action_space.high - envs.single_action_space.low) / 2.0,
+                dtype=torch.float32,
+            ),
+        )
+        self.register_buffer(
+            "action_bias",
+            torch.as_tensor(
+                (envs.single_action_space.high + envs.single_action_space.low) / 2.0,
+                dtype=torch.float32,
+            ),
+        )
+        if not torch.all(torch.isfinite(self.action_scale)) or not torch.all(
+            self.action_scale > 0
+        ):
+            raise ValueError("tanh Gaussian actions require finite nonzero bounds")
+
+    def get_value(self, observations):
+        return self.critic(observations)
+
+    def get_policy_parameters(self, observations):
+        features = self.actor_trunk(observations)
+        mean = self.actor_mean(features)
+        if self.sigma_mode == "state":
+            raw_logstd = self.actor_logstd_head(features)
+        else:
+            raw_logstd = self.actor_logstd_param.expand_as(mean)
+        return mean, smooth_logstd_bound(raw_logstd)
+
+    def action_logprobs(self, observations, raw_actions):
+        mean, logstd = self.get_policy_parameters(observations)
+        distribution = Normal(mean, logstd.exp())
+        gaussian_logprob = distribution.log_prob(raw_actions).sum(dim=-1)
+        log_tanh_jacobian = 2.0 * (
+            np.log(2.0)
+            - raw_actions
+            - torch.nn.functional.softplus(-2.0 * raw_actions)
+        )
+        action_logprob = gaussian_logprob - (
+            log_tanh_jacobian + torch.log(self.action_scale)
+        ).sum(dim=-1)
+        return gaussian_logprob, action_logprob, mean, logstd
+
+    def sample_action_and_value(self, observations):
+        mean, logstd = self.get_policy_parameters(observations)
+        raw_action = Normal(mean, logstd.exp()).sample()
+        _, logprob, _, _ = self.action_logprobs(observations, raw_action)
+        action = torch.tanh(raw_action) * self.action_scale + self.action_bias
+        return action, raw_action, logprob, self.critic(observations)
+
+    def get_action_and_value(self, observations, action=None, raw_action=None):
+        if action is not None and raw_action is None:
+            raise ValueError("raw_action is required when replaying a tanh action")
+        if raw_action is None:
+            mean, logstd = self.get_policy_parameters(observations)
+            distribution = Normal(mean, logstd.exp())
+            raw_action = distribution.sample()
+        _, logprob, _, _ = self.action_logprobs(observations, raw_action)
+        transformed = torch.tanh(raw_action) * self.action_scale + self.action_bias
+        if action is None:
+            action = transformed
+        # A single-sample unbiased entropy estimate for the transformed policy.
+        return action, logprob, -logprob.detach(), self.critic(observations)
+
+
+if __name__ == "__main__":
+    args = tyro.cli(Args)
+    args.batch_size = args.num_envs * args.num_steps
+    if args.batch_size != args.target_actor_batch_size:
+        raise ValueError(
+            f"fresh actor batch must be {args.target_actor_batch_size}, got {args.batch_size}"
+        )
+    if args.batch_size % args.num_minibatches:
+        raise ValueError("critic minibatches must divide the rollout batch")
+    if args.max_mean_kl < 0:
+        raise ValueError("max_mean_kl must be nonnegative")
+    if not 0 < args.backtrack_factor < 1:
+        raise ValueError("backtrack_factor must lie strictly between zero and one")
+    if args.max_backtracks < 0:
+        raise ValueError("max_backtracks must be nonnegative")
+    args.minibatch_size = args.batch_size // args.num_minibatches
+    args.num_iterations = args.total_timesteps // args.batch_size
+
+    run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+    if args.track:
+        import wandb
+
+        wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=vars(args),
+            name=run_name,
+            monitor_gym=True,
+            save_code=True,
+        )
+    writer = SummaryWriter(f"runs/{run_name}")
+    rows = "\n".join(f"|{key}|{value}|" for key, value in vars(args).items())
+    writer.add_text("hyperparameters", f"|param|value|\n|-|-|\n{rows}")
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = args.torch_deterministic
+    if not args.cuda or not torch.cuda.is_available():
+        raise RuntimeError("this experiment requires CUDA")
+    device = torch.device("cuda")
+
+    envs = gym.vector.SyncVectorEnv(
+        [
+            make_env(args.env_id, index, args.capture_video, run_name, args.gamma)
+            for index in range(args.num_envs)
+        ]
+    )
+    assert isinstance(envs.single_action_space, gym.spaces.Box)
+    agent = Agent(envs, sigma_mode=args.sigma_mode).to(device)
+    sample_action_and_value = agent.sample_action_and_value
+    action_logprobs = agent.action_logprobs
+    value_function = agent.get_value
+    if args.compile:
+        sample_action_and_value = torch.compile(
+            sample_action_and_value, mode=args.compile_mode, dynamic=False
+        )
+        action_logprobs = torch.compile(
+            action_logprobs, mode=args.compile_mode, dynamic=False
+        )
+        value_function = torch.compile(
+            value_function, mode=args.compile_mode, dynamic=False
+        )
+        print(f"compiled policy and value functions ({args.compile_mode})")
+
+    actor_parameters = [
+        parameter
+        for name, parameter in agent.named_parameters()
+        if name.startswith("actor_")
+    ]
+    critic_parameters = list(agent.critic.parameters())
+    actor_optimizer = optim.Adam(actor_parameters, lr=args.learning_rate, eps=1e-5)
+    critic_optimizer = optim.Adam(critic_parameters, lr=args.learning_rate, eps=1e-5)
+
+    obs = torch.zeros(
+        (args.num_steps, args.num_envs) + envs.single_observation_space.shape,
+        device=device,
+    )
+    actions = torch.zeros(
+        (args.num_steps, args.num_envs) + envs.single_action_space.shape,
+        device=device,
+    )
+    raw_actions = torch.zeros_like(actions)
+    logprobs = torch.zeros((args.num_steps, args.num_envs), device=device)
+    rewards = torch.zeros_like(logprobs)
+    dones = torch.zeros_like(logprobs)
+    values = torch.zeros_like(logprobs)
+    forward_speeds = torch.full_like(logprobs, torch.nan)
+    control_costs = torch.full_like(logprobs, torch.nan)
+
+    global_step = 0
+    start_time = time.time()
+    next_obs_np, _ = envs.reset(seed=args.seed)
+    next_obs = torch.as_tensor(next_obs_np, dtype=torch.float32, device=device)
+    next_done = torch.zeros(args.num_envs, device=device)
+
+    for iteration in range(1, args.num_iterations + 1):
+        if args.anneal_lr:
+            fraction = 1.0 - (iteration - 1.0) / args.num_iterations
+            actor_optimizer.param_groups[0]["lr"] = fraction * args.learning_rate
+            critic_optimizer.param_groups[0]["lr"] = fraction * args.learning_rate
+
+        for step in range(args.num_steps):
+            global_step += args.num_envs
+            obs[step] = next_obs
+            dones[step] = next_done
+            with torch.no_grad():
+                if args.compile:
+                    torch.compiler.cudagraph_mark_step_begin()
+                action, raw_action, logprob, value = sample_action_and_value(next_obs)
+                values[step] = value.flatten()
+            actions[step] = action
+            raw_actions[step] = raw_action
+            logprobs[step] = logprob
+
+            next_obs_np, reward, terminations, truncations, infos = envs.step(
+                action.cpu().numpy()
+            )
+            rewards[step] = torch.as_tensor(reward, dtype=torch.float32, device=device)
+            forward_speeds[step] = torch.as_tensor(
+                transition_info_values(infos, "x_velocity", args.num_envs),
+                dtype=torch.float32,
+                device=device,
+            )
+            control_costs[step] = torch.as_tensor(
+                -transition_info_values(infos, "reward_ctrl", args.num_envs),
+                dtype=torch.float32,
+                device=device,
+            )
+            next_done_np = np.logical_or(terminations, truncations)
+            next_obs = torch.as_tensor(next_obs_np, dtype=torch.float32, device=device)
+            next_done = torch.as_tensor(next_done_np, dtype=torch.float32, device=device)
+            for info in infos.get("final_info", ()):
+                if info and "episode" in info:
+                    episodic_return = info["episode"]["r"]
+                    print(f"global_step={global_step}, episodic_return={episodic_return}")
+                    writer.add_scalar("charts/episodic_return", episodic_return, global_step)
+                    writer.add_scalar(
+                        "charts/episodic_length", info["episode"]["l"], global_step
+                    )
+
+        with torch.no_grad():
+            if args.compile:
+                torch.compiler.cudagraph_mark_step_begin()
+            next_value = value_function(next_obs).reshape(1, -1)
+            advantages = torch.zeros_like(rewards)
+            lastgaelam = 0
+            for t in reversed(range(args.num_steps)):
+                if t == args.num_steps - 1:
+                    nextnonterminal = 1.0 - next_done
+                    nextvalues = next_value
+                else:
+                    nextnonterminal = 1.0 - dones[t + 1]
+                    nextvalues = values[t + 1]
+                delta = rewards[t] + args.gamma * nextvalues * nextnonterminal - values[t]
+                advantages[t] = lastgaelam = (
+                    delta
+                    + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
+                )
+            returns = advantages + values
+
+        b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
+        b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
+        b_raw_actions = raw_actions.reshape((-1,) + envs.single_action_space.shape)
+        b_logprobs = logprobs.reshape(-1)
+        b_advantages = advantages.reshape(-1).detach()
+        b_returns = returns.reshape(-1)
+        b_values = values.reshape(-1)
+
+        # Exactly one gradient on the fresh full batch. The optional trust
+        # region only interpolates this one Adam proposal; it never recomputes
+        # a gradient or advances Adam more than once.
+        if args.compile:
+            torch.compiler.cudagraph_mark_step_begin()
+        gaussian_logprob, _, old_mean_graph, old_logstd_graph = action_logprobs(
+            b_obs, b_raw_actions
+        )
+        old_mean = old_mean_graph.detach().clone()
+        old_logstd = old_logstd_graph.detach().clone()
+        old_std = old_logstd.exp()
+        actor_loss = -(b_advantages * gaussian_logprob).mean()
+        actor_optimizer.zero_grad()
+        actor_loss.backward()
+        actor_grad_norm = nn.utils.clip_grad_norm_(
+            actor_parameters, args.max_grad_norm
+        )
+        actor_clip_scale = min(
+            1.0, args.max_grad_norm / max(actor_grad_norm.item(), 1e-30)
+        )
+
+        old_parameters = [parameter.detach().clone() for parameter in actor_parameters]
+        old_optimizer_state = copy.deepcopy(actor_optimizer.state_dict())
+        actor_optimizer.step()
+        candidate_parameters = [
+            parameter.detach().clone() for parameter in actor_parameters
+        ]
+        proposal_delta_norm = parameter_delta_norm(
+            candidate_parameters, old_parameters
+        )
+        def evaluate_policy_change():
+            if args.compile:
+                torch.compiler.cudagraph_mark_step_begin()
+            new_gaussian_logprob, new_action_logprob, new_mean, new_logstd = (
+                action_logprobs(b_obs, b_raw_actions)
+            )
+            # Compiled reduce-overhead outputs alias reusable CUDA-graph buffers.
+            new_gaussian_logprob = new_gaussian_logprob.clone()
+            new_action_logprob = new_action_logprob.clone()
+            new_mean = new_mean.clone()
+            new_logstd = new_logstd.clone()
+            exact_kl = kl_divergence(
+                Normal(old_mean, old_std), Normal(new_mean, new_logstd.exp())
+            ).sum(dim=-1)
+            return (
+                new_gaussian_logprob,
+                new_action_logprob,
+                new_mean,
+                new_logstd,
+                exact_kl,
+            )
+
+        with torch.no_grad():
+            (
+                accepted,
+                accepted_fraction,
+                backtracks,
+                policy_change,
+                proposal_exact_kl,
+            ) = backtrack_parameters(
+                actor_parameters,
+                old_parameters,
+                candidate_parameters,
+                evaluate_policy_change,
+                args.max_mean_kl,
+                args.backtrack_factor,
+                args.max_backtracks,
+            )
+            if not accepted:
+                actor_optimizer.load_state_dict(old_optimizer_state)
+
+        (
+            post_gaussian_logprob,
+            post_action_logprob,
+            post_mean,
+            post_logstd,
+            exact_kl,
+        ) = policy_change
+        post_logratio = post_action_logprob - b_logprobs
+        post_ratio = post_logratio.exp()
+        sampled_kl = ((post_ratio - 1.0) - post_logratio).mean()
+        actor_delta_norm = parameter_delta_norm(actor_parameters, old_parameters)
+        actor_parameter_norm = parameter_norm(actor_parameters)
+
+        # The critic retains v10's successful schedule and sees only raw native
+        # GAE returns. Actor and critic optimizers remain completely separate.
+        b_inds = np.arange(args.batch_size)
+        critic_losses = []
+        critic_grad_norms = []
+        for _ in range(args.update_epochs):
+            np.random.shuffle(b_inds)
+            for start in range(0, args.batch_size, args.minibatch_size):
+                mb_inds = b_inds[start : start + args.minibatch_size]
+                if args.compile:
+                    torch.compiler.cudagraph_mark_step_begin()
+                newvalue = value_function(b_obs[mb_inds]).view(-1)
+                critic_loss = 0.5 * nn.functional.mse_loss(
+                    newvalue, b_returns[mb_inds]
+                )
+                critic_optimizer.zero_grad()
+                critic_loss.backward()
+                critic_grad_norm = nn.utils.clip_grad_norm_(
+                    critic_parameters, args.max_grad_norm
+                )
+                critic_optimizer.step()
+                critic_losses.append(critic_loss.item())
+                critic_grad_norms.append(critic_grad_norm.item())
+
+        y_pred = b_values.cpu().numpy()
+        y_true = b_returns.cpu().numpy()
+        target_variance = np.var(y_true)
+        explained_variance = (
+            np.nan
+            if target_variance == 0
+            else 1.0 - np.var(y_true - y_pred) / target_variance
+        )
+        normalized_actions = (b_actions - agent.action_bias) / agent.action_scale
+        per_env_kl = exact_kl.reshape(args.num_steps, args.num_envs).mean(dim=0)
+        current_lr = actor_optimizer.param_groups[0]["lr"]
+        sps = int(global_step / (time.time() - start_time))
+
+        writer.add_scalar("charts/learning_rate", current_lr, global_step)
+        writer.add_scalar(
+            "charts/effective_actor_learning_rate",
+            current_lr * accepted_fraction,
+            global_step,
+        )
+        writer.add_scalar("charts/SPS", sps, global_step)
+        writer.add_scalar("losses/actor", actor_loss.item(), global_step)
+        writer.add_scalar("losses/value_mse", np.mean(critic_losses), global_step)
+        writer.add_scalar("losses/explained_variance", explained_variance, global_step)
+        writer.add_scalar("native/reward_mean", rewards.mean().item(), global_step)
+        writer.add_scalar("native/reward_std", rewards.std().item(), global_step)
+        writer.add_scalar(
+            "native/forward_speed_mean", finite_mean(forward_speeds), global_step
+        )
+        writer.add_scalar(
+            "native/control_cost_mean", finite_mean(control_costs), global_step
+        )
+        writer.add_scalar("advantage/mean", b_advantages.mean().item(), global_step)
+        writer.add_scalar("advantage/rms", b_advantages.square().mean().sqrt().item(), global_step)
+        writer.add_scalar("advantage/min", b_advantages.min().item(), global_step)
+        writer.add_scalar("advantage/max", b_advantages.max().item(), global_step)
+
+        writer.add_scalar("action/logstd_mean", post_logstd.mean().item(), global_step)
+        writer.add_scalar("action/logstd_std", post_logstd.std().item(), global_step)
+        writer.add_scalar(
+            "action/logstd_cross_state_std",
+            post_logstd.std(dim=0).mean().item(),
+            global_step,
+        )
+        writer.add_scalar(
+            "action/logstd_cross_action_std",
+            post_logstd.mean(dim=0).std().item(),
+            global_step,
+        )
+        writer.add_scalar("action/logstd_min", post_logstd.min().item(), global_step)
+        writer.add_scalar("action/logstd_max", post_logstd.max().item(), global_step)
+        for quantile, name in ((0.01, "p01"), (0.5, "p50"), (0.99, "p99")):
+            writer.add_scalar(
+                f"action/logstd_{name}", torch.quantile(post_logstd, quantile).item(), global_step
+            )
+        writer.add_scalar(
+            "action/logstd_lower_bound_fraction",
+            (post_logstd < LOG_STD_MIN + 0.05).float().mean().item(),
+            global_step,
+        )
+        writer.add_scalar(
+            "action/logstd_upper_bound_fraction",
+            (post_logstd > LOG_STD_MAX - 0.05).float().mean().item(),
+            global_step,
+        )
+        writer.add_scalar(
+            "action/saturation_fraction",
+            (normalized_actions.abs() > 0.95).float().mean().item(),
+            global_step,
+        )
+
+        writer.add_scalar("grad/actor_preclip_norm", actor_grad_norm.item(), global_step)
+        writer.add_scalar("grad/actor_clip_scale", actor_clip_scale, global_step)
+        writer.add_scalar("grad/critic_preclip_mean", np.mean(critic_grad_norms), global_step)
+        writer.add_scalar("update/accepted", float(accepted), global_step)
+        writer.add_scalar("update/backtracks", backtracks, global_step)
+        writer.add_scalar("update/accepted_fraction", accepted_fraction, global_step)
+        writer.add_scalar("update/actor_delta_norm", actor_delta_norm.item(), global_step)
+        writer.add_scalar(
+            "update/proposal_delta_norm", proposal_delta_norm.item(), global_step
+        )
+        writer.add_scalar(
+            "update/actor_relative_delta_norm",
+            (actor_delta_norm / actor_parameter_norm.clamp_min(1e-30)).item(),
+            global_step,
+        )
+        writer.add_scalar("realized/exact_tanh_kl_mean", exact_kl.mean().item(), global_step)
+        writer.add_scalar(
+            "realized/proposal_exact_tanh_kl_mean",
+            proposal_exact_kl.mean().item(),
+            global_step,
+        )
+        writer.add_scalar(
+            "realized/proposal_exact_tanh_kl_max",
+            proposal_exact_kl.max().item(),
+            global_step,
+        )
+        writer.add_scalar(
+            "realized/exact_tanh_kl_p50",
+            torch.quantile(exact_kl, 0.5).item(),
+            global_step,
+        )
+        writer.add_scalar(
+            "realized/exact_tanh_kl_p90",
+            torch.quantile(exact_kl, 0.9).item(),
+            global_step,
+        )
+        writer.add_scalar(
+            "realized/exact_tanh_kl_p99",
+            torch.quantile(exact_kl, 0.99).item(),
+            global_step,
+        )
+        writer.add_scalar("realized/exact_tanh_kl_max", exact_kl.max().item(), global_step)
+        writer.add_scalar("realized/per_env_kl_max", per_env_kl.max().item(), global_step)
+        writer.add_scalar("realized/sampled_approx_kl", sampled_kl.item(), global_step)
+        writer.add_scalar(
+            "realized/ratio_clipfrac",
+            ((post_ratio - 1.0).abs() > 0.2).float().mean().item(),
+            global_step,
+        )
+        writer.add_scalar(
+            "realized/logratio_abs_max",
+            post_logratio.abs().max().item(),
+            global_step,
+        )
+        print("SPS:", sps)
+
+    if args.save_model:
+        model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
+        torch.save(agent.state_dict(), model_path)
+        print(f"model saved to {model_path}")
+        from cleanrl_utils.evals.ppo_eval import evaluate
+
+        episodic_returns = evaluate(
+            model_path,
+            make_env,
+            args.env_id,
+            eval_episodes=10,
+            run_name=f"{run_name}-eval",
+            Model=partial(Agent, sigma_mode=args.sigma_mode),
+            device=device,
+            gamma=args.gamma,
+        )
+        for index, episodic_return in enumerate(episodic_returns):
+            writer.add_scalar("eval/episodic_return", episodic_return, index)
+        if args.upload_model:
+            from cleanrl_utils.huggingface import push_to_hub
+
+            repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
+            repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
+            push_to_hub(
+                args,
+                episodic_returns,
+                repo_id,
+                "NativeDirectTrustPG",
+                f"runs/{run_name}",
+                f"videos/{run_name}-eval",
+            )
+
+    envs.close()
+    writer.close()

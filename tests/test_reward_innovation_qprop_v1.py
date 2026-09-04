@@ -6,8 +6,8 @@ import torch
 
 
 ROOT = Path(__file__).parents[1]
-SCRIPT = ROOT / "cleanrl" / "ppo_continuous_action_reward_innovation_qprop_v1.py"
-REFERENCE = ROOT / "cleanrl" / "ppo_continuous_action_sffactor_rewardanchor_v4_rngpaired.py"
+SCRIPT = ROOT / "cleanrl" / "reward_model" / "ppo_continuous_action_reward_innovation_qprop_v1.py"
+REFERENCE = ROOT / "cleanrl" / "sffactor" / "ppo_continuous_action_sffactor_rewardanchor_v4_rngpaired.py"
 
 
 def load_module(name, path):

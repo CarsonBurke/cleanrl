@@ -12,7 +12,7 @@ from math import log
 from torch.distributions.beta import Beta
 from torch.distributions.kl import kl_divergence
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_vmpo_v1 import (
+from cleanrl.vmpo.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_vmpo_v1 import (
     Agent,
     Args,
 )

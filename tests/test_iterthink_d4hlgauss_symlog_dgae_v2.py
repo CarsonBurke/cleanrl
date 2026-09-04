@@ -1,6 +1,6 @@
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dgae_v2 import (
+from cleanrl.iterthink.v24_d4hlgauss.dg.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dgae_v2 import (
     Args,
     distributional_lambda_target,
 )

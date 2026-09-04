@@ -2,7 +2,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_advgate_meta_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_advgate_meta_v1 import (
     Agent,
     Args,
     gradient_alignment_loss,

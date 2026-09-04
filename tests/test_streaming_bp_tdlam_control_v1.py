@@ -2,7 +2,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from cleanrl.ppo_continuous_action_streaming_bp_tdlam_control_v1 import (
+from cleanrl.pc.ppo_continuous_action_streaming_bp_tdlam_control_v1 import (
     Agent,
     Args,
     EligibilityTrace,

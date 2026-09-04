@@ -1,7 +1,7 @@
 import gymnasium as gym
 import torch
 
-from cleanrl.ppo_continuous_action_panlejepa_direct_v1 import (
+from cleanrl.lejepa.ppo_continuous_action_panlejepa_direct_v1 import (
     Agent,
     Args,
     sample_pan_hindsight_indices,

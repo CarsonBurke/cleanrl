@@ -4,7 +4,7 @@ import gymnasium as gym
 import torch
 import torch.nn.functional as F
 
-import cleanrl.ppo_continuous_action_pc_fisher_dreamer_retnorm_twohot_v13 as v13
+import cleanrl.pc.ppo_continuous_action_pc_fisher_dreamer_retnorm_twohot_v13 as v13
 
 
 def make_agent(**overrides):

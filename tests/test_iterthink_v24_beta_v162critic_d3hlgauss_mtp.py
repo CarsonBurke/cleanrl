@@ -1,6 +1,6 @@
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_v162critic_d3hlgauss_mtp_v2 import (
+from cleanrl.iterthink.critic_variants.ppo_continuous_action_iterthink_v24_beta_v162critic_d3hlgauss_mtp_v2 import (
     Dreamer3HLGaussSupport,
 )
 from cleanrl.shared.hl_gauss import symexp

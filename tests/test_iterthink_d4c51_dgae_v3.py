@@ -1,6 +1,6 @@
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4c51_dgae_v3 import (
+from cleanrl.iterthink.critic_variants.ppo_continuous_action_iterthink_v24_beta_d4c51_dgae_v3 import (
     Args,
     c51_project,
     distributional_lambda_target,

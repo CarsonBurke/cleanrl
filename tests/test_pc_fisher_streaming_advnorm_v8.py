@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from torch.distributions.beta import Beta
 
-from cleanrl.ppo_continuous_action_pc_fisher_streaming_advnorm_v8 import (
+from cleanrl.pc.ppo_continuous_action_pc_fisher_streaming_advnorm_v8 import (
     Args,
     AugmentedAdamW,
     LocalPredictor,

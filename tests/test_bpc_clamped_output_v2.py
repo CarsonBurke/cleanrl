@@ -5,7 +5,7 @@ import pytest
 import torch
 
 
-MODULE_PATH = Path(__file__).parents[1] / "cleanrl" / "ppo_continuous_action_bpc_clamped_output_v2.py"
+MODULE_PATH = Path(__file__).parents[1] / "cleanrl" / "ebp" / "ppo_continuous_action_bpc_clamped_output_v2.py"
 SPEC = importlib.util.spec_from_file_location("bpc_clamped_output_v2", MODULE_PATH)
 BPC = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(BPC)

@@ -15,7 +15,7 @@ import numpy as np
 import torch
 from torch.distributions.beta import Beta
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_learnweight_v3 import (
+from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_learnweight_v3 import (
     Agent,
     Args,
 )

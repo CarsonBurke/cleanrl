@@ -5,7 +5,7 @@ import pytest
 import torch
 
 
-MODULE_PATH = Path(__file__).parents[1] / "cleanrl" / "ppo_continuous_action_bpc_full_mnw_td_lambda_v1.py"
+MODULE_PATH = Path(__file__).parents[1] / "cleanrl" / "ebp" / "ppo_continuous_action_bpc_full_mnw_td_lambda_v1.py"
 SPEC = importlib.util.spec_from_file_location("bpc_full_mnw_v1", MODULE_PATH)
 BPC = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(BPC)

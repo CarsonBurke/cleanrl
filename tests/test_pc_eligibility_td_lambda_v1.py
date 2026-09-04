@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import gymnasium as gym
 from torch.distributions.beta import Beta
 
-from cleanrl.ppo_continuous_action_pc_eligibility_td_lambda_v1 import (
+from cleanrl.pc.ppo_continuous_action_pc_eligibility_td_lambda_v1 import (
     Args,
     Agent,
     LocalPredictor,
@@ -292,7 +292,7 @@ class DummyVecEnv:
 
 
 def test_seeded_deployment_initialization_matches_backprop_control():
-    from cleanrl.ppo_continuous_action_streaming_bp_tdlam_control_v1 import (
+    from cleanrl.pc.ppo_continuous_action_streaming_bp_tdlam_control_v1 import (
         Agent as BPAgent,
         Args as BPArgs,
     )

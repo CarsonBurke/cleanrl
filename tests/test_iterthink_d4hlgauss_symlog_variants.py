@@ -4,82 +4,82 @@ import torch
 from pathlib import Path
 
 from cleanrl.shared.hl_gauss import HLGaussSupport
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_v1 import (
     Agent as RawReturnAgent,
     Args as RawReturnArgs,
     make_env as make_rawret_env,
     value_support_bounds as rawret_value_support_bounds,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_headnorm_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_headnorm_v1 import (
     Agent as RawReturnHeadNormAgent,
     Args as RawReturnHeadNormArgs,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_histtransfer_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_histtransfer_v1 import (
     Agent as RawReturnHistTransferAgent,
     Args as RawReturnHistTransferArgs,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_idxtransfer_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_idxtransfer_v1 import (
     Agent as RawReturnIdxTransferAgent,
     Args as RawReturnIdxTransferArgs,
     IndexedTransferBranch as RawReturnIndexedTransferBranch,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_idxtransfer_latentmoe_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_idxtransfer_latentmoe_v1 import (
     Agent as RawReturnIdxTransferLatentMoEAgent,
     Args as RawReturnIdxTransferLatentMoEArgs,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_idxtransfer_latentmoe_v2 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_idxtransfer_latentmoe_v2 import (
     Agent as RawReturnIdxTransferLatentMoEV2Agent,
     Args as RawReturnIdxTransferLatentMoEV2Args,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_mlp10_idxtransfer_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_mlp10_idxtransfer_v1 import (
     Agent as RawReturnMLP10IdxTransferAgent,
     Args as RawReturnMLP10IdxTransferArgs,
     IndexedTransferLayer as RawReturnMLP10IndexedTransferLayer,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_mlp10_obsidxtransfer_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_mlp10_obsidxtransfer_v1 import (
     Agent as RawReturnMLP10ObsIdxTransferAgent,
     Args as RawReturnMLP10ObsIdxTransferArgs,
     IndexedTransferLayer as RawReturnMLP10ObsIndexedTransferLayer,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_mlp10_obsidxtransfer_justnorm_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_mlp10_obsidxtransfer_justnorm_v1 import (
     Agent as RawReturnMLP10ObsIdxTransferJustNormAgent,
     Args as RawReturnMLP10ObsIdxTransferJustNormArgs,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_idxpreacttransfer_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_idxpreacttransfer_v1 import (
     Agent as RawReturnIdxPreActTransferAgent,
     Args as RawReturnIdxPreActTransferArgs,
     IndexedPreActivationTransferBranch as RawReturnIndexedPreActivationTransferBranch,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_ngptjustnorm_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_ngptjustnorm_v1 import (
     Agent as RawReturnNGPTJustNormAgent,
     Args as RawReturnNGPTJustNormArgs,
     make_env as make_ngptjustnorm_env,
     value_support_bounds as ngptjustnorm_value_support_bounds,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_ngptjustnorm_v2 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_ngptjustnorm_v2 import (
     Agent as RawReturnNGPTResidualAgent,
     Args as RawReturnNGPTResidualArgs,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_ngptjustnorm_v3 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_ngptjustnorm_v3 import (
     Agent as RawReturnNGPTResidualV3Agent,
     Args as RawReturnNGPTResidualV3Args,
     make_env as make_ngptresidual_v3_env,
     value_support_bounds as ngptresidual_v3_value_support_bounds,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_ngptjustnorm_v4 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_ngptjustnorm_v4 import (
     Agent as RawReturnNGPTResidualV4Agent,
     Args as RawReturnNGPTResidualV4Args,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_ngptjustnorm_v5 import (
+from cleanrl.iterthink.v24_d4hlgauss.rawret.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_ngptjustnorm_v5 import (
     Agent as RawReturnNGPTResidualV5Agent,
     Args as RawReturnNGPTResidualV5Args,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_symlogobs_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_symlogobs_v1 import (
     Args as SymlogObsArgs,
     make_env as make_symlogobs_env,
     symlog_obs,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_tokenobs_v2 import (
+from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_tokenobs_v2 import (
     Args as TokenObsArgs,
     make_env as make_tokenobs_env,
     ObsTokenStem,
@@ -517,7 +517,7 @@ def test_raw_return_mlp10_obsidxtransfer_justnorm_variant_normalizes_trunk_weigh
 
 def test_raw_return_mlp10_obsidxtransfer_justnorm_reprojects_after_optimizer_steps():
     source = Path(
-        "cleanrl/ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_mlp10_obsidxtransfer_justnorm_v1.py"
+        "cleanrl/iterthink/v24_d4hlgauss/rawret/ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawret_mlp10_obsidxtransfer_justnorm_v1.py"
     ).read_text()
     assert source.count("optimizer.step()\n                    agent.normalize_ngpt_weights()") == 2
 

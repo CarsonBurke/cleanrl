@@ -10,7 +10,7 @@ K, the joint-gradient routing, and the recursion.
 import numpy as np
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dae_v3 import (
+from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dae_v3 import (
     Agent,
     Args,
 )
@@ -107,7 +107,7 @@ def test_centering_zero_mean_by_construction():
 def test_joint_dae_loss_trains_value_and_advantage_and_trunk():
     agent, args = _make_agent()
     from cleanrl.shared.hl_gauss import HLGaussSupport
-    from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dae_v3 import value_support_bounds
+    from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dae_v3 import value_support_bounds
     smin, smax = value_support_bounds(args)
     hl = HLGaussSupport(args.num_bins, smin, smax, args.value_sigma_to_bin_ratio,
                         torch.device("cpu"), use_symlog=args.value_symlog, support_is_edges=True)

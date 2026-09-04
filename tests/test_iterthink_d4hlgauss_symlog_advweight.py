@@ -9,7 +9,7 @@ clamp, blend, commutes with the clip max), and the grad routing.
 import numpy as np
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_advweight_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_advweight_v1 import (
     Agent,
     Args,
 )
@@ -109,7 +109,7 @@ def test_weight_is_detached_from_policy_graph():
     z = torch.rand(B, A).clamp(1e-6, 1 - 1e-6)
     _, _, logp, _, value_logits, q_logits = agent.get_action_and_value(x, z)
     from cleanrl.shared.hl_gauss import HLGaussSupport
-    from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_advweight_v1 import (
+    from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_advweight_v1 import (
         value_support_bounds,
     )
     smin, smax = value_support_bounds(args)

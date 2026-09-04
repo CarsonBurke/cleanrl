@@ -1,6 +1,6 @@
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_dg_v5 import (
+from cleanrl.iterthink.dg.ppo_continuous_action_iterthink_v24_beta_dg_v5 import (
     Args,
     delight_gate,
     dg_critic_tail_surprisal,

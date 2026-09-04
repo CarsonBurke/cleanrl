@@ -2,7 +2,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from cleanrl.ppo_continuous_action_beta_nll_hlgauss_paperdg_cliphi_noadvnorm_v5 import (
+from cleanrl.beta_policy.ppo_continuous_action_beta_nll_hlgauss_paperdg_cliphi_noadvnorm_v5 import (
     Agent,
     Args,
     SAMPLE_EPS,

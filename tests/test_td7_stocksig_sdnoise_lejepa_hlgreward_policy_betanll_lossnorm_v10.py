@@ -1,6 +1,6 @@
 import torch
 
-from cleanrl.td7_lesale_v1 import (
+from cleanrl.td7.lesale.td7_lesale_v1 import (
     Args,
     DreamerLossNormalizer,
     EncoderLossCore,

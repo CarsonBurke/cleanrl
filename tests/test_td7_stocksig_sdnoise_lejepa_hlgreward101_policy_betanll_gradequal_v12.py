@@ -3,7 +3,7 @@ import math
 import torch
 
 from cleanrl.shared.hl_gauss import HLGaussSupport
-from cleanrl.td7_lesale_v1 import IsometricOutcomeTokens, symlog
+from cleanrl.td7.lesale.td7_lesale_v1 import IsometricOutcomeTokens, symlog
 
 
 def _tokens():

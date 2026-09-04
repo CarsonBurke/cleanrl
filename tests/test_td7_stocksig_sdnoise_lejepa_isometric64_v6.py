@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from cleanrl.td7_lesale_v1 import IsometricOutcomeTokens
+from cleanrl.td7.lesale.td7_lesale_v1 import IsometricOutcomeTokens
 
 
 def _tokens():

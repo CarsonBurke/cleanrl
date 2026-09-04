@@ -2,7 +2,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from cleanrl.ppo_continuous_action_beta_nll_v1 import Agent, SAMPLE_EPS, beta_nll_to_weights
+from cleanrl.beta_policy.ppo_continuous_action_beta_nll_v1 import Agent, SAMPLE_EPS, beta_nll_to_weights
 
 
 class DummyVecEnv:

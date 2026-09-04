@@ -1,6 +1,6 @@
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_v162critic_dreamer3bucket_hlgauss_mtp_v1 import (
+from cleanrl.iterthink.critic_variants.ppo_continuous_action_iterthink_v24_beta_v162critic_dreamer3bucket_hlgauss_mtp_v1 import (
     Args,
 )
 from cleanrl.shared.hl_gauss import Dreamer3BucketHLGaussSupport, symlog, symexp
@@ -58,6 +58,36 @@ def test_dreamer3_bucket_hlgauss_projection_normalizes_and_zero_decodes_to_zero(
         args.critic_mtp_horizon,
         args.num_bins,
     )
+
+
+def test_dreamer3_bucket_moment_matching_removes_symlog_jensen_bias():
+    coord_limit = symlog(torch.tensor(20_000.0)).item()
+    support = Dreamer3BucketHLGaussSupport(
+        51,
+        -coord_limit,
+        coord_limit,
+        0.75,
+        torch.device("cpu"),
+    )
+    targets = torch.tensor(
+        [-20_000.0, -1_000.0, -100.0, -1.0, 0.0, 1.0, 100.0, 1_000.0, 20_000.0]
+    )
+
+    base_probs = support.project(targets)
+    matched_probs = support.project_moment_matched(targets)
+    base_values = support.probs_to_scalar(base_probs)
+    matched_values = support.probs_to_scalar(matched_probs)
+
+    assert (base_values[1:-1] - targets[1:-1]).abs().max() > 1.0
+    assert not torch.any(
+        (base_probs[1:-1] == 0.0) & (matched_probs[1:-1] > 0.0)
+    )
+    assert torch.allclose(
+        matched_probs.sum(dim=-1),
+        torch.ones_like(targets),
+        atol=1e-6,
+    )
+    assert torch.allclose(matched_values, targets, rtol=1e-5, atol=1e-3)
 
 
 def test_dreamer3_bucket_projection_clamps_to_raw_support_centers():

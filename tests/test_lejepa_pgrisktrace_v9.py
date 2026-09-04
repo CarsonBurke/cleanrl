@@ -8,8 +8,7 @@ import gymnasium as gym
 
 SCRIPT = (
     Path(__file__).parents[1]
-    / "cleanrl"
-    / "ppo_continuous_action_lejepa_pgrisktrace_v9.py"
+    / "cleanrl" / "lejepa" / "ppo_continuous_action_lejepa_pgrisktrace_v9.py"
 )
 SPEC = importlib.util.spec_from_file_location("lejepa_pgrisktrace_v9", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)

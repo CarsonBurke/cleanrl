@@ -4,16 +4,16 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_rawsymlog_hlgauss_v1 import (
+from cleanrl.iterthink.critic_variants.ppo_continuous_action_iterthink_v24_beta_rawsymlog_hlgauss_v1 import (
     Args,
     value_support_bounds,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_rawsymlog_hlgauss_nocriticbias_v2 import (
+from cleanrl.iterthink.critic_variants.ppo_continuous_action_iterthink_v24_beta_rawsymlog_hlgauss_nocriticbias_v2 import (
     Agent as NoCriticBiasAgent,
     Args as NoCriticBiasArgs,
     value_support_bounds as nocriticbias_value_support_bounds,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_rawsymlog_hlgauss_criticclip05_v3 import (
+from cleanrl.iterthink.critic_variants.ppo_continuous_action_iterthink_v24_beta_rawsymlog_hlgauss_criticclip05_v3 import (
     Args as CriticClipArgs,
 )
 from cleanrl.shared.hl_gauss import HLGaussSupport, symlog

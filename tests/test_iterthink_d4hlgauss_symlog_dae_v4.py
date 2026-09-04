@@ -14,7 +14,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dae_v4 import (
+from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dae_v4 import (
     Agent,
     Args,
 )

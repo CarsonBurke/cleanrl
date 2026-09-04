@@ -1,0 +1,542 @@
+{
+  "document": {
+    "family": "RL-OPSD",
+    "version": 5,
+    "design_name": "Privileged Kernel-Tilt Teacher",
+    "abbreviation": "PKT",
+    "purpose": "Analysis-only design record",
+    "implementation_status": "not_implemented",
+    "run_status": "prohibited_until_human_review_and_all_pre_run_gates_pass",
+    "paper": "https://arxiv.org/pdf/2601.18734v3",
+    "paper_fidelity": "continuous-action analogue, not paper-identical OPSD",
+    "classification": "advantage-conditioned full-distribution self-distillation"
+  },
+  "shutdown": {
+    "status": "enforced",
+    "directive": "Stop all RL-OPSD work that launches or waits on MLQ jobs; do not submit or retry runs; remain analysis-only until the redesigned method and validation plan are reviewed.",
+    "cancelled_jobs": [
+      3485,
+      3486,
+      3487
+    ],
+    "post_directive_mlq_submissions": 0,
+    "post_directive_mlq_retries": 0,
+    "post_directive_mlq_waits": 0,
+    "active_rl_opsd_mlq_waiters": 0,
+    "code_implementation_allowed": false,
+    "mlq_allowed": false
+  },
+  "evidence": {
+    "requested_base": {
+      "run": "HalfCheetah-v4__iterthink_v24_beta_d3bucket_mtp_ppoadvnorm_batch_v1__1__1782008060",
+      "actual_source_configuration": "mbpercnorm_v2 with --norm-adv --norm-adv-scope batch --no-ret-percnorm",
+      "matched_step_training_returns": {
+        "500000": 1576.3,
+        "1000000": 3078.8,
+        "2000000": 5012.4,
+        "4000000": 6715.8,
+        "8000000": 8278.0
+      },
+      "entropy": {
+        "1000000": -3.212,
+        "2000000": -5.834,
+        "8000000": -8.788
+      },
+      "critic_explained_variance": {
+        "1000000": 0.7583,
+        "2000000": 0.8515,
+        "8000000": 0.9641
+      }
+    },
+    "rejected_versions": {
+      "v1_natural_beta_teacher": {
+        "job": 3445,
+        "result": "remained effectively random through 1.15M steps",
+        "returns": {
+          "500000": -225.6,
+          "1000000": -216.5
+        },
+        "failure": "independent finite per-sample Beta projections and KL capping distorted signed advantage magnitude and did not produce useful policy improvement"
+      },
+      "v2_scalar_log_density_teacher": {
+        "job": 3446,
+        "returns": {
+          "500000": 306.6,
+          "1000000": 1808.4,
+          "2000000": 3456.2
+        },
+        "entropy": {
+          "1000000": -1.423,
+          "2000000": -2.954
+        },
+        "critic_explained_variance_at_2000000": 0.722,
+        "failure": "standardized-GAE scalar log-density target was underdetermined for two finite Beta parameters and remained substantially unfitted"
+      },
+      "v3_lr_matched_scalar_teacher": {
+        "primary_job": 3453,
+        "partial_full_job": 3484,
+        "result": "curve remained incomplete because jobs were externally cancelled",
+        "matched_return_at_1000000": 1706.4,
+        "end_return_at_1424000": 2677.2,
+        "critic_explained_variance_at_1000000": 0.645,
+        "failure": "higher nominal learning rate did not resolve target residual or critic undertraining and epoch-times-learning-rate matching was not valid"
+      }
+    },
+    "mandatory_constraints": {
+      "privileged_teacher_missing_in_v1_to_v4": true,
+      "scalar_beta_target_underdetermined": true,
+      "residual_abs_range_256k_to_2m": [
+        0.32,
+        0.39
+      ],
+      "residual_abs_approximately_equal_to_teacher_shift_abs": true,
+      "actor_preclip_norm_consistently_exceeds": 0.25,
+      "critic_ev_at_2m_approximately": 0.7,
+      "strong_ppo_spf_critic_ev_range": [
+        0.86,
+        0.99
+      ],
+      "epoch_times_lr_budget_matching_valid": false,
+      "confounds": [
+        "Adam state and normalization",
+        "always-active actor gradient clipping",
+        "moving teacher targets",
+        "shared-trunk actor-critic interference",
+        "reduced critic optimization"
+      ]
+    }
+  },
+  "rejected_mirror_pg": {
+    "status": "retired",
+    "objective": "-A * log pi_new(z) + KL(pi_old || pi_new) / mirror_step_size",
+    "classification": "KL-regularized mirror/proximal policy-gradient RL, not OPSD",
+    "reasons": [
+      "The detached old policy has no privileged context and contains no improvement information.",
+      "All improvement signal remains the sampled policy-gradient term.",
+      "At pi_new == pi_old the KL gradient is zero.",
+      "The natural-gradient interpretation applies only to an exact small-step linearized proximal solve, not repeated stale-data Adam passes.",
+      "The negative-advantage empirical objective can be unbounded even with forward KL.",
+      "Forward KL to the old policy can oppose the concentration dynamics observed in the strong base.",
+      "It does not resolve the finite-Beta privileged-teacher requirement."
+    ],
+    "unbounded_counterexample": {
+      "old_policy": "Beta(1, 1)",
+      "new_policy_family": "Beta(c, 1)",
+      "advantage": "A = -a",
+      "asymptotic_loss_term": "c * (a * log(z) + 1 / mirror_step_size)",
+      "failure_condition": "a * (-log(z)) > 1 / mirror_step_size",
+      "example": "mirror_step_size=0.1, a=2, z<exp(-5)"
+    }
+  },
+  "pkt_objective": {
+    "rollout_inputs_per_state_and_action_coordinate": [
+      "native Beta sample z_d",
+      "detached old concentration alpha_old_d",
+      "detached old concentration beta_old_d",
+      "batch-standardized GAE advantage A"
+    ],
+    "continuous_teacher": {
+      "old_density": "p_old_d(x) = Beta(x; alpha_old_d, beta_old_d)",
+      "bandwidth": "h_d = max(std(Beta_old_d), 1/32)",
+      "kernel": "k_d(x) = exp(-0.5 * ((x - z_d) / h_d)^2)",
+      "unnormalized_teacher": "q_tilde_d(x) = p_old_d(x) * exp(teacher_strength * A * k_d(x))",
+      "normalizer": "Z_d = integral_0^1 q_tilde_d(x) dx",
+      "teacher_density": "q_d(x) = q_tilde_d(x) / Z_d"
+    },
+    "tokenized_implementation": {
+      "grid": "midpoints x_j in (0,1) with quadrature weights w_j",
+      "old_log_mass": "log_p_old_dj = log Beta(x_j; alpha_old_d, beta_old_d) + log(w_j)",
+      "teacher_logits": "teacher_logits_dj = log_p_old_dj + teacher_strength * A * k_d(x_j)",
+      "teacher_mass": "q_dj = softmax(teacher_logits_dj)",
+      "student_log_mass": "student_logits_dj = log Beta(x_j; alpha_student_d, beta_student_d) + log(w_j)",
+      "student_mass": "p_student_dj = softmax(student_logits_dj)"
+    },
+    "loss": {
+      "per_coordinate": "KL(q_d || p_student_d) = sum_j q_dj * (log(q_dj) - log(p_student_dj))",
+      "actor": "mean_over_states(sum_over_action_coordinates(KL(q_d || p_student_d)))",
+      "orientation": "privileged teacher to student",
+      "teacher_detached": true
+    },
+    "privileged_context": {
+      "contents": [
+        "sampled native action",
+        "standardized GAE advantage",
+        "recorded full old-policy density"
+      ],
+      "positive_advantage_effect": "increases teacher mass in the sampled action's policy-scaled neighborhood",
+      "negative_advantage_effect": "suppresses that neighborhood and redistributes mass according to the recorded old policy",
+      "paper_distinction": "the privilege enters through a fixed kernel-energy adapter rather than a learned language prompt or a separately conditioned copy of the network"
+    },
+    "excluded_mechanisms": [
+      "direct policy-gradient term",
+      "importance ratio",
+      "PPO clipping",
+      "scalar log-density regression target",
+      "mirror-PG penalty objective"
+    ],
+    "falsifiable_hypothesis": "A bounded, full advantage-conditioned kernel-tilt teacher gives an identifiable dense per-coordinate target. With actor-critic optimization held at base parity, teacher-to-student KL should decline across passes, positive and negative student-minus-old neighborhood mass should move in opposite directions, and the completed 8M curve will determine usefulness without assuming it beats the base."
+  },
+  "fixed_hyperparameters": {
+    "environment": "HalfCheetah-v4",
+    "seed": 1,
+    "total_timesteps": 8000000,
+    "num_envs": 16,
+    "num_steps": 2048,
+    "batch_size": 32768,
+    "num_minibatches": 32,
+    "minibatch_size": 1024,
+    "update_passes": 10,
+    "learning_rate": 0.0003,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "advantage_normalization": "whole-rollout batch standardization",
+    "actor_distribution": "unimodal Beta with alpha,beta >= 1",
+    "actor_grad_clip": 0.25,
+    "critic_grad_clip": 0.25,
+    "gradient_clipping": "separate actor and critic clipping exactly matching the requested base",
+    "shared_trunk": true,
+    "critic": "unchanged Dreamer3-bucket HL-Gauss MTP critic",
+    "critic_mtp_horizon": 6,
+    "num_value_bins": 511,
+    "teacher_bandwidth_floor": 0.03125,
+    "kl_orientation": "q_teacher || p_student",
+    "cuda_graph_requirement": "complete fixed-shape forward, dual backward, clipping, Adam update, and parameter writes"
+  },
+  "gate_selected_hyperparameters": {
+    "quadrature_tokens": {
+      "status": "unresolved_until_gate_1",
+      "candidates": [
+        65,
+        129,
+        257,
+        513
+      ],
+      "selection_rule": "smallest candidate satisfying every independent-oracle fidelity threshold"
+    },
+    "teacher_strength": {
+      "status": "unresolved_until_gate_2",
+      "candidates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "selection_rule": "largest candidate satisfying every numerical displacement and effective-support bound; no return data may be used"
+    }
+  },
+  "pre_run_gates": [
+    {
+      "id": 1,
+      "name": "continuous_teacher_and_tokenization_fidelity",
+      "mandatory": true,
+      "operational_envelope": {
+        "alpha_beta": [
+          1.000001,
+          2048.0
+        ],
+        "z": [
+          0.000001,
+          0.999999
+        ],
+        "standardized_advantage": [
+          -8.0,
+          8.0
+        ],
+        "execution_dtype": "float32",
+        "oracle_dtype": "float64",
+        "bandwidth": "max(old_std, 1/32)"
+      },
+      "oracle": "independent adaptive float64 integration of the continuous teacher with absolute tolerance 1e-12 and relative tolerance 1e-10; midpoint-grid agreement is not an oracle",
+      "coverage": [
+        "symmetric old Betas",
+        "asymmetric old Betas",
+        "concentrated old Betas",
+        "boundary-near samples",
+        "both advantage signs",
+        "full operational advantage envelope"
+      ],
+      "thresholds": {
+        "absolute_log_normalizer_error_max": 0.0001,
+        "teacher_mean_absolute_error_max": 0.001,
+        "expected_kernel_mass_absolute_error_max": 0.001,
+        "kl_absolute_error_max": 0.002,
+        "kl_relative_error_max_when_reference_kl_gt_1e-3": 0.01,
+        "student_gradient_cosine_min": 0.999,
+        "student_gradient_relative_l2_error_max": 0.01
+      },
+      "pass_action": "freeze the smallest passing token count",
+      "fail_action": "reject PKT tokenization; do not implement or run"
+    },
+    {
+      "id": 2,
+      "name": "teacher_strength_and_finite_precision_safety",
+      "mandatory": true,
+      "inputs": "deterministic coverage tensors only; no return-based selection",
+      "candidates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "thresholds": {
+        "joint_teacher_kl_p95_max": 0.15,
+        "joint_teacher_kl_p99_max": 0.3,
+        "joint_teacher_kl_max": 1.0,
+        "teacher_logit_energy_span_max": 40.0,
+        "effective_support_first_percentile_min_tokens": 4.0,
+        "finite_log_normalization_required": true,
+        "correct_expected_kernel_mass_direction_required_for_all_nonzero_advantage_cases": true
+      },
+      "pass_action": "freeze the largest passing teacher strength",
+      "fail_action": "revise the privilege energy or bandwidth; do not implement or run"
+    },
+    {
+      "id": 3,
+      "name": "finite_unimodal_beta_projection_expressivity",
+      "mandatory": true,
+      "coverage": {
+        "old_beta_shapes": [
+          "symmetric",
+          "asymmetric",
+          "concentrated",
+          "boundary-near"
+        ],
+        "action_quantiles": [
+          0.001,
+          0.01,
+          0.1,
+          0.5,
+          0.9,
+          0.99,
+          0.999
+        ],
+        "advantages": [
+          -5.0,
+          -3.0,
+          -1.0,
+          -0.25,
+          0.25,
+          1.0,
+          3.0,
+          5.0
+        ]
+      },
+      "thresholds": {
+        "projected_alpha_min": 1.01,
+        "projected_beta_min": 1.01,
+        "projected_alpha_beta_max": 2048.0,
+        "projection_kl_fraction_of_teacher_displacement_max_when_displacement_gt_1e-3": 0.25,
+        "projection_kl_absolute_max_when_displacement_le_1e-3": 0.00025,
+        "student_expected_kernel_mass_sign_accuracy_min": 0.99,
+        "student_sampled_log_density_sign_accuracy_min": 0.95,
+        "teacher_kernel_mass_displacement_captured_min": 0.5,
+        "student_concentration_ratio_min": 0.25,
+        "student_concentration_ratio_max": 4.0,
+        "finite_entropy_density_parameters_and_gradients_required": true
+      },
+      "boundary_condition": "an optimum seeking alpha or beta toward the architecture boundary at 1 is a failure, not a valid projection",
+      "fail_action": "replace the teacher family, kernel, or divergence orientation; do not implement or run"
+    },
+    {
+      "id": 4,
+      "name": "fixed_batch_learning_alignment_and_gradient_interference",
+      "mandatory": true,
+      "scope": "deterministic shared-network batches; aggregate behavior, not impossible per-sample guarantees",
+      "thresholds": {
+        "median_cosine_pkt_vs_direct_on_policy_pg_min": 0.25,
+        "p10_cosine_pkt_vs_direct_on_policy_pg_min": -0.1,
+        "fraction_negative_gradient_cosine_max": 0.1,
+        "advantage_weighted_sampled_log_density_gain_after_one_base_clipped_update": "strictly_positive",
+        "positive_advantage_group_mean_log_density_change": "strictly_positive",
+        "negative_advantage_group_mean_log_density_change": "strictly_negative"
+      },
+      "required_measurements": [
+        "actor shared-trunk gradient norm before and after clipping",
+        "critic shared-trunk gradient norm before and after clipping",
+        "actor-versus-critic shared-trunk gradient cosine",
+        "actor-head gradient norm",
+        "critic-head gradient norm",
+        "fraction of actor passes clipped"
+      ],
+      "fail_action": "revise PKT teacher construction; do not implement or run"
+    },
+    {
+      "id": 5,
+      "name": "gradient_detachment_optimizer_and_cuda_graph_equivalence",
+      "mandatory": true,
+      "checks": [
+        "no gradients to teacher masses, old concentrations, sampled actions, or advantages",
+        "teacher-to-student forward-KL orientation on asymmetric Beta cases",
+        "automatic-gradient agreement with float64 finite differences",
+        "complete eager versus CUDA-captured ten-pass update equivalence",
+        "Adam parameters, moments, and step counters advance correctly",
+        "full optimizer step and parameter writes are captured",
+        "learning rate is device-resident",
+        "static input and gradient buffer lifetimes remain valid"
+      ],
+      "thresholds": {
+        "float64_finite_difference_relative_error_max": 0.0001,
+        "eager_cuda_parameter_max_absolute_difference": 0.000001,
+        "eager_cuda_adam_state_max_absolute_difference": 0.000001,
+        "eager_cuda_relative_difference_max": 0.00001,
+        "optimizer_steps_expected": 10
+      },
+      "fail_action": "fix implementation and repeat deterministic validation; no MLQ run"
+    },
+    {
+      "id": 6,
+      "name": "requested_base_parity_and_instrumentation_audit",
+      "mandatory": true,
+      "actor_loss_only_algorithmic_difference": true,
+      "must_match": [
+        "learning rate 3e-4",
+        "ten update passes",
+        "32 minibatches of 1024",
+        "separate actor and critic clip 0.25",
+        "shared trunk",
+        "critic MTP targets, loss, and update count",
+        "GAE and batch advantage normalization",
+        "optimizer and annealing behavior",
+        "environment wrappers and rollout length",
+        "seed and initialization"
+      ],
+      "required_per_pass_metrics": [
+        "KL(q_teacher || p_student): mean, median, p95, p99, max",
+        "KL(q_teacher || p_old): mean, median, p95, p99, max",
+        "student-minus-old expected kernel mass split by advantage sign",
+        "Beta mean absolute change by coordinate",
+        "log-concentration change by coordinate: median, p05, p95, min, max",
+        "entropy by coordinate: median, p05, p95",
+        "actor and critic shared-trunk norms and cosine",
+        "actor and critic head norms",
+        "norms before and after clipping",
+        "fraction of actor passes clipped",
+        "critic loss and explained variance",
+        "nonfinite and support-violation counts",
+        "capture time, steady-state SPS, total SPS",
+        "actor and critic examples and optimizer steps"
+      ],
+      "critic_ev_policy": "critic explained variance is a measured confound and outcome; schedule parity does not guarantee recovery",
+      "fail_action": "restore parity or relabel the experiment; no MLQ run"
+    }
+  ],
+  "frozen_evaluation_protocol": {
+    "metric_source": "training episodic_return from Gymnasium RecordEpisodeStatistics",
+    "tool": "scripts/score_runs.py",
+    "command_shape": "scripts/score_runs.py <pattern> --env HalfCheetah-v4 --at 500k,1M,2M,4M,8M --at-window 50000 --last 20",
+    "milestones": [
+      500000,
+      1000000,
+      2000000,
+      4000000,
+      8000000
+    ],
+    "matched_step_window": "plus or minus 50,000 environment steps",
+    "final_summary": "last 20 training episodes",
+    "base_curve": {
+      "500000": 1576.3,
+      "1000000": 3078.8,
+      "2000000": 5012.4,
+      "4000000": 6715.8,
+      "8000000": 8278.0
+    },
+    "first_run_claim_limit": "seed 1 is feasibility and one descriptive learning curve only",
+    "superiority_requirement": "matched additional seeds, identical evaluation, and uncertainty",
+    "checkpoint_selection_allowed": false,
+    "version_recording_required": [
+      "Gymnasium",
+      "MuJoCo",
+      "PyTorch",
+      "CUDA",
+      "hardware"
+    ]
+  },
+  "future_full_run_protocol": {
+    "available_only_after": [
+      "human approval",
+      "implementation review",
+      "all six pre-run gates pass"
+    ],
+    "env_id": "HalfCheetah-v4",
+    "total_timesteps": 8000000,
+    "seed": 1,
+    "num_envs": 16,
+    "max_parallel_runs": 1,
+    "time_limit": null,
+    "reduced_training_run_allowed": false,
+    "performance_culling_allowed": false,
+    "integrity_stop_conditions": [
+      "nonfinite model, optimizer, teacher, loss, gradient, or metric state",
+      "invalid Beta support or invalid environment action",
+      "broken environment progression",
+      "broken optimizer, CUDA graph, checkpoint, logging, or score path",
+      "process failure",
+      "genuinely stalled or lost MLQ job"
+    ],
+    "milestone_policy": "observe 500k, 1M, 2M, and 4M without intervention",
+    "speed_reporting": {
+      "pass_count_claim": "ten-pass PKT parity run makes no cheapness claim",
+      "required": [
+        "end-to-end wall time",
+        "total SPS",
+        "steady-state SPS after graph capture",
+        "graph capture time",
+        "actor and critic examples processed",
+        "actor and critic optimizer steps",
+        "identical logging and timing boundaries for any future comparator"
+      ]
+    },
+    "post_8m_decision": "a valid seed-1 curve may justify matched-seed study but cannot select a speed/pass ablation by itself"
+  },
+  "review": {
+    "status": "conditional_revise_human_gate_closed",
+    "implementation_approved": false,
+    "mlq_approved": false,
+    "mirror_pg_verdict": "rejected",
+    "pkt_concept_verdict": "conditionally accepted subject to all six gates and human approval",
+    "independent_reviews": [
+      {
+        "reviewer": "MirrorMathReviewer",
+        "verdict": "revise",
+        "accepted": [
+          "bounded normalized teacher for either advantage sign",
+          "full privileged distributional target",
+          "base-parity ten-pass isolation",
+          "honest continuous-action analogue label"
+        ],
+        "mandatory_conditions_incorporated": [
+          "independent continuous integration oracle",
+          "fixed bandwidth floor",
+          "teacher-strength safety calibration",
+          "finite interior Beta projection gate",
+          "projection sign and concentration limits",
+          "correct teacher-to-student orientation"
+        ]
+      },
+      {
+        "reviewer": "ValidationPlanReviewer",
+        "verdict": "revise",
+        "accepted": [
+          "retirement of mirror PG",
+          "critic schedule parity",
+          "feasibility-only seed-1 claim",
+          "no inferred speedup from pass count",
+          "no performance cull through 8M after validity gates"
+        ],
+        "mandatory_conditions_incorporated": [
+          "numeric tolerances for every deterministic gate",
+          "operational alpha, beta, action, advantage, and dtype envelope",
+          "fixed-batch PKT-versus-PG alignment diagnostic",
+          "shared-trunk actor-critic gradient interference metrics",
+          "exact evaluation semantics",
+          "honest throughput accounting"
+        ]
+      }
+    ],
+    "open_human_decisions": [
+      "approve PKT as the next implementation candidate",
+      "approve the six numeric pre-run gates",
+      "accept that the first parity run validates the actor method rather than cheapness"
+    ]
+  }
+}

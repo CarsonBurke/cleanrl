@@ -1,0 +1,85 @@
+{
+  "method": "hopsd_v44_ema_teacher",
+  "status": "submitted",
+  "hypothesis": "V41's minibatch-moving privileged teacher makes the student's full-distribution target nonstationary. Holding a detached target fixed within each iteration should improve followability without changing the proposal objective; a tau=1 arm isolates intra-iteration stationarity, while tau=0.2 tests whether additional lagged damping improves late stability.",
+  "paper_evidence": {
+    "paper": "cleanrl/rl-opsd/2601.18734v3.pdf",
+    "sha256": "e521ed6c2939dc612daec5fe6fb47bef554a291228c02cafae07102b9729bad8",
+    "claims": [
+      "The paper fixes the initial teacher as a detached full-distribution target and gradients flow only through the student; v44 tests an RL-compatible moving-target approximation, not the paper's initialization anchor.",
+      "Full-distribution distillation outperformed sampled-token policy-gradient distillation.",
+      "Pointwise divergence clipping stabilized training."
+    ]
+  },
+  "base": {
+    "source": "cleanrl/ppo_continuous_action_hopsd_v41.py",
+    "sha256": "6048f294f8248dbe63a25186c66abad1bb12c95dcc8bf71d6b90a9ee26eca937",
+    "durable_run": "HalfCheetah-v4__hopsd_v41_search__1__1783233018",
+    "matched_step_returns": {
+      "500000": 4963.6,
+      "1000000": 6458.1
+    }
+  },
+  "change": {
+    "source": "cleanrl/ppo_continuous_action_hopsd_v44.py",
+    "sha256": "e88d50e9cc8ecdff310c5c1008f96b5ddcfc6ec5ab0745fb793fddad735c84b0",
+    "student_objective": "Existing pointwise-clipped forward KL, but against a detached target teacher after warmup.",
+    "online_teacher_objective": "Unchanged v41 AWR plus teacher Q ascent plus sampled search plus KL budget.",
+    "teacher_target_warmup_iters": 8,
+    "teacher_target_tau_arms": [1.0, 0.2],
+    "update_schedule": "Use the existing online pre-step teacher target during warmup. Hard-sync the target after each warmup iteration. Thereafter query a target held fixed within each iteration and update it once after the complete iteration; tau=1 isolates intra-iteration stationarity, tau=0.2 adds Polyak lag.",
+    "telemetry": [
+      "debug/teacher_target_online_kl",
+      "debug/teacher_target_active",
+      "debug/teacher_target_mb_frac"
+    ]
+  },
+  "frozen_run": {
+    "env_id": "HalfCheetah-v4",
+    "total_timesteps": 8000000,
+    "num_envs": 16,
+    "seed": 1,
+    "max_parallel_runs": 1,
+    "exp_name": "hopsd_v44_ema02",
+    "job_id": 3524,
+    "command": ".venv/bin/python -u cleanrl/ppo_continuous_action_hopsd_v44.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name hopsd_v44_ema02 --total-timesteps 8000000 --seed 1"
+  },
+  "control_run": {
+    "env_id": "HalfCheetah-v4",
+    "total_timesteps": 8000000,
+    "num_envs": 16,
+    "seed": 1,
+    "max_parallel_runs": 1,
+    "exp_name": "hopsd_v44_itertarget",
+    "job_id": 3523,
+    "command": ".venv/bin/python -u cleanrl/ppo_continuous_action_hopsd_v44.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name hopsd_v44_itertarget --total-timesteps 8000000 --seed 1 --teacher-target-tau 1.0"
+  },
+  "pre_run_gates": [
+    "Target parameters are initialized exactly from the online teacher, require no gradients, and are absent from every optimizer.",
+    "Warmup distillation is behavior-equivalent to v41's online pre-step target.",
+    "Polyak update satisfies target=(1-tau)*target+tau*online for parameters and copies buffers.",
+    "Student KL gradients do not reach either teacher.",
+    "Online teacher loss, KL budget, Q ascent, and sampled search remain unchanged.",
+    "Syntax, import, and focused helper checks pass; language-server review introduces no actionable errors beyond inherited v41 findings."
+  ],
+  "evaluation": {
+    "matched_step_baselines": [
+      "HalfCheetah-v4__hopsd_v41_search__1__1783233018",
+      "HalfCheetah-v4__hopsd_v40_teacherq__1__1783230134",
+      "HalfCheetah-v4__hopsd_v5_noleash__1__1783124825",
+      "HalfCheetah-v4__iterthink_v24_beta_d3bucket_mtp_ppoadvnorm_batch_v1__1__1782008060"
+    ],
+    "wall_clock_baselines": [
+      "HalfCheetah-v4__hopsd_v41_search__1__1783233018",
+      "HalfCheetah-v4__hopsd_v5_noleash__1__1783124825",
+      "HalfCheetah-v4__iterthink_v24_beta_d3bucket_mtp_ppoadvnorm_batch_v1__1__1782008060"
+    ],
+    "mechanism_checks": [
+      "Both arms remain within 10 percent of v41 at 200k because target lag is inactive during warmup.",
+      "Compare tau=1 against v41 to isolate holding the target fixed within each iteration.",
+      "Compare tau=0.2 against tau=1 to measure the added effect of Polyak lag; use teacher_target_online_kl and teacher_target_mb_frac to verify exposure.",
+      "At 500k and 1M compare return, distill_kl, teacher_q_gap, search_top_gap, search_ess, q_ev_replay, SPS, and elapsed seconds for both arms and v41.",
+      "Continue both arms to 8M unless numerically invalid or irrecoverably stalled; do not cull on an early return deficit alone."
+    ]
+  }
+}

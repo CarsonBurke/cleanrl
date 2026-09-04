@@ -7,8 +7,7 @@ import torch
 
 SCRIPT = (
     Path(__file__).parents[1]
-    / "cleanrl"
-    / "ppo_continuous_action_delightful_ppo_tanh_ema_statesigma_v6.py"
+    / "cleanrl" / "delightful" / "ppo" / "ppo_continuous_action_delightful_ppo_tanh_ema_statesigma_v6.py"
 )
 SPEC = importlib.util.spec_from_file_location(
     "delightful_ppo_tanh_ema_statesigma_v6", SCRIPT

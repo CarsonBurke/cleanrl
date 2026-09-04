@@ -9,7 +9,7 @@ clamp + renorm, the fixed-beta fallback, and that w>=0 commutes with the clip ma
 import numpy as np
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_advweight_awr_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_advweight_awr_v1 import (
     Args,
     awr_weights,
 )

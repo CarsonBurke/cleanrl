@@ -3,7 +3,7 @@ import copy
 import numpy as np
 import torch
 
-from cleanrl.ppo_continuous_action_pan_goal_solver_v11 import (
+from cleanrl.pan_goal_solver.ppo_continuous_action_pan_goal_solver_v11 import (
     Args,
     DirectGoalFollower,
     PanGoalSolver,

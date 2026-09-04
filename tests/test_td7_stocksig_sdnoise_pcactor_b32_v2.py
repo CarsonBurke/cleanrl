@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 import torch
 
-from cleanrl.td7_lesale_v1 import Args, LeSALEAgent, td7_pc_actor_batch
+from cleanrl.td7.lesale.td7_lesale_v1 import Args, LeSALEAgent, td7_pc_actor_batch
 
 
 def pc_args(batch_size):

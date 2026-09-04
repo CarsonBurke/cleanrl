@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from torch.distributions.beta import Beta
 
-from cleanrl.ppo_continuous_action_pc_inferred_beta_td_lambda_v4 import (
+from cleanrl.pc.ppo_continuous_action_pc_inferred_beta_td_lambda_v4 import (
     Agent,
     Args,
     AugmentedAdam,

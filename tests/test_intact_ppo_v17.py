@@ -9,8 +9,7 @@ import torch
 
 SCRIPT = (
     Path(__file__).parents[1]
-    / "cleanrl"
-    / "ppo_continuous_action_intact_ppo_v17.py"
+    / "cleanrl" / "embedding-optimization" / "ppo_continuous_action_intact_ppo_v17.py"
 )
 SPEC = importlib.util.spec_from_file_location("intact_ppo_v17", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)

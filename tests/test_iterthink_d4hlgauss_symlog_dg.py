@@ -4,14 +4,14 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dg_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.dg.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dg_v1 import (
     Agent as DGAgent,
     Args as DGArgs,
     dg_action_density_logprob,
     delightful_gate,
     value_support_bounds as dg_value_support_bounds,
 )
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_v1 import (
     Agent as BaseAgent,
     Args as BaseArgs,
     value_support_bounds as base_value_support_bounds,

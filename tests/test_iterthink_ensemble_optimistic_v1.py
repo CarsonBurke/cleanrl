@@ -2,8 +2,8 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_v1 import Args as D4Args
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_ensemble_optimistic_v1 import (
+from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_v1 import Args as D4Args
+from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_ensemble_optimistic_v1 import (
     Agent,
     Args,
     decode_value,

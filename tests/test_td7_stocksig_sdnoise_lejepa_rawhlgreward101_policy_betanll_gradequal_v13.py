@@ -3,7 +3,7 @@ import math
 import torch
 
 from cleanrl.shared.hl_gauss import HLGaussSupport
-from cleanrl.td7_lesale_v1 import IsometricOutcomeTokens
+from cleanrl.td7.lesale.td7_lesale_v1 import IsometricOutcomeTokens
 
 
 def test_raw_hlgauss_uses_uniform_raw_reward_centers_and_raw_sigma():

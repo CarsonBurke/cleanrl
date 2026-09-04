@@ -8,7 +8,7 @@ defaults, the joint-gradient routing, and that the recursion/centering are intac
 import numpy as np
 import torch
 
-from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dae_v2 import (
+from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dae_v2 import (
     Agent,
     Args,
 )
@@ -59,7 +59,7 @@ def test_joint_dae_loss_trains_both_value_and_advantage_heads():
     # on the advantage head AND the value head AND the shared trunk simultaneously.
     agent, args = _make_agent()
     from cleanrl.shared.hl_gauss import HLGaussSupport
-    from cleanrl.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dae_v2 import value_support_bounds
+    from cleanrl.iterthink.v24_d4hlgauss.other.ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_dae_v2 import value_support_bounds
     smin, smax = value_support_bounds(args)
     hl = HLGaussSupport(args.num_bins, smin, smax, args.value_sigma_to_bin_ratio,
                         torch.device("cpu"), use_symlog=args.value_symlog, support_is_edges=True)
