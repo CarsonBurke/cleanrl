@@ -99,6 +99,7 @@ class HLGaussSupport:
         targets = targets.unsqueeze(-1)
 
         if self.support_is_edges:
+            assert self.edges is not None
             edges = self.edges.unsqueeze(0)
             cdf_evals = torch.erf((edges - targets) / (self.sigma * np.sqrt(2)))
             z = cdf_evals[..., -1:] - cdf_evals[..., :1]
@@ -153,6 +154,9 @@ class Dreamer3BucketHLGaussSupport:
         self.edges = symexp(self.coord_edges)
         raw_widths = self.support[1:] - self.support[:-1]
         self.bin_width = raw_widths.abs().min().item()
+        self.low_endpoint = torch.zeros_like(self.support)
+        self.low_endpoint[0] = 1.0
+        self.high_endpoint = self.low_endpoint.flip(0)
 
     def probs_to_scalar(self, probs):
         """Decode as the expected raw scalar over symexp-spaced bucket centers."""
@@ -170,14 +174,88 @@ class Dreamer3BucketHLGaussSupport:
     def to_scalar(self, logits):
         return self.probs_to_scalar(torch.softmax(logits, dim=-1))
 
-    def project(self, targets):
+    def project_log_probs(self, targets):
+        """Return normalized Gaussian bin log-masses without tail underflow."""
         coord_targets = symlog(targets).clamp(self.coord_min, self.coord_max)
-        cdf_evals = torch.erf(
-            (self.coord_edges - coord_targets.unsqueeze(-1)) / (self.sigma * np.sqrt(2.0))
+        lower = (
+            self.coord_edges[:-1] - coord_targets.unsqueeze(-1)
+        ) / self.sigma
+        upper = (
+            self.coord_edges[1:] - coord_targets.unsqueeze(-1)
+        ) / self.sigma
+
+        log_cdf_upper = torch.special.log_ndtr(upper)
+        log_cdf_lower = torch.special.log_ndtr(lower)
+        log_survival_lower = torch.special.log_ndtr(-lower)
+        log_survival_upper = torch.special.log_ndtr(-upper)
+        use_survival = lower >= 0.0
+        log_large = torch.where(
+            use_survival,
+            log_survival_lower,
+            log_cdf_upper,
         )
-        z = cdf_evals[..., -1:] - cdf_evals[..., :1]
-        probs = cdf_evals[..., 1:] - cdf_evals[..., :-1]
-        return probs / z.clamp(min=self.eps)
+        log_small = torch.where(
+            use_survival,
+            log_survival_upper,
+            log_cdf_lower,
+        )
+        log_masses = log_large + torch.log1p(
+            -torch.exp(log_small - log_large)
+        )
+        return log_masses - torch.logsumexp(log_masses, dim=-1, keepdim=True)
+
+    def project(self, targets):
+        return self.project_log_probs(targets).exp()
+
+    def project_moment_matched(
+        self,
+        targets,
+        iterations=32,
+        tilt_bound=1.0,
+        log_mass_cutoff=30.0,
+    ):
+        """KL-project HL-Gauss labels to preserve their raw scalar mean.
+
+        Gaussian smoothing in symlog coordinates otherwise shifts the decoded
+        raw mean away from the target through symexp curvature. Negligible far
+        tails are truncated before a minimum-KL exponential tilt enforces
+        E[symexp(bucket)] = target without introducing remote support mass.
+        """
+        log_probs = self.project_log_probs(targets)
+        maximum_log_prob = log_probs.max(dim=-1, keepdim=True).values
+        log_probs = torch.where(
+            log_probs >= maximum_log_prob - log_mass_cutoff,
+            log_probs,
+            -torch.inf,
+        )
+        matched_targets = targets.clamp(self.support[0], self.support[-1])
+        low = torch.full_like(matched_targets, -tilt_bound)
+        high = torch.full_like(matched_targets, tilt_bound)
+        for _ in range(iterations):
+            midpoint = 0.5 * (low + high)
+            candidate = torch.softmax(
+                log_probs + midpoint.unsqueeze(-1) * self.support,
+                dim=-1,
+            )
+            candidate_mean = self.probs_to_scalar(candidate)
+            low = torch.where(candidate_mean < matched_targets, midpoint, low)
+            high = torch.where(candidate_mean < matched_targets, high, midpoint)
+
+        tilt = 0.5 * (low + high)
+        matched = torch.softmax(
+            log_probs + tilt.unsqueeze(-1) * self.support,
+            dim=-1,
+        )
+        matched = torch.where(
+            (targets <= self.support[0]).unsqueeze(-1),
+            self.low_endpoint,
+            matched,
+        )
+        return torch.where(
+            (targets >= self.support[-1]).unsqueeze(-1),
+            self.high_endpoint,
+            matched,
+        )
 
     def cdf_fraction(self, targets):
         coord_targets = symlog(targets).clamp(self.coord_min, self.coord_max).unsqueeze(-1)
