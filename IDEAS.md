@@ -185,3 +185,140 @@ an autocorrelated residual compounds through the λ-return, which is why <1% of 
 variance is worth +6 to +17% return. But note this lever is **self-limiting**: `w_r·E = Â`
 holds exactly when `w_r·φ = r`, so improving the probe destroys the gain. Anything built here
 has to be non-linear in `E` to add signal at all.
+
+---
+
+## TPO-MD's realized policy step decays 5.7x in the second half of training
+
+**Family:** `cleanrl/ppo_continuous_action_tpomd_*` · **Status:** diagnosed, two fixes built,
+neither tested (needs ≥5M steps) · **Filed:** 2026-08-18
+
+### The measurement
+
+`tpomd_alllayer_residual_td_v25` is the best run in the repo (11,015 @7.46M HalfCheetah,
+8,069 @2M — best on-policy at matched steps). Its own logs show the policy update dying:
+
+| | 0.2M | 1.9M | 3.7M | 5.6M | 7.4M |
+|---|---|---|---|---|---|
+| `max_epoch_approx_kl` (realized policy KL) | .0163 | .0328 | .0339 | .0175 | **.0058** |
+| `tpo_kl_achieved` (discrete surrogate) | .0300 | .0300 | .0300 | .0300 | .0300 |
+| `tpo_kl_base` (natural uncapped step) | 1.37 | 0.20 | 0.076 | 0.031 | 0.037 |
+| `tpo_score_std_mean` | 1.39 | 1.70 | 1.68 | 1.38 | 1.65 |
+| `tpo_sigma_global` | 0.67 | 1.95 | 4.01 | 5.45 | 7.15 |
+| `episodic_return` | 81 | 7,688 | 10,026 | 10,927 | 11,313 |
+
+`tpo_cap_engaged` is 1.0 at **every** iteration and `actor_epochs_completed` is 10/10
+throughout — so nothing was being restrained; the target itself decayed onto the anchor.
+Return growth falls from +30%/1.8M to +13%/3.7M across exactly that window.
+
+Alternative causes ruled out from the same logs: `explained_variance` holds 0.956–0.981,
+`value_loss` flat ≈1.0, `target_edge_mass` = 0.000 (HL-Gauss support never saturates),
+`tape/h16_target_rms_over_eta` = 0.72 (deep auxiliary heads still delivering), and
+`tape/encoder_relative_drift_before_capture` *falls* 0.216 → 0.027. The critic and the tape
+are healthy. Only the policy step decayed.
+
+### Two mechanisms
+
+1. **Dimensional.** Scores are divided by an EMA of the *global* TD-residual RMS, which
+   grows with the return scale (11x), while the ranked quantity — within-group score spread
+   across K=8 candidates at one state — is flat. `u_scores` shrink ~9x for reasons unrelated
+   to ranking quality, dragging `tpo_kl_base` onto the eps=0.03 cap.
+2. **Geometric, and not fixable by rescaling.** As the Beta policy sharpens (entropy −0.66 →
+   −10.7) the K candidates collapse together in *action* space, so a fixed reweighting of
+   near-identical actions moves the fitted continuous policy less and less. This is why the
+   discrete surrogate KL and the realized policy KL decoupled by ~6x.
+
+### Built, not tested
+
+- `ppo_continuous_action_tpomd_alllayer_spreadtemp_v28.py` — fix (1) open loop:
+  `--tpo-sigma-mode group_spread`. **Verified to engage:** at 920k it drove `sigma_global`
+  to 0.461 (spread) instead of 1.088 (td_rms), giving `tpo_kl_base` = 0.768 vs v25's 0.164,
+  a 4.4x larger reserve above the cap. Return was within noise of v25 (+5% at matched steps).
+- `ppo_continuous_action_tpomd_realizedkl_ctrl_v29.py` — fix (1)+(2) closed loop: multiply
+  scores by `u_gain`, adapted in log space to hold `max_epoch_approx_kl` at 0.033.
+  **Verified to regulate:** `u_gain` settled at 0.236 with realized KL 0.029–0.037 and
+  `cap_engaged` = 0. Return ~7% behind v25 at 624k.
+
+### Blocker — why both are untested
+
+**Neither variant can separate from v25 before ~4M, by construction.** v25's realized KL over
+0–1M is already 0.016–0.031, i.e. at v29's 0.033 target, and its `kl_base` still has 5x
+headroom above the cap, so both fixes are near-no-ops early. The defect only appears once
+`kl_base` reaches the cap at ~5.6M. Testing this hypothesis costs a ≥5M-step run per arm and
+cannot be triaged at 1–2M; both arms were cancelled at 944k and 624k for showing no early
+gain, which the design predicts.
+
+If picked up: run v29 (it subsumes v28) against v25 to at least 6M before judging, and read
+`debug/tpo_u_gain` against `losses/max_epoch_approx_kl` rather than return, since the return
+signature is confined to the tail.
+
+### The independent lever this analysis turned up
+
+The slot prior inside the same target is separately wrong and is early-testable — see
+`ppo_continuous_action_tpomd_mpo_anchor_v30.py`. Candidates are sampled from `pi_old`, so
+the sampling already supplies the `pi_old` factor of `q ∝ pi_old·exp(u/eta)`; v25 also
+weights the slots by `log_softmax(log pi_old(a_i))`, making the effective prior `pi_old^2`.
+That discounts exactly the tail candidates whose 1-step reward the MuJoCo probe measures
+exactly. The exact MPO/AWR E-step is a uniform slot prior.
+
+---
+
+## TPO-MD's improvement operator is at a local optimum in all four measured dimensions
+
+**Family:** `cleanrl/ppo_continuous_action_tpomd_*` · **Status:** direction closed; one arm
+(v32) running to 8M · **Filed:** 2026-08-18
+
+`tpomd_alllayer_residual_td_v25` (11,015 @7.46M HalfCheetah) scores K=8 MuJoCo-probed
+candidates by `score_i = r_i + gamma*V(s'_i)`, centres them per state, divides by a global
+scale, and fits `q = softmax(beta*log pi_old + u/eta)` under a KL trust region. Four
+independent knobs on that operator were built and measured against v25, seed 1, HalfCheetah:
+
+| lever | file | engaged? | vs v25 |
+|---|---|---|---|
+| temperature reference | `..._spreadtemp_v28.py` | yes, `kl_base` 0.164 → 0.768 | no early effect; late-only by design |
+| step-size regulator | `..._realizedkl_ctrl_v29.py` | yes, realized KL pinned 0.033 | **−21%** (2,366 vs 3,003 @630k) |
+| slot prior exponent | `..._anchor_beta_v31.py` | yes, anchor ESS 8.0 → 2.51 | β=1 is the argmax |
+| score quality | `..._depth2probe_v32.py` | yes, `score_std` +18.5% | **±0%** (@500k/750k/1M) |
+
+### The slot-prior sweep is the informative one
+
+Realized policy KL was pinned at 0.033 by v29's controller so step SIZE was matched and only
+DIRECTION varied. `anchor = log_softmax(beta * log pi_old)`:
+
+| beta | 0 (exact MPO E-step) | 0.5 | 1 (v25) | 2 |
+|---|---|---|---|---|
+| return @~630k | 552 | 1,460 | **3,003** | −65 |
+| anchor ESS (of 8) | 8.0 | 7.30 | — | 2.51 |
+
+The MPO/AWR derivation says the prior should be uniform — candidates are drawn from `pi_old`,
+so the sampling measure already supplies the `pi_old` factor of `q ∝ pi_old*exp(u/eta)`, and
+v25 applies it twice. **The derivation is right and the estimator is unusable.** With K=8
+samples from a 6-dim Beta spanning ~1.7 nats of log-prob, `softmax(u/eta)` alone lets one
+deep-tail sample own the target; its exact 1-step probe reward is a poor proxy for its
+long-run value. The `pi_old` factor is variance control, not an artefact. Bias is cheap here;
+variance is not.
+
+`beta=2` fails for a *separate* structural reason worth remembering: a sharp anchor is
+mode-seeking (target → highest-`pi_old` candidate → policy sharpens → anchor sharpens), and
+realized KL ran to 0.262 with `u_gain` pinned at its floor. **The gain controller scales the
+advantage tilt and has no authority over the anchor, so no gain setting can stabilise β>1.**
+
+### Why v32 does not rescue it
+
+If the operator is variance-limited, the fix is better scores, not a more aggressive target.
+v32 gives each candidate a second EXACT physics step under the policy mean:
+`score_i = r_i + gamma*(1-t_i)*[r'_i + gamma*(1-t'_i)*V(s''_i)]`. This adds a second exactly
+measured reward difference, cuts the critic's weight from `gamma` to `gamma^2`, and doubles
+the state separation at which V is read. It worked as designed — `score_std` 1.014 → 1.202,
+`kl_base` 0.451 → 0.530 — at 2.4x the wall cost (`probe_sps_overhead` 7.8 → 20.6) and 2x the
+privileged simulator access, **and returned nothing.**
+
+### Consequence
+
+The candidate ranking was never critic-limited, and the operator is not the binding
+constraint. v25's early curve is near-invariant to every operator change tried, which locates
+the early bottleneck in critic fit / representation formation (the tape side — the one change
+that ever delivered, ~+12% when introduced) and the late bottleneck in the step decay
+documented in the previous section. Do not spend further runs on the target distribution,
+its temperature, its prior, or its scores.
+

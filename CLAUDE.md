@@ -34,6 +34,14 @@ cleanrl/ppo_continuous_action_<your_method_name>.py
 - Versioning: When creating new versions, give them a relevant summary-name and a version number `_v<N>`. Generally do this each time you modify the algorithm. This creates a clear trail: `method_v1`, `method_v2`, etc. so we can go back without having to wade through commit history
 - Always use CUDA, never CPU
 
+### Shared standards (use these, don't reinvent them)
+
+- **Env normalization**: all new continuous-control versions MUST use `cleanrl/shared/vector_norm.py` (`VectorObsNorm`, `VectorRewardNorm`, `make_raw_continuous_env`) instead of per-env `NormalizeObservation` / `NormalizeReward` wrappers. It is behavior-identical (independent per-env stats, terminated-only reward returns, ±10 clip, final-before-reset ordering) and ~2x faster on the env-step path (see `tests/test_vector_norm.py`). Do NOT retrofit frozen versioned files.
+- Minimal wiring: build `SyncVectorEnv` from `make_raw_continuous_env`, then per step call `rew_norm.normalize(raw_rew, terms)` and `obs_norm.normalize_step(raw_obs, terms, truncs, infos)` (returns `(next_obs, transition_obs)` — use the latter for truncation bootstrap values).
+- **Staggered starts**: all new versions with parallel envs MUST establish phases via `cleanrl/shared/staggered_envs.py` (`episode_horizon`, `compute_phase_offsets`, `run_phase_warmup`) — one unrecorded horizon of stochastic warmup, ages spaced at `horizon/num_envs`, warmup transitions charged against the budget. This is what lets small batches keep full episode-age coverage (see `tests/test_staggered_envs.py`). Warmup actions must be stochastic draws, never greedy means.
+- **Rollout/update loop**: all new PPO-family versions MUST use `cleanrl/shared/ppo_loop.py` — `get_gae_fn(compiled=True)` for GAE (hoisted masks; compile fires lazily on first call), `TruncationBootstrapCache` (one batched value forward per rollout instead of one per truncation step), `device_minibatches` (GPU-side shuffling), `explained_variance` (on-device, log only), `gather_metrics` (single-sync D2H for log scalars — never `.item()` inside the optimizer path). See `tests/test_ppo_loop.py`.
+- **Runtime + timing**: every new version MUST call `cleanrl/shared/runtime.py::configure_runtime()` before building networks (TF32 matmuls, high FP32 precision, 1 CPU thread) and MUST report per-phase time via `cleanrl/shared/timing.py::PhaseTimer` (`env` / `rollout` / `update` totals per log interval, not just SPS). See `tests/test_runtime_timing.py`.
+
 ### Benchmarking and iterating
 
 - Always run experiments such that they appear in your harness UI.
@@ -54,7 +62,8 @@ First use or activate venv at `.venv/bin/python`
 # Replace these two values, then submit from the repo root.
 MLQ_RUN_NAME=my_method_v1
 MLQ_SCRIPT=cleanrl/ppo_continuous_action_my_method_v1.py
-mlq submit --name "$MLQ_RUN_NAME" --max-parallel-runs 3 --cwd "$PWD" -- \
+mlq submit --name "$MLQ_RUN_NAME" --max-parallel-runs 3 --cwd "$PWD" \
+  --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 -- \
   .venv/bin/python -u "$MLQ_SCRIPT" \
   --env-id HalfCheetah-v4 --num-envs 16 --exp-name "$MLQ_RUN_NAME" \
   --total-timesteps 8000000 --seed 1 \
@@ -77,6 +86,7 @@ Other helpers in `scripts/` (run from repo root; shared tfevents logic in `scrip
 
   - `score_runs.py <pattern> [--env <env>] [--last N]` — ranked returns; `--at 500k,1M,2M` for matched-step comparison; `--metrics <tags>` for extra columns.
   - `watch_run.py <pattern> [--env <env>]` — TensorBoard-metric status; `--until 2M` blocks until that step or stall. Use it alongside `mlq status` / `mlq logs`; do not use it to infer queue state.
+  - `autocull.py [--ref <variant>] [--replay a,b]` — metric-driven supervisor over `mlq status --json` / `mlq cancel`: reaps NaN/stalled runs and flags runs that are behind a reference or plateaued below it. Dry-run unless `--yes`; `--enforce health` (default) only reaps corpses, `--enforce all` also culls underperformers; `--watch <secs>` loops. `--replay` prints verdicts for finished runs so thresholds can be calibrated before they can kill anything. Culls before ~3M are winner-killers on exploration-heavy methods (see its CALIBRATION note); leave `--min-steps` alone without seeds to justify tightening.
 
 ## Independence
 
@@ -89,7 +99,7 @@ Your workflow loop:
 1. **Hypothesize**: form a clear, specific hypothesis about what will improve performance
 2. **Implement**: write clean, well-documented code in a new or modified file
 3. **Test**: submit versioned jobs with `mlq submit` and an explicit `--max-parallel-runs` (do not bare-launch ML work). Prefer HalfCheetah first.
-4. **Monitor**: use `mlq status` / `mlq show` / `mlq logs` for job state and `watch_run.py` / `score_runs.py` for learning metrics; cancel underperformers early with `mlq cancel`.
+4. **Monitor**: use `mlq status` / `mlq show` / `mlq logs` for job state and `watch_run.py` / `score_runs.py` for learning metrics; cancel underperformers with `mlq cancel`, or leave `autocull.py --yes --watch 600` running to reap dead runs automatically.
 5. **Analyze**: compare against baselines, understand what worked and why
 6. **Iterate**: keep improvements, rethink or roll back failures with documented reasoning, form new hypotheses
 
@@ -99,5 +109,5 @@ Your workflow loop:
 - **Logging**: TensorBoard logs go to `runs/{env_id}__{exp_name}__{seed}__{timestamp}/`
 - **No W&B**: don't use `--track` flag unless explicitly asked — local TensorBoard only
 - **Gradient clipping**: all variants use max_grad_norm=0.5 — be careful changing this or other similar hyperparameters
-- **Observation/reward normalization**: handled by env wrappers, not the agent
+- **Observation/reward normalization**: new versions use `cleanrl/shared/vector_norm.py` (runner-side, vectorized); legacy frozen versions use per-env wrappers. Never mix both in one script.
 - **Action space**: all three envs use continuous actions, clipped to [-1, 1] by wrapper
