@@ -3,7 +3,7 @@
   "status": "submitted",
   "hypothesis": "V41's minibatch-moving privileged teacher makes the student's full-distribution target nonstationary. Holding a detached target fixed within each iteration should improve followability without changing the proposal objective; a tau=1 arm isolates intra-iteration stationarity, while tau=0.2 tests whether additional lagged damping improves late stability.",
   "paper_evidence": {
-    "paper": "cleanrl/rl-opsd/2601.18734v3.pdf",
+    "paper": "cleanrl/opsd/2601.18734v3.pdf",
     "sha256": "e521ed6c2939dc612daec5fe6fb47bef554a291228c02cafae07102b9729bad8",
     "claims": [
       "The paper fixes the initial teacher as a detached full-distribution target and gradients flow only through the student; v44 tests an RL-compatible moving-target approximation, not the paper's initialization anchor.",
@@ -12,7 +12,7 @@
     ]
   },
   "base": {
-    "source": "cleanrl/ppo_continuous_action_hopsd_v41.py",
+    "source": "cleanrl/opsd/hopsd/ppo_continuous_action_hopsd_v41.py",
     "sha256": "6048f294f8248dbe63a25186c66abad1bb12c95dcc8bf71d6b90a9ee26eca937",
     "durable_run": "HalfCheetah-v4__hopsd_v41_search__1__1783233018",
     "matched_step_returns": {
@@ -21,7 +21,7 @@
     }
   },
   "change": {
-    "source": "cleanrl/ppo_continuous_action_hopsd_v44.py",
+    "source": "cleanrl/opsd/hopsd/ppo_continuous_action_hopsd_v44.py",
     "sha256": "e88d50e9cc8ecdff310c5c1008f96b5ddcfc6ec5ab0745fb793fddad735c84b0",
     "student_objective": "Existing pointwise-clipped forward KL, but against a detached target teacher after warmup.",
     "online_teacher_objective": "Unchanged v41 AWR plus teacher Q ascent plus sampled search plus KL budget.",
@@ -42,7 +42,7 @@
     "max_parallel_runs": 1,
     "exp_name": "hopsd_v44_ema02",
     "job_id": 3524,
-    "command": ".venv/bin/python -u cleanrl/ppo_continuous_action_hopsd_v44.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name hopsd_v44_ema02 --total-timesteps 8000000 --seed 1"
+    "command": ".venv/bin/python -u cleanrl/opsd/hopsd/ppo_continuous_action_hopsd_v44.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name hopsd_v44_ema02 --total-timesteps 8000000 --seed 1"
   },
   "control_run": {
     "env_id": "HalfCheetah-v4",
@@ -52,7 +52,7 @@
     "max_parallel_runs": 1,
     "exp_name": "hopsd_v44_itertarget",
     "job_id": 3523,
-    "command": ".venv/bin/python -u cleanrl/ppo_continuous_action_hopsd_v44.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name hopsd_v44_itertarget --total-timesteps 8000000 --seed 1 --teacher-target-tau 1.0"
+    "command": ".venv/bin/python -u cleanrl/opsd/hopsd/ppo_continuous_action_hopsd_v44.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name hopsd_v44_itertarget --total-timesteps 8000000 --seed 1 --teacher-target-tau 1.0"
   },
   "pre_run_gates": [
     "Target parameters are initialized exactly from the online teacher, require no gradients, and are absent from every optimizer.",
