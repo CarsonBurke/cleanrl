@@ -1,6 +1,8 @@
 slurm
 .aim
 runs
+artifacts/
+ablation_logs/
 balance_bot.xml
 cleanrl/ppo_continuous_action_isaacgym/isaacgym/examples
 cleanrl/ppo_continuous_action_isaacgym/isaacgym/isaacgym

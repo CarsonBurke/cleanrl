@@ -14,7 +14,17 @@ post-import and is therefore safe to centralize:
   intra-op parallelism is pure oversubscription overhead on tiny ops.
 """
 
+import os
+from pathlib import Path
+
 import torch
+
+
+def configure_compile_cache():
+    """Keep reusable compiler artifacts on disk, respecting explicit locations."""
+    root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "cleanrl"
+    os.environ.setdefault("TORCHINDUCTOR_CACHE_DIR", str(root / "torchinductor"))
+    os.environ.setdefault("TRITON_CACHE_DIR", str(root / "triton"))
 
 
 def configure_runtime(
@@ -24,6 +34,7 @@ def configure_runtime(
     allow_tf32=True,
     cpu_threads=1,
 ):
+    configure_compile_cache()
     torch.backends.cudnn.deterministic = cudnn_deterministic
     torch.set_float32_matmul_precision(matmul_precision)
     torch.backends.cuda.matmul.allow_tf32 = allow_tf32

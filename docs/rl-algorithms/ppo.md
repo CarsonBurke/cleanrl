@@ -225,6 +225,14 @@ If you'd like to learn `ppo_atari.py` in-depth, consider checking out the follow
 
 ## `ppo_continuous_action.py`
 
+!!! note "This fork's maintained base trainer"
+
+    The local trainer now uses a bounded Beta actor and shared native/compiled
+    execution. See [Beta PPO runtime](../ppo-beta-runtime.md) for current usage,
+    compatibility and validation. The upstream Gaussian implementation details,
+    checkpoints and benchmark results below are historical references, not
+    results for the local Beta policy.
+
 The [ppo_continuous_action.py](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/ppo_continuous_action.py) has the following features:
 
 * For continuous action space. Also implemented Mujoco-specific code-level optimizations

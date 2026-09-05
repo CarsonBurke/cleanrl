@@ -143,8 +143,8 @@ class VectorObsNorm:
         terminations = np.asarray(terminations, dtype=bool)
         truncations = np.asarray(truncations, dtype=bool)
         boundaries = np.flatnonzero(np.logical_or(terminations, truncations))
-        raw_transition = np.array(raw_next_obs, copy=True)
         if boundaries.size:
+            raw_transition = np.array(raw_next_obs, copy=True)
             finals = infos.get("final_observation")
             masks = infos.get("_final_observation")
             if finals is None:
@@ -155,6 +155,10 @@ class VectorObsNorm:
                 if finals[i] is None:
                     raise RuntimeError(f"completed environment {i} has no final observation")
                 raw_transition[i] = finals[i]
+        else:
+            # normalize() never mutates its input. Avoid copying every ordinary
+            # transition merely to handle the rare autoreset case.
+            raw_transition = raw_next_obs
 
         transition_obs = self.normalize(raw_transition)
         if not boundaries.size:

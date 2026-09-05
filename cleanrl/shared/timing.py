@@ -41,15 +41,22 @@ class PhaseTimer:
         self.totals = {}
         self.counts = {}
         self._pending_cuda = []  # (name, start_event, end_event)
+        self._event_pool = {}  # device -> completed event pairs reusable next interval
         self._open = None
 
     def start(self, name, use_cuda=True):
         if self._open is not None:
             raise RuntimeError("PhaseTimer spans must not interleave")
         if use_cuda and torch.cuda.is_available():
-            start = torch.cuda.Event(enable_timing=True)
+            device = torch.cuda.current_device()
+            pool = self._event_pool.setdefault(device, [])
+            if pool:
+                start, end = pool.pop()
+            else:
+                start = torch.cuda.Event(enable_timing=True)
+                end = torch.cuda.Event(enable_timing=True)
             start.record()
-            self._open = ("cuda", name, start)
+            self._open = ("cuda", name, (device, start, end))
         else:
             self._open = ("cpu", name, time.perf_counter())
 
@@ -59,9 +66,9 @@ class PhaseTimer:
         kind, name, start = self._open
         self._open = None
         if kind == "cuda":
-            end = torch.cuda.Event(enable_timing=True)
+            device, start, end = start
             end.record()
-            self._pending_cuda.append((name, start, end))
+            self._pending_cuda.append((name, device, start, end))
         else:
             self._add(name, time.perf_counter() - start)
 
@@ -78,11 +85,13 @@ class PhaseTimer:
         self.counts[name] = self.counts.get(name, 0) + 1
 
     def summary(self):
-        """Resolve pending CUDA events (one sync) and return per-phase stats."""
+        """Resolve events once per participating device, then recycle pairs."""
         if self._pending_cuda:
-            torch.cuda.synchronize()
-            for name, start, end in self._pending_cuda:
+            for device in {entry[1] for entry in self._pending_cuda}:
+                torch.cuda.synchronize(device)
+            for name, device, start, end in self._pending_cuda:
                 self._add(name, start.elapsed_time(end) / 1000.0)
+                self._event_pool[device].append((start, end))
             self._pending_cuda.clear()
         return {
             name: {"total_s": total, "calls": self.counts[name]}

@@ -89,10 +89,39 @@ def test_phase_timer_rejects_interleaving():
                 pass
 
 
-def test_phase_timer_cuda_flag_falls_back_without_gpu():
+def test_phase_timer_cuda_flag_falls_back_without_gpu(monkeypatch):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
     timer = PhaseTimer()
     with timer.span("rollout", use_cuda=True):
         time.sleep(0.005)
     stats = timer.summary()
     assert stats["rollout"]["calls"] == 1
     assert stats["rollout"]["total_s"] >= 0.005
+
+
+def test_phase_timer_reuses_completed_events_without_device_work(monkeypatch):
+    constructed = []
+    synced = []
+
+    class FakeEvent:
+        def __init__(self, **kwargs):
+            constructed.append(self)
+
+        def record(self):
+            pass
+
+        def elapsed_time(self, end):
+            return 2.0
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "current_device", lambda: 0)
+    monkeypatch.setattr(torch.cuda, "Event", FakeEvent)
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda device: synced.append(device))
+    timer = PhaseTimer()
+    for _ in range(3):
+        with timer.span("rollout"):
+            pass
+        assert timer.summary()["rollout"]["total_s"] == 0.002
+        timer.reset()
+    assert len(constructed) == 2
+    assert synced == [0, 0, 0]

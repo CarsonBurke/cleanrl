@@ -90,6 +90,10 @@ def compute_phase_offsets(num_envs, horizon, seed) -> np.ndarray:
 
 
 def _default_single_reset(envs, index):
+    # Batched backends also own episode counters and cached observations.
+    if hasattr(envs, "reset_at"):
+        obs, _ = envs.reset_at(index)
+        return obs
     obs, _ = envs.envs[index].reset()
     return obs
 
