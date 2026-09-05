@@ -9,6 +9,7 @@ Usage:
     python scripts/score_runs.py "dirnoise" --before 2026-06-04T18:00:00
     python scripts/score_runs.py "hlgauss" --runs-dir hl-gauss-ablations
     python scripts/score_runs.py "hlgauss" --runs-dir runs hl-gauss-ablations
+    python scripts/score_runs.py "comparison_v3" --jobs 4933 4935 4936 4937
     python scripts/score_runs.py "dsrg_v5" --at 500k,1M,2M       # matched-step returns
     python scripts/score_runs.py "dsrg_v5" --metrics losses/clipfrac,losses/explained_variance
 
@@ -41,6 +42,8 @@ READ THIS BEFORE COMPARING TWO RUNS OF DIFFERENT LENGTHS.
 from __future__ import annotations
 
 import argparse
+import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import NamedTuple
@@ -59,6 +62,44 @@ from _runs import (
 )
 
 TAG = RETURN_TAG
+
+
+def print_job_states(job_ids: list[int]):
+    """Report queue outcomes independently of any matching TensorBoard scores.
+
+    Query each distinct job once. A missing daemon, unknown job or malformed
+    response is an error, rather than an excuse to infer its state from logs.
+    """
+    jobs = []
+    for job_id in dict.fromkeys(job_ids):
+        command = ["mlq", "show", str(job_id), "--json"]
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=30)
+        except subprocess.CalledProcessError as error:
+            detail = (error.stderr or error.stdout or str(error)).strip()
+            raise RuntimeError(f"Could not query mlq job {job_id}: {detail}") from error
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise RuntimeError(f"Could not query mlq job {job_id}: {error}") from error
+        try:
+            job = json.loads(result.stdout)
+        except json.JSONDecodeError as error:
+            raise RuntimeError(f"Could not query mlq job {job_id}: invalid JSON response") from error
+        if (not isinstance(job, dict) or job.get("id") != job_id
+                or not isinstance(job.get("state"), str) or not job["state"]):
+            raise RuntimeError(f"Could not query mlq job {job_id}: response lacks the requested job ID/state")
+        if job.get("stateReason") is not None and not isinstance(job["stateReason"], str):
+            raise RuntimeError(f"Could not query mlq job {job_id}: invalid stateReason in response")
+        jobs.append(job)
+
+    print("\n  ML queue states (independent of TensorBoard scores):")
+    for job in jobs:
+        name = f" [{job['name']}]" if job.get("name") else ""
+        reason = f" — {job['stateReason']}" if job.get("stateReason") else ""
+        print(f"  job {job['id']}{name}: {job['state']}{reason}")
+    unsuccessful = [str(job["id"]) for job in jobs if job["state"] != "succeeded"]
+    if unsuccessful:
+        print(f"  ! Jobs not reported as succeeded: {', '.join(unsuccessful)}. Available scores may be partial.")
+    print("  Scores do not establish job completion or successful training.\n")
 
 
 class RunResult(NamedTuple):
@@ -197,11 +238,15 @@ def print_group(
     print()
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Score and compare TensorBoard runs")
     parser.add_argument("patterns", nargs="+", help="Patterns to match in run directory names")
     parser.add_argument("--env", default=None, help="Filter by environment (e.g. HalfCheetah-v4)")
     parser.add_argument("--last", type=int, default=20, help="Number of final episodes to evaluate")
+    parser.add_argument(
+        "--jobs", nargs="+", type=int, default=None,
+        help="Also report these mlq job states/reasons; fail if a job state cannot be queried",
+    )
     parser.add_argument(
         "--before",
         type=parse_cutoff,
@@ -240,13 +285,23 @@ def main():
             "different lengths this contrasts mid-training with converged values."
         ),
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.jobs is not None:
+        if any(job_id <= 0 for job_id in args.jobs):
+            parser.error("--jobs requires positive integer job IDs")
+        try:
+            print_job_states(args.jobs)
+        except RuntimeError as error:
+            parser.exit(status=1, message=f"{error}\n")
 
     at_steps = parse_steps(args.at) if args.at else []
     metrics = [m.strip() for m in args.metrics.split(",") if m.strip()] if args.metrics else []
 
     runs_dirs = [Path(d) for d in args.runs_dir]
     matched = find_runs(runs_dirs, args.patterns, args.env, args.before)
+    for pattern in dict.fromkeys(args.patterns):
+        if not any(pattern in run_dir.name for run_dir in matched):
+            print(f"  ! No run directories matched requested pattern {pattern!r} within the selected directories/filters.")
     if not matched:
         dirs_str = ", ".join(str(d) for d in runs_dirs)
         print(f"No runs found matching {args.patterns} in {dirs_str}")
@@ -259,6 +314,8 @@ def main():
         result = load_returns(d, args.last)
         if result is not None:
             by_env.setdefault(env, []).append((variant, result))
+        else:
+            print(f"  ! Run {str(d)!r} has no {TAG} samples; omitted from the score table.")
 
     if not by_env:
         print("No valid results found.")
