@@ -805,3 +805,169 @@ size, and both teacher/student concentration and variance.
   5,907.9 vs 7,790.4 gap: if sharp labels restore selection contrast the run
   recovers; if it also lands ~6,000, the gap is selection path-dependence and
   the anchored transfer is exhausted.
+
+- `ppo_continuous_action_iterthink_v24_beta_vmpo_v52_projected_duals_fixed_hold.py` —
+  v30 with a working M-step trust region and SNR-adaptive target windows.
+  Diagnosis of the v30/v49 50M plateaus (~9.3k): both duals lived in the
+  policy Adam and ramped at lr per step regardless of violation, so mean-KL
+  sat at 1.7x budget and concentration-KL at 26x all run, and 96% of
+  promotions fired at the first check (age 9). Changes: duals take projected
+  ascent `alpha <- max(alpha + 0.1 (KL/eps - 1), 0)` outside Adam every
+  batch, constraint KLs are computed in float64; the target holds until the
+  online policy has reached 0.8 eps_mean AND the window-summed exact Beta-head
+  gradients of the two env halves agree (cosine >= 0.5), max 100 batches;
+  eps_conc 5e-4 (the paper midpoint 1.58e-5 allows only 1.9x concentration
+  growth per 200 windows); percentile advantage scaling removed; per-batch and
+  per-window split-half gradient cosine and deterministic mean-action
+  evaluation logged. MLQ job 4873, 50M seed-1 HalfCheetah at ~21k SPS: the
+  duals hold both KLs at budget (mean 0.0072, conc 5e-4); windows lengthen
+  from a median of 9 batches at 5M to 45 at >30M with <1% max-age promotions;
+  batch split cosine ~0.1, window cosine 0.15-0.3. Deterministic return
+  10,010 @30M, 10,420 @40M, 10,520 @50M (last-10 max 10,684), still rising.
+  Stochastic last-3M mean 8,759 (v30 8,953) with a much tighter tail (p5
+  6,966 vs 4,861); concentration only 12.5 vs v30's 42, so the 1.7k
+  det/stoch gap is action noise. Follow-ups (jobs 4882, 4883) raise eps_conc
+  to 2e-3 and 5e-3 to test whether the concentration budget is the binding
+  constraint on the behavior return.
+
+- `ppo_continuous_action_iterthink_v24_beta_vmpo_v53_no_percentile_scaling.py` —
+  controlled v30 derivative removing only the D3-style percentile advantage
+  scaling (`advantages /= max(1, P95-P5 of rollout returns)`), including its
+  Args, validation, quantile computation, and `debug/return_percentile_scale`
+  logging. Hypothesis: the exact fixed-KL eta solver is scale-equivariant, so
+  the divide was near-neutral except for its `clamp_min(1.0)` floor, which
+  breaks equivariance while the rollout return spread is below 1. Raw GAE
+  advantages now feed top-k selection and the E-step directly, matching the
+  paper. Unlike v52 (which also removed the scaling but bundled projected
+  duals, fixed-hold windows, and a new concentration budget), v53 isolates
+  the scaling removal for a clean comparison against v30's 7,790.4 final-20
+  return. MLQ job 4885 completed the 8M seed-1 HalfCheetah-v4 benchmark with
+  `maxParallelRuns=1`, reaching 6,047.0 final-20 return (v30: 7,790.4) —
+  a ~1.7k regression, against the scale-equivariance hypothesis. Follow-up
+  MLQ job 4887 extends v53 to 50M steps fresh (no checkpoints exist).
+
+### Paper-alignment audit of remaining adv/reward/value scalings (v30/v53)
+
+Reference: Song et al. V-MPO (arXiv:1909.12238) + RLax V-MPO loss. The paper
+computes advantages and lambda/value targets in raw reward units, selects the
+top 50% advantages unscaled, weights by `softmax(advantage / eta)` with eta
+solved under `KL(weights || uniform) = epsilon_eta`, and regresses a scalar
+critic with squared error stabilized by single-task PopArt (unnormalized
+predictions; advantages/bootstraps in return units).
+
+1. Per-env discounted-return reward normalization (KEPT, misaligned):
+   `normalize_rewards` divides every raw reward by the running discounted-return
+   std and clips to `[-10, 10]`. Not in the paper; it rescales GAE advantages,
+   lambda returns, and critic targets into normalized units by a nonstationary
+   per-env sigma that drifts through training. The exact eta solver absorbs a
+   global rescale, but per-env sigmas diverging across envs is not a global
+   rescale, and the critic's HL-Gauss buckets see a moving target distribution.
+   Paper-faithful alternative is raw rewards + PopArt (v23 did this with a
+   scalar critic).
+2. HL-Gauss categorical critic on symexp-spaced buckets over +/-20,000
+   (KEPT, misaligned): the paper is scalar MSE + PopArt. Symlog spacing
+   compresses large returns, cross-entropy prices mass misplacement
+   independently of distance (unlike MSE), and out-of-support targets are
+   clamped to endpoint mass. The moment-matched tilt (v29/v30) repairs the
+   decoded mean but not the loss geometry.
+3. Per-env observation normalization with +/-10 clip (KEPT, accepted
+   adaptation): not in the paper, but v13/v17 established it as a large
+   positive (+~2.7k final-20) that the family keeps. It does not touch
+   adv/reward scaling.
+4. Advantage centering at the selected max before `/ eta` (KEPT, aligned):
+   exact softmax/eta-derivative invariance, purely numerical (FP32 range).
+   Fine.
+5. Removed floor asymmetry (v30 behavior, for the record): `clamp_min(1.0)`
+   meant the scaling only ever shrunk advantages (never amplified them while
+   spreads were small, e.g. early training), the one channel through which it
+   could differ from pure equivariance.
+
+### v54 — fixed 100-update target hold (v53 base)
+
+`ppo_continuous_action_iterthink_v24_beta_vmpo_v54_fixed_target_hold.py`
+removes v53's KL-triggered early target promotion. The behavior/KL reference
+is copied only after exactly `target_update_period` learner updates (default
+100), independent of logging cadence. Promotion events are always logged;
+`target_age_batches` is the pre-update age, so a full-window promotion logs
+99, not 100. Duals and their Adam moments are retained, not reset. The
+hypothesis is that the stationary KL origin gives the existing dual optimizer
+time to settle; improved learning is not yet established.
+
+Model, loss, optimizer, KL budgets, raw GAE advantages and full-batch next-value
+geometry remain unchanged from v53. The new version uses shared normalization,
+phase warmup, explicit-next-value GAE, runtime configuration and phase timing.
+It deliberately does not enable experimental capture, cached inference weights,
+fused numerical kernels, GPU physics, or the slower asynchronous collector.
+The frozen v53 file is unchanged.
+
+MLQ **4959**: fresh HalfCheetah-v4 seed-1 **50M** run, 64 environments,
+39-step unrolls, compiled BF16, native original-engine backend with four physics
+threads. Concurrency limit 1, normal priority, one attempt, one-hour time limit;
+no learning-based autocull for this requested comparison. Prerequisite **4958**
+passed 123 shared/fixed-hold tests; the final focused CPU suite passed 28 tests,
+including actual scheduling-statement replay and v53 normalization equivalence.
+Independent review found no serious issue.
+
+After-terminal score hook **4960** compares against the existing v53 50M job
+**4887**, including matched-step returns at 8M/20M/30M/40M/50M and target/dual
+diagnostics. It has concurrency 1, a five-minute limit, and explicitly inherits
+`XDG_RUNTIME_DIR` for its nested queue-status queries. Read `mlq logs 4960`
+after completion. No additional v53 baseline was submitted.
+
+### v55–v58 — single-factor ablations on the v54 base
+
+v54 (fixed 100-update target hold) is the control. Each variant below changes
+exactly one factor, standard 8M seed-1 HalfCheetah-v4, `maxParallelRuns=1`.
+Decisive diagnostics per variant in parentheses.
+
+- **v55 — paper lr** (`..._vmpo_v55_paper_lr.py`): `learning_rate` 3e-4 → 1e-4,
+  the paper's value for its single joint Adam. Tests whether smaller primal
+  steps let the duals track and bind. Watch: `mean_kl_residual`,
+  `concentration_kl_residual` → 0, duals flatten.
+- **v56 — per-minibatch top-k** (`..._vmpo_v56_minibatch_topk.py`): top-half
+  selection, eta solve and weight normalization run inside each of
+  `num_estep_shards=8` minibatches (paper App. F), averaged losses keep v54
+  gradient scale. Tests whether global normalization over-diffuses selection.
+  Watch: `max_weight` (v53: ~0.004), `weight_ess_fraction` (v53: ~0.97).
+- **v57 — satisfiable conc budget** (`..._vmpo_v57_satisfiable_conc.py`):
+  `epsilon_alpha_concentration` 1.58e-5 → 3e-4 (measured single-step floor;
+  deliberately above the paper range top 5e-5, which was tuned for Gaussian
+  covariance KLs). Tests the unsatisfiable-bound → unbounded-dual-ramp
+  hypothesis. Watch: `alpha_concentration` flatten, `policy_concentration`.
+- **v58 — raw-scale rewards** (`..._vmpo_v58_raw_rewards.py`): bypasses the
+  running-std reward division (paper computes advantages from actual
+  rewards); HL-Gauss support widened back to ±`value_support_limit` so raw
+  returns fit. Tests whether input normalization compresses late-training
+  advantage scale against fixed `epsilon_eta`. Watch: `advantage_std`,
+  `weight_ess_fraction`, `target_outside_support` (must stay ~0).
+
+Submitted 8M seed-1 HalfCheetah-v4, 16 envs, limit 1: **4962** (v55),
+**4963** (v56), **4964** (v57), **4965** (v58). Compare against v54 control
+at matched steps via `score_runs.py vmpo --at 8M`.
+
+Update: v55 withdrawn before start (job 4962 cancelled, file deleted) —
+lr-parity question deferred. v57 (**4964**) and v58 (**4965**) raised to
+priority 1; v56 (**4963**) stays at 0. Run order is now 57, 58, then 56.
+
+CONFESSION / RESUBMIT: jobs 4963–4965 were confounded and killed before
+producing usable data. They used the generic template (`--num-envs 16`,
+direct python) instead of the v54 control spec (job 4959: `fast_mujoco
+--backend native --threads 4`, `--num-envs 64`). Batch 624 vs 2496 means 4x
+the learner updates per env-step, a 4x smaller top-k pool, and mechanically
+sharper E-step weights — every decisive diagnostic (ESS, max_weight, dual
+residuals) moves on batch geometry alone, so no difference was attributable.
+Resubmitted as **4966** (v57, running), **4967** (v58, pri 1), **4968** (v56,
+pri 0): exact 4959 config except `--total-timesteps 8000000` and script/
+exp-name, plus `--time-limit 1h` mirrored from the control. OMP/MKL 1/1
+kept (throughput-only under fixed seeds). Compare at matched steps only.
+
+v58 REVIVED AS **4971**: job 4967 NaNed from iteration 1 — my support edit
+passed ±20000 as Dreamer3 *symlog coordinates*, overflowing `symexp` to inf
+(`to_scalar` → inf/NaN → GAE → everything). The untouched v54 bounds
+(±log1p(20000) ≈ ±9.9 coords) already span ±20000 raw, so the fix reverts
+the support edit; v58 now differs from v54 by the reward line only.
+Verified finite on CPU (support, decode, project, moment-matched at ±5000).
+4967 ran to completion as NaN — ignore its dir in scoring. Also: a sloppy
+hardcoded `set-priority 4969` briefly raised an unrelated job
+(`ppo_base_beta_shared_validation`); reverted to 0 within the minute, no
+effect on execution order.
