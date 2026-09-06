@@ -29,7 +29,7 @@ from cleanrl.shared.collector import OnPolicyCollector
 from cleanrl.shared.hl_gauss import Dreamer3BucketHLGaussSupport
 from cleanrl.shared.mujoco_env import make_mujoco_vector_env
 from cleanrl.shared.ppo_loop import gather_metrics, get_gae_fn
-from cleanrl.shared.runtime import configure_runtime
+from cleanrl.shared.rollout_graph import graph_compile
 from cleanrl.shared.sampling import sample_beta_actions
 from cleanrl.shared.staggered_envs import compute_phase_offsets, episode_horizon, run_phase_warmup
 from cleanrl.shared.timing import PhaseTimer
@@ -45,7 +45,6 @@ class Args(reference.Args):
     exp_name: str = "v30_shared_pipeline_v2"
     env_backend: str = "native"
     env_threads: int = 4
-    async_env: bool = True
     non_blocking_transfers: bool = True
 
 
@@ -83,8 +82,6 @@ def validate(args):
     args.num_iterations = (args.total_timesteps - args.num_envs * args.initial_phase_warmup_steps) // args.batch_size
     if args.num_iterations < 1:
         raise ValueError("budget must contain phase warmup and a full rollout")
-    if args.async_env and args.capture_video:
-        raise ValueError("video capture requires --no-async-env")
 
 
 def main():
@@ -127,7 +124,7 @@ def main():
                 logits = agent.value_logits(obs)
             return support.to_scalar(logits.float())
 
-        rollout = torch.compile(rollout_model, mode=args.compile_mode, fullgraph=True, dynamic=False)
+        rollout = graph_compile(rollout_model)
         gae = get_gae_fn(compiled=True, mode=args.compile_mode, explicit_next_values=True)
 
         def rollout_gae(transitions, rewards, current_values, terms, truncs):
@@ -156,17 +153,14 @@ def main():
         obs_norm = VectorObsNorm(args.num_envs, envs.single_observation_space.shape)
         rew_norm = VectorRewardNorm(args.num_envs, args.gamma)
         collector = OnPolicyCollector(envs, args.num_steps, sample, obs_norm, rew_norm,
-                                      non_blocking=args.non_blocking_transfers, async_env=args.async_env,
+                                      non_blocking=args.non_blocking_transfers,
                                       episode_callback=log_episodes)
         start = time.perf_counter()
         offsets = compute_phase_offsets(args.num_envs, args.initial_phase_warmup_steps, args.seed)
         writer.add_text("initial_phase_offsets", ",".join(map(str, offsets)))
 
-        @torch.no_grad()
         def warmup_action(obs):
-            torch.compiler.cudagraph_mark_step_begin()
-            output = sample(collector.transfer.observation(obs))
-            action = output["action"].cpu().numpy()
+            action = collector.graph.step(obs)
             if not np.isfinite(action).all():
                 raise FloatingPointError("nonfinite warmup action")
             return action

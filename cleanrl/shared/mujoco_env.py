@@ -2,15 +2,18 @@
 
 ``make_mujoco_vector_env(..., backend="native", num_threads=4)`` replaces a
 SyncVectorEnv without changing reset RNG, rewards, observations, action clipping,
-or same-step autoreset. Native physics runs in one C call, optionally across
-OpenMP workers; NumPy batches the surrounding Gymnasium bookkeeping. There is
-no GPU physics conversion or floating-point approximation.
+or same-step autoreset. Native physics runs in one C call, spread across a
+persistent worker pool whose idle threads park rather than spin (see
+``mujoco_batch.c`` for why, and ``CLEANRL_ENV_SPIN`` to override); NumPy
+batches the surrounding Gymnasium bookkeeping. There is no GPU physics
+conversion or floating-point approximation.
 
 The specialized path deliberately supports only the unmodified Gymnasium 0.29
 HalfCheetah/Hopper/Walker2d v4 tasks. Rendering uses SyncVectorEnv. ``sync`` is
 the reference; ``threaded`` retains the entire original Python wrapper stack.
 Native builds once in the user's cache using the installed MuJoCo headers and
-shared library. A C compiler with OpenMP is required; failure is explicit.
+shared library. A C compiler with POSIX threads is required; failure is
+explicit.
 Canonical legacy normalization/clipping is batched over the original wrapper
 states; arbitrary transforms retain their original per-environment callbacks.
 """
@@ -31,7 +34,7 @@ import numpy as np
 from gymnasium.vector.utils import concatenate
 
 from cleanrl.shared.legacy_normalization import CanonicalLegacyNormalization
-from cleanrl.shared.vector_norm import make_raw_continuous_env
+from cleanrl.shared.vector_norm import make_raw_continuous_env, ufunc_clip
 
 
 def _native_library():
@@ -56,7 +59,7 @@ def _native_library():
         os.close(fd)
         try:
             subprocess.run(
-                ["cc", "-O3", "-std=c11", "-fPIC", "-shared", "-fopenmp",
+                ["cc", "-O3", "-std=c11", "-fPIC", "-shared", "-pthread",
                  "-I", str(package / "include"), str(source), str(library),
                  f"-Wl,-rpath,{package}", "-o", temporary],
                 check=True, capture_output=True, text=True,
@@ -71,12 +74,38 @@ def _native_library():
     lib = ctypes.CDLL(str(output))
     doubles = np.ctypeslib.ndpointer(dtype=np.float64, flags="C_CONTIGUOUS")
     pointers = ctypes.POINTER(ctypes.c_void_p)
-    lib.cleanrl_mujoco_step.argtypes = [
+    lib.cleanrl_pool_create.argtypes = [
         ctypes.c_int, pointers, pointers, doubles, ctypes.c_int, ctypes.c_int,
-        doubles, doubles, doubles,
+        ctypes.c_int, doubles, doubles, doubles,
     ]
-    lib.cleanrl_mujoco_step.restype = None
+    lib.cleanrl_pool_create.restype = ctypes.c_void_p
+    # One pointer argument per step: ctypes converts nothing else, and the
+    # batch descriptor (models, data, buffers, frame_skip) is bound once.
+    lib.cleanrl_pool_step.argtypes = [ctypes.c_void_p]
+    lib.cleanrl_pool_step.restype = None
+    lib.cleanrl_pool_destroy.argtypes = [ctypes.c_void_p]
+    lib.cleanrl_pool_destroy.restype = None
     return lib
+
+
+def _worker_spin_budget():
+    """Pause iterations an idle physics worker burns before parking.
+
+    Default 0: park immediately. Measured on a 12-core 9900X with three
+    concurrent 16-env HalfCheetah rollouts, parking gave 161.7k aggregate SPS
+    on 5.1 cores against 164.8k on 11.9 cores for an unbounded spin -- the same
+    throughput within noise for 2.3x less CPU, which is what lets several runs
+    share the machine (see scripts/benchmark_rollout_scale.py). A lone run on
+    an idle box gains roughly 10% wall from spinning, so set CLEANRL_ENV_SPIN
+    (in pause iterations) when a single run owns the machine.
+    """
+    value = os.environ.get("CLEANRL_ENV_SPIN")
+    if value is None:
+        return 0
+    budget = int(value)
+    if budget < 0:
+        raise ValueError("CLEANRL_ENV_SPIN must be non-negative")
+    return budget
 
 
 class _ResetObserver(gym.Wrapper):
@@ -233,6 +262,13 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
              int(base._exclude_current_positions_from_observation)), dtype=np.float64,
         )
         self._before = np.empty(self.num_envs, dtype=np.float64)
+        # Clipped actions are needed twice per step: as float64 controls for
+        # MuJoCo and in the policy's own dtype for the task's control cost.
+        # Both buffers are reused so no step allocates.
+        self._controls = np.empty((self.num_envs, base.model.nu), dtype=np.float64)
+        self._clipped = {}
+        self._cost_dtypes = {}
+        self._pool = None
         self._episode_returns = np.zeros(self.num_envs, dtype=np.float32)
         self._episode_lengths = np.zeros(self.num_envs, dtype=np.int32)
         self._episode_starts = np.zeros(self.num_envs, dtype=np.float32)
@@ -261,6 +297,17 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
             if batch_legacy_normalization else None
         )
         self.uses_batched_normalization = self._batched_normalization is not None
+        # The pool borrows these buffers for its lifetime, so they must never
+        # be reallocated; every step writes controls in place and reads the
+        # results back out of the same storage.
+        self._pool = self._native.cleanrl_pool_create(
+            self.num_envs, self._models, self._data, self._controls,
+            base.frame_skip, self.num_threads, _worker_spin_budget(),
+            self._before, self._positions, self._velocities,
+        )
+        if not self._pool:
+            self.close()
+            raise RuntimeError("Unable to start the native MuJoCo worker pool")
 
     def _reset_statistics(self, index):
         stats = self._statistics[index]
@@ -280,11 +327,29 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
     def reset_at(self, index, **kwargs):
         return self.envs[index].reset(**kwargs)
 
+    def close_extras(self, **kwargs):
+        # Workers must be joined before the sub-environments release their
+        # mjData. Tolerates the constructor's early failure paths, which call
+        # close() before the pool exists, and repeated close() calls.
+        pool = getattr(self, "_pool", None)
+        if pool:
+            self._pool = None
+            self._native.cleanrl_pool_destroy(pool)
+        super().close_extras(**kwargs)
+
     def step_async(self, actions):
         actions = np.asarray(actions)
         if actions.shape != self.action_space.shape:
             raise ValueError(f"expected action shape {self.action_space.shape}, got {actions.shape}")
-        self._actions = np.clip(actions, self.single_action_space.low, self.single_action_space.high)
+        # Clip into a buffer reused per input dtype: the control cost must keep
+        # the policy's dtype (Gym's ClipAction does), so the dtype is part of
+        # the observable contract and cannot be normalized away here.
+        clipped = self._clipped.get(actions.dtype)
+        if clipped is None:
+            clipped = np.empty(self.action_space.shape, dtype=actions.dtype)
+            self._clipped[actions.dtype] = clipped
+        self._actions = ufunc_clip(actions, self.single_action_space.low,
+                                   self.single_action_space.high, out=clipped)
 
     def _postprocess(self, index, observation, reward, terminated):
         """Run the original legacy normalizer/transform instances in stack order."""
@@ -306,11 +371,8 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
             raise gym.error.ResetNeeded("Call reset before stepping the environment")
         base = self._bases[0]
         actions = self._actions
-        self._native.cleanrl_mujoco_step(
-            self.num_envs, self._models, self._data,
-            np.ascontiguousarray(actions, dtype=np.float64), base.frame_skip,
-            self.num_threads, self._before, self._positions, self._velocities,
-        )
+        np.copyto(self._controls, actions)
+        self._native.cleanrl_pool_step(self._pool)
         x = self._positions[:, 0]
         velocity = (x - self._before) / base.dt
         forward = base._forward_reward_weight * velocity
@@ -319,7 +381,12 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
         costs = np.sum(np.square(actions), axis=1)
         # NumPy 1.x scalar multiplication promotes task np.float32 scalars to
         # float64; explicit promotion matches that behavior in batched form.
-        cost_dtype = np.asarray(costs[0] * base._ctrl_cost_weight).dtype
+        # The result depends only on the two dtypes, so probe it once per dtype
+        # instead of allocating a scalar array every step.
+        cost_dtype = self._cost_dtypes.get(costs.dtype)
+        if cost_dtype is None:
+            cost_dtype = np.asarray(costs[0] * base._ctrl_cost_weight).dtype
+            self._cost_dtypes[costs.dtype] = cost_dtype
         costs = costs.astype(cost_dtype, copy=False) * base._ctrl_cost_weight
         if self._env_id == "HalfCheetah-v4":
             rewards = forward - costs
@@ -347,8 +414,8 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
         # its rounding order instead of accumulating rewards in float64.
         self._episode_returns += rewards.astype(np.float32)
         self._episode_lengths += 1
-        for limit, elapsed in zip(self._limits, self._episode_lengths):
-            limit._elapsed_steps = int(elapsed)
+        for limit, elapsed in zip(self._limits, self._episode_lengths.tolist()):
+            limit._elapsed_steps = elapsed
         truncs = self._episode_lengths >= self._horizons
         boundaries = terms | truncs
         active = ~boundaries
@@ -356,7 +423,7 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
         columns = {"x_position": x, "x_velocity": velocity}
         if self._env_id == "HalfCheetah-v4":
             columns.update(reward_run=forward, reward_ctrl=-costs)
-        if np.any(active):
+        if active.any():
             for key, values in columns.items():
                 infos[key] = np.where(active, values, 0.0)
                 infos["_" + key] = active.copy()

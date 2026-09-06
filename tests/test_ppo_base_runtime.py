@@ -19,8 +19,11 @@ from torch.distributions import Beta, Distribution
 
 from cleanrl import ppo_continuous_action as ppo
 from cleanrl.shared.ppo_loop import get_gae_fn
+from cleanrl.shared.host_actor import HostMLP
+from cleanrl.shared.rollout_graph import graph_compile
+from cleanrl.shared.rollout_transfer import RolloutTransfer
 from cleanrl.shared.runtime import configure_runtime
-from cleanrl.shared.sampling import sample_beta_actions
+from cleanrl.shared.sampling import sample_beta_actions, sample_beta_actions_host
 
 
 def _spaces(low=None, high=None):
@@ -312,39 +315,6 @@ def test_beta_policy_sampling_bounds_jacobians_rng_and_checkpoint_roundtrip():
             torch.testing.assert_close(actual, expected, rtol=0, atol=0)
 
 
-@pytest.mark.cuda
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="queued CUDA test required")
-def test_compiled_beta_inference_keeps_sampling_outside_graph_and_preserves_rng():
-    configure_runtime(matmul_precision="highest", allow_tf32=False)
-    torch.manual_seed(1)
-    envs = _spaces()
-    agent = ppo.Agent(envs).cuda()
-    observations = torch.randn(32, 11, device="cuda")
-    low, high = (torch.as_tensor(value, device="cuda") for value in
-                 (envs.single_action_space.low, envs.single_action_space.high))
-    compiled = torch.compile(agent.get_policy_and_value, mode="reduce-overhead", fullgraph=True)
-    with torch.no_grad():
-        expected = agent.get_policy_and_value(observations)
-        rng = torch.cuda.get_rng_state()
-        for _ in range(3):
-            torch.compiler.cudagraph_mark_step_begin()
-            actual = tuple(value.clone() for value in compiled(observations))
-        assert torch.equal(torch.cuda.get_rng_state(), rng)
-        for candidate, reference in zip(actual, expected):
-            torch.testing.assert_close(candidate, reference, rtol=1e-5, atol=1e-6)
-        expected_native, expected_physical = sample_beta_actions(*actual[:2], low, high)
-        after = torch.cuda.get_rng_state()
-        torch.cuda.set_rng_state(rng)
-        # Same compiled parameters, same PyTorch sampler: compilation itself
-        # must not consume draws or capture stochastic policy sampling.
-        torch.compiler.cudagraph_mark_step_begin()
-        alpha, beta, _ = compiled(observations)
-        native, physical = sample_beta_actions(alpha, beta, low, high)
-        torch.testing.assert_close(native, expected_native, rtol=0, atol=0)
-        torch.testing.assert_close(physical, expected_physical, rtol=0, atol=0)
-        assert torch.equal(torch.cuda.get_rng_state(), after)
-
-
 def _reference_loss(agent, observations, native_actions, old_logprobs, advantages, returns, old_values, args, scale):
     alpha, beta, value = agent.get_policy_and_value(observations)
     distribution = Beta(alpha, beta, validate_args=False)
@@ -426,64 +396,71 @@ def test_compiled_beta_ppo_loss_gradients_and_clipped_adam_match_reference(norm_
 
 @pytest.mark.cuda
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="queued CUDA test required")
-def test_beta_production_compiled_graphs_interoperate_across_three_rollout_updates():
+def test_beta_production_host_actor_and_compiled_learner_interoperate_across_updates():
     """Fixed compute ownership replay, not a shortened training experiment.
 
-Use the SAME model in all live compiled callables with the production compile
-options. Copy rollout outputs before advancing graph generations. No simulator
-or manual capture is involved; sampling stays outside the compiled policy.
+Use the SAME model for the host actor mirror, the batched rollout statistics
+and the live compiled learner with the production compile options. After each
+optimizer step the refreshed mirror must match the device actor, the batched
+statistics must equal a fresh device forward on the uploaded rollout, and the
+learner must not consume the host sampler's RNG.
     """
     configure_runtime(matmul_precision="highest", allow_tf32=False)
     torch.manual_seed(1)
     args = ppo.Args(num_envs=16, num_steps=4, num_minibatches=1, update_epochs=2)
     agent = ppo.Agent(_spaces()).cuda()
     optimizer = torch.optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5, fused=True)
-    policy_model = torch.compile(agent.get_policy_and_value, mode="reduce-overhead", fullgraph=True, dynamic=False)
-    logprob_model = torch.compile(agent.action_logprob, mode="reduce-overhead", fullgraph=True, dynamic=False)
+
+    def rollout_statistics(observations, native):
+        alpha, beta, value = agent.get_policy_and_value(observations)
+        return value.flatten(), agent.action_logprob(alpha, beta, native)
+
+    statistics_model = graph_compile(rollout_statistics)
     value_model = torch.compile(agent.get_value, fullgraph=True, dynamic=True,
                                 options={"triton.cudagraphs": False})
     loss_model = torch.compile(lambda *batch: ppo.ppo_loss(agent, *batch, args),
                                mode="reduce-overhead", fullgraph=True, dynamic=False)
     gae_fn = get_gae_fn(compiled=True, mode="reduce-overhead")
-    fixtures = torch.randn(3, 5, 16, 11, device="cuda")
+    host_actor = HostMLP(agent.actor, 16)
+    low, high = agent.action_low.cpu().numpy(), agent.action_high.cpu().numpy()
+    sampler = np.random.default_rng(1)
+    transfer = RolloutTransfer(4, 16, (11,), "cuda", fields={"observations": (11,), "native_actions": (3,)})
+    fixtures = np.random.default_rng(1).standard_normal((3, 5, 16, 11)).astype(np.float32)
     rewards = torch.randn(4, 16, device="cuda")
     terms = torch.zeros(4, 16, device="cuda")
     truncs = torch.zeros_like(terms)
     terms[1, 0] = 1
     truncs[2, 1:3] = 1
-    observations = torch.empty(4, 16, 11, device="cuda")
-    native_actions = torch.empty(4, 16, 3, device="cuda")
-    values, old_logprobs = torch.empty_like(rewards), torch.empty_like(rewards)
-    next_obs = torch.empty(16, 11, device="cuda")
     update_snapshots = torch.empty(2, 6, device="cuda")
     before = tuple(parameter.detach().clone() for parameter in agent.parameters())
     for round_index in range(3):
+        host_actor.refresh()
         with torch.no_grad():
             for step in range(4):
-                next_obs.copy_(fixtures[round_index, step])
-                torch.compiler.cudagraph_mark_step_begin()
-                alpha, beta, value = policy_model(next_obs)
-                native, physical = sample_beta_actions(alpha, beta, agent.action_low, agent.action_high)
-                logprob = logprob_model(alpha, beta, native)
-                observations[step].copy_(next_obs)
-                native_actions[step].copy_(native)
-                values[step].copy_(value.flatten())
-                old_logprobs[step].copy_(logprob)
-                assert torch.isfinite(physical).all()
-            next_obs.copy_(fixtures[round_index, -1])
-            torch.compiler.cudagraph_mark_step_begin()
+                observations = fixtures[round_index, step]
+                logits = host_actor(observations)
+                torch.testing.assert_close(torch.as_tensor(logits), agent.actor(torch.as_tensor(observations, device="cuda")).cpu(),
+                                           rtol=1e-5, atol=1e-6)
+                native, action = sample_beta_actions_host(logits, low, high, sampler)
+                assert np.isfinite(action).all() and (low <= action).all() and (action <= high).all()
+                transfer.push(step, np.zeros(16), np.zeros(16), np.zeros(16), observations=observations, native_actions=native)
+            batch = transfer.upload()
+            b_obs, b_native = batch.fields["observations"].flatten(0, 1), batch.fields["native_actions"].flatten(0, 1)
+            sampler_rng = torch.cuda.get_rng_state()
+            values, logprobs = statistics_model(b_obs, b_native)
+            torch.testing.assert_close(values, agent.get_value(b_obs).flatten(), rtol=1e-5, atol=1e-6)
+            torch.testing.assert_close(logprobs, agent.action_logprob(*agent.get_policy_and_value(b_obs)[:2], b_native),
+                                       rtol=1e-5, atol=1e-6)
+            next_obs = transfer.observation(fixtures[round_index, -1])
             tail = value_model(next_obs).flatten()
             bootstrap = torch.zeros_like(rewards)
-            bootstrap[2, 1:3] = value_model(fixtures[round_index, 3, 1:3]).flatten()
-            advantages, returns = gae_fn(rewards, values, terms, truncs, bootstrap,
+            bootstrap[2, 1:3] = value_model(torch.as_tensor(fixtures[round_index, 3, 1:3], device="cuda")).flatten()
+            advantages, returns = gae_fn(rewards, values.view(4, 16), terms, truncs, bootstrap,
                                           tail, args.gamma, args.gae_lambda)
             b_advantages, b_returns = advantages.flatten().clone(), returns.flatten().clone()
-        batch = (observations.flatten(0, 1), native_actions.flatten(0, 1), old_logprobs.flatten(),
-                 b_advantages, b_returns, values.flatten())
-        sampler_rng = torch.cuda.get_rng_state()
         for epoch in range(2):
             torch.compiler.cudagraph_mark_step_begin()
-            loss, metrics = loss_model(*batch)
+            loss, metrics = loss_model(b_obs, b_native, logprobs, b_advantages, b_returns, values)
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
@@ -491,7 +468,7 @@ or manual capture is involved; sampling stays outside the compiled policy.
             update_snapshots[epoch].copy_(metrics)
         # Attribute graph/ownership faults to this round, not another GPU test.
         torch.cuda.synchronize()
-        assert torch.equal(torch.cuda.get_rng_state(), sampler_rng), "learner consumed policy sampling RNG"
+        assert torch.equal(torch.cuda.get_rng_state(), sampler_rng), "learner consumed CUDA RNG the host sampler never uses"
         assert torch.isfinite(update_snapshots).all()
         assert all(torch.isfinite(parameter).all() for parameter in agent.parameters())
     assert any(not torch.equal(initial, final) for initial, final in zip(before, agent.parameters()))

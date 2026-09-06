@@ -48,11 +48,21 @@ model outputs and training arguments remain the trainer's responsibility.
 The native backend supports the installed Gymnasium 0.29.1 HalfCheetah-v4,
 Hopper-v4, and Walker2d-v4 classes. It uses their original MuJoCo models, data,
 reset methods and random generators. One native call advances independent
-environments using MuJoCo's original `mj_step` and `mj_rnePostConstraint`, with
-optional OpenMP parallelism. There is no GPU simulator conversion or fast-math.
-Its small C bridge builds against the installed MuJoCo wheel in
+environments using MuJoCo's original `mj_step` and `mj_rnePostConstraint`,
+spread across a persistent worker pool. There is no GPU simulator conversion
+or fast-math. Its small C bridge builds against the installed MuJoCo wheel in
 `$XDG_CACHE_HOME/cleanrl/mujoco-native` (or `~/.cache/cleanrl/mujoco-native`).
-It requires a C compiler with OpenMP support.
+It requires a C compiler with POSIX threads.
+
+Idle workers park on a condition variable instead of spinning. A rollout
+issues one batched step per ~150us of surrounding Python work, so a spinning
+team costs `num_threads` whole cores while doing nothing: measured at 4
+threads and 16 envs, libgomp's default burned 1630us of process CPU per step
+to back 614us of real work, and stole enough throughput from the policy thread
+to cost wall time too. With three concurrent rollouts, parking holds aggregate
+throughput at 161.7k SPS on 5.1 cores where an unbounded spin needs 11.9 cores
+for 164.8k. Set `CLEANRL_ENV_SPIN` (pause iterations before parking, default
+0) to trade CPU back for ~10% wall when one run owns the machine.
 
 Supported wrappers are checked explicitly. Native execution preserves the
 canonical raw wrapper stack and the standard legacy observation/reward
@@ -89,22 +99,34 @@ Per-environment statistics, terminated-only reward returns, clipping, and
 final-before-reset observation normalization remain unchanged. Both ordinary
 `envs.envs[i].reset()` and `reset_at(i)` keep native episode bookkeeping correct.
 
-For rollout storage, only the next policy observation normally needs to reach
-CUDA on every step. `RolloutTransfer` stages the remaining fields on the host:
+For rollout storage, `RolloutTransfer` stages every per-step field on the host
+and uploads them in one packed copy after the rollout. With a host actor
+(`HostMLP`) nothing reaches CUDA during the rollout at all:
 
 ```python
+from cleanrl.shared.host_actor import HostMLP
 from cleanrl.shared.rollout_transfer import RolloutTransfer
+from cleanrl.shared.sampling import sample_beta_actions_host
 
-transfer = RolloutTransfer(T, N, obs_shape, "cuda")
-next_obs = transfer.observation(initial_normalized_obs)
+actor = HostMLP(agent.actor, N)              # FP32 NumPy mirror; refresh() after each update
+transfer = RolloutTransfer(T, N, obs_shape, "cuda",
+                           fields={"observations": obs_shape, "native_actions": (act_dim,)})
 for step in range(T):
-    observations[step].copy_(next_obs)
-    # CUDA policy inference and action transfer; environment step; normalization.
-    transfer.push(step, normalized_reward, terminated, truncated)
-    next_obs = transfer.observation(normalized_next_obs)
+    native, action = sample_beta_actions_host(actor(obs), low, high, rng)
+    # environment step; normalization.
+    transfer.push(step, normalized_reward, terminated, truncated,
+                  observations=obs, native_actions=native)
 batch = transfer.upload()
-# batch.rewards, batch.terminations and batch.truncations are contiguous (T, N).
+# batch.rewards/terminations/truncations are contiguous (T, N);
+# batch.fields["observations"] / ["native_actions"] are (T, N, ...).
+values, old_logprobs = rollout_statistics(batch.fields["observations"].flatten(0, 1), ...)
 ```
+
+Values and old log-probabilities come from one batched device forward over the
+uploaded rollout (the same network and numerics the loss uses). Measured on the
+baseline at 16 envs, this removes the ~200us (idle GPU) to ~400us (GPU shared
+with another mlq job) per-step device round trip; `scripts/profile_rollout_step.py`
+attributes the remaining per-step cost (physics, normalization, host actor).
 
 The helper reuses pinned host and CUDA storage and performs one packed metadata
 upload per rollout. Transfers complete before source storage can be reused.
@@ -115,8 +137,9 @@ step. Set `store_transition_observations=True` when the algorithm needs all
 final transition observations on the GPU, then supply the fifth `push` argument.
 `non_blocking=True` enables event-protected pinned staging slots. The default
 blocking mode remains useful as a parity/performance control. Always call
-`close()` before releasing storage. `ActionTransfer` supplies reusable pinned
-action downloads; its `wait()` must finish before CPU physics reads an action.
+`close()` before releasing storage. `transfer.observation(obs)` uploads a single
+observation batch (e.g. for the tail bootstrap value); `ActionTransfer` supplies
+reusable pinned action downloads for device-side policies outside the graph path.
 
 `TruncationBootstrapCache.push_normalized(step, truncated, transition_obs)` takes
 the second output of `VectorObsNorm.normalize_step` directly. It snapshots
@@ -148,17 +171,52 @@ themselves a reason to rewrite code.
 
 ### Whole-pipeline integration
 
+Policies that cannot be mirrored on the host (autocast/bf16, large networks)
+use `cleanrl.shared.rollout_graph.RolloutStepGraph`: one captured CUDA graph per
+step containing the pinned observation upload, the policy callback, the scatter
+of every output into `(T, N, ...)` ring-buffer storage at a device-side step
+index, and the pinned action download — exactly one host synchronization per
+step. Compile the callback with `graph_compile` (Inductor without CUDA-graph
+trees); capture leaves the CUDA RNG stream untouched, so replays draw exactly
+what the eager calls would (the v30 parity test checks this bit for bit).
+
 `cleanrl.shared.collector.OnPolicyCollector` composes the native factory,
-normalizers, persistent GPU rollout storage, packed metadata transfers and
-optional `AsyncEnvStepper`. Its policy callback returns a mapping containing
-`action` plus arbitrary tensor fields such as `value`, `log_prob`, `alpha`, or
-recurrent state. One policy version produces the complete rollout. A single
-ordered worker overlaps CPU physics with independent GPU storage work; it does
-not queue future actions, reorder transitions, or introduce stale actors.
-Returned storage is reused on the next collection. Recurrent reset handling
-remains the policy callback's responsibility, not something inferred by the
-collector. The default callback interface is directly suited to feedforward
-policies; recurrent trainers must provide their own boundary/state wiring.
+normalizers, the step graph and packed transfers. Its policy callback returns a
+mapping containing `action` plus arbitrary tensor fields such as `value`,
+`alpha`, or recurrent state. One policy version produces the complete rollout;
+nothing is queued, reordered, or split. The environment is stepped on the
+calling thread. Offloading it does not pay: within a step the policy needs the
+observation the step produces, so there is nothing to overlap, and splitting
+the envs into two staggered groups to create overlap was measured 2.3x slower
+because it doubles every fixed per-call cost -- NumPy dispatch, ctypes
+marshalling, Gymnasium bookkeeping and future handoff -- which is precisely
+what dominates at this batch size. Recurrent reset handling remains the policy
+callback's responsibility;
+recurrent trainers must provide their own boundary/state wiring.
+
+### Host policy mirror
+
+`cleanrl.shared.host_graph.make_host_mirror(sequential, num_rows)` is the entry
+point; it returns the fastest mirror available for that architecture, and every
+mirror exposes the same `refresh()` / `__call__(obs)` contract, so callers never
+branch on the choice.
+
+It prefers `HostGraphActor`, which walks an integer op-graph in one native call
+instead of issuing ~85 NumPy ufuncs. At these shapes the NumPy mirrors are
+dispatch-bound, not arithmetic-bound: on (16, 17) inputs a ufunc costs ~0.5us of
+dispatch, so `out=` reuse saves ~0.05us and cannot help. Fusing the whole
+forward into one call is the only thing that does. A 16-row SiTU-sphere trunk
+(width 64, 3 blocks) drops from 70.6us to 10.6us; a plain tanh MLP from 6.0us to
+2.6us, at the same FP32-vs-CUDA deviation as the hand-written mirrors.
+
+Weights are re-marshalled only in `refresh()` (once per optimizer step), never
+per env step; the per-step call only re-binds input and output addresses.
+
+When the kernel cannot express a network, the factory falls back to the matching
+hand-written mirror in `cleanrl.shared.host_actor` and warns once with the
+kernel's reason. The warning matters: a silent fallback costs ~6x on the policy
+forward and is otherwise invisible in a run's logs. A genuinely malformed or
+unsupported network still raises.
 
 The accepted learner path compiles the original loss and uses ordinary fused
 Adam execution. `cleanrl.shared.cuda_update.CudaGraphUpdate` remains diagnostic

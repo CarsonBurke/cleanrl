@@ -81,6 +81,33 @@ def test_exact_task_and_normalization_parity(env_id, backend, threads, dtype):
         candidate.close()
 
 
+# More workers than environments leaves some claiming nothing; fewer leaves
+# each claiming several. Both must agree with the reference, and must keep
+# agreeing across the autoreset boundaries that make per-environment work
+# uneven -- an unsynchronized pool shows up as a rare wrong row, so this runs
+# long enough for one to surface.
+@pytest.mark.parametrize("threads", [1, 3, 8])
+def test_native_pool_matches_reference_across_many_steps_and_resets(threads):
+    kwargs = dict(max_episode_steps=11, reset_noise_scale=0.02)
+    reference = make_mujoco_vector_env("Hopper-v4", 4, backend="sync", **kwargs)
+    candidate = make_mujoco_vector_env("Hopper-v4", 4, backend="native",
+                                       num_threads=threads, **kwargs)
+    try:
+        assert_tree_equal(reference.reset(seed=3)[0], candidate.reset(seed=3)[0])
+        rng = np.random.default_rng(7)
+        boundaries = 0
+        for _ in range(150):
+            actions = rng.normal(size=reference.action_space.shape).astype(np.float32)
+            expected, actual = reference.step(actions), candidate.step(actions)
+            for left, right in zip(expected, actual):
+                assert_tree_equal(left, right)
+            boundaries += int(np.count_nonzero(expected[2] | expected[3]))
+        assert boundaries > 0, "test must exercise autoreset boundaries"
+    finally:
+        reference.close()
+        candidate.close()
+
+
 @pytest.mark.parametrize("env_id", ["Hopper-v4", "Walker2d-v4"])
 @pytest.mark.parametrize("terminate", [True, False])
 def test_unhealthy_reward_and_termination(env_id, terminate):

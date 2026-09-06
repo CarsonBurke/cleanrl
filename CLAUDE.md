@@ -34,13 +34,24 @@ cleanrl/ppo_continuous_action_<your_method_name>.py
 - Versioning: When creating new versions, give them a relevant summary-name and a version number `_v<N>`. Generally do this each time you modify the algorithm. This creates a clear trail: `method_v1`, `method_v2`, etc. so we can go back without having to wade through commit history
 - Always use CUDA, never CPU
 
-### Shared standards (use these, don't reinvent them)
+### Shared standards
 
-- **Env normalization**: all new continuous-control versions MUST use `cleanrl/shared/vector_norm.py` (`VectorObsNorm`, `VectorRewardNorm`, `make_raw_continuous_env`) instead of per-env `NormalizeObservation` / `NormalizeReward` wrappers. It is behavior-identical (independent per-env stats, terminated-only reward returns, ±10 clip, final-before-reset ordering) and ~2x faster on the env-step path (see `tests/test_vector_norm.py`). Do NOT retrofit frozen versioned files.
-- Minimal wiring: build `SyncVectorEnv` from `make_raw_continuous_env`, then per step call `rew_norm.normalize(raw_rew, terms)` and `obs_norm.normalize_step(raw_obs, terms, truncs, infos)` (returns `(next_obs, transition_obs)` — use the latter for truncation bootstrap values).
-- **Staggered starts**: all new versions with parallel envs MUST establish phases via `cleanrl/shared/staggered_envs.py` (`episode_horizon`, `compute_phase_offsets`, `run_phase_warmup`) — one unrecorded horizon of stochastic warmup, ages spaced at `horizon/num_envs`, warmup transitions charged against the budget. This is what lets small batches keep full episode-age coverage (see `tests/test_staggered_envs.py`). Warmup actions must be stochastic draws, never greedy means.
-- **Rollout/update loop**: all new PPO-family versions MUST use `cleanrl/shared/ppo_loop.py` — `get_gae_fn(compiled=True)` for GAE (hoisted masks; compile fires lazily on first call), `TruncationBootstrapCache` (one batched value forward per rollout instead of one per truncation step), `device_minibatches` (GPU-side shuffling), `explained_variance` (on-device, log only), `gather_metrics` (single-sync D2H for log scalars — never `.item()` inside the optimizer path). See `tests/test_ppo_loop.py`.
-- **Runtime + timing**: every new version MUST call `cleanrl/shared/runtime.py::configure_runtime()` before building networks (TF32 matmuls, high FP32 precision, 1 CPU thread) and MUST report per-phase time via `cleanrl/shared/timing.py::PhaseTimer` (`env` / `rollout` / `update` totals per log interval, not just SPS). See `tests/test_runtime_timing.py`.
+Start from the newest `ppo_continuous_action_*` version — it already wires every
+item below, and this list is all you should need to write a run. Throughput
+rationale and measurements are in `docs/mujoco-throughput.md`; each module's
+contract is pinned by its `tests/test_<module>.py`.
+
+Required in every new continuous-control version:
+
+- `runtime.configure_runtime()`, before building networks.
+- `mujoco_env.make_mujoco_vector_env(env_id, num_envs, num_threads=4)` for the env. 4 threads is optimal at 16 envs; 6+ regresses.
+- `vector_norm.VectorObsNorm` / `VectorRewardNorm` for normalization — never the per-env `NormalizeObservation`/`NormalizeReward` wrappers, and never both in one script.
+- `staggered_envs` for episode-age phases (`episode_horizon`, `compute_phase_offsets`, `run_phase_warmup`). Warmup actions must be stochastic draws, never greedy means.
+- `ppo_loop` for GAE, truncation bootstrap, minibatching and metric gathering — never `.item()` inside the optimizer path.
+- `host_graph.make_host_mirror(actor, num_envs)` for the rollout actor, with `rollout_transfer.RolloutTransfer(fields=...)` for the upload. The mirror acts on the host; values and old log-probs come from one batched forward over the uploaded rollout.
+- `timing.PhaseTimer`, reporting `env`/`rollout`/`update` totals per log interval, not just SPS.
+
+Do NOT retrofit frozen versioned files.
 
 ### Benchmarking and iterating
 
@@ -88,6 +99,16 @@ Other helpers in `scripts/` (run from repo root; shared tfevents logic in `scrip
   - `watch_run.py <pattern> [--env <env>]` — TensorBoard-metric status; `--until 2M` blocks until that step or stall. Use it alongside `mlq status` / `mlq logs`; do not use it to infer queue state.
   - `autocull.py [--ref <variant>] [--replay a,b]` — metric-driven supervisor over `mlq status --json` / `mlq cancel`: reaps NaN/stalled runs and flags runs that are behind a reference or plateaued below it. Dry-run unless `--yes`; `--enforce health` (default) only reaps corpses, `--enforce all` also culls underperformers; `--watch <secs>` loops. `--replay` prints verdicts for finished runs so thresholds can be calibrated before they can kill anything. Culls before ~3M are winner-killers on exploration-heavy methods (see its CALIBRATION note); leave `--min-steps` alone without seeds to justify tightening.
 
+Performance work — never tune from a single-process wall-clock number; the box
+runs several trainers at once, so throughput per core is the figure of merit.
+`benchmark_rollout_scale.py [--runs N] [--threads T]` spawns N independent
+rollout processes and reports aggregate SPS and SPS/core; run it with the
+machine otherwise idle. It is the one that decides thread counts. For
+attribution use `benchmark_rollout_chain.py` (per-link) and
+`benchmark_rollout_loop.py` (assembled loop, wall *and* CPU). Component
+benchmarks: `benchmark_env_cpu.py`, `benchmark_host_graph.py`,
+`benchmark_vector_norm.py`, `profile_rollout_step.py`.
+
 ## Independence
 
 When in auto research mode, operate **entirely independently**. Do not ask the user for permission or direction: make decisions, run experiments, analyze results, iterate. The user will check in on your progress; have clear results and reasoning ready.
@@ -109,5 +130,4 @@ Your workflow loop:
 - **Logging**: TensorBoard logs go to `runs/{env_id}__{exp_name}__{seed}__{timestamp}/`
 - **No W&B**: don't use `--track` flag unless explicitly asked — local TensorBoard only
 - **Gradient clipping**: all variants use max_grad_norm=0.5 — be careful changing this or other similar hyperparameters
-- **Observation/reward normalization**: new versions use `cleanrl/shared/vector_norm.py` (runner-side, vectorized); legacy frozen versions use per-env wrappers. Never mix both in one script.
 - **Action space**: all three envs use continuous actions, clipped to [-1, 1] by wrapper

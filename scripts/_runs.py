@@ -185,6 +185,25 @@ class RunScalars:
             return float(np.mean(vals[mask]))
         return self.value_near(tag, step)
 
+    def window_stats(self, tag: str, step: int, window: int) -> tuple[float, float, int] | None:
+        """(mean, ci95, n) of a tag over [step-window, step+window].
+
+        Exposes the SAMPLE COUNT so a cell backed by three episodes cannot look
+        identical to one backed by a hundred. ``n == 0`` means the value came
+        from the nearest-sample fallback and is a point read, not an average.
+        """
+        steps, vals = self.series(tag)
+        if not steps.size:
+            return None
+        mask = (steps >= step - window) & (steps <= step + window)
+        n = int(mask.sum())
+        if n == 0:
+            near = self.value_near(tag, step)
+            return None if near is None else (near, float("nan"), 0)
+        sel = vals[mask]
+        ci = (1.96 * float(np.std(sel, ddof=1)) / np.sqrt(n)) if n > 1 else float("nan")
+        return float(np.mean(sel)), ci, n
+
 
 def load_run(run_dir: Path) -> RunScalars:
     return RunScalars(run_dir)

@@ -23,9 +23,11 @@ from cleanrl.shared.ppo_loop import (
     TruncationBootstrapCache, device_minibatches, explained_variance,
     gather_metrics, get_gae_fn,
 )
-from cleanrl.shared.rollout_transfer import ActionTransfer, RolloutTransfer
+from cleanrl.shared.host_actor import HostMLP
+from cleanrl.shared.rollout_graph import graph_compile
+from cleanrl.shared.rollout_transfer import RolloutTransfer
 from cleanrl.shared.runtime import configure_runtime
-from cleanrl.shared.sampling import sample_beta_actions
+from cleanrl.shared.sampling import sample_beta_actions, sample_beta_actions_host
 from cleanrl.shared.staggered_envs import (
     compute_phase_offsets, episode_horizon, run_phase_warmup,
 )
@@ -335,35 +337,45 @@ def main():
     try:
         writer.add_text("hyperparameters", "|param|value|\n|-|-|\n" +
                         "\n".join(f"|{key}|{value}|" for key, value in vars(args).items()))
-        writer.add_text("policy", "Beta: alpha,beta=1+softplus(head); FP32; native-action storage")
+        writer.add_text("policy", "Beta: alpha,beta=1+softplus(head); FP32; native-action storage; host actor mirror")
         envs = make_training_env(args, run_name)
         resources.callback(envs.close)
         agent = Agent(envs).to(device)
         optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5, fused=True)
-        policy_model, value_model = agent.get_policy_and_value, agent.get_value
-        logprob_model = agent.action_logprob
+        value_model = agent.get_value
+
+        def rollout_statistics(observations, native):
+            """Old log-probabilities and values for a whole uploaded rollout in one forward."""
+            alpha, beta, value = agent.get_policy_and_value(observations)
+            return value.flatten(), agent.action_logprob(alpha, beta, native)
 
         def loss_model(observations, native, old_logprobs, advantages, returns, old_values):
             return ppo_loss(agent, observations, native, old_logprobs, advantages, returns, old_values, args)
 
         if args.compile:
-            policy_model = torch.compile(policy_model, mode=args.compile_mode, fullgraph=True, dynamic=False)
-            logprob_model = torch.compile(logprob_model, mode=args.compile_mode, fullgraph=True, dynamic=False)
+            rollout_statistics = graph_compile(rollout_statistics)
             # Batched final-observation counts vary; avoid fixed-shape graph recaptures.
             value_model = torch.compile(value_model, fullgraph=True, dynamic=True,
                                         options={"triton.cudagraphs": False})
             loss_model = torch.compile(loss_model, mode=args.compile_mode, fullgraph=True, dynamic=False)
         gae_fn = get_gae_fn(compiled=args.compile, mode=args.compile_mode)
-        shape = (args.num_steps, args.num_envs)
         obs_shape = envs.single_observation_space.shape
-        obs = torch.empty(shape + obs_shape, device=device)
-        native_actions = torch.empty(shape + (agent.action_dim,), device=device)
-        logprobs, values = torch.empty(shape, device=device), torch.empty(shape, device=device)
+        # The rollout never touches the GPU: act from an FP32 host mirror of the
+        # actor, stage everything in pinned memory, upload once per rollout.
+        host_actor = HostMLP(agent.actor, args.num_envs)
+        action_low, action_high = (buffer.cpu().numpy() for buffer in (agent.action_low, agent.action_high))
+        sampler = np.random.default_rng(args.seed)
+
+        def act(observations):
+            native, action = sample_beta_actions_host(host_actor(observations), action_low, action_high, sampler)
+            if not np.isfinite(action).all():
+                raise FloatingPointError("policy produced nonfinite actions")
+            return native, action.reshape((args.num_envs,) + agent.action_shape)
+
         transfer = RolloutTransfer(args.num_steps, args.num_envs, obs_shape, device,
-                                   non_blocking=args.non_blocking_transfers)
+                                   non_blocking=args.non_blocking_transfers,
+                                   fields={"observations": obs_shape, "native_actions": (agent.action_dim,)})
         resources.callback(transfer.close)
-        action_transfer = ActionTransfer((args.num_envs,) + agent.action_shape, device)
-        resources.callback(action_transfer.close)
         bootstraps = TruncationBootstrapCache(args.num_steps, args.num_envs, obs_shape)
         obs_norm = VectorObsNorm(args.num_envs, obs_shape)
         rew_norm = VectorRewardNorm(args.num_envs, args.gamma)
@@ -375,17 +387,8 @@ def main():
         start_time = time.perf_counter()
         suppress = np.zeros(args.num_envs, dtype=bool)
 
-        @torch.no_grad()
         def warmup_action(observations):
-            if args.compile:
-                torch.compiler.cudagraph_mark_step_begin()
-            alpha, beta, _ = policy_model(transfer.observation(observations))
-            _, action = sample_beta_actions(alpha, beta, agent.action_low, agent.action_high)
-            action_transfer.submit(action.reshape((args.num_envs,) + agent.action_shape))
-            host_action = action_transfer.wait()
-            if not np.isfinite(host_action).all():
-                raise FloatingPointError("nonfinite warmup action")
-            return host_action
+            return act(observations)[1]
 
         if horizon:
             phases = compute_phase_offsets(args.num_envs, horizon, args.seed)
@@ -398,38 +401,24 @@ def main():
             raw_obs, _ = envs.reset(seed=args.seed)
             next_obs_np, global_step = obs_norm.normalize(raw_obs), 0
         writer.add_scalar("timing/warmup_s", time.perf_counter() - start_time, global_step)
-        next_obs = transfer.observation(next_obs_np)
         interval_start, interval_step = time.perf_counter(), global_step
 
         for iteration in range(1, args.num_iterations + 1):
             if args.anneal_lr:
                 optimizer.param_groups[0]["lr"] = (1.0 - (iteration - 1.0) / args.num_iterations) * args.learning_rate
             bootstraps.reset()
+            host_actor.refresh()
             for step in range(args.num_steps):
-                timer.start("rollout", use_cuda=False)
-                with torch.no_grad():
-                    if args.compile:
-                        torch.compiler.cudagraph_mark_step_begin()
-                    alpha, beta, value = policy_model(next_obs)
-                    native, action = sample_beta_actions(alpha, beta, agent.action_low, agent.action_high)
-                    logprob = logprob_model(alpha, beta, native)
-                    action_transfer.submit(action.reshape((args.num_envs,) + agent.action_shape))
-                    obs[step].copy_(next_obs)
-                    native_actions[step].copy_(native)
-                    values[step].copy_(value.flatten())
-                    logprobs[step].copy_(logprob)
-                    host_action = action_transfer.wait()
-                if not np.isfinite(host_action).all():
-                    raise FloatingPointError("policy produced nonfinite actions")
-                timer.stop()
+                with timer.span("rollout", use_cuda=False):
+                    obs_step = next_obs_np
+                    native, host_action = act(obs_step)
                 with timer.span("env", use_cuda=False):
                     raw_obs, raw_reward, terms, truncs, infos = envs.step(host_action)
                 with timer.span("normalize_transfer", use_cuda=False):
                     reward = rew_norm.normalize(raw_reward, terms)
                     next_obs_np, transition_obs = obs_norm.normalize_step(raw_obs, terms, truncs, infos)
                     bootstraps.push_normalized(step, truncs, transition_obs)
-                    transfer.push(step, reward, terms, truncs)
-                    next_obs = transfer.observation(next_obs_np)
+                    transfer.push(step, reward, terms, truncs, observations=obs_step, native_actions=native)
                 global_step += args.num_envs
                 for index, info in enumerate(infos.get("final_info", ())):
                     if info and "episode" in info:
@@ -443,8 +432,11 @@ def main():
 
             with timer.span("gae"), torch.no_grad():
                 batch = transfer.upload()
-                if args.compile:
-                    torch.compiler.cudagraph_mark_step_begin()
+                b_obs = batch.fields["observations"].flatten(0, 1)
+                b_native = batch.fields["native_actions"].flatten(0, 1)
+                b_values, b_logprobs = rollout_statistics(b_obs, b_native)
+                values = b_values.view(args.num_steps, args.num_envs)
+                next_obs = transfer.observation(next_obs_np)
                 tail_value = value_model(next_obs).flatten()
                 truncation_values = bootstraps.resolve(value_model, device)
                 advantages, returns = gae_fn(
@@ -453,8 +445,6 @@ def main():
                 )
                 b_advantages = advantages.flatten().clone()
                 b_returns = returns.flatten().clone()
-            b_obs, b_native = obs.flatten(0, 1), native_actions.flatten(0, 1)
-            b_logprobs, b_values = logprobs.flatten(), values.flatten()
             updates = 0
             with timer.span("update"):
                 for epoch in range(args.update_epochs):
@@ -499,7 +489,6 @@ def main():
             interval_start, interval_step = time.perf_counter(), global_step
 
         transfer.close()
-        action_transfer.close()
         envs.close()
         if args.save_model:
             model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"

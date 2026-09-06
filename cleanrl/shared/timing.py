@@ -31,9 +31,27 @@ Contracts:
 """
 
 import time
-from contextlib import contextmanager
 
 import torch
+
+
+class _Span:
+    """Reusable context manager for one non-interleaved PhaseTimer span."""
+
+    __slots__ = ("timer", "name", "use_cuda")
+
+    def __init__(self, timer):
+        self.timer = timer
+        self.name = None
+        self.use_cuda = True
+
+    def __enter__(self):
+        self.timer.start(self.name, use_cuda=self.use_cuda)
+        return self.timer
+
+    def __exit__(self, *exception):
+        self.timer.stop()
+        return False
 
 
 class PhaseTimer:
@@ -43,6 +61,7 @@ class PhaseTimer:
         self._pending_cuda = []  # (name, start_event, end_event)
         self._event_pool = {}  # device -> completed event pairs reusable next interval
         self._open = None
+        self._span = _Span(self)
 
     def start(self, name, use_cuda=True):
         if self._open is not None:
@@ -72,13 +91,19 @@ class PhaseTimer:
         else:
             self._add(name, time.perf_counter() - start)
 
-    @contextmanager
     def span(self, name, use_cuda=True):
-        self.start(name, use_cuda=use_cuda)
-        try:
-            yield self
-        finally:
-            self.stop()
+        """Context manager around :meth:`start` / :meth:`stop`.
+
+        Returns a single reusable object rather than building a generator
+        context manager per call: rollouts open several spans per environment
+        step, where ``@contextmanager`` costs 0.97us against 0.40us for the
+        bare start/stop pair. Reuse is safe because interleaving is already
+        rejected by :meth:`start`.
+        """
+        span = self._span
+        span.name = name
+        span.use_cuda = use_cuda
+        return span
 
     def _add(self, name, seconds):
         self.totals[name] = self.totals.get(name, 0.0) + seconds

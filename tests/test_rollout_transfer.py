@@ -22,18 +22,22 @@ def test_rollout_upload_preserves_all_fields_and_reuses_storage(device, store_tr
         steps, envs, obs_shape, device,
         store_transition_observations=store_transitions,
         non_blocking=non_blocking,
+        fields={"observations": obs_shape, "native_actions": (5,)},
     )
     rng = np.random.default_rng(4)
     rewards = rng.normal(size=(steps, envs))
     terms = rng.random((steps, envs)) < 0.3
     truncs = rng.random((steps, envs)) < 0.3
     transitions = rng.normal(size=(steps, envs) + obs_shape)
+    observations = rng.normal(size=(steps, envs) + obs_shape)
+    natives = rng.normal(size=(steps, envs, 5))
     for step in range(steps):
         # Reusing mutable environment outputs after push must be safe.
         inputs = [array[step].copy() for array in (rewards, terms, truncs)]
         transition = transitions[step].copy() if store_transitions else None
-        staging.push(step, *inputs, transition)
-        for array in inputs:
+        extras = {"observations": observations[step].copy(), "native_actions": natives[step].copy()}
+        staging.push(step, *inputs, transition, **extras)
+        for array in (*inputs, *extras.values()):
             array[...] = 0
         if transition is not None:
             transition[...] = 0
@@ -48,6 +52,11 @@ def test_rollout_upload_preserves_all_fields_and_reuses_storage(device, store_tr
         )
     else:
         assert got.transition_observations is None
+    for name, expected in (("observations", observations), ("native_actions", natives)):
+        assert got.fields[name].is_contiguous() and got.fields[name].shape == expected.shape
+        torch.testing.assert_close(got.fields[name].cpu(), torch.tensor(expected, dtype=torch.float32))
+    with pytest.raises(ValueError, match="declared fields"):
+        staging.push(0, rewards[0], terms[0], truncs[0], transitions[0] if store_transitions else None)
     assert staging.upload().rewards.data_ptr() == got.rewards.data_ptr()
     assert staging._host.is_pinned() == (device == "cuda")
 

@@ -129,6 +129,9 @@ def load_returns(run_dir: Path, last_n: int = 20) -> RunResult | None:
     )
 
 
+THIN_WINDOW = 10
+
+
 def _cell(r: RunResult, tag: str, step: int, window: int) -> str:
     """Matched-step cell, with out-of-range made VISIBLE rather than extrapolated.
 
@@ -137,10 +140,20 @@ def _cell(r: RunResult, tag: str, step: int, window: int) -> str:
     a measurement -- the single easiest way to misread this table. Here a step
     the run never reached prints `--`, and a step it only partially covers is
     prefixed `~`.
+
+    A cell averaging fewer than THIN_WINDOW samples is suffixed `!`: a value
+    backed by three episodes must not render identically to one backed by a
+    hundred, or a trend gets read off sampling noise.
     """
     if step - window > r.max_step:
         return "--"
-    text = _fmt_metric(r.scalars.window_mean(tag, step, window))
+    stats = r.scalars.window_stats(tag, step, window)
+    if stats is None:
+        return "--"
+    mean, _ci, n = stats
+    text = _fmt_metric(mean)
+    if n < THIN_WINDOW:
+        text += "!"
     return f"~{text}" if step > r.max_step else text
 
 
@@ -233,8 +246,10 @@ def print_group(
         row += "".join(f"  {at_cells[(i, s)]:>{w}}" for s, w in zip(at_steps, at_w))
         row += "".join(f"  {metric_cells[(i, m)]:>{w}}" for m, w in zip(metrics, m_w))
         print(row)
-    if any(c.startswith(("~", "-")) for c in {**at_cells, **metric_cells}.values()):
-        print("    (-- = run never reached this step; ~ = run ended inside the averaging window)")
+    _shown = {**at_cells, **metric_cells}.values()
+    if any(c.startswith(("~", "-")) or c.endswith("!") for c in _shown):
+        print("    (-- = run never reached this step; ~ = run ended inside the averaging window;"
+              f" ! = fewer than {THIN_WINDOW} episodes in the window)")
     print()
 
 
