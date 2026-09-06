@@ -1,0 +1,141 @@
+{
+  "job": 5081,
+  "outcome": "cancelled by user request after reported underperformance by28M",
+  "cancellation": {
+    "queue_state": "cancelled",
+    "confirmed_exit_code": 143,
+    "last_logged_step": 37860000,
+    "underperformance_reported_at_step": 28000000,
+    "evidence": "mlq cancel 5081 followed by mlq follow 5081: cancelled by request"
+  },
+  "reported_sigma_preference": [
+    0.5,
+    0.75
+  ],
+  "metrics": {
+    "baseline": {
+      "run_path": "runs/HalfCheetah-v4__ppo_32xlr_1mb_noadvnorm_stiglu_sphere_50M__1__1788662844",
+      "steps": 49987008,
+      "windows": {
+        "2000000": {
+          "charts/interval_SPS": 39505.130859375,
+          "losses/approx_kl": 0.018821770732756704,
+          "losses/clipfrac": 0.16334629384800792,
+          "losses/entropy": -0.28076376242097467,
+          "losses/explained_variance": 0.8087371997535229,
+          "losses/policy_loss": -0.0032704504337743856,
+          "timing/update_s": 0.02431597001850605
+        },
+        "10000000": {
+          "charts/interval_SPS": 43096.23671875,
+          "losses/approx_kl": 0.022260178253054617,
+          "losses/clipfrac": 0.1778940866390864,
+          "losses/entropy": -4.063753827412923,
+          "losses/explained_variance": 0.9676131486892701,
+          "losses/policy_loss": -0.0026998669258318842,
+          "timing/update_s": 0.031846850241223974
+        },
+        "20000000": {
+          "charts/interval_SPS": 40507.24609375,
+          "losses/approx_kl": 0.02510182522237301,
+          "losses/clipfrac": 0.19433858394622802,
+          "losses/entropy": -5.471985816955566,
+          "losses/explained_variance": 0.9703600962956747,
+          "losses/policy_loss": -0.0012245911513067162,
+          "timing/update_s": 0.02569078207015991
+        },
+        "28000000": {
+          "charts/interval_SPS": 46798.99375,
+          "losses/approx_kl": 0.018784218716124693,
+          "losses/clipfrac": 0.16166199147701263,
+          "losses/entropy": -6.237144915262858,
+          "losses/explained_variance": 0.9756937861442566,
+          "losses/policy_loss": -0.000883696402888745,
+          "timing/update_s": 0.02071631165842215
+        }
+      }
+    },
+    "candidate": {
+      "run_path": "runs/HalfCheetah-v4__ppo_32xlr_1mb_noadvnorm_stiglu_sphere_hlgauss_v2_50M__1__1788665483",
+      "steps": 37860000,
+      "windows": {
+        "2000000": {
+          "charts/interval_SPS": 22683.275634765625,
+          "hlgauss/normalized_return_max": 2.9890024065971375,
+          "hlgauss/normalized_return_mean": 2.777346283197403,
+          "hlgauss/normalized_return_min": 0.7872934956103563,
+          "hlgauss/normalized_return_std": 0.24966922868043184,
+          "hlgauss/preupdate_decoded_value_mse": 0.004430047047208063,
+          "hlgauss/preupdate_value_endpoint_mass": 5.421595392363088e-05,
+          "hlgauss/projection_target_bias": -0.017498042667284608,
+          "hlgauss/projection_target_rmse": 0.01758793625049293,
+          "hlgauss/support_overflow_fraction": 0.0,
+          "hlgauss/target_endpoint_mass": 5.031805333510775e-09,
+          "losses/approx_kl": 0.01749664032831788,
+          "losses/clipfrac": 0.15263347886502743,
+          "losses/entropy": 0.2199050891213119,
+          "losses/explained_variance": 0.8578080758452415,
+          "losses/policy_loss": -0.021586118964478374,
+          "timing/update_s": 0.04403639258816838
+        },
+        "10000000": {
+          "charts/interval_SPS": 43361.08880208333,
+          "hlgauss/normalized_return_max": 3.6575632731119794,
+          "hlgauss/normalized_return_mean": 3.3842739899953207,
+          "hlgauss/normalized_return_min": 1.1250280857086181,
+          "hlgauss/normalized_return_std": 0.305478901664416,
+          "hlgauss/preupdate_decoded_value_mse": 0.003894955711439252,
+          "hlgauss/preupdate_value_endpoint_mass": 5.511977239317881e-06,
+          "hlgauss/projection_target_bias": -0.021297228087981544,
+          "hlgauss/projection_target_rmse": 0.021400207901994386,
+          "hlgauss/support_overflow_fraction": 0.0,
+          "hlgauss/target_endpoint_mass": 8.249447110605008e-09,
+          "losses/approx_kl": 0.01991686671972275,
+          "losses/clipfrac": 0.1713739052414894,
+          "losses/entropy": -4.119756507873535,
+          "losses/explained_variance": 0.9484216809272766,
+          "losses/policy_loss": -0.02151468551407258,
+          "timing/update_s": 0.025183972095449765
+        },
+        "20000000": {
+          "charts/interval_SPS": 44876.461197916666,
+          "hlgauss/normalized_return_max": 3.8327577908833823,
+          "hlgauss/normalized_return_mean": 3.60140331586202,
+          "hlgauss/normalized_return_min": 1.5881700798869134,
+          "hlgauss/normalized_return_std": 0.2943893978993098,
+          "hlgauss/preupdate_decoded_value_mse": 0.0031582527483503026,
+          "hlgauss/preupdate_value_endpoint_mass": 1.8274720484138621e-06,
+          "hlgauss/projection_target_bias": -0.02265345143775145,
+          "hlgauss/projection_target_rmse": 0.02274491327504317,
+          "hlgauss/support_overflow_fraction": 0.0,
+          "hlgauss/target_endpoint_mass": 9.801656493853746e-09,
+          "losses/approx_kl": 0.013450030796229839,
+          "losses/clipfrac": 0.11353556414445241,
+          "losses/entropy": -5.124979019165039,
+          "losses/explained_variance": 0.9643097798029582,
+          "losses/policy_loss": -0.024550786241889,
+          "timing/update_s": 0.029787355537215867
+        },
+        "28000000": {
+          "charts/interval_SPS": 40256.6453125,
+          "hlgauss/normalized_return_max": 4.109805297851563,
+          "hlgauss/normalized_return_mean": 3.8336917559305825,
+          "hlgauss/normalized_return_min": 0.96586494743824,
+          "hlgauss/normalized_return_std": 0.38577975928783415,
+          "hlgauss/preupdate_decoded_value_mse": 0.005065224568049113,
+          "hlgauss/preupdate_value_endpoint_mass": 1.26150305277406e-06,
+          "hlgauss/projection_target_bias": -0.02410090950628122,
+          "hlgauss/projection_target_rmse": 0.02426134708027045,
+          "hlgauss/support_overflow_fraction": 0.0,
+          "hlgauss/target_endpoint_mass": 1.1962237067564274e-08,
+          "losses/approx_kl": 0.01289279256016016,
+          "losses/clipfrac": 0.11555684705575307,
+          "losses/entropy": -5.859614658355713,
+          "losses/explained_variance": 0.961590067545573,
+          "losses/policy_loss": -0.024813452859719594,
+          "timing/update_s": 0.02657028486331304
+        }
+      }
+    }
+  }
+}

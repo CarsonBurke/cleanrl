@@ -1,0 +1,319 @@
+{
+  "protocol_version": 2,
+  "status": "completed; synthetic CPU proxy only",
+  "mlq": {
+    "benchmark_job": 5060,
+    "verification_job": 5059,
+    "max_parallel_runs": 3,
+    "time_limit": "30m",
+    "priority": 0,
+    "autocull": "none; fixed factorial work"
+  },
+  "runtime_seconds": 270.9547887300141,
+  "execution": {
+    "seed": 1,
+    "device": "cpu",
+    "threads": 1,
+    "torch": "2.12.0+cu130",
+    "python": "3.10.19",
+    "command": ".venv/bin/python -u scripts/benchmark_hl_gauss.py --output runs/HLGaussProxy__factorial_v2__1 --steps 320 --threads 1",
+    "environment": {
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1"
+    }
+  },
+  "counts": {
+    "configurations": 320,
+    "screening_fits": 3840,
+    "locked_finalists": 18,
+    "confirmation_fits": 648,
+    "bootstrapped_fits": 162
+  },
+  "design": {
+    "scales": [
+      5,
+      50,
+      500
+    ],
+    "headroom": [
+      1.1,
+      3,
+      10
+    ],
+    "gaussian_bins": [
+      31,
+      101,
+      255
+    ],
+    "gaussian_sigma_ratios": [
+      0.5,
+      0.75,
+      1.5,
+      2
+    ],
+    "tasks": [
+      "smooth symmetric noise",
+      "heteroscedastic skew noise",
+      "discontinuous target shift",
+      "state-dependent Bernoulli payoff lottery"
+    ],
+    "screen_learning_rate": 0.003,
+    "confirmation_learning_rates": [
+      0.001,
+      0.003,
+      0.01
+    ],
+    "updates_per_fit": 320,
+    "batch_size": 128,
+    "trunk": "6 -> 32 tanh -> 32 tanh; matched initialization; independently clipped Adam updates",
+    "td": "96-state two-action discounted MDP; gamma=.97; sampled 8-step lambda=.95 targets from own detached bootstrap; four updates per rollout; exact evaluation after one actor update"
+  },
+  "selection": "Screen score=0.5*(final normalized MSE + trapezoidal normalized MSE AUC), averaged equally over 12 crossed task/scale cases. Lock global top six plus best per objective/transform and Gaussian geometry/decoder before independent teacher/data confirmation. Confirmation averages all 3 LRs, not best-LR cherry-picking.",
+  "metric_definitions": {
+    "normalized_mse": "E[((prediction - known conditional mean)/generating_scale)^2]",
+    "regression_score": "0.5*(final normalized MSE + normalized-MSE AUC), mean over 12 cases x 3 fixed learning rates",
+    "td_value_nmse": "E[((Vhat - exact V)/scale)^2], mean over 3 scales x 3 LRs",
+    "td_advantage_relative_mse": "MSE of exact expected action advantages using Vhat / mean squared oracle action advantage",
+    "policy_utility_ratio": "exact improvement after estimated-advantage actor update / exact improvement after oracle-advantage update; reference update is not a globally optimal policy",
+    "noiseless_projection_nmse": "project/decode error of the noiseless conditional mean; NOT the population optimum under noisy labels"
+  },
+  "recommendations": [
+    {
+      "role": "primary histogram candidate",
+      "config": {
+        "num_bins": 31,
+        "sigma_ratio": 2.0,
+        "transform": "linear",
+        "bin_type": "symexp_centers",
+        "decode": "scalar"
+      },
+      "range": "Caller supplies raw v_min/v_max. The winning proxy candidate used +/-3 times its known scale, not a learned bound.",
+      "reason": "Best confirmation histogram regression score and lower bootstrapped value error than uniform-raw comparator and normalized MSE."
+    },
+    {
+      "role": "simpler uniform-raw comparator",
+      "config": {
+        "num_bins": 31,
+        "sigma_ratio": 2.0,
+        "transform": "linear",
+        "bin_type": "centers",
+        "decode": "scalar"
+      },
+      "range": "Same raw bound policy as primary candidate.",
+      "reason": "Close confirmation regression and policy utility; centers/edges were nearly tied. No claim of statistical superiority between them."
+    }
+  ],
+  "conclusions": [
+    "Normalized scalar MSE wins mean supervised score; HL-Gauss is not universally better.",
+    "Primary histogram has 69.5% lower mean bootstrapped value error and 60.9% lower mean expected-advantage error than normalized MSE in this MDP.",
+    "Raw integration on symexp-spaced centers is NOT symlog integration or transformed-mean decoding.",
+    "31 bins/sigma=2 is a joint selected configuration, not evidence that fewer bins or larger sigma is always better.",
+    "Gaussian transformed-mean symlog finalists lose substantially on noisy-mean prediction and TD; increasing support does not fix the estimand."
+  ],
+  "confirmed_comparison": [
+    {
+      "candidate": "mse/linear/centers/scalar/k1/s0.75/h3.0",
+      "regression_score": 0.01407023607912884,
+      "td_value_nmse": 0.008639547663430372,
+      "td_advantage_relative_mse": 0.3421880693899261,
+      "policy_utility_ratio": 0.9242984542826095,
+      "worst_policy_utility_ratio": 0.770848315357322
+    },
+    {
+      "candidate": "symexp_grid_raw/linear/symexp_centers/scalar/k31/s2.0/h3.0",
+      "regression_score": 0.017539328300396544,
+      "td_value_nmse": 0.0026309863444314236,
+      "td_advantage_relative_mse": 0.1338762500219875,
+      "policy_utility_ratio": 0.9695859694265538,
+      "worst_policy_utility_ratio": 0.9291206731311878
+    },
+    {
+      "candidate": "gaussian/linear/centers/scalar/k31/s2.0/h3.0",
+      "regression_score": 0.018286537207384553,
+      "td_value_nmse": 0.003457497663071586,
+      "td_advantage_relative_mse": 0.1565261934366491,
+      "policy_utility_ratio": 0.9656708325707949,
+      "worst_policy_utility_ratio": 0.9458780226434321
+    },
+    {
+      "candidate": "gaussian/linear/edges/scalar/k31/s2.0/h3.0",
+      "regression_score": 0.018313087432589883,
+      "td_value_nmse": 0.00346673507657316,
+      "td_advantage_relative_mse": 0.15863308020763928,
+      "policy_utility_ratio": 0.9648526054391318,
+      "worst_policy_utility_ratio": 0.9447867867319452
+    },
+    {
+      "candidate": "gaussian/linear/centers/scalar/k31/s2.0/h1.1",
+      "regression_score": 0.01920249653186248,
+      "td_value_nmse": 0.004514061328437593,
+      "td_advantage_relative_mse": 0.09801678773429659,
+      "policy_utility_ratio": 0.9426750055539294,
+      "worst_policy_utility_ratio": 0.929817213174112
+    },
+    {
+      "candidate": "raw_grid_symlog/symlog/edges/scalar/k31/s2.0/h1.1",
+      "regression_score": 0.019464948188265732,
+      "td_value_nmse": 0.007405475040690767,
+      "td_advantage_relative_mse": 0.11354190814826223,
+      "policy_utility_ratio": 0.9764136973691147,
+      "worst_policy_utility_ratio": 0.9511738532676589
+    },
+    {
+      "candidate": "cdf/linear/centers/transformed/k31/s2.0/h1.1",
+      "regression_score": 0.02019547295311794,
+      "td_value_nmse": 0.003408408749641644,
+      "td_advantage_relative_mse": 0.17796536328064072,
+      "policy_utility_ratio": 0.9293906736701678,
+      "worst_policy_utility_ratio": 0.8908124741267511
+    },
+    {
+      "candidate": "moment_matched/symlog/centers/scalar/k31/s2.0/h1.1",
+      "regression_score": 0.020701785309888185,
+      "td_value_nmse": 0.0032791358147126934,
+      "td_advantage_relative_mse": 0.10134551094637977,
+      "policy_utility_ratio": 0.983033372663264,
+      "worst_policy_utility_ratio": 0.9637928234965026
+    },
+    {
+      "candidate": "gaussian/symlog/edges/scalar/k101/s2.0/h3.0",
+      "regression_score": 0.02183983598964308,
+      "td_value_nmse": 0.004171154798111982,
+      "td_advantage_relative_mse": 0.1510946833425098,
+      "policy_utility_ratio": 0.9905955641342593,
+      "worst_policy_utility_ratio": 0.9313420850428209
+    },
+    {
+      "candidate": "gaussian/symlog/centers/scalar/k31/s1.5/h1.1",
+      "regression_score": 0.021929325279769627,
+      "td_value_nmse": 0.013163793211181959,
+      "td_advantage_relative_mse": 0.1897908676829603,
+      "policy_utility_ratio": 0.9449102529567956,
+      "worst_policy_utility_ratio": 0.9170261116149825
+    },
+    {
+      "candidate": "fixed_sigma/symlog/centers/scalar/k101/s0.75/h1.1",
+      "regression_score": 0.02197151122689118,
+      "td_value_nmse": 0.005852902812572817,
+      "td_advantage_relative_mse": 0.12983104007111657,
+      "policy_utility_ratio": 0.9502597350849804,
+      "worst_policy_utility_ratio": 0.9089102132163918
+    },
+    {
+      "candidate": "twohot/linear/centers/scalar/k31/s0.75/h10.0",
+      "regression_score": 0.02218840125836626,
+      "td_value_nmse": 0.003004650236107409,
+      "td_advantage_relative_mse": 0.1843551297982534,
+      "policy_utility_ratio": 0.9640805644393511,
+      "worst_policy_utility_ratio": 0.8721662924226876
+    },
+    {
+      "candidate": "fixed_sigma/linear/centers/scalar/k255/s0.75/h1.1",
+      "regression_score": 0.02223278874589596,
+      "td_value_nmse": 0.005477687318084968,
+      "td_advantage_relative_mse": 0.13454108933607736,
+      "policy_utility_ratio": 0.9626649123153985,
+      "worst_policy_utility_ratio": 0.9494892031081871
+    },
+    {
+      "candidate": "twohot/symlog/centers/scalar/k31/s0.75/h1.1",
+      "regression_score": 0.0229061063244242,
+      "td_value_nmse": 0.0029077898232369786,
+      "td_advantage_relative_mse": 0.14451289301117262,
+      "policy_utility_ratio": 0.9557746522289607,
+      "worst_policy_utility_ratio": 0.8506982100993609
+    },
+    {
+      "candidate": "gaussian/symlog/centers/transformed/k31/s2.0/h10.0",
+      "regression_score": 0.034932404209586015,
+      "td_value_nmse": 0.03308074481578337,
+      "td_advantage_relative_mse": 0.3980261849032508,
+      "policy_utility_ratio": 0.6802431571961771,
+      "worst_policy_utility_ratio": 0.45898139891054524
+    },
+    {
+      "candidate": "gaussian/symlog/edges/transformed/k31/s2.0/h10.0",
+      "regression_score": 0.034971304159777596,
+      "td_value_nmse": 0.03332904617612561,
+      "td_advantage_relative_mse": 0.4006769475009706,
+      "policy_utility_ratio": 0.6791414327761446,
+      "worst_policy_utility_ratio": 0.45975180695973783
+    },
+    {
+      "candidate": "cdf/symlog/centers/transformed/k31/s2.0/h3.0",
+      "regression_score": 0.03710264247219028,
+      "td_value_nmse": 0.03959518236418565,
+      "td_advantage_relative_mse": 0.5042055182986789,
+      "policy_utility_ratio": 0.6377157159173698,
+      "worst_policy_utility_ratio": 0.41585318744146665
+    },
+    {
+      "candidate": "mse/symlog/centers/scalar/k1/s0.75/h3.0",
+      "regression_score": 0.042673442909492425,
+      "td_value_nmse": 0.023257991402513452,
+      "td_advantage_relative_mse": 0.4147229211197959,
+      "policy_utility_ratio": 0.7491204247356055,
+      "worst_policy_utility_ratio": 0.4551845530481719
+    }
+  ],
+  "balanced_screening_factor_means_raw_decode_only": {
+    "bins": {
+      "31": 0.019489642558980336,
+      "101": 0.01828325856372241,
+      "255": 0.01977995889980851
+    },
+    "sigma": {
+      "0.5": 0.019283724851300543,
+      "0.75": 0.01875743415612979,
+      "1.5": 0.01863101573551544,
+      "2.0": 0.020064971953735897
+    },
+    "headroom": {
+      "1.1": 0.018510775620932743,
+      "3.0": 0.01845384032839882,
+      "10.0": 0.020588244073179694
+    },
+    "transform": {
+      "linear": 0.018641676660219327,
+      "symlog": 0.01972689668812151
+    },
+    "geometry": {
+      "centers": 0.019278856534977303,
+      "edges": 0.019089716813363532
+    }
+  },
+  "limitations": [
+    "Synthetic critic proxy, not MuJoCo performance",
+    "One seed; no between-run significance claim",
+    "Fixed updates, not equal wall time; head sizes differ",
+    "Symmetric supports; raw scale is known to the proxy",
+    "Finalist selection uses screening only; confirmation is descriptive, not another search",
+    "Only one MDP structure and discount; no MuJoCo or actor-critic representation drift validation.",
+    "Learning-rate-averaged scores express robustness across the declared grid, not each method tuned to its best LR.",
+    "Finite supports clip noisy outliers; exact boundary preservation is not promised.",
+    "No adaptive-support or unclipped-tail learning comparison; no fixed-central-grid trimmed-tail ablation.",
+    "The original first pass (job 5046) is superseded: v2 fixes phase-boundary AUC, fully crosses scales/tasks and retains decoder controls."
+  ],
+  "verification": {
+    "tests": "51 passed in 1.00s (mlq 5059)",
+    "static": "pyright: 0 errors, 0 warnings; changed files compile",
+    "independent_reviews": "Two reviewers; numerical transforms and phase-boundary AUC findings fixed; focused follow-ups reported no actionable findings."
+  },
+  "upstream": [
+    "https://github.com/lucidrains/hl-gauss-pytorch/blob/282540c7d444b71a75945187399d132c04c55127/hl_gauss_pytorch/hl_gauss.py",
+    "https://github.com/danijar/dreamerv3/blob/e3f02248693a79dc8b0ebd62c93683888ddaccfe/embodied/jax/outs.py#L269-L326"
+  ],
+  "executed_source_sha256": {
+    "/home/marvin/Documents/repositories/cleanrl/scripts/benchmark_hl_gauss.py": "b3b879daf64ced6da17d9e4cf00995dcc7eddb499f36366e9daea7375e7e0b4a",
+    "cleanrl/shared/hl_gauss.py": "821c2ce0392fa850fc625a16ebf757ec39d8299d633538aaa6ef5984f1ffa480",
+    "cleanrl/iterthink/v24_d4hlgauss/other/ppo_continuous_action_iterthink_v24_beta_d4hlgauss_symlog_rawbins_v1.py": "a58ef01abef9beecb814fec28023d445b2f5f2bae960925306e127f1948d85ec",
+    "cleanrl/iterthink/wm_k6/ppo_continuous_action_iterthink_v152_2_d3linbins_k6.py": "c30c759402024ac01acbd6c02be50361a8ebf033bce0191e584fd78098c55a38"
+  },
+  "full_evidence": {
+    "path": "benchmarks/hlgauss/hl_gauss_proxy_v2_results.json.gz",
+    "compression": "gzip, mtime=0",
+    "sha256": "dd2d3712c2620942cedeaaf078180de55ea7d60b86362e482bc2e817689ef120",
+    "raw_json_sha256": "04f92b1654ad2a39dbdaeb69a4ae818f24cef361f08124f8b0a344ef76dd3ce9",
+    "contents": "All candidate configs, screening/confirmation/TD metrics and per-update evaluation curves; executed source hashes."
+  }
+}

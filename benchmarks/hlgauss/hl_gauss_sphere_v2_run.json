@@ -1,0 +1,138 @@
+{
+  "experiment": "ppo_32xlr_1mb_noadvnorm_stiglu_sphere_hlgauss_v2_50M",
+  "training_job": 5081,
+  "final_outcome": {
+    "queue_state": "cancelled",
+    "confirmed_exit_code": 143,
+    "last_logged_step": 37860000,
+    "reason": "User reported clear underperformance by28M and requested cancellation",
+    "diagnosis": "benchmarks/hlgauss/hl_gauss_sphere_v2_diagnosis.json",
+    "proxy_correction": "benchmarks/hlgauss/hl_gauss_ppo_proxy_v3.json"
+  },
+  "verification_job": 5080,
+  "submission": {
+    "max_parallel_runs": 3,
+    "time_limit": "2h",
+    "priority": 0,
+    "dependency": "after-success 5080",
+    "auto_cull": "none enabled; nonfinite action/learner checks retained; no early performance cull while learning improves",
+    "command": ".venv/bin/python -u cleanrl/ppo_continuous_action_32xlr_1mb_noadvnorm_stiglu_sphere_hlgauss_v2.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name ppo_32xlr_1mb_noadvnorm_stiglu_sphere_hlgauss_v2_50M --total-timesteps 50000000 --seed 1 --compile --compile-mode reduce-overhead",
+    "environment": {
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1"
+    }
+  },
+  "shared_defaults": {
+    "num_bins": 31,
+    "sigma_ratio": 2.0,
+    "transform": "linear",
+    "bin_type": "symexp_centers",
+    "decode": "scalar",
+    "v_min": "required caller-supplied scalar bound",
+    "v_max": "required caller-supplied scalar bound"
+  },
+  "variant_support": {
+    "v_min": -50.0,
+    "v_max": 50.0,
+    "units": "GAE returns after VectorRewardNorm, not environment episode-score units",
+    "rationale": "Conservative starting support; actual mean ~3.35 at 10M with zero overflow. This is coverage evidence, not proof of optimal bounds."
+  },
+  "preserved_baseline": {
+    "seed": 1,
+    "total_timesteps": 50000000,
+    "num_envs": 16,
+    "num_steps": 2048,
+    "num_minibatches": 1,
+    "update_epochs": 10,
+    "learning_rate": 0.0096,
+    "anneal_lr": true,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "norm_adv": false,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "optimizer": "joint fused Adam eps=1e-5",
+    "precision": "FP32 highest, TF32 disabled to match baseline host actor",
+    "reward_normalization": "VectorRewardNorm: independent discounted-return statistics, terminated-only return reset, reward clip +/-10"
+  },
+  "changed_critic": "Same sphere trunk with 31 categorical logits, uniform initial output, raw-expectation decode, CE loss; removed scalar value clipping. Initial actor densities/actions match baseline exactly. Targets projected once per rollout and reused for all10epochs.",
+  "verification": {
+    "tests": 58,
+    "failures": 0,
+    "skips": 0,
+    "test_seconds": 12.09,
+    "compiled_full_batch_update_ms": 2.930691146850586,
+    "transitions_per_update": 32768,
+    "test_report": "benchmarks/hlgauss/hl_gauss_sphere_v2_tests.xml",
+    "static": "pyright zero errors/warnings; py_compile and formatting checks pass",
+    "reviews": "Independent learning-math and runtime reviewers found no actionable introduced defects"
+  },
+  "comparison_window_steps": 50000,
+  "observations": {
+    "baseline": {
+      "run_path": "runs/HalfCheetah-v4__ppo_32xlr_1mb_noadvnorm_stiglu_sphere_50M__1__1788662844",
+      "observed_steps": 49987008,
+      "matched_returns": {
+        "500000": 977.6150796720297,
+        "1000000": 2680.7390504308264,
+        "2000000": 4867.215133818069,
+        "5000000": 7772.345911007116,
+        "10000000": 8709.525648060411
+      },
+      "metrics_at_10M": {
+        "charts/interval_SPS": 41186.1640625,
+        "losses/approx_kl": 0.024243502567211788,
+        "losses/clipfrac": 0.18059184153874716,
+        "losses/explained_variance": 0.9843911528587341,
+        "timing/env_s": 0.3073720733324687,
+        "timing/gae_s": 0.00655212781081597,
+        "timing/normalize_transfer_s": 0.08121733615795772,
+        "timing/rollout_s": 0.33105804522832233,
+        "timing/update_s": 0.04453587283690771,
+        "timing/warmup_s": 0.32603582739830017
+      },
+      "recorded_hyperparameters": "|param|value|\n|-|-|\n|exp_name|ppo_32xlr_1mb_noadvnorm_stiglu_sphere_50M|\n|seed|1|\n|torch_deterministic|True|\n|cuda|True|\n|track|False|\n|wandb_project_name|cleanRL|\n|wandb_entity|None|\n|capture_video|False|\n|save_model|False|\n|upload_model|False|\n|hf_entity||\n|env_id|HalfCheetah-v4|\n|total_timesteps|50000000|\n|learning_rate|0.0096|\n|num_envs|16|\n|num_steps|2048|\n|anneal_lr|True|\n|gamma|0.99|\n|gae_lambda|0.95|\n|num_minibatches|1|\n|update_epochs|10|\n|norm_adv|False|\n|clip_coef|0.2|\n|clip_vloss|True|\n|ent_coef|0.0|\n|vf_coef|0.5|\n|max_grad_norm|0.5|\n|target_kl|None|\n|env_backend|auto|\n|env_threads|4|\n|compile|True|\n|compile_mode|reduce-overhead|\n|non_blocking_transfers|False|\n|staggered_starts|True|\n|batch_size|32768|\n|minibatch_size|32768|\n|num_iterations|1525|"
+    },
+    "candidate": {
+      "run_path": "runs/HalfCheetah-v4__ppo_32xlr_1mb_noadvnorm_stiglu_sphere_hlgauss_v2_50M__1__1788665483",
+      "observed_steps": 15781008,
+      "matched_returns": {
+        "500000": 370.81398954485906,
+        "1000000": 1728.1058539966546,
+        "2000000": 3527.4712880956063,
+        "5000000": 5915.227418805113,
+        "10000000": 8781.784082771528
+      },
+      "metrics_at_10M": {
+        "charts/interval_SPS": 42832.48828125,
+        "hlgauss/normalized_return_max": 3.6632062594095864,
+        "hlgauss/normalized_return_mean": 3.3522469997406006,
+        "hlgauss/normalized_return_min": 0.3694964647293091,
+        "hlgauss/normalized_return_std": 0.4448392887910207,
+        "hlgauss/preupdate_decoded_value_mse": 0.003957619347299139,
+        "hlgauss/preupdate_value_endpoint_mass": 5.730896797710254e-06,
+        "hlgauss/projection_target_bias": -0.02109570863346259,
+        "hlgauss/projection_target_rmse": 0.02128966401020686,
+        "hlgauss/support_overflow_fraction": 0.0,
+        "hlgauss/target_endpoint_mass": 8.179238619732132e-09,
+        "losses/approx_kl": 0.01741974428296089,
+        "losses/clipfrac": 0.16449483732382456,
+        "losses/explained_variance": 0.9812934001286825,
+        "timing/env_s": 0.30256081620852154,
+        "timing/gae_s": 0.004057013274480899,
+        "timing/normalize_transfer_s": 0.08095843344926834,
+        "timing/rollout_s": 0.33089356621106464,
+        "timing/update_s": 0.024847701812783878,
+        "timing/warmup_s": 0.4119868874549866
+      },
+      "recorded_hyperparameters": "|param|value|\n|-|-|\n|exp_name|ppo_32xlr_1mb_noadvnorm_stiglu_sphere_hlgauss_v2_50M|\n|seed|1|\n|torch_deterministic|True|\n|cuda|True|\n|track|False|\n|wandb_project_name|cleanRL|\n|wandb_entity|None|\n|capture_video|False|\n|save_model|False|\n|upload_model|False|\n|hf_entity||\n|env_id|HalfCheetah-v4|\n|total_timesteps|50000000|\n|learning_rate|0.0096|\n|num_envs|16|\n|num_steps|2048|\n|anneal_lr|True|\n|gamma|0.99|\n|gae_lambda|0.95|\n|num_minibatches|1|\n|update_epochs|10|\n|norm_adv|False|\n|clip_coef|0.2|\n|ent_coef|0.0|\n|vf_coef|0.5|\n|max_grad_norm|0.5|\n|target_kl|None|\n|value|HLGaussConfig(v_min=-50.0, v_max=50.0, num_bins=31, sigma_ratio=2.0, transform='linear', bin_type='symexp_centers', decode='scalar')|\n|env_backend|auto|\n|env_threads|4|\n|compile|True|\n|compile_mode|reduce-overhead|\n|non_blocking_transfers|False|\n|staggered_starts|True|\n|batch_size|32768|\n|minibatch_size|32768|\n|num_iterations|1525|"
+    }
+  },
+  "conclusion": "Early learning lagged the base at2M/5M and caught up by10M (8781.8 versus8709.5). At10M intervalSPS was42832.5 versus41186.2, support overflow0 and EV0.9813. This does not establish a final-score or across-seed improvement; the50M run remains the intended experiment.",
+  "source_sha256_at_recording": {
+    "cleanrl/shared/hl_gauss.py": "6a57bc17a233b4b19227d13a1bfb9c0b22223aff4064ef396285dc5a69eb015e",
+    "cleanrl/ppo_continuous_action_32xlr_1mb_noadvnorm_stiglu_sphere_hlgauss_v2.py": "96cdfa028e0f34cfe0f43c210b1816abbb5fdb27b6622949edb92eebb8ef1271",
+    "tests/test_ppo_sphere_hlgauss.py": "3c1072fee105e418b7d8d4b1a7a2a4306547c0b80f4f756dd0ce41317cea2c7e",
+    "cleanrl_utils/evals/ppo_eval.py": "c0ece57aa1aeb942e988cab2202f1db841588e662fb9ab1f73e7cbe5bc95d175"
+  }
+}
