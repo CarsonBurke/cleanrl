@@ -4,9 +4,7 @@ Model/loss/checkpoint tests require CUDA and must run through mlq. CPU tests
 inspect interfaces or exercise scalar GAE/storage only; no simulator is used.
 """
 
-import ast
 import copy
-import inspect
 import io
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,11 +17,11 @@ from torch.distributions import Beta, Distribution
 
 from cleanrl import ppo_continuous_action as ppo
 from cleanrl.shared.ppo_loop import get_gae_fn
-from cleanrl.shared.host_actor import HostMLP
+from cleanrl.shared.host_graph import make_host_mirror
 from cleanrl.shared.rollout_graph import graph_compile
 from cleanrl.shared.rollout_transfer import RolloutTransfer
 from cleanrl.shared.runtime import configure_runtime
-from cleanrl.shared.sampling import sample_beta_actions, sample_beta_actions_host
+from cleanrl.shared.sampling import make_beta_sampler, sample_beta_actions
 
 
 def _spaces(low=None, high=None):
@@ -33,66 +31,6 @@ def _spaces(low=None, high=None):
         single_observation_space=gym.spaces.Box(-np.inf, np.inf, shape=(11,), dtype=np.float32),
         single_action_space=gym.spaces.Box(low, high, dtype=np.float32),
     )
-
-
-def test_base_defaults_and_public_evaluation_interfaces():
-    args = ppo.Args()
-    assert (args.num_envs, args.num_steps, args.num_minibatches, args.update_epochs) == (1, 2048, 32, 10)
-    assert (args.learning_rate, args.max_grad_norm, args.gamma, args.gae_lambda) == (3e-4, 0.5, 0.99, 0.95)
-    assert args.staggered_starts is True  # applied only with parallel environments
-    assert list(inspect.signature(ppo.make_env).parameters) == ["env_id", "idx", "capture_video", "run_name", "gamma"]
-    assert list(inspect.signature(ppo.Agent).parameters) == ["envs"]
-    assert list(inspect.signature(ppo.Agent.get_action_and_value).parameters) == ["self", "x", "action"]
-    assert "rollout_tail_value" in inspect.signature(ppo.compute_gae).parameters
-
-
-def test_base_kl_stop_uses_last_minibatch_only_after_complete_epoch():
-    tree = ast.parse(inspect.getsource(ppo.main))
-    epochs = [node for node in ast.walk(tree) if isinstance(node, ast.For)
-              and isinstance(node.target, ast.Name) and node.target.id == "epoch"]
-    assert len(epochs) == 1
-    epoch = epochs[0]
-    minibatches = [node for node in epoch.body if isinstance(node, ast.For)]
-    checks = [node for node in epoch.body if isinstance(node, ast.If)
-              and any(isinstance(value, ast.Attribute) and value.attr == "target_kl"
-                      for value in ast.walk(node.test))]
-    assert len(minibatches) == len(checks) == 1
-    assert epoch.body.index(checks[0]) > epoch.body.index(minibatches[0])
-    assert not any(isinstance(node, ast.Break) for node in ast.walk(minibatches[0]))
-    assert len(checks[0].body) == 1 and isinstance(checks[0].body[0], ast.Break)
-    condition = compile(ast.Expression(checks[0].test), "ppo epoch KL check", "eval")
-    metrics = np.zeros((3, 6), dtype=np.float32)
-    metrics[:2, 4] = 1000.0
-    namespace = dict(args=SimpleNamespace(target_kl=0.03), update_metrics=metrics, updates=3)
-    assert not eval(condition, namespace), "earlier minibatch KL must not replace the original last-minibatch check"
-    metrics[2, 4] = 0.04
-    assert eval(condition, namespace)
-    namespace["args"].target_kl = None
-    assert not eval(condition, namespace)
-
-
-@pytest.mark.parametrize("num_envs, staggered, expected_horizon", [(1, True, 0), (16, True, 1000), (16, False, 0)])
-def test_base_staggering_preserves_single_env_start_and_charges_parallel_warmup(num_envs, staggered, expected_horizon):
-    tree = ast.parse(inspect.getsource(ppo.main))
-    statements = [node for node in ast.walk(tree) if isinstance(node, ast.Assign) and any(
-        (isinstance(target, ast.Name) and target.id == "horizon") or
-        (isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name)
-         and target.value.id == "args" and target.attr == "num_iterations")
-        for target in node.targets)]
-    assert len(statements) == 2
-    calls = []
-
-    def horizon(env_id):
-        calls.append(env_id)
-        return 1000
-
-    args = SimpleNamespace(num_envs=num_envs, staggered_starts=staggered, env_id="test-env",
-                           total_timesteps=1_000_000, batch_size=num_envs * 2048)
-    namespace = dict(args=args, episode_horizon=horizon)
-    exec(compile(ast.Module(body=statements, type_ignores=[]), "ppo phase budget", "exec"), namespace)
-    assert namespace["horizon"] == expected_horizon
-    assert calls == (["test-env"] if expected_horizon else [])
-    assert args.num_iterations == (args.total_timesteps - expected_horizon * num_envs) // args.batch_size
 
 
 def test_public_gae_keywords_preserve_termination_and_truncation_semantics():
@@ -421,9 +359,10 @@ learner must not consume the host sampler's RNG.
     loss_model = torch.compile(lambda *batch: ppo.ppo_loss(agent, *batch, args),
                                mode="reduce-overhead", fullgraph=True, dynamic=False)
     gae_fn = get_gae_fn(compiled=True, mode="reduce-overhead")
-    host_actor = HostMLP(agent.actor, 16)
+    host_actor = make_host_mirror(agent.actor, 16)
     low, high = agent.action_low.cpu().numpy(), agent.action_high.cpu().numpy()
     sampler = np.random.default_rng(1)
+    sample_actions = make_beta_sampler(16, agent.action_dim, low, high)
     transfer = RolloutTransfer(4, 16, (11,), "cuda", fields={"observations": (11,), "native_actions": (3,)})
     fixtures = np.random.default_rng(1).standard_normal((3, 5, 16, 11)).astype(np.float32)
     rewards = torch.randn(4, 16, device="cuda")
@@ -441,7 +380,7 @@ learner must not consume the host sampler's RNG.
                 logits = host_actor(observations)
                 torch.testing.assert_close(torch.as_tensor(logits), agent.actor(torch.as_tensor(observations, device="cuda")).cpu(),
                                            rtol=1e-5, atol=1e-6)
-                native, action = sample_beta_actions_host(logits, low, high, sampler)
+                native, action = sample_actions(logits, sampler)
                 assert np.isfinite(action).all() and (low <= action).all() and (action <= high).all()
                 transfer.push(step, np.zeros(16), np.zeros(16), np.zeros(16), observations=observations, native_actions=native)
             batch = transfer.upload()

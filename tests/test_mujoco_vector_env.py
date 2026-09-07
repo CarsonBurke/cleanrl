@@ -4,6 +4,8 @@ These are fixed-action correctness cases, never reduced training runs or speed
 evidence. Throughput measurement lives in benchmark_mujoco_throughput.py.
 """
 
+from copy import deepcopy
+
 import gymnasium as gym
 import numpy as np
 import pytest
@@ -32,6 +34,8 @@ def assert_tree_equal(left, right):
         np.testing.assert_array_equal(left, right)
         if isinstance(left, np.ndarray):
             assert left.dtype == right.dtype
+            if left.dtype.kind == "f":
+                assert left.tobytes() == right.tobytes()
 
 
 @pytest.mark.parametrize("env_id", ENV_IDS)
@@ -103,6 +107,103 @@ def test_native_pool_matches_reference_across_many_steps_and_resets(threads):
                 assert_tree_equal(left, right)
             boundaries += int(np.count_nonzero(expected[2] | expected[3]))
         assert boundaries > 0, "test must exercise autoreset boundaries"
+    finally:
+        reference.close()
+        candidate.close()
+
+
+@pytest.mark.parametrize("env_id", ENV_IDS)
+@pytest.mark.parametrize("copy", [True, False])
+def test_native_retained_outputs_and_rng_at_default_horizon(env_id, copy):
+    reference = make_mujoco_vector_env(env_id, 3, backend="sync", copy=copy)
+    candidate = make_mujoco_vector_env(env_id, 3, backend="native", num_threads=2, copy=copy)
+    try:
+        for expected, actual in zip(reference.reset(seed=1), candidate.reset(seed=1)):
+            assert_tree_equal(expected, actual)
+        rng = np.random.default_rng(1)
+        retained = []
+        for step in range(1005):
+            actions = rng.normal(size=reference.action_space.shape).astype(np.float32)
+            expected, actual = reference.step(actions), candidate.step(actions)
+            for left, right in zip(expected, actual):
+                assert_tree_equal(left, right)
+            # Info/reward/mask/final-observation arrays remain snapshots even
+            # with copy=False; only the vector observation is a borrowed buffer.
+            for original, snapshot in retained:
+                assert_tree_equal(original, snapshot)
+            if step in (0, 998, 999, 1000):
+                values = actual if copy else actual[1:]
+                retained = [(value, deepcopy(value)) for value in values]
+            if step == 7:
+                for left, right in zip(reference.envs[1].reset(), candidate.envs[1].reset()):
+                    assert_tree_equal(left, right)
+            if np.any(expected[2] | expected[3]) or step == 1004:
+                for left, right in zip(reference.envs, candidate.envs):
+                    assert_tree_equal(left.unwrapped.np_random.bit_generator.state,
+                                      right.unwrapped.np_random.bit_generator.state)
+        # The full default horizon catches same-step autoreset rather than
+        # relying only on artificially short TimeLimits.
+        if env_id == "HalfCheetah-v4":
+            assert candidate.envs[0].get_wrapper_attr("episode_count") == 1
+    finally:
+        reference.close()
+        candidate.close()
+
+
+@pytest.mark.parametrize("env_id", ENV_IDS)
+@pytest.mark.parametrize("exclude_position", [True, False])
+def test_native_observation_assembly_clips_only_observed_velocities(env_id, exclude_position):
+    kwargs = dict(exclude_current_positions_from_observation=exclude_position)
+    if env_id != "HalfCheetah-v4":
+        kwargs["terminate_when_unhealthy"] = False
+    reference = make_mujoco_vector_env(env_id, 2, backend="sync", **kwargs)
+    candidate = make_mujoco_vector_env(env_id, 2, backend="native", num_threads=2, **kwargs)
+    try:
+        reference.reset(seed=1)
+        candidate.reset(seed=1)
+        for left, right in zip(reference.envs, candidate.envs):
+            base = left.unwrapped
+            velocity = np.linspace(-25.0, 25.0, base.model.nv)
+            left.unwrapped.set_state(base.data.qpos.copy(), velocity)
+            right.unwrapped.set_state(base.data.qpos.copy(), velocity)
+        action = np.zeros(reference.action_space.shape, dtype=np.float32)
+        expected, actual = reference.step(action), candidate.step(action)
+        for left, right in zip(expected, actual):
+            assert_tree_equal(left, right)
+        for index, (left, right) in enumerate(zip(reference.envs, candidate.envs)):
+            assert_tree_equal(left.unwrapped.data.qvel, right.unwrapped.data.qvel)
+            velocity = right.unwrapped.data.qvel
+            assert np.any(np.abs(velocity) > 10), "must exercise observation clipping"
+            observed = actual[0][index, -velocity.size:]
+            assert_tree_equal(observed, velocity if env_id == "HalfCheetah-v4"
+                              else np.clip(velocity, -10, 10))
+    finally:
+        reference.close()
+        candidate.close()
+
+
+def test_native_info_columns_are_independently_writable_snapshots():
+    reference = make_mujoco_vector_env("HalfCheetah-v4", 2, backend="sync", max_episode_steps=3)
+    candidate = make_mujoco_vector_env("HalfCheetah-v4", 2, backend="native",
+                                       num_threads=2, max_episode_steps=3, copy=False)
+    try:
+        reference.reset(seed=1)
+        candidate.reset(seed=1)
+        action = np.zeros(reference.action_space.shape, dtype=np.float32)
+        for step in range(7):
+            expected, actual = reference.step(action), candidate.step(action)
+            for left, right in zip(expected, actual):
+                assert_tree_equal(left, right)
+            info = actual[4]
+            if "x_velocity" not in info:
+                continue
+            snapshot = deepcopy(actual[1:])
+            info["x_velocity"][:] = 123
+            info["reward_run"][:] = 456
+            info["_x_velocity"][:] = False
+            for key in ("x_position", "reward_ctrl", "_x_position", "_reward_run", "_reward_ctrl"):
+                assert_tree_equal(info[key], snapshot[3][key])
+            assert_tree_equal(actual[1], snapshot[0])
     finally:
         reference.close()
         candidate.close()

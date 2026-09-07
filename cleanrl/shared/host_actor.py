@@ -45,6 +45,67 @@ class LeakyReluSq(nn.Module):
         return F.leaky_relu(x, negative_slope=0.5).square()
 
 
+class SignedSquare(nn.Module):
+    """f(x) = x * |x|: odd, monotone, degree-2 homogeneous, saturation-free.
+
+    The zero-mean counterpart of ``LeakyReluSq``. Both square the magnitude,
+    but ``LeakyReluSq`` is non-negative, so its output carries an
+    input-independent constant direction that ``justnorm`` -- magnitude-only --
+    cannot remove; ``SignedSquare`` keeps the sign, so E[f(x)] = 0 for any
+    symmetric preactivation distribution. Its derivative is 2|x|, unbounded
+    and never flat, so no input regime saturates the gradient.
+    """
+
+    def forward(self, x):
+        return x * x.abs()
+
+
+# Cap for the squared pair activations, matching SiTU-GLU's gate cap
+# ``4*tanh(g/4)``: at the v=2 preactivation design point 4.0 is 2.83 sigma, so
+# it saturates the tail without touching the bulk. SiTU-GLU is stable at
+# nearly fixed weight norms because it is bounded; the uncapped squared pairs
+# are exactly degree-2 homogeneous between two justnorms, so their weight
+# norms have no restoring force and inflate 4-5x instead. This cap transplants
+# the saturation-based restoring force onto them.
+SQ_PAIR_CAP = 4.0
+
+
+class CappedSignedSquare(nn.Module):
+    """f(x) = t * |t| with t = cap * tanh(x / cap): SignedSquare, bounded.
+
+    Odd and zero-mean for any symmetric preactivation distribution (like
+    ``SignedSquare``), quadratic near 0 (t ~ x there, so f ~ x|x|), and bounded
+    by ``cap**2``. The bound is the point: it removes the degree-2 homogeneity
+    that lets a weight-norm rescale be absorbed by the following justnorm, so
+    growing the pair's weights eventually buys saturation instead of gain.
+    """
+
+    def __init__(self, cap=SQ_PAIR_CAP):
+        super().__init__()
+        self.cap = float(cap)
+
+    def forward(self, x):
+        t = self.cap * torch.tanh(x / self.cap)
+        return t * t.abs()
+
+
+class CappedLeakyReluSq(nn.Module):
+    """f(x) = leaky_relu(t, 0.5)^2 with t = cap * tanh(x / cap).
+
+    The bounded counterpart of ``LeakyReluSq``: same non-negative, DC-carrying
+    shape near 0, but saturating at ``cap**2`` (positive tail) and
+    ``(cap/2)**2`` (negative tail) instead of growing without limit.
+    """
+
+    def __init__(self, cap=SQ_PAIR_CAP):
+        super().__init__()
+        self.cap = float(cap)
+
+    def forward(self, x):
+        t = self.cap * torch.tanh(x / self.cap)
+        return F.leaky_relu(t, negative_slope=0.5).square()
+
+
 # E[SiTU(g,u)^2] at sqrt(2) gate/up gain and isotropic unit-variance input
 # (Gauss-Hermite quadrature; matches the encoder-value SiTU-GLU branch).
 SITU_GLU_MEAN_SQUARE = 1.2630450818573506
@@ -260,21 +321,60 @@ class SiTUSphereTrunk(nn.Module):
 
 
 class LReluSqPair(nn.Module):
-    """Two biased Linear+LeakyReluSq stages (the v1 lrelusq hidden pair).
+    """Two biased Linear stages around a squared activation (the v1 pair).
+
+    The activation is pluggable: ``act=None`` keeps the v1 ``LeakyReluSq``;
+    ``SignSqPair`` passes the zero-mean ``SignedSquare`` instead.
 
     Init-free; ``make_lrelu_res_trunk`` applies orthogonal sqrt(2) to the
     first linear and a contribution-matched gain to the second.
     """
 
-    def __init__(self, dim):
+    def __init__(self, dim, act=None):
         super().__init__()
         self.dim = int(dim)
         self.lin1 = nn.Linear(dim, dim)
-        self.act = LeakyReluSq()
+        self.act = LeakyReluSq() if act is None else act
         self.lin2 = nn.Linear(dim, dim)
 
     def forward(self, x):
         return self.lin2(self.act(self.lin1(x)))
+
+
+class SignSqPair(LReluSqPair):
+    """``LReluSqPair`` with the zero-mean ``SignedSquare`` activation.
+
+    Identical layout, parameter order and shapes, so every host mirror and the
+    fused graph builder reach it through the same path as the LeakyReluSq pair;
+    only the elementwise nonlinearity differs. Init: ``make_signsq_sphere_trunk``.
+    """
+
+    def __init__(self, dim):
+        super().__init__(dim, act=SignedSquare())
+
+
+class CappedSignSqPair(LReluSqPair):
+    """``LReluSqPair`` with the bounded zero-mean ``CappedSignedSquare``.
+
+    Identical layout, parameter order and shapes to ``SignSqPair``, so the
+    host mirrors and the fused graph builder reach it through the same path;
+    only the elementwise nonlinearity differs. Init:
+    ``make_capsignsq_sphere_trunk``.
+    """
+
+    def __init__(self, dim):
+        super().__init__(dim, act=CappedSignedSquare())
+
+
+class CappedLReluSqPair(LReluSqPair):
+    """``LReluSqPair`` with the bounded ``CappedLeakyReluSq`` activation.
+
+    The capped counterpart of the v1 pair; same layout and mirror path.
+    Init: ``make_caplrelusq_sphere_trunk``.
+    """
+
+    def __init__(self, dim):
+        super().__init__(dim, act=CappedLeakyReluSq())
 
 
 class LReluResTrunk(nn.Module):
@@ -326,15 +426,17 @@ def make_lrelu_res_trunk(in_dim, width=64, pair_out_var=0.5):
 
 
 class LReluSphereTrunk(nn.Module):
-    """Sphere geometry with LeakyReluSq pairs instead of SiTU branches.
+    """Sphere geometry with squared-activation pairs instead of SiTU branches.
 
     Same nGPT mixing as ``SiTUSphereTrunk`` (unit-sphere streams, justnormed
     branch outputs, A + g*(B - A) steps, dense per-channel skips, gates init
     -1.5). Only the block nonlinearity changes: each SiTU-GLU is replaced by
-    the 0.5-matched LeakyReluSq pair from ``LReluResTrunk``.
+    the 0.5-matched pair from ``LReluResTrunk``. ``pair_cls`` picks that pair
+    -- ``LReluSqPair`` (LeakyReluSq) by default, ``SignSqPair`` for the
+    zero-mean signed square -- and nothing else in the layout depends on it.
     """
 
-    def __init__(self, in_dim, width=64, n_blocks=3):
+    def __init__(self, in_dim, width=64, n_blocks=3, pair_cls=LReluSqPair):
         super().__init__()
         self.in_dim = int(in_dim)
         self.width = int(width)
@@ -342,7 +444,7 @@ class LReluSphereTrunk(nn.Module):
         if self.n_blocks < 1:
             raise ValueError("LReluSphereTrunk needs at least one block")
         self.in_proj = nn.Linear(in_dim, width)
-        self.blocks = nn.ModuleList(LReluSqPair(width) for _ in range(n_blocks))
+        self.blocks = nn.ModuleList(pair_cls(width) for _ in range(n_blocks))
         self.block_gates = nn.ParameterList(
             nn.Parameter(torch.full((width,), -1.5)) for _ in range(n_blocks)
         )
@@ -380,6 +482,88 @@ def make_lrelu_sphere_trunk(in_dim, width=64, n_blocks=3, pair_out_var=0.5):
     torch.nn.init.zeros_(trunk.in_proj.bias)
     lin1_gain = np.sqrt(2.0 * width)
     lin2_gain = np.sqrt(pair_out_var / 6.375)
+    for pair in trunk.blocks:
+        torch.nn.init.orthogonal_(pair.lin1.weight, lin1_gain)
+        torch.nn.init.zeros_(pair.lin1.bias)
+        torch.nn.init.orthogonal_(pair.lin2.weight, lin2_gain)
+        torch.nn.init.zeros_(pair.lin2.bias)
+    return trunk
+
+
+def make_signsq_sphere_trunk(in_dim, width=64, n_blocks=3, pair_out_var=0.5):
+    """Build an init-complete LReluSphereTrunk of ``SignSqPair`` blocks.
+
+    Geometry, gates and input projection match ``make_lrelu_sphere_trunk``:
+    the stream is unit-norm (per-row RMS 1/sqrt(width)), so lin1 uses gain
+    sqrt(2*width) to land on the v=2 preactivation-variance design point.
+    Only the lin2 gain differs. For f(x) = x|x| with x ~ N(0, v),
+    E[f^2] = E[x^4] = 3v^2 = 12 at v = 2, against 6.375 for LeakyReluSq, so
+    targeting ``pair_out_var`` needs gain sqrt(pair_out_var/12.0) rather than
+    ``make_lrelu_sphere_trunk``'s sqrt(pair_out_var/6.375).
+    """
+    trunk = LReluSphereTrunk(in_dim, width, n_blocks, pair_cls=SignSqPair)
+    torch.nn.init.orthogonal_(trunk.in_proj.weight, np.sqrt(width / in_dim))
+    torch.nn.init.zeros_(trunk.in_proj.bias)
+    lin1_gain = np.sqrt(2.0 * width)
+    lin2_gain = np.sqrt(pair_out_var / 12.0)
+    for pair in trunk.blocks:
+        torch.nn.init.orthogonal_(pair.lin1.weight, lin1_gain)
+        torch.nn.init.zeros_(pair.lin1.bias)
+        torch.nn.init.orthogonal_(pair.lin2.weight, lin2_gain)
+        torch.nn.init.zeros_(pair.lin2.bias)
+    return trunk
+
+
+# E[f^2] for the capped squared activations at the v=2 preactivation design
+# point with cap 4.0, by Monte Carlo over 4M FP64 standard normals scaled to
+# variance 2. The uncapped counterparts are 12.0 (x|x|, exactly 3v^2) and
+# 6.375 (LeakyReluSq): capping removes ~47% of the signed square's second
+# moment and ~47% of the leaky-relu square's.
+CAPPED_SIGNSQ_MEAN_SQUARE = 6.35657
+CAPPED_LRELUSQ_MEAN_SQUARE = 3.38142
+
+
+def make_capsignsq_sphere_trunk(in_dim, width=64, n_blocks=3, pair_out_var=0.5):
+    """Build an init-complete LReluSphereTrunk of ``CappedSignSqPair`` blocks.
+
+    Geometry, gates and input projection match ``make_signsq_sphere_trunk``:
+    the stream is unit-norm (per-row RMS 1/sqrt(width)), so lin1 uses gain
+    sqrt(2*width) to land on the v=2 preactivation-variance design point.
+    Only the lin2 gain differs, because the tanh cap removes second moment:
+    for f(x) = t|t|, t = 4*tanh(x/4), x ~ N(0, 2), E[f^2] = 6.35657
+    (``CAPPED_SIGNSQ_MEAN_SQUARE``, Monte Carlo over 4M FP64 samples) against
+    the uncapped 12.0, so targeting ``pair_out_var`` needs
+    sqrt(pair_out_var/6.35657). E[f] = 0 exactly (f is odd).
+    """
+    trunk = LReluSphereTrunk(in_dim, width, n_blocks, pair_cls=CappedSignSqPair)
+    torch.nn.init.orthogonal_(trunk.in_proj.weight, np.sqrt(width / in_dim))
+    torch.nn.init.zeros_(trunk.in_proj.bias)
+    lin1_gain = np.sqrt(2.0 * width)
+    lin2_gain = np.sqrt(pair_out_var / CAPPED_SIGNSQ_MEAN_SQUARE)
+    for pair in trunk.blocks:
+        torch.nn.init.orthogonal_(pair.lin1.weight, lin1_gain)
+        torch.nn.init.zeros_(pair.lin1.bias)
+        torch.nn.init.orthogonal_(pair.lin2.weight, lin2_gain)
+        torch.nn.init.zeros_(pair.lin2.bias)
+    return trunk
+
+
+def make_caplrelusq_sphere_trunk(in_dim, width=64, n_blocks=3, pair_out_var=0.5):
+    """Build an init-complete LReluSphereTrunk of ``CappedLReluSqPair`` blocks.
+
+    Identical to ``make_capsignsq_sphere_trunk`` except for the lin2 gain: for
+    f(x) = leaky_relu(t, 0.5)^2, t = 4*tanh(x/4), x ~ N(0, 2), E[f^2] =
+    3.38142 (``CAPPED_LRELUSQ_MEAN_SQUARE``, Monte Carlo over 4M FP64 samples)
+    against the uncapped 6.375, so the gain is sqrt(pair_out_var/3.38142).
+    Unlike the signed square this activation is non-negative -- E[f] = 1.0158,
+    i.e. 30.5% of the second moment is DC that justnorm cannot remove -- so it
+    isolates the cap from the zero-mean change.
+    """
+    trunk = LReluSphereTrunk(in_dim, width, n_blocks, pair_cls=CappedLReluSqPair)
+    torch.nn.init.orthogonal_(trunk.in_proj.weight, np.sqrt(width / in_dim))
+    torch.nn.init.zeros_(trunk.in_proj.bias)
+    lin1_gain = np.sqrt(2.0 * width)
+    lin2_gain = np.sqrt(pair_out_var / CAPPED_LRELUSQ_MEAN_SQUARE)
     for pair in trunk.blocks:
         torch.nn.init.orthogonal_(pair.lin1.weight, lin1_gain)
         torch.nn.init.zeros_(pair.lin1.bias)
@@ -928,7 +1112,13 @@ class HostLReluSphereActor:
     """Host mirror for ``nn.Sequential(LReluSphereTrunk, Linear)`` actors.
 
     Dense per-channel gated sphere mixing as ``HostSiTUSphereActor``, with
-    each SiTU product replaced by the LeakyReluSq pair.
+    each SiTU product replaced by a squared-activation pair. The pair
+    activation is resolved per block at construction (``LeakyReluSq``,
+    ``SignedSquare``, ``CappedSignedSquare`` or ``CappedLeakyReluSq``); an
+    unsupported one raises ``TypeError`` there rather than silently mirroring
+    the wrong nonlinearity, and a capped activation carrying a cap other than
+    ``SQ_PAIR_CAP`` raises ``ValueError`` because the mirror hardcodes the
+    shipped cap.
     """
 
     def __init__(self, sequential, num_rows):
@@ -945,9 +1135,26 @@ class HostLReluSphereActor:
         if trunk.in_dim != trunk.in_proj.in_features:
             raise ValueError("LReluSphereTrunk has inconsistent shapes")
         linears = [trunk.in_proj]
+        self._acts = []
         for block in trunk.blocks:
             if block.dim != self.width:
                 raise ValueError("LReluSphereTrunk has inconsistent block shapes")
+            if isinstance(block.act, LeakyReluSq):
+                self._acts.append(self._lrelusq)
+            elif isinstance(block.act, SignedSquare):
+                self._acts.append(self._signsq)
+            elif isinstance(block.act, (CappedSignedSquare, CappedLeakyReluSq)):
+                if block.act.cap != SQ_PAIR_CAP:
+                    raise ValueError(
+                        f"HostLReluSphereActor hardcodes SQ_PAIR_CAP={SQ_PAIR_CAP}, "
+                        f"not cap={block.act.cap}")
+                self._acts.append(self._capsignsq if isinstance(block.act, CappedSignedSquare)
+                                  else self._caplrelusq)
+            else:
+                raise TypeError(
+                    "HostLReluSphereActor mirrors LeakyReluSq, SignedSquare, "
+                    "CappedSignedSquare and CappedLeakyReluSq pair activations "
+                    f"only, not {type(block.act).__name__}")
             linears.extend((block.lin1, block.lin2))
         linears.append(head)
         for linear in linears:
@@ -1008,11 +1215,36 @@ class HostLReluSphereActor:
         a /= self._nrm
         return a
 
+    def _lrelusq(self):
+        """leaky_relu(pa, 0.5)^2 in place: the LeakyReluSq pair activation."""
+        np.square(np.maximum(self._pa, 0.5 * self._pa), out=self._pa)
+
+    def _signsq(self):
+        """pa * |pa| in place: the zero-mean SignedSquare pair activation."""
+        np.abs(self._pa, out=self._sq)
+        np.multiply(self._pa, self._sq, out=self._pa)
+
+    def _cap_tanh(self):
+        """pa <- SQ_PAIR_CAP * tanh(pa / SQ_PAIR_CAP), the shared cap stage."""
+        np.divide(self._pa, SQ_PAIR_CAP, out=self._pa)
+        np.tanh(self._pa, out=self._pa)
+        np.multiply(self._pa, SQ_PAIR_CAP, out=self._pa)
+
+    def _capsignsq(self):
+        """t * |t| with t the capped preactivation: CappedSignedSquare."""
+        self._cap_tanh()
+        self._signsq()
+
+    def _caplrelusq(self):
+        """leaky_relu(t, 0.5)^2 with t the capped preactivation."""
+        self._cap_tanh()
+        self._lrelusq()
+
     def _pair(self, h, block_idx, out):
         base = 1 + 2 * block_idx
         np.matmul(h, self._lin_t[base], out=self._pa)
         np.add(self._pa, self._lin_b[base], out=self._pa)
-        np.square(np.maximum(self._pa, 0.5 * self._pa), out=self._pa)
+        self._acts[block_idx]()
         np.matmul(self._pa, self._lin_t[base + 1], out=out)
         np.add(out, self._lin_b[base + 1], out=out)
 

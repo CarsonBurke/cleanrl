@@ -76,7 +76,7 @@ def _native_library():
     pointers = ctypes.POINTER(ctypes.c_void_p)
     lib.cleanrl_pool_create.argtypes = [
         ctypes.c_int, pointers, pointers, doubles, ctypes.c_int, ctypes.c_int,
-        ctypes.c_int, doubles, doubles, doubles,
+        ctypes.c_int, doubles, doubles, doubles, doubles, ctypes.c_int, ctypes.c_int,
     ]
     lib.cleanrl_pool_create.restype = ctypes.c_void_p
     # One pointer argument per step: ctypes converts nothing else, and the
@@ -268,6 +268,24 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
         self._controls = np.empty((self.num_envs, base.model.nu), dtype=np.float64)
         self._clipped = {}
         self._cost_dtypes = {}
+        # Task constants step_wait would otherwise re-read on every step. They
+        # are fixed for the instance: the constructor already rejects
+        # heterogeneous or mutated configurations (see `configuration` above),
+        # and cleanrl_pool_create captures frame_skip for the pool's lifetime,
+        # so dt cannot change under the pool anyway. base.dt is a property over
+        # two MuJoCo binding attributes and costs 0.44us on its own, which is
+        # why it is not read per step.
+        self._dt = base.dt
+        self._forward_weight = base._forward_reward_weight
+        self._cost_weight = base._ctrl_cost_weight
+        # ``infos`` column names, their "_"-prefixed presence masks, and a
+        # persistent dict to hold the per-step values: rebuilding the dict and
+        # re-deriving the mask names cost more than overwriting four slots.
+        keys = ("x_position", "x_velocity")
+        if env_id == "HalfCheetah-v4":
+            keys += ("reward_run", "reward_ctrl")
+        self._columns = dict.fromkeys(keys)
+        self._column_masks = tuple((key, "_" + key) for key in keys)
         self._pool = None
         self._episode_returns = np.zeros(self.num_envs, dtype=np.float32)
         self._episode_lengths = np.zeros(self.num_envs, dtype=np.int32)
@@ -304,6 +322,8 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
             self.num_envs, self._models, self._data, self._controls,
             base.frame_skip, self.num_threads, _worker_spin_budget(),
             self._before, self._positions, self._velocities,
+            self._raw_observations, int(base._exclude_current_positions_from_observation),
+            env_id != "HalfCheetah-v4",
         )
         if not self._pool:
             self.close()
@@ -369,13 +389,12 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
     def step_wait(self):
         if not self._ready:
             raise gym.error.ResetNeeded("Call reset before stepping the environment")
-        base = self._bases[0]
         actions = self._actions
         np.copyto(self._controls, actions)
         self._native.cleanrl_pool_step(self._pool)
         x = self._positions[:, 0]
-        velocity = (x - self._before) / base.dt
-        forward = base._forward_reward_weight * velocity
+        velocity = (x - self._before) / self._dt
+        forward = self._forward_weight * velocity
         # Keep the input action dtype through square/sum, as Gym's ClipAction
         # and task control_cost do (float32 policy actions must stay float32).
         costs = np.sum(np.square(actions), axis=1)
@@ -385,13 +404,14 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
         # instead of allocating a scalar array every step.
         cost_dtype = self._cost_dtypes.get(costs.dtype)
         if cost_dtype is None:
-            cost_dtype = np.asarray(costs[0] * base._ctrl_cost_weight).dtype
+            cost_dtype = np.asarray(costs[0] * self._cost_weight).dtype
             self._cost_dtypes[costs.dtype] = cost_dtype
-        costs = costs.astype(cost_dtype, copy=False) * base._ctrl_cost_weight
+        costs = costs.astype(cost_dtype, copy=False) * self._cost_weight
         if self._env_id == "HalfCheetah-v4":
             rewards = forward - costs
             terms = np.zeros(self.num_envs, dtype=bool)
         else:
+            base = self._bases[0]
             z, angle = self._positions[:, 1], self._positions[:, 2]
             healthy = ((base._healthy_z_range[0] < z) & (z < base._healthy_z_range[1]) &
                        (base._healthy_angle_range[0] < angle) & (angle < base._healthy_angle_range[1]))
@@ -401,14 +421,8 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
                 healthy &= np.all((low < self._velocities) & (self._velocities < high), axis=1)
             rewards = (forward + (healthy | base._terminate_when_unhealthy) * base._healthy_reward) - costs
             terms = ~healthy if base._terminate_when_unhealthy else np.zeros(self.num_envs, dtype=bool)
-        offset = int(base._exclude_current_positions_from_observation)
-        width = base.model.nq - offset
-        self._raw_observations[:, :width] = self._positions[:, offset:]
-        if self._env_id == "HalfCheetah-v4":
-            self._raw_observations[:, width:] = self._velocities
-        else:
-            np.clip(self._velocities, -10, 10, out=self._raw_observations[:, width:])
-        if not self._has_postprocessors:
+        has_postprocessors = self._has_postprocessors
+        if not has_postprocessors:
             self.observations[...] = self._raw_observations
         # RecordEpisodeStatistics uses float32 += a scalar reward: preserve
         # its rounding order instead of accumulating rewards in float64.
@@ -418,28 +432,50 @@ class NativeMujocoVectorEnv(gym.vector.SyncVectorEnv):
             limit._elapsed_steps = elapsed
         truncs = self._episode_lengths >= self._horizons
         boundaries = terms | truncs
+        # One reduction serves both the infos columns and the boundary loop:
+        # active.any() is exactly crossings < num_envs, and flatnonzero is
+        # only needed once something has actually crossed.
+        crossings = np.count_nonzero(boundaries)
         active = ~boundaries
         infos = {}
-        columns = {"x_position": x, "x_velocity": velocity}
+        columns = self._columns
+        columns["x_position"] = x
+        columns["x_velocity"] = velocity
         if self._env_id == "HalfCheetah-v4":
-            columns.update(reward_run=forward, reward_ctrl=-costs)
-        if active.any():
-            for key, values in columns.items():
-                infos[key] = np.where(active, values, 0.0)
-                infos["_" + key] = active.copy()
+            columns["reward_run"] = forward
+            columns["reward_ctrl"] = -costs
+        if crossings == 0:
+            # Physics owns x's backing storage, so snapshot it. The remaining
+            # columns were allocated by this step and are never written again:
+            # handing them to the caller avoids copying fresh arrays. Presence
+            # masks must still be independent, writable snapshots.
+            for key, mask in self._column_masks:
+                infos[key] = columns[key].copy() if key == "x_position" else columns[key]
+                infos[mask] = active.copy()
+        elif crossings < self.num_envs:
+            for key, mask in self._column_masks:
+                infos[key] = np.where(active, columns[key], 0.0)
+                infos[mask] = active.copy()
         processed_observations = self._raw_observations
-        if self._batched_normalization is not None:
-            normalized = self._batched_normalization.normalize(
+        batched = self._batched_normalization
+        if batched is not None:
+            normalized = batched.normalize(
                 self._raw_observations, rewards, terms
             )
             if normalized is None:
-                self._batched_normalization = None
+                self._batched_normalization = batched = None
                 self.uses_batched_normalization = False
             else:
                 processed_observations, rewards = normalized
                 self.observations[...] = processed_observations
-        per_row_processing = self._has_postprocessors and self._batched_normalization is None
-        processed_rows = range(self.num_envs) if per_row_processing else np.flatnonzero(boundaries)
+        per_row_processing = has_postprocessors and batched is None
+        if per_row_processing:
+            processed_rows = range(self.num_envs)
+        elif crossings:
+            processed_rows = np.flatnonzero(boundaries)
+        else:
+            # Nothing crossed: skip flatnonzero and the empty-ndarray loop.
+            processed_rows = ()
         for i in processed_rows:
             # Legacy transforms can return a different dtype than the declared
             # space: preserve it in final_observation just as SyncVectorEnv does.

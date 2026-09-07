@@ -1,7 +1,31 @@
-# Bounded-action Beta PPO with shared native MuJoCo execution.
-# Positive Beta parameters replace the Gaussian head. PPO loss, clipping,
-# optimizer settings and critic architecture are unchanged. Store native samples
-# for old/new densities; include the action-range Jacobian. Keep FP32 precision.
+# 32x LR + 1 minibatch + no advantage normalization. Same host-actor trainer
+# and hypersphere geometry as ppo_continuous_action_32xlr_1mb_noadvnorm_*_sphere_v1
+# (unit-sphere streams, justnormed branch outputs mixed as A + g*(B - A),
+# per-channel gates init ~0.18, justnorm only).
+# Instrumented control: byte-identical learner to lrelusq_sphere_v1, whose 50M
+# HalfCheetah run trails stiglu_sphere by ~7% at 30M after matching it to 10M.
+# Purpose is attribution, not a new method: it carries the probes so the two
+# candidate causes below can be read off a run instead of argued.
+# Measured at matched init on unit-sphere inputs: 27.2% of the justnormed
+# branch-output energy of a LeakyReluSq pair is an input-independent constant
+# direction, versus 1.6% for SiTU-GLU. LeakyReluSq (= leaky_relu(x,0.5)^2) is
+# non-negative, so its output has a large mean; justnorm normalizes magnitude
+# only and cannot remove a constant direction, and the per-channel gates
+# amplify that contamination as they grow through training.
+# Measured: lin2(f(lin1(u))) with f positively homogeneous of degree 2, wrapped
+# in justnorm on both sides, makes the trunk exactly invariant to radial weight
+# scaling (cos(y, y | W1 *= 3) = 1.0000 against 0.9989 for SiTU-GLU, which the
+# tanh caps make non-homogeneous). The radial direction carries no gradient, yet
+# Adam without weight decay still random-walks ||W|| upward, and for a
+# scale-invariant map the functional step per unit update decays like 1/||W||.
+# Reference-run evidence over 5M -> 30M: clipfrac falls to 0.63x its 5-7M level
+# (0.228 -> 0.145) while the SiTU sphere holds 0.96x (0.184 -> 0.177), and both
+# runs' approx_kl decays by the same 0.63-0.65x that LR annealing alone buys.
+# Equal mean KL with a collapsing clipped fraction is what a shrinking
+# functional step per update looks like.
+# All variants in this family log per-iteration trunk diagnostics under
+# trunk_{actor,critic}/: weight-norm drift, mean gate, preactivation variance,
+# branch DC energy fraction, and output effective rank.
 import os
 import random
 import time
@@ -23,11 +47,13 @@ from cleanrl.shared.ppo_loop import (
     TruncationBootstrapCache, device_minibatches, explained_variance,
     gather_metrics, get_gae_fn,
 )
+from cleanrl.shared.host_actor import make_lrelu_sphere_trunk
 from cleanrl.shared.host_graph import make_host_mirror
 from cleanrl.shared.rollout_graph import graph_compile
 from cleanrl.shared.rollout_transfer import RolloutTransfer
 from cleanrl.shared.runtime import configure_runtime
-from cleanrl.shared.sampling import make_beta_sampler, sample_beta_actions
+from cleanrl.shared.sampling import sample_beta_actions, sample_beta_actions_host
+from cleanrl.shared.sphere_diagnostics import TrunkProbe
 from cleanrl.shared.staggered_envs import (
     compute_phase_offsets, episode_horizon, run_phase_warmup,
 )
@@ -67,8 +93,8 @@ class Args:
     """the id of the environment"""
     total_timesteps: int = 1000000
     """total timesteps of the experiments"""
-    learning_rate: float = 3e-4
-    """the learning rate of the optimizer"""
+    learning_rate: float = 9.6e-3
+    """32x the 3e-4 PPO default; one Adam covers actor and critic"""
     num_envs: int = 1
     """the number of parallel game environments"""
     num_steps: int = 2048
@@ -79,12 +105,12 @@ class Args:
     """the discount factor gamma"""
     gae_lambda: float = 0.95
     """the lambda for the general advantage estimation"""
-    num_minibatches: int = 32
+    num_minibatches: int = 1
     """the number of mini-batches"""
     update_epochs: int = 10
     """the K epochs to update the policy"""
-    norm_adv: bool = True
-    """Toggles advantages normalization"""
+    norm_adv: bool = False
+    """raw GAE in the surrogate; no minibatch standardization"""
     clip_coef: float = 0.2
     """the surrogate clipping coefficient"""
     clip_vloss: bool = True
@@ -101,8 +127,8 @@ class Args:
     # Execution controls, independent of PPO's batch and optimizer settings.
     env_backend: str = "auto"
     """native for supported v4 MuJoCo; sync for other continuous environments"""
-    env_threads: int = 2
-    """maximum physics threads; two balances latency with concurrent N16 runs"""
+    env_threads: int = 4
+    """maximum physics threads, capped at num_envs"""
     compile: bool = True
     """compile deterministic policy statistics, PPO loss and GAE"""
     compile_mode: str = "reduce-overhead"
@@ -216,13 +242,11 @@ class Agent(nn.Module):
             raise ValueError("action bounds must have a finite positive FP32 range")
         self.register_buffer("log_action_scale", self.action_scale.log())
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(observation_dim, 64)), nn.Tanh(),
-            layer_init(nn.Linear(64, 64)), nn.Tanh(),
+            make_lrelu_sphere_trunk(observation_dim, 64),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
         self.actor = nn.Sequential(
-            layer_init(nn.Linear(observation_dim, 64)), nn.Tanh(),
-            layer_init(nn.Linear(64, 64)), nn.Tanh(),
+            make_lrelu_sphere_trunk(observation_dim, 64),
             layer_init(nn.Linear(64, 2 * self.action_dim), std=0.01),
         )
 
@@ -337,11 +361,15 @@ def main():
     try:
         writer.add_text("hyperparameters", "|param|value|\n|-|-|\n" +
                         "\n".join(f"|{key}|{value}|" for key, value in vars(args).items()))
-        writer.add_text("policy", "Beta: alpha,beta=1+softplus(head); FP32; native-action storage; host actor mirror")
+        writer.add_text("policy", "Beta host actor; 32x LR; 1 minibatch; hypersphered residual LeakyReluSq trunk; no advantage normalization; trunk probes")
         envs = make_training_env(args, run_name)
         resources.callback(envs.close)
         agent = Agent(envs).to(device)
         optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5, fused=True)
+        # Trunk geometry probes: one extra eager forward per iteration, never
+        # inside the optimizer path. Logged separately from the PPO metrics so a
+        # degenerate diagnostic (e.g. rank-0 covariance) cannot abort the run.
+        probes = {"actor": TrunkProbe(agent.actor[0]), "critic": TrunkProbe(agent.critic[0])}
         value_model = agent.get_value
 
         def rollout_statistics(observations, native):
@@ -365,10 +393,9 @@ def main():
         host_actor = make_host_mirror(agent.actor, args.num_envs)
         action_low, action_high = (buffer.cpu().numpy() for buffer in (agent.action_low, agent.action_high))
         sampler = np.random.default_rng(args.seed)
-        sample_actions = make_beta_sampler(args.num_envs, agent.action_dim, action_low, action_high)
 
         def act(observations):
-            native, action = sample_actions(host_actor(observations), sampler)
+            native, action = sample_beta_actions_host(host_actor(observations), action_low, action_high, sampler)
             if not np.isfinite(action).all():
                 raise FloatingPointError("policy produced nonfinite actions")
             return native, action.reshape((args.num_envs,) + agent.action_shape)
@@ -478,6 +505,12 @@ def main():
                    if name != "losses/explained_variance"):
                 raise FloatingPointError("nonfinite PPO learner metrics")
             for name, value in logged.items():
+                writer.add_scalar(name, value, global_step)
+            for name, value in gather_metrics({
+                f"trunk_{net}/{key}": metric
+                for net, probe in probes.items()
+                for key, metric in probe.metrics(b_obs[::8]).items()
+            }).items():
                 writer.add_scalar(name, value, global_step)
             now = time.perf_counter()
             writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)

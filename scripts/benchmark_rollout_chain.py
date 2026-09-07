@@ -28,7 +28,7 @@ from cleanrl.shared.host_graph import HostGraphActor
 from cleanrl.shared.mujoco_env import make_mujoco_vector_env
 from cleanrl.shared.rollout_transfer import RolloutTransfer
 from cleanrl.shared.runtime import configure_runtime
-from cleanrl.shared.sampling import sample_beta_actions_host
+from cleanrl.shared.sampling import make_beta_sampler, sample_beta_actions_host
 from cleanrl.shared.vector_norm import VectorObsNorm, VectorRewardNorm
 
 
@@ -63,6 +63,8 @@ def main():
     parser.add_argument("--iters", type=int, default=1000)
     parser.add_argument("--host-graph", action="store_true",
                         help="mirror the policy with the fused native HostGraphActor")
+    parser.add_argument("--fused-beta", action="store_true",
+                        help="fuse the Beta head's pre/post arithmetic into the kernel")
     args = parser.parse_args()
 
     configure_runtime()
@@ -83,6 +85,18 @@ def main():
     low = np.full(act_dim, -1.0, dtype=np.float32)
     high = np.full(act_dim, 1.0, dtype=np.float32)
     sampler = np.random.default_rng(1)
+    # Both arms are called through one extra Python frame, so the A/B stays
+    # paired: what differs between them is only the head's own work.
+    if args.fused_beta:
+        head = make_beta_sampler(args.num_envs, act_dim, low, high)
+        if not head.fused:
+            raise SystemExit(f"--fused-beta requested but unavailable: {head.fallback_reason}")
+
+        def sample(values):
+            return head(values, sampler)
+    else:
+        def sample(values):
+            return sample_beta_actions_host(values, low, high, sampler)
 
     obs_norm = VectorObsNorm(args.num_envs, obs_shape)
     rew_norm = VectorRewardNorm(args.num_envs, 0.99)
@@ -96,10 +110,8 @@ def main():
     results = {}
     results["policy_forward"] = timeit(lambda: host_actor(obs), args.iters)
     logits = host_actor(obs)
-    results["beta_sample"] = timeit(
-        lambda: sample_beta_actions_host(logits, low, high, sampler), args.iters)
-    results["policy_chain"] = timeit(
-        lambda: sample_beta_actions_host(host_actor(obs), low, high, sampler), args.iters)
+    results["beta_sample"] = timeit(lambda: sample(logits), args.iters)
+    results["policy_chain"] = timeit(lambda: sample(host_actor(obs)), args.iters)
     results["env_step"] = timeit(lambda: envs.step(action), args.iters)
     results["normalize"] = timeit(
         lambda: (rew_norm.normalize(rew, terms), obs_norm.normalize_step(raw, terms, truncs, infos)),
@@ -115,7 +127,9 @@ def main():
     results["transfer_push"] = timeit(push, args.iters)
 
     print(f"env={args.env_id} num_envs={args.num_envs} width={args.width} "
-          f"blocks={args.n_blocks} env_threads={args.threads}")
+          f"blocks={args.n_blocks} env_threads={args.threads} "
+          f"beta={'fused' if args.fused_beta else 'numpy'} "
+          f"loadavg={Path('/proc/loadavg').read_text().split(' ')[0]}")
     print(f"  {'link':<18s} {'median_us':>10s} {'min_us':>9s} {'cpu_us':>9s}")
     for name, (med, best, cpu) in results.items():
         print(f"  {name:<18s} {med:10.1f} {best:9.1f} {cpu:9.1f}")

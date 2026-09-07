@@ -44,11 +44,11 @@ contract is pinned by its `tests/test_<module>.py`.
 Required in every new continuous-control version:
 
 - `runtime.configure_runtime()`, before building networks.
-- `mujoco_env.make_mujoco_vector_env(env_id, num_envs, num_threads=4)` for the env. 4 threads is optimal at 16 envs; 6+ regresses.
+- `mujoco_env.make_mujoco_vector_env(env_id, num_envs, num_threads=2)` for the env. `num_threads` is a per-run latency knob traded against aggregate throughput, so it is set by the concurrency guidance below, not per script.
 - `vector_norm.VectorObsNorm` / `VectorRewardNorm` for normalization — never the per-env `NormalizeObservation`/`NormalizeReward` wrappers, and never both in one script.
 - `staggered_envs` for episode-age phases (`episode_horizon`, `compute_phase_offsets`, `run_phase_warmup`). Warmup actions must be stochastic draws, never greedy means.
 - `ppo_loop` for GAE, truncation bootstrap, minibatching and metric gathering — never `.item()` inside the optimizer path.
-- `host_graph.make_host_mirror(actor, num_envs)` for the rollout actor, with `rollout_transfer.RolloutTransfer(fields=...)` for the upload. The mirror acts on the host; values and old log-probs come from one batched forward over the uploaded rollout.
+- `host_graph.make_host_mirror(actor, num_envs)` for the rollout actor and `sampling.make_beta_sampler(num_envs, act_dim, low, high)` for the Beta head, with `rollout_transfer.RolloutTransfer(fields=...)` for the upload. Both act on the host and return permanent buffers overwritten by the next call, so stage them in the same step; values and old log-probs come from one batched forward over the uploaded rollout.
 - `timing.PhaseTimer`, reporting `env`/`rollout`/`update` totals per log interval, not just SPS.
 
 Do NOT retrofit frozen versioned files.
@@ -57,7 +57,7 @@ Do NOT retrofit frozen versioned files.
 
 - Always run experiments such that they appear in your harness UI.
 - **All local ML work MUST go through the machine-wide `mlq` daemon** — never launch training, preprocessing, or benchmarks directly with Python, `nohup`, detached terminals, or a repo-local scheduler. If the daemon is unavailable, start it with `mlq daemon install` (or `mlq daemon run` without systemd); do not bypass it.
-- Set `--max-parallel-runs` from expected per-run GPU saturation and peak VRAM, not model family or queue delay. Use **3** only for measured lightweight runs; default novel or world-model/attention-heavy runs to **1** until characterized. This is a global compatibility limit, not a utilization target.
+- Set `--max-parallel-runs` from measured aggregate throughput, not per-run speed. For the standard 16-env MuJoCo PPO trainers use **6** with `--env-threads 2`: measured end-to-end, that is 235-252k aggregate SPS (~3.7 min per 8M-step run) against 115k for the old 3-runs/4-threads point, i.e. 2.1x the aggregate for a ~6% slower individual run. Go to 10 only when the box is exclusively yours (317k aggregate, ~4.5 min per run, ~17 GiB VRAM). Default novel or world-model/attention-heavy runs to **1** until characterized. Size VRAM on whole-process footprint (~1.7 GiB per standard run), never on `torch.cuda.max_memory_allocated`.
 - Keep the submitted command and all descendants in the runner's foreground process group; do not daemonize inside an `mlq` job.
 - If a run is clearly underperforming after 1-2M steps, stop it with `mlq cancel JOB_ID`; use `--force` only when graceful cancellation fails.
 - After a benchmark completes (or enough data to judge): re-evaluate your hypothesis, determine if it should be iterated on further, and parse what worked and what didn't.
@@ -73,11 +73,11 @@ First use or activate venv at `.venv/bin/python`
 # Replace these two values, then submit from the repo root.
 MLQ_RUN_NAME=my_method_v1
 MLQ_SCRIPT=cleanrl/ppo_continuous_action_my_method_v1.py
-mlq submit --name "$MLQ_RUN_NAME" --max-parallel-runs 3 --cwd "$PWD" \
-  --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 -- \
+mlq submit --name "$MLQ_RUN_NAME" --max-parallel-runs 6 --cwd "$PWD" \
+  --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 --env CLEANRL_ENV_SPIN=5000 -- \
   .venv/bin/python -u "$MLQ_SCRIPT" \
   --env-id HalfCheetah-v4 --num-envs 16 --exp-name "$MLQ_RUN_NAME" \
-  --total-timesteps 8000000 --seed 1 \
+  --total-timesteps 8000000 --seed 1 --env-threads 2 \
   --compile --compile-mode reduce-overhead
 
 # Inspect and control jobs through mlq, not ad-hoc process inspection.

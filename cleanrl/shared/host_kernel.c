@@ -14,10 +14,10 @@
  * - Matmuls accumulate one sequential FP32 accumulator per output element over
  *   the reduction index (a naive dot product). No reassociation, no FMA-free
  *   requirement: -ffast-math and friends are NOT used.
- * - The only deliberate reassociation is the row sum of squares in justnorm,
- *   which uses 16 explicit partial sums (a source-level choice, so it holds
- *   with strict IEEE semantics). BLAS and torch reassociate differently, so
- *   results agree with the NumPy mirror only up to FP32 rounding.
+ * - Row reductions in justnorm and LayerNorm/RMSNorm use 16 explicit partial
+ *   sums (a source-level choice, so it holds with strict IEEE semantics).
+ *   BLAS and torch reassociate differently, so results agree only up to
+ *   FP32 rounding.
  * - tanh/sigmoid use in-file polynomial approximations (Cephes tanhf core plus
  *   a degree-6 range-reduced expf) rather than libm scalar calls: libm's
  *   ~15-cycle scalar tanhf on the 2064 SiTU activations of a 3-block trunk
@@ -26,6 +26,13 @@
  *   exp() is only ever evaluated at non-positive arguments here, so it cannot
  *   overflow; arguments below -87 saturate, which turns sigmoid/tanh tails
  *   into 0/+-1 with absolute error below 2e-38.
+ * - The two Beta-head ops (CLEANRL_OP_BETA_CONC, CLEANRL_OP_BETA_RESCALE) are
+ *   the one exception to "a few ulp is fine": they replace NumPy expressions
+ *   whose results feed numpy.random.Generator.beta and the learner, so they
+ *   are bit-identical to those expressions, not merely close. They therefore
+ *   call glibc's expf/log1pf -- exactly what NumPy's own scalar logaddexp loop
+ *   calls -- instead of the polynomials above, and they need the build's
+ *   -ffp-contract=off so that `low + span * v` keeps both of its roundings.
  *
  * No OpenMP, no threads, no Python/NumPy C-API, no callbacks: ctypes drops the
  * GIL around the call.
@@ -44,7 +51,14 @@ enum {
     CLEANRL_OP_JUSTNORM = 5,      /* dst = src / max(||src||_2, 1e-12) rowwise  */
     CLEANRL_OP_GATED_MIX = 6,     /* dst = a + g * (b - a)                      */
     CLEANRL_OP_GATED_ADD = 7,     /* dst = a + g * b                            */
-    CLEANRL_OP_GATED_MIX_ACC = 8  /* dst += g * (b - a)                         */
+    CLEANRL_OP_GATED_MIX_ACC = 8, /* dst += g * (b - a)                         */
+    CLEANRL_OP_BETA_CONC = 9,     /* alpha, beta = 1 + softplus(logit halves)   */
+    CLEANRL_OP_BETA_RESCALE = 10, /* clip an FP64 draw, then low + span * draw  */
+    CLEANRL_OP_SIGNSQ = 11,       /* dst = src * |src|                          */
+    CLEANRL_OP_CAPSIGNSQ = 12,    /* t = 4*tanh(src/4); dst = t*|t|             */
+    CLEANRL_OP_CAPLRELUSQ = 13,   /* t = 4*tanh(src/4); dst = leaky_relu(t,0.5)^2 */
+    CLEANRL_OP_LAYERNORM = 14,   /* dst = (src-mean) / sqrt(var + 1e-5)        */
+    CLEANRL_OP_RMSNORM = 15      /* dst = src / sqrt(mean(src^2) + 1e-5)      */
 };
 
 /* ops[k * OP_STRIDE + 0] is the code; the remaining seven slots are buffer
@@ -192,6 +206,104 @@ static void justnorm(float *dst, const float *src, int rows, int cols)
     }
 }
 
+/* Non-affine PyTorch LayerNorm/RMSNorm over the last axis. Population
+ * variance (divide by cols, not cols-1), with epsilon INSIDE the square root.
+ * LayerNorm uses centered squares, not E[x^2]-E[x]^2, to avoid cancellation.
+ * Reductions finish before writes, so the row may be normalized in place.
+ * FP32 reduction order differs from PyTorch; bit identity is not promised. */
+static void moment_norm(float *dst, const float *src, int rows, int cols,
+                        int centered)
+{
+    for (int r = 0; r < rows; ++r) {
+        const float *sr = src + (size_t)r * (size_t)cols;
+        float *dr = dst + (size_t)r * (size_t)cols;
+        float acc[16];
+        float mean = 0.0f;
+        int c;
+        if (centered) {
+            for (int t = 0; t < 16; ++t) acc[t] = 0.0f;
+            for (c = 0; c + 16 <= cols; c += 16)
+                for (int t = 0; t < 16; ++t) acc[t] += sr[c + t];
+            for (; c < cols; ++c) acc[0] += sr[c];
+            for (int t = 0; t < 16; ++t) mean += acc[t];
+            mean /= (float)cols;
+        }
+        for (int t = 0; t < 16; ++t) acc[t] = 0.0f;
+        for (c = 0; c + 16 <= cols; c += 16) {
+            for (int t = 0; t < 16; ++t) {
+                const float v = sr[c + t] - mean;
+                acc[t] = fmaf(v, v, acc[t]);
+            }
+        }
+        for (; c < cols; ++c) {
+            const float v = sr[c] - mean;
+            acc[0] = fmaf(v, v, acc[0]);
+        }
+        float sum = 0.0f;
+        for (int t = 0; t < 16; ++t) sum += acc[t];
+        const float inv = 1.0f / sqrtf(sum / (float)cols + 1e-5f);
+        for (c = 0; c < cols; ++c) dr[c] = (sr[c] - mean) * inv;
+    }
+}
+
+/* np.logaddexp(0, y) for FP32 y, bit for bit: npy_logaddexpf's exact branch
+ * structure with its first argument frozen at zero, and the same libm calls
+ * (glibc expf/log1pf) that NumPy's scalar loop makes. Verified over all 2^32
+ * float32 bit patterns, NaN payloads included -- hence the literal `0.0f +`
+ * and the redundant-looking second comparison, which are what NumPy computes.
+ * The kernel's own exp_nonpos is 1-3 ulp off and must not be used here. */
+static inline float logaddexp0(float y)
+{
+    if (y == 0.0f) return 0.0f + 0.693147180559945286227f; /* NPY_LOGE2f */
+    const float tmp = -y;
+    if (tmp > 0.0f) return 0.0f + log1pf(expf(y));
+    if (tmp <= 0.0f) return y + log1pf(expf(-y));
+    return tmp; /* NaN */
+}
+
+/* alpha, beta = 1 + softplus(logits) split on the last axis: logits is
+ * (rows, 2 * half) row-major, the outputs are (rows, half) row-major, so the
+ * Beta sampler gets two C-contiguous arrays instead of two strided views. */
+static void beta_conc(float *restrict alpha, float *restrict beta,
+                      const float *restrict logits, int rows, int half)
+{
+    for (int r = 0; r < rows; ++r) {
+        const float *row = logits + (size_t)r * (size_t)half * 2;
+        float *ar = alpha + (size_t)r * (size_t)half;
+        float *br = beta + (size_t)r * (size_t)half;
+        for (int c = 0; c < half; ++c) ar[c] = 1.0f + logaddexp0(row[c]);
+        for (int c = 0; c < half; ++c) br[c] = 1.0f + logaddexp0(row[half + c]);
+    }
+}
+
+/* native = clip((float)draw, bounds[0], bounds[1]); action = low + span * native.
+ *
+ * draw is the FP64 output of numpy.random.Generator.beta, read straight out of
+ * the pointer table (whose slots are typed float * for the FP32 ops; only the
+ * address is shared, and the data is never accessed as float). Casting it here
+ * fuses what was a separate NumPy `.astype(np.float32)` pass and allocation.
+ * The clip's comparison form reproduces NumPy's clip ufunc for every input,
+ * NaN included, and the rescale keeps the FP32 multiply and add of
+ * `low + (high - low) * native` as two separately rounded operations.
+ * span = high - low is hoisted to construction: rounding the FP64 difference
+ * of two float32 bounds gives the same float32 as subtracting them in FP32. */
+static void beta_rescale(float *restrict action, float *restrict native,
+                         const double *restrict draw, const float *restrict affine,
+                         const float *restrict bounds, int rows, int cols)
+{
+    const float lo = bounds[0], hi = bounds[1];
+    const float *low = affine, *span = affine + cols;
+    for (int r = 0; r < rows; ++r) {
+        const size_t base = (size_t)r * (size_t)cols;
+        for (int c = 0; c < cols; ++c) {
+            float v = (float)draw[base + c];
+            v = v < lo ? lo : (v > hi ? hi : v);
+            native[base + c] = v;
+            action[base + c] = low[c] + span[c] * v;
+        }
+    }
+}
+
 void cleanrl_host_forward(const cleanrl_host_graph *graph, const float *x, float *out)
 {
     float **bufs = graph->bufs;
@@ -264,6 +376,52 @@ void cleanrl_host_forward(const cleanrl_host_graph *graph, const float *x, float
             }
             break;
         }
+        case CLEANRL_OP_BETA_CONC:
+            beta_conc(dst, bufs[op[3]], bufs[op[2]], op[5], op[6]);
+            break;
+        case CLEANRL_OP_BETA_RESCALE:
+            beta_rescale(dst, bufs[op[3]], (const double *)bufs[op[2]],
+                         bufs[op[4]], bufs[op[7]], op[5], op[6]);
+            break;
+        case CLEANRL_OP_SIGNSQ: {
+            const float *src = bufs[op[2]];
+            const int n = op[5];
+            for (int o = 0; o < n; ++o) {
+                const float v = src[o];
+                dst[o] = v * fabsf(v);
+            }
+            break;
+        }
+        /* The 4.0f cap is hardcoded here and in host_graph.py; the source of
+         * truth is host_actor.SQ_PAIR_CAP, and both mirrors reject a pair
+         * whose activation carries any other cap. tanh_fast is the same
+         * in-file polynomial SiTU-GLU's 4*tanh(g/4) gate cap uses, so no libm
+         * scalar call enters the elementwise loop. */
+        case CLEANRL_OP_CAPSIGNSQ: {
+            const float *src = bufs[op[2]];
+            const int n = op[5];
+            for (int o = 0; o < n; ++o) {
+                const float t = 4.0f * tanh_fast(src[o] / 4.0f);
+                dst[o] = t * fabsf(t);
+            }
+            break;
+        }
+        case CLEANRL_OP_CAPLRELUSQ: {
+            const float *src = bufs[op[2]];
+            const int n = op[5];
+            for (int o = 0; o < n; ++o) {
+                const float t = 4.0f * tanh_fast(src[o] / 4.0f);
+                const float l = t > 0.5f * t ? t : 0.5f * t;
+                dst[o] = l * l;
+            }
+            break;
+        }
+        case CLEANRL_OP_LAYERNORM:
+            moment_norm(dst, bufs[op[2]], op[5], op[6], 1);
+            break;
+        case CLEANRL_OP_RMSNORM:
+            moment_norm(dst, bufs[op[2]], op[5], op[6], 0);
+            break;
         default:
             return;
         }

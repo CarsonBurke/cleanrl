@@ -61,8 +61,24 @@ threads and 16 envs, libgomp's default burned 1630us of process CPU per step
 to back 614us of real work, and stole enough throughput from the policy thread
 to cost wall time too. With three concurrent rollouts, parking holds aggregate
 throughput at 161.7k SPS on 5.1 cores where an unbounded spin needs 11.9 cores
-for 164.8k. Set `CLEANRL_ENV_SPIN` (pause iterations before parking, default
-0) to trade CPU back for ~10% wall when one run owns the machine.
+for 164.8k.
+
+`CLEANRL_ENV_SPIN` (pause iterations before parking, default 0) trades CPU
+back for wall time, and the default is deliberately conservative rather than
+optimal. Parking's cost is entirely tail latency: parked workers queue behind
+other runnable threads, so at 16 envs / 4 threads under load the median step
+is 15-25us slower than with `CLEANRL_ENV_SPIN=5000` while the minima barely
+move. Spinning wins whenever cores are genuinely idle and only turns negative
+once they saturate — measured, `spin=5000` still gained 6.6% aggregate at 6
+concurrent runs x 2 threads, which consumes 9.3 of 12 cores. At the
+documented operating point (6 runs, `num_threads=2`) set it; leave it at 0
+when the box is oversubscribed.
+
+`num_threads` is a per-run latency knob paid for in aggregate throughput, so
+it must be chosen end-to-end and never from a rollout-only benchmark. On the
+real trainer at 6 concurrent runs: 1 thread gives 186k aggregate SPS, 2 gives
+252k, 4 gives 209k. A rollout-chain proxy that omits the optimizer step
+wrongly favours 1 thread, because per-run cost there is almost pure physics.
 
 Supported wrappers are checked explicitly. Native execution preserves the
 canonical raw wrapper stack and the standard legacy observation/reward
@@ -217,6 +233,34 @@ hand-written mirror in `cleanrl.shared.host_actor` and warns once with the
 kernel's reason. The warning matters: a silent fallback costs ~6x on the policy
 forward and is otherwise invisible in a run's logs. A genuinely malformed or
 unsupported network still raises.
+
+### Host Beta head
+
+`cleanrl.shared.sampling.make_beta_sampler(num_envs, act_dim, low, high)` is the
+same pattern one layer down: once the policy forward is fused, the Beta head is
+~60% of what is left of the rollout's host path. `rng.beta` is untouched and
+irreducible -- the RNG stream is load-bearing -- so what moves into
+`host_kernel.c` is only the NumPy dispatch around it: `logaddexp`/`+= 1`/split
+before, cast/clip/rescale after. Paired A/B/A at 16 envs and act_dim 6: the head
+falls 13.4 -> 10.5us per step and the whole chain 24.5 -> 21.6us, after which
+`rng.beta` is 77% of the remainder.
+
+The pre-sampler op is the one place here that is libm-bound rather than
+dispatch-bound: bitwise identity with `np.logaddexp` forces glibc `expf` +
+`log1pf` per element (~5.8ns each), so it recovers ~1.4us rather than the ~2.5us
+NumPy spends. The kernel's own polynomial `exp` is far faster and 1-3 ulp off,
+which is not usable when the output seeds a random draw.
+
+### Bitwise identity is shape-dependent
+
+Worth knowing before batching any per-tensor reduction: a CUDA row reduction
+picks its accumulation split from the shape, so `X.mean(dim=1)` on a stacked
+`[n, W]` buffer is NOT guaranteed to equal `x.mean()` per row. Measured, `mean`
+diverges in the last ulp at (n>=4, W=1024) and (n>=16, W=256), `std` at
+(n>=6, W=512) and (n>=16, W=128), while the shapes this fork actually runs
+((8, 64) and (12, 43)) are clean. Batched reductions whose result reaches the
+learner therefore need a construction-time equality check against the loop they
+replace, with a per-group fallback -- not a shape-independent assumption.
 
 The accepted learner path compiles the original loss and uses ordinary fused
 Adam execution. `cleanrl.shared.cuda_update.CudaGraphUpdate` remains diagnostic

@@ -11,7 +11,8 @@ Contents
   the transition's actual final observation) but cut the trace. Truncation
   bootstrap values arrive precomputed via :class:`TruncationBootstrapCache`.
   Masks are hoisted out of the backwards loop; use :func:`get_gae_fn` for the
-  ``torch.compile``-cached variant (compile happens lazily on first call).
+  cached compiled variant. FP32 CUDA targets use a bounded sequential kernel;
+  other inputs retain the PyTorch recurrence and its autograd behavior.
 - :class:`TruncationBootstrapCache` -- accumulate raw final observations
   during the rollout; resolve them with ONE batched value forward after the
   loop instead of one small forward per step containing a truncation.
@@ -31,6 +32,12 @@ import numpy as np
 import torch
 
 _gae_fn_cache = {}
+
+# Shared read-only empty index array for the (overwhelmingly common) rollout
+# step with no truncation. Both callers only read its ``size`` / iterate it,
+# so one immutable instance replaces two per-call allocations.
+_NO_SLOTS = np.empty(0, dtype=np.int64)
+_NO_SLOTS.flags.writeable = False
 
 
 def compute_gae(
@@ -84,11 +91,17 @@ def compute_gae_from_next_values(
 
 
 def get_gae_fn(compiled=False, mode="reduce-overhead", *, explicit_next_values=False):
-    """Return cached GAE; select explicit transition values for v30 semantics."""
+    """Return cached GAE, using bounded-code CUDA recurrence where supported."""
     key = (bool(compiled), mode if compiled else None, bool(explicit_next_values))
     if key not in _gae_fn_cache:
         fn = compute_gae_from_next_values if explicit_next_values else compute_gae
         if compiled:
+            import importlib.util
+
+            if importlib.util.find_spec("triton") is not None:
+                from cleanrl.shared.gae import gae_cuda_or_reference, gae_next_cuda_or_reference
+
+                fn = gae_next_cuda_or_reference if explicit_next_values else gae_cuda_or_reference
             fn = torch.compile(fn, mode=mode)
         _gae_fn_cache[key] = fn
     return _gae_fn_cache[key]
@@ -153,6 +166,13 @@ class TruncationBootstrapCache:
         truncations = np.asarray(truncations, dtype=bool)
         if truncations.shape != (self.num_envs,):
             raise ValueError(f"truncations must have shape ({self.num_envs},)")
+        # Overwhelmingly the common case: nothing truncated (a 16-env
+        # HalfCheetah rollout truncates on ~1.6% of steps). Validation above
+        # still runs, so a wrong-shaped argument is still rejected; what the
+        # early-out skips is np.flatnonzero plus the slot arithmetic, which
+        # allocate two index arrays per call to describe an empty set.
+        if not np.count_nonzero(truncations):
+            return _NO_SLOTS, _NO_SLOTS
         indices = np.flatnonzero(truncations)
         return indices, int(step) * self.num_envs + indices
 

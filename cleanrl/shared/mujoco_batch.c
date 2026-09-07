@@ -51,6 +51,9 @@ typedef struct {
   double *before;
   double *positions;
   double *velocities;
+  double *observations;
+  int observation_offset;
+  int clip_velocity;
   int count;
   int frame_skip;
 } batch_t;
@@ -83,6 +86,21 @@ static void step_env(const batch_t *batch, int index) {
   mj_rnePostConstraint(model, data);
   memcpy(batch->positions + (size_t)index * nq, data->qpos, (size_t)nq * sizeof(mjtNum));
   memcpy(batch->velocities + (size_t)index * nv, data->qvel, (size_t)nv * sizeof(mjtNum));
+  /* Assemble task observations while the state is hot, without another
+   * Python/NumPy dispatch. Keep the unclipped velocity buffer for Hopper's
+   * health predicate. Comparisons preserve NaNs and signed zero, unlike
+   * fmin/fmax, and no arithmetic or MuJoCo operation is reordered. */
+  const int width = nq - batch->observation_offset;
+  double *observation = batch->observations + (size_t)index * (width + nv);
+  memcpy(observation, data->qpos + batch->observation_offset, (size_t)width * sizeof(mjtNum));
+  if (batch->clip_velocity) {
+    for (int j = 0; j < nv; ++j) {
+      const double velocity = data->qvel[j];
+      observation[width + j] = velocity < -10.0 ? -10.0 : velocity > 10.0 ? 10.0 : velocity;
+    }
+  } else {
+    memcpy(observation + width, data->qvel, (size_t)nv * sizeof(mjtNum));
+  }
 }
 
 /* Claim environments until the batch is exhausted. Every worker of a
@@ -220,11 +238,12 @@ void cleanrl_pool_destroy(void *handle) {
   free(pool);
 }
 
-/* `models`/`data` are copied; the four double buffers and the action buffer are
- * borrowed and must outlive the pool (mujoco_env.py allocates them once). */
+/* `models`/`data` are copied; all double buffers are borrowed and must outlive
+ * the pool (mujoco_env.py allocates them once). */
 void *cleanrl_pool_create(int count, const mjModel **models, mjData **data,
                           const double *actions, int frame_skip, int threads, int spin,
-                          double *before, double *positions, double *velocities) {
+                          double *before, double *positions, double *velocities,
+                          double *observations, int observation_offset, int clip_velocity) {
   if (count <= 0 || threads <= 0 || frame_skip <= 0) {
     return NULL;
   }
@@ -244,6 +263,9 @@ void *cleanrl_pool_create(int count, const mjModel **models, mjData **data,
   pool->batch.before = before;
   pool->batch.positions = positions;
   pool->batch.velocities = velocities;
+  pool->batch.observations = observations;
+  pool->batch.observation_offset = observation_offset;
+  pool->batch.clip_velocity = clip_velocity;
   pool->batch.count = count;
   pool->batch.frame_skip = frame_skip;
   pool->threads = threads > count ? count : threads;

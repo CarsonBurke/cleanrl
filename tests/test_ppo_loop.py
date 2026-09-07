@@ -92,8 +92,8 @@ def test_gae_compiled_matches_eager_on_cuda(capsys):
     t = time.perf_counter()
     got = compiled(*args, 0.99, 0.95)
     elapsed = time.perf_counter() - t
-    torch.testing.assert_close(got[0], expected[0], atol=1e-4, rtol=1e-4)
-    torch.testing.assert_close(got[1], expected[1], atol=1e-4, rtol=1e-4)
+    torch.testing.assert_close(got[0], expected[0], atol=1e-5, rtol=1e-5)
+    torch.testing.assert_close(got[1], expected[1], atol=1e-5, rtol=1e-5)
     with capsys.disabled():
         print(f"\n[ppo_loop] compiled GAE (64x4, incl. compile): {elapsed:.2f}s")
 
@@ -176,6 +176,23 @@ def test_truncation_cache_duplicate_slot_keeps_latest_snapshot():
     cache.push_normalized(0, [True, True], np.array([[3.0], [4.0]]))
     got = cache.resolve(lambda batch: batch.to(torch.bfloat16), "cpu")
     torch.testing.assert_close(got, torch.tensor([[3.0, 4.0]]))
+
+
+@pytest.mark.parametrize("method", ["push_normalized", "push"])
+def test_truncation_cache_validates_arguments_when_nothing_truncated(method):
+    # The no-truncation fast path returns before building any index array, so
+    # it must still reject a step outside the rollout and a truncations vector
+    # of the wrong width instead of silently recording nothing.
+    cache = TruncationBootstrapCache(4, 3, obs_shape=(2,))
+    payload = (np.zeros((3, 2), dtype=np.float32) if method == "push_normalized"
+               else {"final_observation": [None, None, None]})
+    call = getattr(cache, method)
+    with pytest.raises(ValueError, match=r"truncations must have shape \(3,\)"):
+        call(0, [False, False], payload)
+    with pytest.raises(IndexError, match=r"outside \[0, 4\)"):
+        call(4, [False, False, False], payload)
+    call(0, [False, False, False], payload)
+    assert len(cache) == 0
 
 
 def test_truncation_cache_observation_storage_scales_with_truncations():
@@ -278,7 +295,71 @@ def test_explicit_next_values_gae_compiled_cuda():
     args = (rewards, values, terms, truncs, next_values, 0.99, 0.95)
     expected = compute_gae_from_next_values(*args)
     got = get_gae_fn(compiled=True, explicit_next_values=True)(*args)
-    torch.testing.assert_close(got, expected, atol=1e-4, rtol=1e-4)
+    torch.testing.assert_close(got, expected, atol=1e-5, rtol=1e-5)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+@pytest.mark.cuda
+@pytest.mark.parametrize("explicit", [False, True])
+def test_compiled_gae_tile_boundaries_and_nonfinite_trace(explicit):
+    inputs = [tensor.cuda() for tensor in _random_gae_inputs(67, 3, seed=1)]
+    rewards, values, terms, truncs, next_values, tail = inputs
+    terms.zero_()
+    truncs.zero_()
+    terms[[0, 2, 31, 32, 63, 66], 0] = 1
+    truncs[[1, 3, 30, 33, 64, 66], 1] = 1
+    terms[32, 2] = truncs[32, 2] = 1
+    # Fractional masks intentionally remain numerical masks, not bool traces.
+    terms[17, 2], truncs[18, 2] = 0.25, 0.5
+    # Explicit where must cut a nonfinite future; standard multiply must not.
+    rewards[65, 1] = float("nan")
+    truncs[64, 1] = 1
+    args = (*inputs[:5], 0.99, 0.95) if explicit else (*inputs, 0.99, 0.95)
+    reference = compute_gae_from_next_values if explicit else compute_gae
+    expected = reference(*args)
+    rng = torch.cuda.get_rng_state()
+    torch.compiler.cudagraph_mark_step_begin()
+    actual = get_gae_fn(compiled=True, explicit_next_values=explicit)(*args)
+    torch.testing.assert_close(actual, expected, atol=1e-5, rtol=1e-5, equal_nan=True)
+    assert torch.equal(rng, torch.cuda.get_rng_state())
+    assert bool(actual[0][64, 1].isfinite()) == explicit
+
+
+@pytest.mark.parametrize("explicit", [False, True])
+@pytest.mark.parametrize("case", ["strided", "float64", "mixed", "autograd"])
+@pytest.mark.parametrize("device", ["cpu", pytest.param("cuda", marks=[pytest.mark.cuda,
+    pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")])])
+def test_compiled_gae_preserves_reference_input_contract(explicit, case, device):
+    inputs = [tensor.to(device) for tensor in _random_gae_inputs(5, 3, seed=1)]
+    if case == "strided":
+        inputs = [
+            tensor.t().contiguous().t() if tensor.ndim == 2 else tensor
+            for tensor in inputs
+        ]
+    elif case == "float64":
+        inputs = [tensor.double() for tensor in inputs]
+    elif case == "mixed":
+        inputs[1] = inputs[1].double()
+        inputs[2] = inputs[2].to(torch.int32)
+    else:
+        for index in (0, 1, 4, 5):
+            inputs[index].requires_grad_()
+    args = (*inputs[:5], 0.99, 0.95) if explicit else (*inputs, 0.99, 0.95)
+    reference = compute_gae_from_next_values if explicit else compute_gae
+    expected = reference(*args)
+    torch.compiler.cudagraph_mark_step_begin()
+    actual = get_gae_fn(compiled=True, mode="default", explicit_next_values=explicit)(*args)
+    torch.testing.assert_close(actual, expected, atol=1e-5, rtol=1e-5)
+    if case == "autograd":
+        differentiated = [inputs[index] for index in ((0, 1, 4) if explicit else (0, 1, 4, 5))]
+        weights = torch.arange(15, device=device).reshape(5, 3) / 15
+        expected_gradients = torch.autograd.grad(
+            (expected[0] * weights + expected[1]).sum(), differentiated
+        )
+        actual_gradients = torch.autograd.grad(
+            (actual[0] * weights + actual[1]).sum(), differentiated
+        )
+        torch.testing.assert_close(actual_gradients, expected_gradients, atol=1e-5, rtol=1e-5)
 
 
 @pytest.mark.parametrize("device", ["cpu", pytest.param("cuda", marks=[pytest.mark.cuda,

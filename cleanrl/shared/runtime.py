@@ -6,10 +6,11 @@ before building networks. Thread-pool sizing (``OMP_NUM_THREADS=1``,
 exported before the process starts, so pass them via ``mlq --env`` (see the
 submit template in CLAUDE.md). What this module does set takes effect
 post-import and is therefore safe to centralize:
-
-- FP32 matmul precision ``"high"`` (TensorFloat32-capable GEMMs on Ampere+);
-- TF32 allowed for CUDA matmuls and cuDNN (V-MPO contract; master weights,
-  PopArt state, and distribution special functions stay FP32 in caller code);
+- FP32 matmul precision ``"high"`` and TF32 for CUDA matmuls/cuDNN. These are
+  DEFAULTS, not the production setting: the plasticity and 32xlr families all
+  call ``configure_runtime(matmul_precision="highest", allow_tf32=False)`` and
+  therefore run with TF32 OFF, for fidelity. Only the iterthink/d3bucket
+  family and the benchmark scripts take the TF32 defaults;
 - ``torch.set_num_threads(1)``: these trainers run all math on CUDA, so CPU
   intra-op parallelism is pure oversubscription overhead on tiny ops.
 """

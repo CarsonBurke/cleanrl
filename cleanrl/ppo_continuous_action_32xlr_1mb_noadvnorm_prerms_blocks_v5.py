@@ -1,12 +1,15 @@
-# Bounded-action Beta PPO with shared native MuJoCo execution.
-# Positive Beta parameters replace the Gaussian head. PPO loss, clipping,
-# optimizer settings and critic architecture are unchanged. Store native samples
-# for old/new densities; include the action-range Jacobian. Keep FP32 precision.
+# Pre-RMS block-factorization study, v5. Compare six one-linear stages
+# (RMS -> Linear -> LeakyReLU^2) against three two-linear FFNs, with either
+# additive residuals or plain composition. Linear count stays six; stage
+# output second moment .25 matches the total .5-per-pair residual budget.
+# This tests block structure and identity paths, not only norm placement.
+# PPO, Beta heads, normalization runtime and host rollout remain unchanged.
 import os
 import random
 import time
 from contextlib import ExitStack
 from dataclasses import dataclass
+from typing import Literal
 
 import gymnasium as gym
 import numpy as np
@@ -23,11 +26,13 @@ from cleanrl.shared.ppo_loop import (
     TruncationBootstrapCache, device_minibatches, explained_variance,
     gather_metrics, get_gae_fn,
 )
+from cleanrl.shared.pre_rms import make_pre_rms_trunk
+from cleanrl.shared.pre_rms_stage import make_pre_rms_stage_trunk
 from cleanrl.shared.host_graph import make_host_mirror
 from cleanrl.shared.rollout_graph import graph_compile
 from cleanrl.shared.rollout_transfer import RolloutTransfer
 from cleanrl.shared.runtime import configure_runtime
-from cleanrl.shared.sampling import make_beta_sampler, sample_beta_actions
+from cleanrl.shared.sampling import sample_beta_actions, sample_beta_actions_host
 from cleanrl.shared.staggered_envs import (
     compute_phase_offsets, episode_horizon, run_phase_warmup,
 )
@@ -57,19 +62,14 @@ class Args:
     """whether to capture videos of the agent performances (check out `videos` folder)"""
     save_model: bool = False
     """whether to save model into the `runs/{run_name}` folder"""
-    upload_model: bool = False
-    """whether to upload the saved model to huggingface"""
-    hf_entity: str = ""
-    """the user or org name of the model repository from the Hugging Face Hub"""
-
     # Algorithm specific arguments
     env_id: str = "HalfCheetah-v4"
     """the id of the environment"""
-    total_timesteps: int = 1000000
+    total_timesteps: int = 50000000
     """total timesteps of the experiments"""
-    learning_rate: float = 3e-4
-    """the learning rate of the optimizer"""
-    num_envs: int = 1
+    learning_rate: float = 9.6e-3
+    """32x the 3e-4 PPO default; one Adam covers actor and critic"""
+    num_envs: int = 16
     """the number of parallel game environments"""
     num_steps: int = 2048
     """the number of steps to run in each environment per policy rollout"""
@@ -79,12 +79,12 @@ class Args:
     """the discount factor gamma"""
     gae_lambda: float = 0.95
     """the lambda for the general advantage estimation"""
-    num_minibatches: int = 32
+    num_minibatches: int = 1
     """the number of mini-batches"""
     update_epochs: int = 10
     """the K epochs to update the policy"""
-    norm_adv: bool = True
-    """Toggles advantages normalization"""
+    norm_adv: bool = False
+    """raw GAE in the surrogate; no minibatch standardization"""
     clip_coef: float = 0.2
     """the surrogate clipping coefficient"""
     clip_vloss: bool = True
@@ -98,11 +98,28 @@ class Args:
     target_kl: float | None = None
     """the target KL divergence threshold"""
 
+    norm_position: Literal["input", "preact", "postact", "branch"] = "input"
+    """additional RMS placement within each squared branch; input is canonical prenorm"""
+    learned_input_gain: bool = False
+    """learn a per-channel gain for each block's input RMSNorm"""
+    actor_final_norm: bool = True
+    """RMS-normalize the final actor stream before the calibrated readout"""
+    critic_final_norm: bool = True
+    """RMS-normalize the final critic stream, or retain its magnitude"""
+    branch_input_scale: float = 1.0
+    """forward-equivalent input-matrix reparameterization; .125 matches sphere at width64"""
+    block_kind: Literal["pair", "single"] = "single"
+    """two-linear FFNs or one-linear RMS -> Linear -> activation stages"""
+    residual: bool = True
+    """identity residual additions, or plain feed-forward composition"""
+    n_blocks: int = 6
+    """number of additive gated residual blocks in each network"""
+
     # Execution controls, independent of PPO's batch and optimizer settings.
     env_backend: str = "auto"
     """native for supported v4 MuJoCo; sync for other continuous environments"""
     env_threads: int = 2
-    """maximum physics threads; two balances latency with concurrent N16 runs"""
+    """maximum physics threads, capped at num_envs"""
     compile: bool = True
     """compile deterministic policy statistics, PPO loss and GAE"""
     compile_mode: str = "reduce-overhead"
@@ -121,76 +138,6 @@ class Args:
     """the number of iterations (computed in runtime)"""
 
 
-# Public evaluation and historical GAE compatibility helpers; not the training path.
-def make_env(env_id, idx, capture_video, run_name, gamma):
-    def thunk():
-        if capture_video and idx == 0:
-            env = gym.make(env_id, render_mode="rgb_array")
-            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
-        else:
-            env = gym.make(env_id)
-        env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
-        env = gym.wrappers.RecordEpisodeStatistics(env)
-        env = gym.wrappers.ClipAction(env)
-        env = gym.wrappers.NormalizeObservation(env)
-        env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
-        env = gym.wrappers.NormalizeReward(env, gamma=gamma)
-        env = gym.wrappers.TransformReward(env, lambda reward: np.clip(reward, -10, 10))
-        return env
-
-    return thunk
-
-
-def bootstrap_observations(next_obs, truncations, infos):
-    """Replace autoreset observations with final observations at time limits."""
-    bootstrap_obs = np.array(next_obs, copy=True)
-    truncations = np.asarray(truncations, dtype=bool)
-    if not np.any(truncations):
-        return bootstrap_obs
-
-    final_observations = infos.get("final_observation")
-    final_mask = infos.get("_final_observation")
-    if final_observations is None:
-        raise RuntimeError("truncated transition missing infos['final_observation']")
-
-    for env_idx in np.flatnonzero(truncations):
-        if final_mask is not None and not final_mask[env_idx]:
-            raise RuntimeError(f"truncated environment {env_idx} has no final observation")
-        final_observation = final_observations[env_idx]
-        if final_observation is None:
-            raise RuntimeError(f"truncated environment {env_idx} has no final observation")
-        bootstrap_obs[env_idx] = final_observation
-    return bootstrap_obs
-
-
-def compute_gae(
-    rewards,
-    values,
-    terminations,
-    truncations,
-    truncation_bootstrap_values,
-    rollout_tail_value,
-    gamma,
-    gae_lambda,
-):
-    """Compute GAE with distinct bootstrap and reset-boundary semantics."""
-    advantages = torch.zeros_like(rewards)
-    last_advantage = torch.zeros_like(rollout_tail_value)
-    for t in reversed(range(rewards.shape[0])):
-        ordinary_next_value = rollout_tail_value if t == rewards.shape[0] - 1 else values[t + 1]
-        next_value = torch.where(
-            truncations[t].bool(),
-            truncation_bootstrap_values[t],
-            ordinary_next_value,
-        )
-        bootstrap_nonterminal = 1.0 - terminations[t]
-        trace_nonterminal = 1.0 - torch.maximum(terminations[t], truncations[t])
-        delta = rewards[t] + gamma * bootstrap_nonterminal * next_value - values[t]
-        last_advantage = delta + gamma * gae_lambda * trace_nonterminal * last_advantage
-        advantages[t] = last_advantage
-    return advantages, advantages + values
-
-
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
@@ -198,7 +145,14 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs):
+    action_low: torch.Tensor
+    action_high: torch.Tensor
+    action_scale: torch.Tensor
+    log_action_scale: torch.Tensor
+
+    def __init__(self, envs, *, norm_position="input", learned_input_gain=False,
+                 actor_final_norm=True, critic_final_norm=True, branch_input_scale=1.0, n_blocks=6,
+                 block_kind="single", residual=True):
         super().__init__()
         space = envs.single_action_space
         if not isinstance(space, gym.spaces.Box):
@@ -215,14 +169,22 @@ class Agent(nn.Module):
         if not torch.isfinite(self.action_scale).all() or not (self.action_scale > 0).all():
             raise ValueError("action bounds must have a finite positive FP32 range")
         self.register_buffer("log_action_scale", self.action_scale.log())
+
+        def make_trunk(final_norm):
+            if block_kind == "single":
+                return make_pre_rms_stage_trunk(observation_dim, 64, n_blocks, residual=residual,
+                                               learned_input_gain=learned_input_gain, final_norm=final_norm,
+                                               branch_input_scale=branch_input_scale)
+            return make_pre_rms_trunk(observation_dim, 64, n_blocks, norm_position=norm_position,
+                                      residual=residual, learned_input_gain=learned_input_gain,
+                                      final_norm=final_norm, branch_input_scale=branch_input_scale)
+
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(observation_dim, 64)), nn.Tanh(),
-            layer_init(nn.Linear(64, 64)), nn.Tanh(),
+            make_trunk(critic_final_norm),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
         self.actor = nn.Sequential(
-            layer_init(nn.Linear(observation_dim, 64)), nn.Tanh(),
-            layer_init(nn.Linear(64, 64)), nn.Tanh(),
+            make_trunk(actor_final_norm),
             layer_init(nn.Linear(64, 2 * self.action_dim), std=0.01),
         )
 
@@ -289,6 +251,8 @@ def validate_args(args):
         raise ValueError("environment, rollout, minibatch and epoch counts must be positive")
     if args.env_backend not in {"auto", "native", "threaded", "sync"} or args.env_threads <= 0:
         raise ValueError("invalid environment backend or thread count")
+    if args.block_kind == "single" and args.norm_position != "input":
+        raise ValueError("single-linear stages use input prenorm; inner norm positions require pair blocks")
     args.batch_size = args.num_envs * args.num_steps
     args.minibatch_size = args.batch_size // args.num_minibatches
     if args.minibatch_size == 0:
@@ -337,10 +301,14 @@ def main():
     try:
         writer.add_text("hyperparameters", "|param|value|\n|-|-|\n" +
                         "\n".join(f"|{key}|{value}|" for key, value in vars(args).items()))
-        writer.add_text("policy", "Beta: alpha,beta=1+softplus(head); FP32; native-action storage; host actor mirror")
+        writer.add_text("policy", f"Beta host actor; preRMS {args.block_kind} blocks; residual={args.residual}; "
+                        "32x LR; 1 minibatch; raw GAE")
         envs = make_training_env(args, run_name)
         resources.callback(envs.close)
-        agent = Agent(envs).to(device)
+        agent = Agent(envs, norm_position=args.norm_position, learned_input_gain=args.learned_input_gain,
+                      actor_final_norm=args.actor_final_norm, critic_final_norm=args.critic_final_norm,
+                      branch_input_scale=args.branch_input_scale, n_blocks=args.n_blocks,
+                      block_kind=args.block_kind, residual=args.residual).to(device)
         optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5, fused=True)
         value_model = agent.get_value
 
@@ -365,10 +333,9 @@ def main():
         host_actor = make_host_mirror(agent.actor, args.num_envs)
         action_low, action_high = (buffer.cpu().numpy() for buffer in (agent.action_low, agent.action_high))
         sampler = np.random.default_rng(args.seed)
-        sample_actions = make_beta_sampler(args.num_envs, agent.action_dim, action_low, action_high)
 
         def act(observations):
-            native, action = sample_actions(host_actor(observations), sampler)
+            native, action = sample_beta_actions_host(host_actor(observations), action_low, action_high, sampler)
             if not np.isfinite(action).all():
                 raise FloatingPointError("policy produced nonfinite actions")
             return native, action.reshape((args.num_envs,) + agent.action_shape)
@@ -493,20 +460,12 @@ def main():
         envs.close()
         if args.save_model:
             model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
-            torch.save(agent.state_dict(), model_path)
+            torch.save({"model": agent.state_dict(), "args": vars(args),
+                        "obs_norm": {"means": torch.from_numpy(obs_norm.means.copy()),
+                                     "variances": torch.from_numpy(obs_norm.variances.copy()),
+                                     "counts": torch.from_numpy(obs_norm.counts.copy()),
+                                     "epsilon": obs_norm.epsilon, "clip": obs_norm.clip}}, model_path)
             print(f"model saved to {model_path}")
-            from cleanrl_utils.evals.ppo_eval import evaluate
-            episodic_returns = evaluate(
-                model_path, make_env, args.env_id, eval_episodes=10,
-                run_name=f"{run_name}-eval", Model=Agent, device=device, gamma=args.gamma,
-            )
-            for index, episodic_return in enumerate(episodic_returns):
-                writer.add_scalar("eval/episodic_return", episodic_return, index)
-            if args.upload_model:
-                from cleanrl_utils.huggingface import push_to_hub
-                repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
-                repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-                push_to_hub(args, episodic_returns, repo_id, "PPO", f"runs/{run_name}", f"videos/{run_name}-eval")
     finally:
         resources.close()
 
