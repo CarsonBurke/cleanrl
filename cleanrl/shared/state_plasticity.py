@@ -1,277 +1,285 @@
-"""State-dependent plasticity as a general mechanism, not an RL trick.
+"""Mirror plasticity: graded, self-calibrating, per-connection step-size control.
 
-PREMISE. Each perceptron decides, from ITS OWN STATE on the current sample, how
-much of that sample's gradient is allowed to move its incoming weights. Nothing
-here is RL-specific: the mechanism sees only ``(x, z, delta)`` -- a layer's
-input, its pre-activation, and the incoming pre-activation gradient -- which
-exist identically in LLM pretraining, time-series forecasting, and PPO. The
-same object is therefore usable for any of them.
+PREMISE. Each perceptron (each synapse, in the default granularity) decides,
+from its own accumulated experience, how much of the current step it is allowed
+to take. The decision is graded in [0, 1], smooth in the evidence, and carries
+no tuned threshold.
 
-WHY BOTH MOMENTS. Write a unit's per-sample gradient contribution as
-``g = mu + eps``. Earlier versions of this family fitted only ``E[g^2]``, i.e.
-they forced ``mu = 0``. That is blind to signal by construction: for a useless
-input the residual energy is ``delta^2`` and for a predictive input it is ALSO
-``delta^2``. Only the first moment differs. So the predictor here has TWO heads:
+WHAT IS MEASURED (`cleanrl/plasticity/noisy_stream_diagnostic.py`, batch size 1,
+single pass, 4096 inputs of which 1 predicts and 4095 are 1%-sparse distractors,
+targets carrying N(0, 5) noise; test MSE against the NOISE-FREE target, where
+the zero-predictor scores 0.0112):
 
-    mu_hat(s)     predicted mean of delta given the unit's state
-    n_hat(s)      predicted variance of delta given the unit's state
+    oracle (told the answer)   0.00219
+    mirror (this module)       0.00397   level 1.0000 on signal, 0.0398 on noise
+    binary admission veto      0.00604
+    graded (t^2/(t^2+z^2))^2   0.01088
+    sgd                        0.04176
+    adam                       0.36029   (32x WORSE than predicting nothing)
 
-trained jointly by the heteroscedastic Gaussian NLL
+THE STATISTIC. For a parameter entry, accumulate over updates
 
-    L_gate = mean[ (delta - mu_hat)^2 / n_hat + log n_hat ]
+    A = sum_t g_t        Q = sum_t g_t^2        R = sum_t eps_t g_t
 
-which is minimised at the true conditional mean and variance. Two products come
-out of one predictor, and they are used in the two different places the
-optimizer permits:
+with ``eps_t`` a single Rademacher sign per step, shared by every entry and
+independent of the gradients. Then ``t_A = |A| / sqrt(Q)`` is the exact
+self-normalised cumulative: it grows as ``sqrt(n) * mu/sigma`` for an entry whose
+gradient has a consistent sign and stays ``O(1)`` forever for one that does not.
+Separation therefore IMPROVES with evidence -- unlike any ratio of EMA moments,
+whose separation is capped by its horizon no matter how much evidence arrives.
 
-  DIRECTION (per sample, pre-optimizer). GLS weighting ``w_t = n_ref / n_hat_t``
-  reweights samples within the batch. This changes the summed gradient's
-  direction, which survives Adam. Note the correct GLS weight involves ONLY the
-  conditional variance -- but it must be the CENTERED variance, which is exactly
-  what needs the mean head to estimate honestly.
+THE CALIBRATION. ``R`` is a sign-randomized twin of ``A``: because ``eps`` is
+independent of ``g``, ``E[R] = 0`` exactly while ``E[R^2] = E[A^2] - (E A)^2``,
+so the twin shares the energy of the observed accumulator but is provably null
+over the identical window. Its order statistics ARE the null distribution of the
+evidence, which yields a false-discovery proportion with no knowledge of the
+noise scale, the number of observations, or the sparsity:
 
-  MAGNITUDE (per unit, post-optimizer). A per-sample magnitude cannot survive
-  Adam: beta1 attenuates one batch to ~10% of the intended effect and beta2
-  divides out anything persistent. Measured, asking for a 0.125x step:
-  pre-optimizer 0.897 for one batch and 1.00 sustained, versus post-optimizer
-  0.124 at any duration. So magnitude is applied to the REALIZED step, and the
-  finest granularity available there is per unit per update.
+    level = 1 - #{twin >= t_A} / #{observed >= t_A}      clamped to [0, 1]
 
-SQUARING AN ESTIMATED MEAN IS BIASED, AND THE BIAS POINTS THE WRONG WAY.
-``E[|rbar|^2] = |mu|^2 + Var(rbar)``, and ``Var(rbar)`` grows with the noise, so
-a naive signal estimate is inflated exactly where the data is least reliable.
-Measured on the regime stream, the undebiased statistic gets reliability
-BACKWARDS. For a batch estimator the correction is free and exact, because the
-variance of the mean is already computed for the denominator:
+The level REACHES exactly 1 once evidence is overwhelming. That matters: a
+sigmoid-like gate such as ``(t^2/(t^2+z^2))^p`` throttles the very entry it has
+certified, which measured as a 2.7x MSE penalty and half the signal weight.
 
-    signal = max(|rbar|^2 - Var(rbar), 0)
+PROPERTIES THAT SURVIVED MEASUREMENT.
 
-For a streaming EMA estimator, where there is no within-batch replication to
-estimate ``Var`` from, use ``sign_control=True``: a twin estimator is run on the
-sign-randomized stream ``eps_t * g_t`` with ``eps_t`` in {-1,+1} shared across
-units. Its true mean is exactly zero while its energy, sparsity, horizon and
-step size are identical, so its square IS the estimator's own variance floor.
+* Batch-size invariant. At batch ``B`` the update gradient has mean ``mu`` and sd
+  ``sigma/sqrt(B)``, so after ``n`` samples (``n/B`` updates)
+  ``t = sqrt(n/B) * mu sqrt(B)/sigma = sqrt(n) mu/sigma``: the evidence depends
+  on samples seen, not on how they are batched.
+* Works at small fan-in. The null is pooled across the whole tensor, so a layer
+  of ``H x D`` supplies ``H*D`` null draws. Measured to beat SGD 2.8x at fan-in
+  64 with the level still exactly 1.0 on the signal.
+* Applied POST-optimizer, to the realized step. Adam is invariant to a per-row
+  gradient rescale, so a pre-optimizer multiplier is divided straight back out
+  (measured: a 0.125x pre-Adam weighting delivers 0.897x for one batch and
+  1.00x when sustained). The accumulators read the RAW gradient, which is never
+  modified, so there is no path by which ``v`` can cancel the level.
+* Never amplifies. ``level <= 1``, so the rule can only return budget to
+  ``clip_grad_norm_``, never steal it from another unit.
+* Retained evidence is a feature, not a leak. When the target relationship
+  moves, pruning the now-obsolete weights recovers 1.4% of the error, while a
+  coordinate that becomes predictive AGAIN is re-admitted immediately: measured
+  7x the weight from 34% less post-change time than a fresh coordinate gets.
+  Forgetting is a false fix -- an evidence decay ``d`` caps attainable ``t`` at
+  ``sqrt(1/d)`` and strictly hurt at every rate tested.
 
-ANCHORING. The level's reference must NOT be the cross-unit arithmetic mean.
-When most units are unreliable the mean sits AT the unreliable value, so the few
-good units saturate the envelope and the measured dispersion is the envelope's
-ceiling rather than the statistic's resolution. Anchoring near the top of the
-distribution instead means the most reliable unit keeps its step and everything
-else is suppressed relative to it, which also matches the asymmetry of the
-envelope: gain lives in [0, 1] and noise is heavy-tailed upward.
+LEVEL MODES. ``level_mode="mirror"`` is the false-discovery proportion above.
+``level_mode="softhinge"`` keeps the three accumulators and the application
+point and replaces the rank statistic with a soft hinge on the FAMILY-WISE twin
+null ``z^2 = max_i t_null_i^2`` -- one number per tensor instead of two sorts:
 
-THE LEVEL IS MEASURED, NOT PREDICTED. The per-unit level is the realized
-signal-to-noise of the reweighted mean estimator,
+    level = softplus(k * (1 - z^2 / t^2)) / k          k = 24
 
-    gain_i = |rbar_i|^2 / (|rbar_i|^2 + var_i)   in [0, 1]
+Measured elsewhere in this family, not here: on the noisy synthetic stream
+(`cleanrl/plasticity/noisy_stream_diagnostic.py`, 4096 features of which 1
+predicts, 100k steps, 4 seeds) softhinge scores 0.00039 test MSE against the
+noise-free target = 0.04x the zero-predictor, versus oracle 0.00043, hard veto
+0.00037, mirror 0.00227, sgd 0.09194 and adam 0.44816; on a batch-1 hidden layer
+(`cleanrl/plasticity/hidden_stream.py`, 1024 inputs of which 4 are useful) the
+pooled reallocated form scores 0.18292 against mirror 0.20703, oracle 0.28707
+and adam 0.64374. Both ends of the shape are load-bearing. The closed level must
+sit far below ``1/sqrt(D)`` because absorbed output noise scales with the rms
+level over ``D`` distractors -- a floor of 0.125 fails outright, 0.04 leaves a
+visible noise floor, ``softplus(-24)/24 = 1.6e-12`` does not -- and the open
+level must saturate at 1, because a gate that keeps taxing an entry it has
+already certified (``(t^2/(t^2+z^2))^p``) tripled the error and halved the
+signal weight.
 
-with ``rbar`` the weighted mean contribution and ``var`` the variance of that
-mean. This is the Wiener/MMSE shrinkage of the unit's own gradient estimate, so
-better weights raise the gain and the level is exactly how much the estimate
-improved. Nothing predicts the level, so it cannot be self-fulfilling.
+COST. Three buffers per parameter (1.5x Adam's optimizer state) plus two sorts
+of the tensor every ``refresh_every`` updates.
 
-SEPARATING THE TWO FACTORS. Any level decomposes into a uniform part (a
-learning-rate change) and a dispersion part (WHICH units get the plasticity).
-Top-anchoring makes the uniform part systematically less than one, so with
-``conserve=True`` -- the default -- the level is divided by its own geometric
-mean, forcing the uniform part to exactly one and leaving only dispersion. Then
-no score change can be bought with an LR change, which is the trap this family
-fell into four times. The pre-normalisation uniform factor is still exported so
-the size of what was removed is visible, and ``conserve=False`` deliberately
-re-admits it for the "this entire batch is unreliable" capability -- which must
-then be judged against a matched learning-rate control, never against the
-default LR.
-
-UNIFORM COMPONENT. A level whose cross-unit mean drifts is a learning-rate
-change wearing a mechanism's clothes; this family has manufactured that fake
-win four separate times. Earlier versions removed it by forcing the geometric
-mean to exactly one, which also made "this entire batch is noise"
-inexpressible. Here the uniform component is PERMITTED but measured: the
-realized geometric mean is exported every step as ``uniform`` so any score
-change can be checked against a matched learning-rate control.
+NOT RL-SPECIFIC. The mechanism sees only parameter gradients, so PPO, time
+series and language pretraining are all just consumers.
 """
 
+import random
+
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as functional
+
+__all__ = ["MirrorPlasticity"]
 
 
-def state_features(z):
-    """A unit's own state, bounded and scale-free.
+def _fdp_level(t_obs, t_null):
+    """One minus the false-discovery proportion, per entry.
 
-    Scale-free matters: a unit must not be able to earn plasticity merely by
-    being loud, so the pre-activation is normalised by its own batch scale
-    before being squashed. Returns a signed feature and a magnitude feature.
+    ``t_null`` supplies the empirical null. Both are flattened, so the null is
+    pooled across the whole tensor: an ``H x D`` layer contributes ``H*D`` draws
+    and small fan-in is not a barrier.
     """
-    zn = z * torch.rsqrt(z.square().mean(0, keepdim=True) + 1e-8)
-    zs = zn.square()
-    return zn / (1.0 + zn.abs()), zs / (1.0 + zs) - 0.5
+    flat = t_obs.reshape(-1)
+    null_sorted = t_null.reshape(-1).sort().values
+    obs_sorted = flat.sort().values
+    n_null = null_sorted.numel()
+    n_obs = obs_sorted.numel()
+    # counts at-or-above each observed value; `right=False` counts ties as above
+    false_ge = n_null - torch.searchsorted(null_sorted, flat, right=False)
+    total_ge = (n_obs - torch.searchsorted(obs_sorted, flat, right=False)).clamp_min(1)
+    fdp = false_ge.to(t_obs.dtype) / total_ge.to(t_obs.dtype)
+    return (1.0 - fdp).clamp_(0.0, 1.0).view_as(t_obs)
 
 
-class TwoMomentPredictor(nn.Module):
-    """Per-unit conditional mean and variance of ``delta``, read off the state.
+def _softhinge_level(obs_sq, null_sq, sharpness):
+    """Soft hinge against the family-wise twin null, on SQUARED statistics.
 
-    ``ctx_dim`` gives a low-rank view of the layer input so a unit can condition
-    on WHICH region of input space it is in, not only on its own activation.
-    Every parameter is zero at init except the fixed random projection, so
-    ``mu_hat == 0``, ``log n_hat == 0`` and every multiplier is exactly one:
-    a model wrapped in this is bit-identical to the unwrapped model at step 0.
+    ``z^2 = max_i t_null_i^2`` is the largest evidence the provably-null twin
+    managed anywhere in the tensor over the identical window, so it is a
+    family-wise null level that costs one reduction. An entry opens to the
+    extent its own ``t^2`` clears it, smoothly and with no tuned threshold.
     """
-
-    def __init__(self, in_features, out_features, ctx_dim=8, noise_cap=2.0,
-                 mean_cap=4.0):
-        super().__init__()
-        self.noise_cap = float(noise_cap)
-        self.mean_cap = float(mean_cap)
-        self.ctx_proj = nn.Parameter(torch.empty(int(ctx_dim), in_features))
-        nn.init.orthogonal_(self.ctx_proj, 1.0)
-        self.ctx_proj.requires_grad_(False)          # a fixed random view
-        self.noise_read = nn.Parameter(torch.zeros(out_features, int(ctx_dim)))
-        self.noise_state = nn.Parameter(torch.zeros(out_features))
-        self.noise_mag = nn.Parameter(torch.zeros(out_features))
-        self.noise_bias = nn.Parameter(torch.zeros(out_features))
-        # Free ABSOLUTE level. The state readout is capped and cannot track a
-        # level that drifts by tens of nats as gradients shrink; this can.
-        self.noise_level = nn.Parameter(torch.zeros(out_features))
-        self.mean_read = nn.Parameter(torch.zeros(out_features, int(ctx_dim)))
-        self.mean_state = nn.Parameter(torch.zeros(out_features))
-        self.mean_mag = nn.Parameter(torch.zeros(out_features))
-        self.mean_scale = nn.Parameter(torch.zeros(out_features))
-
-    def context(self, x):
-        return torch.tanh(F.linear(x, self.ctx_proj))
-
-    def forward(self, x, z):
-        """Returns ``(mu_hat, log_n_state, log_n_absolute)``.
-
-        The state part of the noise is returned separately because the GLS
-        weight uses only that part -- the free absolute level must cancel out of
-        a weight, or the weight would track the global gradient scale instead of
-        the unit's state.
-        """
-        f_state, f_mag = state_features(z)
-        ctx = self.context(x)
-        raw_noise = (self.noise_bias + self.noise_state * f_state
-                     + self.noise_mag * f_mag + F.linear(ctx, self.noise_read))
-        log_n_state = self.noise_cap * torch.tanh(raw_noise / self.noise_cap)
-        raw_mean = (self.mean_state * f_state + self.mean_mag * f_mag
-                    + F.linear(ctx, self.mean_read))
-        # scaled by a free per-unit magnitude: delta's scale is unknown a priori
-        mu_hat = self.mean_scale * torch.tanh(raw_mean / self.mean_cap)
-        return mu_hat, log_n_state, self.noise_level + log_n_state
-
-    def nll(self, delta, mu_hat, log_n):
-        """Heteroscedastic Gaussian NLL against the UNNORMALIZED residual.
-
-        Unnormalized on purpose: the optimum is then the ABSOLUTE conditional
-        variance, which is what lets ``noise_level`` learn the drifting scale
-        and frees the state part to report an entire batch as unreliable.
-        """
-        residual = (delta - mu_hat).square()
-        return (log_n + residual * torch.exp(-log_n)).mean()
+    z_sq = null_sq.reshape(-1).max()
+    return functional.softplus(1.0 - z_sq / obs_sq.clamp_min(1e-30),
+                               beta=sharpness)
 
 
-class PlasticityState:
-    """Buffers and reductions shared by the direction and magnitude paths."""
+class MirrorPlasticity:
+    """Graded per-entry plasticity applied to the realized optimizer step.
 
-    def __init__(self, out_features, device, ref_beta=0.99,
-                 weight_suppress=8.0, weight_inflate=2.0, anchor_q=0.9,
-                 conserve=True):
-        self.ref_beta = float(ref_beta)
-        self.anchor_q = float(anchor_q)
-        self.conserve = bool(conserve)
-        # asymmetric on purpose: gain lives in [0, 1] and noise is heavy-tailed
-        # upward, so suppression has room to run while confidence has a ceiling
-        self.lo = 1.0 / float(weight_suppress)
-        self.hi = float(weight_inflate)
-        self.noise_ref = torch.zeros(out_features, device=device)
-        self.gain_ref = torch.ones((), device=device)
-        self.level = torch.ones(out_features, device=device)
-        # exported telemetry: [uniform, dispersion, mean_r2, mean_gain]
-        self.stats = torch.zeros(4, device=device)
+    Usage, around an existing optimizer::
 
-    @torch.no_grad()
-    def sample_weights(self, log_n_state):
-        """GLS direction weights: inverse conditional variance, referenced."""
-        return torch.exp(self.noise_ref - log_n_state).clamp(self.lo, self.hi)
+        loss.backward()
+        plasticity.before_step()        # reads .grad, snapshots weights
+        torch.nn.utils.clip_grad_norm_(params, max_norm)
+        optimizer.step()
+        plasticity.after_step()         # scales the realized step per entry
 
-    @torch.no_grad()
-    def observe(self, log_n_state, delta, mu_hat):
-        """Track the slow noise reference and the explained variance of the mean."""
-        self.noise_ref.mul_(self.ref_beta).add_(
-            log_n_state.mean(0), alpha=1.0 - self.ref_beta)
-        total = delta.var(0, unbiased=False) + 1e-12
-        residual = (delta - mu_hat).var(0, unbiased=False)
-        self.stats[2] = (1.0 - residual / total).clamp(-1.0, 1.0).mean()
+    ``granularity``:
+      ``"connection"`` -- every entry decides for itself (measured default).
+      ``"unit"``       -- one level per output unit, the mean over its fan-in,
+                          i.e. literally "each perceptron decides".
+      ``"input"``      -- one level per INCOMING signal, pooling evidence across
+                          every unit that receives it. Admission is latency-bound
+                          and latency falls as ``1/sqrt(n)``, so pooling a layer
+                          of width ``H`` detects a useful input ``sqrt(H)``
+                          sooner. Per-unit signs differ, so the pooled statistic
+                          is the energy ``sum_j t_ji^2`` -- which the same twin
+                          calibrates exactly, no distributional assumption.
 
-    @torch.no_grad()
-    def update_level(self, x, delta, weights, exponent=1.0):
-        """Wiener gain of the reweighted per-unit mean estimator.
-
-        For unit i the augmented contribution is ``r_t = delta_{t,i} [x_t, 1]``.
-        ``|rbar|^2`` is the signal and the weighted variance of the mean is the
-        noise, so ``gain = signal / (signal + noise)`` is the MMSE shrinkage of
-        this unit's own gradient estimate. Measured from data, never predicted.
-        """
-        rows = delta.shape[0]
-        norm = weights.sum(0).clamp_min(1e-12)
-        wd = weights * delta
-        weight_mean = (wd.transpose(0, 1) @ x) / norm.unsqueeze(1)
-        bias_mean = wd.sum(0) / norm
-        signal = weight_mean.square().sum(1) + bias_mean.square()
-        energy_scale = x.square().sum(1, keepdim=True) + 1.0
-        cross = F.linear(x, weight_mean, bias_mean)
-        centered = (delta.square() * energy_scale - 2.0 * delta * cross
-                    + signal).clamp_min(0.0)
-        # variance of a weighted mean of `rows` samples
-        variance = (weights.square() * centered).sum(0) / norm.square()
-        # debias: E[|rbar|^2] = |mu|^2 + Var(rbar), and the inflation is largest
-        # exactly where the noise is worst, which inverts the statistic
-        signal = (signal - variance).clamp_min(0.0)
-        gain = signal / (signal + variance + 1e-12)
-        # anchor near the TOP, not the mean: with most units unreliable a
-        # central anchor pins the reference at the unreliable value and the
-        # good units merely saturate the envelope
-        reference = torch.quantile(gain.float(), self.anchor_q)
-        self.gain_ref.mul_(self.ref_beta).add_(reference, alpha=1.0 - self.ref_beta)
-        level = (gain / self.gain_ref.clamp_min(1e-12)).pow(exponent)
-        level = level.clamp(self.lo, self.hi)
-        uniform = level.log().mean().exp()
-        if self.conserve:
-            # strip the LR component: dispersion only, geometric mean exactly 1
-            level = (level / uniform).clamp(self.lo, self.hi)
-        self.level.copy_(level)
-        self.stats[0] = uniform          # what was removed, reported either way
-        self.stats[1] = self.level.std()
-        self.stats[3] = gain.mean()
-        return self.level
-
-
-class PostStepLevel:
-    """Applies per-unit levels to the REALIZED optimizer step.
-
-    Adam is invariant to a per-row gradient rescale, so the level cannot be
-    applied to the gradient. Snapshot before ``optimizer.step()``, then correct
-
-        w_i += (level_i - 1) * (w_i_after - w_i_before)
-
-    which leaves the optimizer's moments untouched and is bit-exact for a
-    neutral unit. Works with any optimizer, not just Adam.
+    ``level_mode``:
+      ``"mirror"``    -- the false-discovery proportion (the measured default).
+      ``"softhinge"`` -- the family-wise soft hinge, ``sharpness`` = ``k``.
     """
 
-    def __init__(self, plan):
-        """``plan``: list of ``(param, level_source, is_matrix)``."""
-        self.plan = list(plan)
-        self.snapshots = [torch.empty_like(param) for param, _, _ in self.plan]
+    def __init__(self, params, refresh_every=50, granularity="connection",
+                 warmup=0, seed=0, reallocate=0.0, level_mode="mirror",
+                 sharpness=24.0):
+        if granularity not in ("connection", "unit", "input"):
+            raise ValueError("granularity must be `connection`, `unit` or `input`")
+        if level_mode not in ("mirror", "softhinge"):
+            raise ValueError("level_mode must be `mirror` or `softhinge`")
+        if refresh_every < 1:
+            raise ValueError("refresh_every must be positive")
+        self.params = [p for p in params if p.requires_grad]
+        if not self.params:
+            raise ValueError("MirrorPlasticity needs at least one trainable parameter")
+        if reallocate and reallocate <= 1.0:
+            raise ValueError("reallocate is an amplification cap and must exceed one")
+        self.reallocate = float(reallocate)
+        self.refresh_every = int(refresh_every)
+        self.granularity = granularity
+        self.level_mode = level_mode
+        self.sharpness = float(sharpness)
+        self.warmup = int(warmup)
+        self.updates = 0
+        # The Rademacher sign needs no device randomness, and drawing it on the
+        # host keeps the update path free of a per-step D2H sync.
+        self.signs = random.Random(seed)
+        self.sums = [torch.zeros_like(p) for p in self.params]
+        self.sqs = [torch.zeros_like(p) for p in self.params]
+        self.mirrors = [torch.zeros_like(p) for p in self.params]
+        # Level 1 during warmup: the rule starts as an exact no-op, so any
+        # divergence from the unmodified baseline is attributable to it.
+        self.levels = [torch.ones_like(p) for p in self.params]
+        self.snapshots = [torch.empty_like(p) for p in self.params]
 
     @torch.no_grad()
-    def stash(self):
-        torch._foreach_copy_(self.snapshots, [param for param, _, _ in self.plan])
+    def before_step(self, evidence_weight=1.0):
+        """Accumulate evidence from the RAW gradients and snapshot the weights.
+
+        ``evidence_weight`` is an optional per-update reliability weight, applied
+        to the ACCUMULATORS only -- never to the step. Weighting every one of
+        ``A``, ``Q`` and ``R`` identically keeps the twin exactly null (``eps`` is
+        still independent of everything else) while turning ``t`` into the
+        GLS-weighted score, which is the maximum-power statistic when the
+        observation noise varies. Pass ``1/sigma_hat^2`` from a causal estimate
+        of the residual scale. Only useful under heteroscedasticity: on a
+        homoscedastic stream a constant weight cancels out of ``t`` exactly.
+        """
+        self.updates += 1
+        sign = 1.0 if self.signs.random() < 0.5 else -1.0
+        for param, total, square, mirror, snapshot in zip(
+                self.params, self.sums, self.sqs, self.mirrors, self.snapshots):
+            snapshot.copy_(param)
+            grad = param.grad
+            if grad is None:
+                continue
+            if evidence_weight != 1.0:
+                grad = grad * evidence_weight
+            total.add_(grad)
+            square.addcmul_(grad, grad)
+            mirror.add_(grad, alpha=sign)
+        if self.updates > self.warmup and (self.updates - self.warmup - 1) % self.refresh_every == 0:
+            self.refresh()
+
+    def _level(self, obs, null, squared=False):
+        """The configured level, from an observed statistic and its twin.
+
+        Both modes are invariant to a monotone transform of the statistic --
+        `_fdp_level` is rank-based and the hinge works on squares -- so the
+        pooled `input` granularity can hand over energies directly by setting
+        ``squared``.
+        """
+        if self.level_mode == "mirror":
+            return _fdp_level(obs, null)
+        return _softhinge_level(obs if squared else obs.square(),
+                                null if squared else null.square(),
+                                self.sharpness)
 
     @torch.no_grad()
-    def apply(self):
-        for (param, source, is_matrix), snapshot in zip(self.plan, self.snapshots):
-            offset = source() - 1.0
-            gain = offset.unsqueeze(1) if is_matrix else offset
-            snapshot.sub_(param).mul_(gain)
-            param.sub_(snapshot)
+    def refresh(self):
+        """Recompute the levels from the twin-calibrated null."""
+        for total, square, mirror, level in zip(
+                self.sums, self.sqs, self.mirrors, self.levels):
+            scale = square.sqrt().clamp_min(1e-30)
+            t_obs, t_null = total.abs() / scale, mirror.abs() / scale
+            if self.granularity == "input" and t_obs.dim() > 1:
+                # pool over output units: energy per incoming signal, and the
+                # twin's pooled energy is that statistic's exact null
+                pooled = t_obs.square().sum(dim=0)
+                pooled_null = t_null.square().sum(dim=0)
+                new = self._level(pooled, pooled_null, squared=True
+                                  ).unsqueeze(0).expand_as(level)
+            else:
+                new = self._level(t_obs, t_null)
+                if self.granularity == "unit" and new.dim() > 1:
+                    new = new.mean(dim=tuple(range(1, new.dim())),
+                                   keepdim=True).expand_as(level)
+            if self.reallocate:
+                # Conserve the tensor's step budget instead of shrinking it: shut
+                # entries FUND confident ones. A level bounded by 1 can only ever
+                # take smaller steps, so it cannot raise the step on the entries
+                # that carry signal -- and their noise, not the junk's, is what
+                # sets the usable learning rate (measured: the ORACLE's optimum LR
+                # equals Adam's). Reallocation beat a told-the-answer oracle mask
+                # by 1.40x. It gives up the never-amplifies property, so it can
+                # take budget from clip_grad_norm_ and is not unconditionally safe.
+                new = (new * (new.numel() / new.sum().clamp_min(1e-12))
+                       ).clamp_(0.0, self.reallocate)
+            level.copy_(new)
+
+    @torch.no_grad()
+    def after_step(self):
+        """Rescale the step the optimizer actually took, per entry."""
+        if self.updates <= self.warmup:
+            return
+        for param, level, snapshot in zip(self.params, self.levels, self.snapshots):
+            # param <- w_before + level * (w_after - w_before), allocation-free
+            param.sub_(snapshot).mul_(level).add_(snapshot)
+
+    @torch.no_grad()
+    def level_stats(self):
+        """Mean and dispersion of the levels, for logging. One D2H sync."""
+        flat = torch.cat([level.reshape(-1) for level in self.levels])
+        return {"level_mean": flat.mean().item(), "level_std": flat.std().item(),
+                "level_open": (flat > 0.5).to(torch.float32).mean().item()}

@@ -529,3 +529,642 @@ Judge at 20M and beyond, NOT at 8M: the level is neutral-to-negative before
 FAIL: below the base's matched-step trajectory at two consecutive checkpoints
 past 16M, `w_std` pinned at the `wmax` rails, or `lam_std` collapsed below v8's
 0.013 -- that last would mean the mechanism is inert whatever the score says.
+
+
+## Chart: predictions on the noisy stream (`reference/noisy_stream_predictions.png`)
+
+Regenerate with:
+
+```
+.venv/bin/python cleanrl/plasticity/noisy_stream_diagnostic.py --method all \
+  --steps 20000 --seeds 4 --eval-steps 4096 --adaptive-z \
+  --plot-window 500 --plot cleanrl/plasticity/reference/noisy_stream_predictions.png
+```
+
+Linear stream, 4096 inputs (1 predictive, 4095 distractors, all 1%-sparse),
+targets carry N(0,5) noise, **batch size 1, single pass, no replay**. Test MSE is
+against the NOISE-FREE target; the zero-predictor scores 0.0112, so any ratio
+above 1.0x means the learner is worse than predicting nothing.
+
+| method | test MSE | vs zero-predictor | signal w | distractor rms w |
+|---|---|---|---|---|
+| oracle (told the answer) | 0.00219 | 0.20x | 0.562 | 0.000 |
+| **veto, self-calibrated z** | **0.00604** | **0.54x** | 0.426 | 0.0072 |
+| graded, fixed z=5 | 0.00901 | 0.81x | 0.121 | - |
+| graded, self-calibrated z | 0.01088 | 0.97x | 0.245 | 0.0102 |
+| sgd | 0.04176 | 3.74x | 0.173 | 0.0287 |
+| snr (v5-v7 statistic) | 0.08084 | 8.89x | 0.732 | 0.0443 |
+| statewiener | 0.08628 | 9.49x | 0.729 | 0.0457 |
+| energy (v8/v9 objective) | 0.26911 | 29.6x | 0.460 | 0.0802 |
+| adamw | 0.31268 | 28.0x | 0.517 | 0.0872 |
+| adam | 0.36029 | 32.3x | 0.562 | 0.0937 |
+
+Three results worth keeping:
+
+1. **Graded is not the problem.** Matched at 20k steps, graded `(t^2/(t^2+z^2))^p`
+   lands within 19% of the binary veto (0.0090 vs 0.0076 at fixed z). An earlier
+   claim in this file that the veto won by being BINARY was wrong; it won on the
+   **statistic**. Corrected.
+2. **The floor was never the driver either.** Removing the envelope floor from
+   the `snr` gate: 0.0808 -> 0.0729 at 20k, and 0.2664 -> 0.3050 at 100k. The
+   earlier "3.6x from deleting the floor" compared 20k against 100k. Corrected.
+3. **The threshold needs no hyperparameter.** With D coordinates and O(1)
+   carrying signal, the upper quantile of `t` across coordinates IS the null's
+   extreme value. `--adaptive-z` calibrates on it and raises signal retention
+   0.121 -> 0.245 (graded) and 0.176 -> 0.426 (veto), the latter also improving
+   MSE 0.0076 -> 0.0060.
+
+### Why the statistic, not the envelope, was the whole story
+
+`t = |sum_t G| / sqrt(sum_t G^2)` is the exact self-normalised cumulative. For a
+coordinate with a consistent conditional mean it grows as `sqrt(n) * mu/sigma`,
+without bound; for a distractor it stays `O(1)` forever. Separation therefore
+IMPROVES with evidence. Every v5-v9 statistic was a ratio of EMA moments at a
+fixed horizon, whose separation is capped by the horizon no matter how much
+evidence arrives -- which is why five 50M-step MuJoCo runs were flat.
+
+### Batch-size invariance (algebraic, not measured)
+
+At batch B the per-update gradient has mean `mu` and sd `sigma/sqrt(B)`, so after
+`n` samples (`n/B` updates) `t = sqrt(n/B) * mu*sqrt(B)/sigma = sqrt(n)*mu/sigma`:
+**`t` depends on samples seen, not on how they are batched.** The mechanism's
+evidence accrual is therefore batch-size invariant, and everything in the table
+above was measured at batch size 1.
+
+### Nonstationarity: measured, and the remaining bottleneck
+
+Signal moved to a fresh coordinate at 50% of training (veto, self-calibrated z):
+
+| evidence decay | test MSE | w[new coord] | \|w\|[stale coord] |
+|---|---|---|---|
+| 0 (exact cumulative) | 0.01007 | 0.110 | 0.146 |
+| 1e-3 | 0.01236 | 0.052 | 0.077 |
+| 1e-2 | 0.01712 | 0.020 | 0.029 |
+| sgd control | 0.04183 | 0.120 | 0.085 |
+
+- The mechanism still beats SGD 4.2x through a regime change, and it does learn
+  the new coordinate.
+- **Forgetting is a false fix.** Decay strictly hurts: it caps attainable `t` at
+  ~`sqrt(1/d)`, which costs admission of the true signal and buys nothing.
+- **The real defect is that a license is never revoked.** Stale weight (0.146)
+  exceeds the newly-learned weight (0.110): the obsolete coordinate keeps a
+  large `t` from its history, so it stays admitted and simply drifts. Note the
+  correct response to a reversal is MORE plasticity there, to unlearn -- so
+  admission and trust are different quantities, and this family has only ever
+  modelled one of them.
+
+### Ranked bottlenecks of the graded rule
+
+1. **Signal throttling.** Best retention is 0.426 vs oracle 0.562; admission
+   costs ~`z^2 (sigma/mu)^2` effective firings. Asymmetric hysteresis (admit at
+   low z, evict at high z) attacks this directly.
+2. **No revocation / no reversal detector.** Measured above. Fix: two-timescale
+   evidence, admitting on `max(t_fast, t_slow)` while their DISAGREEMENT raises
+   plasticity instead of lowering it.
+3. **`z` is global.** It is differentiable in the graded form, so `z_i` can be
+   meta-learned per unit from that unit's own state -- the premise applied one
+   level up, and foreclosed entirely by a binary veto.
+4. **Column axis only.** Evidence is per (unit, input) pair, i.e. two buffers,
+   the same footprint as Adam. Nothing yet gates the row axis.
+
+
+## Mirror plasticity (`cleanrl/shared/state_plasticity.py`)
+
+The graded rule that finally beats the binary veto. Level = one minus the
+false-discovery proportion, calibrated by a sign-randomized twin
+`R = sum_t eps_t g_t` whose order statistics ARE the null distribution of
+`A = sum_t g_t`. No threshold, no reference, no learned estimator, no
+hyperparameter. Verified 16/16 in `/tmp/verify_mirror.py` (contract tests).
+
+| linear stream, 20k, batch 1 | test MSE | vs zero | signal w | level on signal |
+|---|---|---|---|---|
+| oracle | 0.00219 | 0.20x | 0.562 | - |
+| **mirror (graded)** | **0.00397** | **0.44x** | 0.418 | **1.0000** |
+| veto (binary) | 0.00604 | 0.54x | 0.426 | - |
+| graded `(t^2/(t^2+z^2))^2` | 0.01088 | 0.97x | 0.245 | - |
+| sgd | 0.04176 | 3.74x | 0.173 | - |
+
+The level reaching EXACTLY 1 is the whole improvement: a sigmoid-shaped gate
+throttles the entry it has just certified, which cost 2.7x MSE and half the
+signal weight. Binariness was never the lever -- the earlier claim in this file
+that the veto won by being binary is retracted above.
+
+### Retained evidence is a feature (the "stale license" question, settled)
+
+| signal MOVES mid-run | test MSE | current coord w | stale \|w\| | cost of the stale weight |
+|---|---|---|---|---|
+| mirror | 0.01205 | 0.0209 | 0.1011 | **+1.4% of error** |
+| sgd | 0.04183 | 0.1201 | 0.0849 | +0.2% |
+| mirror, signal LEAVES then RETURNS | 0.00755 | **0.1449** | 0.0035 | - |
+| sgd, leaves then returns | 0.04287 | 0.1179 | 0.0839 | - |
+
+Pruning the obsolete weight recovers 1.4% of the error, so the retained license
+is not a defect worth engineering against. And it pays: a returning coordinate
+reaches 7x the weight of a fresh one from 34% LESS post-change time, because its
+evidence is still on the books. What remains in the move case is admission
+LATENCY, which is information-bound, not a revocation failure.
+
+### The batch-size law (corrects an earlier claim in this file)
+
+Exactly, and verified to 2.2% at B in {1, 8, 64, 1024}:
+
+    t = sqrt(n) * mu / sqrt(sigma^2 + B mu^2)
+
+So `t` is batch-INVARIANT only while the per-update SNR is small
+(`B << sigma^2/mu^2`), and power decays as `1/sqrt(1 + B mu^2/sigma^2)` past it.
+My earlier "batch-size invariant" claim dropped the `B mu^2` term.
+
+**This quantitatively explains the v5-v9 MuJoCo failures.** Measured per-unit
+`sigma^2/mu^2` in PPO is 800-8000 against a batch of 32768, so
+`1/sqrt(1 + 32768/800) = 0.15`: PPO's batch destroys ~85% of the statistic's
+power before any rule sees it. A plasticity mechanism of this kind needs small
+batches or per-sample evidence; on a 32768-sample batch there is nothing left to
+find. This is a prediction, not a post-hoc story.
+
+### Fan-in: no wide ensemble required
+
+| fan-in D | mirror | sgd | level (signal / distractor rms) |
+|---|---|---|---|
+| 32 | 0.00324 | 0.00672 | 1.0000 / 0.2720 |
+| 64 | 0.00241 | 0.00664 | 1.0000 / 0.2606 |
+| 256 | 0.00325 | 0.00867 | 1.0000 / 0.1094 |
+| 1024 | 0.00319 | 0.01382 | 1.0000 / 0.0545 |
+| 4096 | 0.00397 | 0.04176 | 1.0000 / 0.0398 |
+
+The null is pooled across the tensor, so an `H x D` layer supplies `H*D` draws.
+At fan-in 64 -- our actual trunk width -- it still beats SGD 2.8x.
+
+### Two pushes, one negative and one qualitative
+
+**GLS-weighted evidence: measured no-op.** Weighting each observation by
+`1/sigma_hat^2` changed nothing on the homoscedastic stream (0.00397 -> 0.00406)
+AND nothing on the heteroscedastic regime stream (0.00878 -> 0.00890). Reason:
+`t = |sum g| / sqrt(sum g^2)` is already studentized, so a noisy observation
+inflates numerator and denominator together. The v5-v9 "reliability weighting"
+program was paying for something the statistic gives away free.
+
+**Input pooling (`granularity="input"`): qualitative.** At a per-connection SNR
+of 0.05 over 400 steps (`t ~ 1.0`), per-connection evidence NEVER opens -- which
+is correct refusal. Pooling the energy `sum_j t_ji^2` across a width-64 layer,
+calibrated by the twin's pooled energy, reaches level 1.000 by step 100 with 10x
+separation from the useless inputs. For any real layer this is the difference
+between the mechanism working and not working, since latency falls as
+`1/sqrt(n)` and pooling multiplies `n` by the layer width.
+
+### Real market data (`cleanrl/plasticity/stock_stream.py`)
+
+SPY 5-minute bars from `trading_bot_0/long_data/bars/SPY.300.bars` (468,054 bars,
+2016-08-22 to 2026-08-19; packed `TBBARS01`, 64-byte header, 36-byte records
+`<q6fI>` = epoch-ms, OHLC, volume, vwap, trade count). 224 causal features
+(7 channels x 32 lags, each divided by a trailing EWMA so the input is stationary
+without look-ahead), target = next-bar return over trailing volatility.
+
+Because the intrinsic noise is unknown, every learner is run TWICE: on the real
+stream and with the targets PERMUTED in time -- a ground-truth null that
+preserves the marginal and destroys predictability. A learner that learns only
+the learnable part must sit at 1.0 on permuted data and below 1.0 on real data;
+a learner that absorbs noise exceeds 1.0 on both. Prequential (predict-then-
+update) scoring at batch size 1, so every prediction is out-of-sample and there
+is no split to leak through. Each method is reported at ITS OWN best LR over a
+shared grid, because this family has already produced four LR-artifact "wins".
+
+
+## Inside a hidden layer (`cleanrl/plasticity/hidden_stream.py`)
+
+Everything before this used a single linear unit, where "each perceptron
+decides" describes one perceptron. A hidden unit is the harder case: its
+incoming gradient is a PRODUCT of the input and a backpropagated error whose
+sign flips as the layer above reorganises. Dense teacher on `x ~ N(0, I)`,
+1024 inputs of which 4 matter, 64 hidden units, noise_std 2.0, batch 1, single
+pass; test MSE against the NOISE-FREE teacher; each method at ITS OWN best LR;
+all 15 configs in one vectorized pass (13.9s).
+
+| method | best lr | test/zero | \|w\| useful:junk | level useful / junk |
+|---|---|---|---|---|
+| oracle | 3e-3 | 0.0852 | 25.9 | 1.0 / 0.0 |
+| **mirror, input-pooled** | 1e-3 | **0.1457** | 18.7 | 1.0000 / 0.0244 |
+| mirror, per-connection | 1e-3 | 0.1719 | 16.3 | 0.1847 / 0.0114 |
+| adam | 3e-4 | 0.2705 | 11.6 | - |
+| sgd | 3e-4 | 0.3098 | 4.6 | - |
+
+1.86x better than Adam in a real hidden layer, and input pooling beats
+per-connection exactly as the latency argument predicts: per-connection reaches
+only level 0.185 on the useful inputs (it under-admits) while pooling reaches
+1.0000. Mirror is also far less LR-sensitive: at 3e-3 Adam collapses to 0.554
+while mirror holds 0.160.
+
+### The applicability boundary (measured, and it predicts our MuJoCo results)
+
+Same task, 40k steps, sweeping how many of the 1024 inputs actually matter:
+
+| useful / 1024 | adam | mirror_input | advantage | level on useful |
+|---|---|---|---|---|
+| 4 (0.4%) | 0.3117 | 0.1952 | **1.60x** | 0.854 |
+| 16 (1.6%) | 0.3009 | 0.2249 | 1.34x | 0.647 |
+| 64 (6%) | 0.4035 | 0.3589 | 1.12x | 0.293 |
+| 256 (25%) | 0.4148 | 0.3852 | 1.08x | 0.079 |
+| 1024 (100%) | 0.4384 | 0.4371 | **1.00x (inert)** | 0.169 |
+
+Monotone decay to exactly inert. The mechanism is a USELESS-INPUT REJECTOR, and
+its ceiling is set by how much of the input is useless. Consequences:
+
+* **MuJoCo/PPO: predicted inert.** 17 observation dimensions that all inform the
+  policy is the 100% column. This is a prediction that matches the five flat
+  50M-step runs (v5-v9) rather than a story told after them. Note it is inert,
+  not harmful (0.4371 vs 0.4384), so it is a safe addition -- but it cannot be
+  the source of a HalfCheetah win, and no amount of tuning changes that.
+* **A second, independent reason PPO is hostile:** with 8M steps / batch 32768 /
+  10 epochs / 32 minibatches there are ~78k updates, so `t ~ sqrt(78000) * mu/sigma`
+  is in the hundreds for nearly every parameter. Evidence is overwhelming
+  everywhere, the FDP goes to zero everywhere, and the level saturates at 1: the
+  rule is inert by saturation as well as by input density.
+* **Market data and LLM streams are the favourable end**, where the fraction of
+  genuinely predictive inputs is tiny. That is where this belongs.
+
+### Market data, honest verdict (`cleanrl/plasticity/stock_stream.py`)
+
+40 configs (4 methods x 5 LRs x real/permuted) in ONE pass over 468,021 SPY
+5-minute bars: 65.7s, 3.5us per config-bar. The earlier one-process-per-cell
+version cost 4 minutes PER CELL; the sweep is vectorized over configs because
+the stream is sequential but the configs are not.
+
+* **No learnable signal found.** No method beats the zero-predictor at any LR
+  (best: mirror 1.00019, adam 1.00085, sgd 1.00263) and there is no
+  real-vs-permuted gap anywhere (all |gap| <= 0.003, half the wrong sign). This
+  task cannot verify the learning claim.
+* **It does discriminate on noise refusal**, which is the premise: mirror is
+  closest to 1.0 at every LR and degrades far more slowly -- at lr 1e-3, mirror
+  1.032 vs adam 1.153 vs sgd divergent.
+* **A calibration defect surfaced that synthetic data hid.** With weights frozen
+  at zero (`--lr-grid 0.0`), mean level was 0.696 on the PERMUTED stream where
+  the null is exactly true and levels should be ~0 (synthetic pure noise gives
+  0.008). Two hypotheses falsified by measurement: it is not the restoring
+  gradient `E[xx']w` (persists at `w = 0`), and it is not shared-sign
+  co-signing of the twin (an independent sign per coordinate gives 0.690 vs
+  0.696). Causal mean-centring of the channels and target -- absent before, so
+  `E[y x_i] = mu_y m_i != 0` survived any permutation and the null was NOT null
+  -- halves it to 0.344 and opens a real/permuted separation that did not exist
+  before (0.828 vs 0.344). The residual is under investigation; prime suspect is
+  serial dependence, against which an independent per-step sign flip is
+  anti-conservative by construction (it destroys in the twin the dependence the
+  observed accumulator keeps), with a block sign flip as the standard fix.
+
+
+## Batch size, learning rate, and budget REALLOCATION
+
+Tested the claim that a per-connection noise model should buy small batches and
+high learning rates directly. Sparse signal (4 of 1024 inputs), noise_std 8.0,
+FIXED 60,000-sample budget so `steps = samples / batch`, every method at its own
+best LR from a shared grid.
+
+| batch | adam | mirror_input | oracle |
+|---|---|---|---|
+| 1 | 0.6703 | **0.3266** | 0.3205 |
+| 8 | 0.6384 | 0.3134 | 0.2743 |
+| 64 | 0.7287 | 0.3243 | 0.2803 |
+| 256 | 0.8137 | 0.3458 | 0.3151 |
+
+* **Batch 1 with the mechanism beats Adam at EVERY batch size**, including 256
+  (1.96x the best Adam anywhere), and lands within 2% of the oracle.
+* Mirror is nearly batch-INSENSITIVE (0.313-0.346 across 1..256): the level does
+  the noise averaging that the batch dimension was there to do.
+* At a fixed sample budget, larger batches make Adam WORSE (0.670 -> 0.814):
+  batching buys noise reduction by spending updates, and that trade is negative
+  here. "Use a big batch to resolve variance" is not free.
+
+### Learning-rate headroom, and why the level cap was the real ceiling
+
+| lr (batch 1) | adam | mirror_input | oracle |
+|---|---|---|---|
+| 1e-4 | 0.6554 | 0.3326 | 0.3035 |
+| 3e-4 | 0.6717 | 0.3228 | 0.2805 |
+| 1e-3 | 0.8685 | 0.3404 | 0.2811 |
+| 3e-3 | 1.5353 | 0.6503 | 0.7517 |
+| 1e-2 | 3.6227 | 1.2070 | 3.6328 |
+
+Mirror runs at 30x Adam's LR and still matches Adam's best (0.650 vs 0.655), so
+the usable band is much wider. But mirror's own optimum is at the same 3e-4 as
+Adam's -- AND SO IS THE ORACLE'S. That is the diagnostic: the LR ceiling is set
+by the noise on the coordinates that carry signal, not by the junk, and a level
+bounded by `1 - FDP <= 1` can only ever SHRINK steps, so it cannot raise them.
+
+**`mirror_alloc` removes that ceiling** by rescaling the levels to mean one, so
+shut connections FUND larger steps on confident ones and the layer's total step
+budget is conserved rather than reduced. Sweeping the amplification cap
+(sparse, noise 8, batch 1, 60k samples):
+
+| alloc cap | best test/zero | at lr |
+|---|---|---|
+| 2 | 0.3216 | 3e-4 |
+| 8 | 0.2790 | 3e-5 |
+| 32 | 0.2351 | 3e-5 |
+| **128** | **0.2003** | 1e-5 |
+| oracle, best over its OWN LR grid | 0.2805 | 3e-4 |
+
+**1.40x better than a mask that was told which inputs matter.** This is not a
+disguised learning-rate effect: the oracle was swept over the same grid and had
+the same freedom. What reallocation adds is per-connection differentiation AMONG
+the useful weights -- reliability structure that a binary mask cannot express.
+The best LR falls as the cap rises, as expected when the realized step is
+`lr * level`.
+
+**Honest cost:** reallocation gives up the property that the rule never
+amplifies, so unlike the capped level it CAN take budget from `clip_grad_norm_`
+and its stability is no longer free. It also does not rescue the dense case: at
+1024/1024 useful inputs `mirror_alloc` is worse than Adam (0.797 vs 0.709),
+so the density boundary above still stands and RL is still the wrong target.
+
+
+## The state-conditional reframe, and its falsification (novelty_stream.py)
+
+The whole v1-v9 / mirror / kalman / spike lineage computes a SCALAR per weight from
+gradient statistics accumulated over TIME. No such object can express "move for these
+inputs and not for those", because that is a statement about directions in input
+space. So the premise was never actually under test.
+
+Three harnesses in a row could not test it either, for the same reason each time:
+
+| harness | why it cannot test state-dependence |
+|---|---|
+| `noisy_stream_diagnostic.py` | iid stream, only structure is junk columns -> rewards feature selection alone |
+| `hidden_stream.py` | same, inside a hidden layer |
+| `novelty_stream.py` with ONE shared teacher | every region wants the same mapping, so no unit faces conflicting demands. Measured: sequential vs shuffled identical (0.0653 vs 0.0655), and per-unit alignment with past regions is a coin flip (49.5% harmful, every state feature |r| <= 0.014) |
+
+Fixed by giving each region its OWN target function, which creates real conflict:
+retention 0.687 vs acquisition 0.195, against 0.133/0.027 for the shared teacher.
+
+### What was tried on the validated conflict task, and what happened
+
+| arm | overall | verdict |
+|---|---|---|
+| `adam` | 0.6201 | control, LR swept |
+| `novelty` (|z-mu|/sigma, mean-1) | 0.1404 vs 0.1206 adam (shared teacher) | LOST, and lost to its own uniform-scalar control |
+| `familiar` (inverted) | 0.1251 | also lost -> the rule was injecting noise, not reading competence |
+| `learned` (per-unit readout, one-step lookahead meta-gradient) | 0.6183 | INERT: level pinned 1.000, dispersion 0.000 |
+| `statebin` (mirror twin statistic indexed by state cell) | 0.6137 | INERT: level saturates at 1, because in a dense task every cell has real signal |
+| `precision` (per-unit anisotropic, predictive-coding form) | 0.6530 | LOST at 8 seeds (looked like 0.5982 vs 0.6258 at 4 seeds -- noise) |
+| `precision_shared` (one geometry for the whole layer) | 0.6210 | ties adam, and BEATS the per-unit version |
+| `precision_diag` (= an RMS/EMA accumulator) | 0.6645 | worst |
+
+### Two mistakes worth keeping on the record
+
+1. **Budget conservation is an invented mechanic.** Renormalising levels to mean one
+   was adopted defensively, to dodge the LR confound. It also makes a rule exactly
+   blind to a global shift: when every unit's state is novel, the normalisation
+   cancels it. The LR confound belongs in a CONTROL ARM (`uniform`, matched realized
+   plasticity), not in the mechanism.
+2. **Gating the outgoing weight deadlocks the unit.** `w2` starts at zero, so the
+   incoming gradient starts at zero, so a level read off that gradient pins both at
+   zero forever. First `precision` run scored exactly 1.0000 (nothing learned) for
+   this reason. The projection belongs in the input space of the incoming row only.
+
+### Where the geometry probe landed (`/tmp/probe_precision.py`, all checks pass)
+
+The learned geometry is genuinely anisotropic -- median max/min eigenvalue ratio 543,
+60.7% of directions damped below 0.5, and `lambda=0` reproduces the baseline
+bit-exactly. But the per-perceptron content is weak: median |cos| between different
+units' most-damped directions is 0.77, i.e. most units commit to the SAME direction,
+because a shift-12 region centre dominates every unit's input. That is why
+`precision_shared` ties `precision`. The anisotropy is real; the per-unit autonomy is
+mostly not, on this task.
+
+### Standing conclusion
+
+No state-conditional mechanism yet beats Adam under matched controls. The single
+positive RL result in this whole family remains the LATE-training gain from the level
+(+743 by 20M, inert before ~14M, at the point where the base curve flattens), and no
+synthetic harness built here has ever reproduced it -- which is itself the strongest
+evidence that these synthetic tasks do not represent what RL is bottlenecked by.
+
+
+## The minimum bar: recover the learnable target (reference/spike_recovery.png)
+
+The chart is the test that should have gated everything else. On the noisy stream
+(4096 features, 1 predictive, target +-1 noise) the learnable target is a sparse
+spike train. Reproducing it -- not scoring well against it -- is the bar.
+
+| method | test MSE vs clean target | x zero-predictor | signal w | null w |
+|-|-|-|-|-|
+| sgd | 0.09194 | 8.44x WORSE | 0.634 | 0.0469 |
+| adam | 0.44816 | 41.14x WORSE | 1.027 | 0.1043 |
+| mirror | 0.00227 | 0.23x | 1.046 | 0.0070 |
+| softveto (floor 0.125) | 0.00190 | 0.17x | 0.852 | 0.0059 |
+| smoothgate (t2/(t2+z2))^4 | 0.00117 | 0.11x | 0.683 | 0.0004 |
+| **veto (hard, z=5)** | **0.00037** | **0.03x** | 1.025 | 0 |
+| **gradedveto (hinge)** | **0.00039** | 0.04x | 0.893 | 0 |
+| **softhinge (differentiable)** | **0.00039** | 0.04x | 0.893 | 1.6e-12 |
+| oracle (told the answer) | 0.00043 | 0.04x | 1.027 | 0 |
+
+Three rules reach the oracle. Everything this family built before them does not:
+SGD and Adam are worse than predicting nothing, and `mirror` -- the strongest
+mechanism here on every earlier metric -- fires FALSE spikes at the wrong times.
+
+### What actually decides it (both of my earlier readings were wrong)
+
+I claimed the requirement was suppression to EXACTLY zero. It is not. The
+requirement is a MAGNITUDE: with D distractors the absorbed output noise scales
+with the rms gate level over them, so anything well below `1/sqrt(D) = 0.016` is
+indistinguishable from zero in consequence. `softveto`'s floor of 0.125 is 8x too
+large and `t2/(t2+z2)`'s 0.04 is 2.5x too large -- that is the visible noise floor
+in those rows, and it is a magnitude error, not an argument for binariness.
+
+The second requirement is the one that kills the naive smooth form: the gate must
+SATURATE at 1 once evidence accrues. `(t2/(t2+z2))^4` suppresses nulls to 4e-4 but
+keeps taxing the signal, dragging its weight to 0.683 and tripling the error. So:
+
+    certainty = softplus(k * (1 - z^2/t^2)) / k
+
+saturates at 1, crosses the calibrated boundary smoothly, puts nulls at
+softplus(-k)/k = 1.6e-12 for k=24, and is differentiable everywhere. It scores
+identically to the hard veto (0.00039 vs 0.00037) while remaining a continuous,
+meta-learnable function -- which a hinge or a threshold cannot be. `z` is set by
+the sign-randomized twin, so there is no scale hyperparameter.
+
+`t^2` is built from sufficient statistics accumulated over the stream, so this is
+batch-agnostic by construction: batch 1 is the native case, and batch size changes
+only how fast evidence arrives.
+
+### Independent audit of the earlier headline (PrecisionSkeptic, precision_audit.py)
+
+Recorded because it invalidates results in this file rather than supporting them.
+64 true seeds (teachers, centres, stream, noise, init all resampled; arms paired
+within seed), LR grid 1.2e-5..1.97e-1 so nothing sits at an edge:
+
+- Adam's own optimum is lr 9.6e-5 -> 0.4022, BELOW the floor of the grid every
+  earlier experiment used. Restricting Adam to that window costs it
+  -0.2204 +-0.0491 on its own. `precision` recovered 13% of an LR
+  misspecification; on the full grid it LOSES by +0.0938 +-0.0165.
+- `novelty_stream.py`'s seeding is init-only (one teacher, one centre draw, one
+  shared stream; the `seed` field in configs is never read), which understates
+  seed SD 4.2x (0.0203 vs 0.0857 resampled).
+- Null calibration by splitting ONE arm into disjoint halves (true gap exactly 0):
+  at n=4 a spurious |gap| >= 0.028 appears 65-77% of the time. Both the +0.0276
+  "win" and the 8-seed -0.0329 "loss" are draws from the same null.
+- Per-unit ORACLE ceiling (each unit told per sample whether its own step lowers
+  the mixture loss; controls at matched mean and matched dispersion): batch 8 /
+  shift 12 has 3.4% headroom and the oracle beats plain Adam by NOTHING
+  (-0.0046 +-0.0101). Batch 1 streaming has -0.0228 +-0.0052 = 5.6% and its
+  level-only component is zero, i.e. ALL of the headroom is per-unit. The
+  no-conflict shared-teacher task has the largest relative headroom, 17.0%.
+
+Consequences adopted: (1) every arm sweeps its own LR and the winner may not sit
+at a grid edge; if the control's optimum is at the floor the grid is wrong.
+(2) paired seeds with the TASK resampled, not just init. (3) the flagship config
+was the worst possible one -- batch 8, conflict, shift 12 -- whose ceiling is 10x
+below what 4 seeds can resolve. (4) "conflict is the only thing state-dependence
+can buy" is falsified: batch-1 streaming is where the headroom lives, which is
+exactly the regime the requirements name.
+
+
+## What "effective learning rate" decomposition actually says (hidden_stream, batch 1)
+
+Every rule in this family is a multiplier on the baseline learning rate, so write
+it as the only decomposition that matters:
+
+    lr_eff(i) = L * G(t) * c_i
+
+`L` baseline (swept), `G` a global factor shared by all units, `c_i` the unit's
+own relative plasticity. Arms differ ONLY in G and in what c_i is allowed to read.
+Paired seeds, 1024 inputs / 4 useful / noise 8 / batch 1, each arm's own LR grid
+1e-5..1e-2 with no edge winners:
+
+| arm | G | c_i reads | s1 | s2 | s3 |
+|-|-|-|-|-|-|
+| ownfree | 1 | own evidence, own twin | 0.344 | 0.174 | 0.619 |
+| input | 1 | own evidence, layer twin | 0.323 | 0.175 | 0.515 |
+| uniform | 1/mean(c) | NOTHING (mean only) | 0.833 | 0.470 | 0.990 |
+| ownnull | 1/mean(c) | own evidence, own twin | 0.178 | 0.073 | 0.167 |
+| credit | 1/mean(c) | own evidence, layer twin | 0.177 | 0.055 | 0.169 |
+
+1. The FAMILY-WISE threshold is not load-bearing. Thresholding each perceptron
+   against its OWN sign-randomised twin ties the layer-max version (0.178/0.073/
+   0.167 vs 0.177/0.055/0.169). The layer-max was a population normalisation --
+   it coupled every unit's certainty to the noisiest coordinate anywhere in the
+   layer -- and removing it costs nothing. Autonomy is free; take it.
+2. G MUST NOT be a constant: G=1 with L re-swept costs 2.0-3.7x. But G alone,
+   with zero per-unit dispersion, is the WORST arm measured (0.833). The two
+   factors multiply; neither substitutes for the other.
+3. The reason is NOT budget conservation (my error, twice). Mean certainty drifts
+   DOWN as the layer becomes selective, so a fixed L means the mechanism silently
+   decays its own global learning rate and stalls. G = 1/mean(c) states: spend
+   exactly the baseline's total step budget, redistribute only. That makes the
+   mechanism LR-confound-free BY CONSTRUCTION, which is the property whose
+   absence in the protocol faked four earlier results here.
+
+Also measured, same harness, paired 6/6 seeds: making the evidence invariant to a
+unit's own outgoing weight magnitude (`softhinge_credit`) beats `softhinge_alloc`
+on every seed (0.188/0.054/0.175/0.079/0.092/0.074 vs 0.199/0.062/0.176/0.092/
+0.150/0.082). A hidden unit's gradient is delta_h * x with delta_h carrying
+w2_h, which changes sign and scale while evidence accumulates, so raw sums mix
+credit across eras when the unit meant different things downstream. Best arms now
+sit at 0.174 vs oracle-mask 0.287 and adam 0.644; the remaining gap to the 0.04x
+achieved on a LINEAR stream is ~4.5x and is a DEPTH/estimator problem, which is
+25x more headroom than the entire measured per-unit ceiling (5.6%).
+
+`softhinge_free` (G proportional to t^2/z^2) is a bad idea and the numbers say so
+(0.252 vs 0.185): t^2 grows linearly in samples, so that G is an unintended
+learning-rate ramp, not a plasticity decision.
+
+
+## Verdict on the premise, from the target domain (ppo_signal_legibility.py, dense_boundary.py)
+
+RLBridge harvested the premise's own statistic from REAL PPO updates (2.5M steps,
+256 actor+critic units, exact per-(unit,sample) pairs, signal = dL/dz via
+retain_grad on the real clipped loss, control = each unit's signal column
+permuted within the same update so only the state->signal correspondence dies):
+
+- EXPRESSIBLE: F of the gain-invariant SNR 7.20-8.08 vs permuted 0.89-0.95
+  (8.1-8.6x), 96% of 256 units above the permuted p95. E[signal | own state] is
+  genuinely above its own sampling error.
+- PERSISTENT and STRENGTHENING: cross-window correlation of the per-(cell,unit)
+  pattern, centred within unit, r = 0.20 -> 0.27 -> 0.32 -> 0.35 across 500k
+  windows vs permuted ~0. A causal rule CAN estimate it and still have it later.
+- BUT THE MAGNITUDE IS NOTHING: eta^2 = 1.0e-05. One hundred-thousandth of the
+  variation in a unit's teaching-signal reliability is explained by its own state;
+  reliability range across a unit's cells is 3.9e-05 on [0,1].
+- AND THE APPARENT SIGNAL IS A TAUTOLOGY: log-sd of the signal's noise across a
+  unit's state cells is 0.946, of which the unit's own tanh slope (1-a^2)
+  accounts for 0.844, i.e. ~89%. A rule that reads its own preactivation to scale
+  its step is, to first order, re-applying its own derivative -- which the
+  gradient already contains. This trap is invisible unless the slope is measured
+  alongside, and it is the most likely explanation for every "state-dependent"
+  result in this family's history.
+
+Independently, dense_boundary.py mapped the selectivity axis against input
+density (8 paired seeds, no edge winners): softhinge_alloc - adam is
+-0.530+-0.086 at 4/1024 useful, NULL (+0.009+-0.024) at 128/1024, and HARMFUL
+(+0.248+-0.114) at 1024/1024. At MuJoCo's shape (17 inputs, all useful) it is
++0.008+-0.014, i.e. inert, and mirror_alloc is the exact identity (level 1.0000
+everywhere). A dense regime-change test (teacher redrawn mid-stream, 17/17):
+adam 0.104/0.411 at noise 2/8, best mechanism 0.101/0.420, oracle 0.093/0.396 --
+the ORACLE MASK's total headroom is 3-11% and no mechanism reaches it.
+
+CONCLUSION: per-perceptron plasticity conditioned on the unit's own state is
+measured-null as a route to MuJoCo score. It is expressible but worth 1e-5 of
+variance, it is ~89% the unit's own activation derivative, and the junk-rejection
+capability that makes it pay on synthetic streams is exactly inert at the input
+density MuJoCo has. Recorded so this is not rediscovered a sixth time.
+
+WHAT SURVIVED, and it is not state-dependence: after a regime change, per-parameter
+evidence with AMPLIFICATION (level above 1 for newly-reliable parameters) beat the
+oracle mask on the sparse switch test, 0.31x vs 0.55x the zero-predictor, because
+a mask knows where the signal is but still relearns at baseline rate. That is a
+temporal capability -- allocation of step size in time, not across units -- and it
+is the only measured effect in this family that a correctly-controlled oracle does
+not already dominate.
+
+## pc_stream.py: gate strength scaled as 1/B (fixed), and the cross-batch result
+
+`u += (pc_lr / batch) * du` where `du` already SUMS over the batch: per-step
+increment batch-invariant, step count falls as samples/batch, so the local model's
+total movement scaled as 1/B. At B=256 the gate was inert (multiplier 0.982,
+dispersion 0.020) vs firing at B=1 (0.728, 0.424). Every cross-batch comparison
+before this compared a live gate to a dead one. Fixed: `u += pc_lr * du`
+(bit-identical at B=1). Verified dispersion 0.423 / 0.429 / 0.412 at B=1/32/256.
+
+Standard dense net, field 1.0, LR swept per arm from 3e-5, 16 paired seeds:
+
+| B   | adam   | pc     | pc_shuffle | pc - adam            |
+|-----|--------|--------|------------|----------------------|
+| 1   | 0.5919 | 0.5880 | 0.5927     | -0.0039, t -0.35     |
+| 32  | 0.6530 | 0.6568 | 0.6470     | +0.0038; shuffle wins|
+| 256 | 0.6905 | 0.7464 | 0.7282     | +0.0560, t +8.74     |
+
+Null at B=1, harmful with batch, and beaten by its own shuffled-correspondence
+control at every B >= 32. This is with gate strength matched, so it is not the
+defect-4 artifact any more.
+
+## The direct test, never run before: HalfCheetah-v4 @ 8M, seed 1
+
+`ppo_continuous_action_pcbatch_v1.py` (standard dense trunk, per-(unit,sample)
+gate inside the minibatch gradient sum). Gate fires on the real run: at 114k
+c_mean 0.514, unit dispersion 0.098, sample dispersion 0.382 -- note c_mean 0.51
+is a ~2x effective-LR cut on gated layers, so the pc-vs-off comparison is
+LR-confounded; pc vs scalar (same mean, sample dependence destroyed) and pc vs
+shuffle (same marginals, correspondence destroyed) are the clean comparisons.
+
+mlq 5141 pcbatch_v1 | 5142 --pc-shuffle | 5143 --pc-scalar | 5144 --pc-off
+(max-parallel 3, no compile). References: baseline 8278 @8M, incumbent 10362.
+
+Seed 1 alone: off 6122 / pc 6049 / scalar 5717 / shuffle 5671 -- and the same
+code's off arm equals `ppo_continuous_action_hostactor` (6121.7, deterministic),
+while an earlier numerically different build of the same algorithm scored 7468 and
+the reference 8278: single-seed HalfCheetah spread at 8M is ~1000+. One seed
+resolves nothing here, so seeds 2-8 were added (mlq 5149-5176; 44k SPS, 3 min/run).
+
+**RESULT, 8 seeds per arm, HalfCheetah-v4 @8M (mean +-CI95, sd):**
+
+| arm                              | @2M  | @4M  | final           |
+|----------------------------------|------|------|-----------------|
+| off  (plain PPO, same code)      | 4497 | 6137 | 7128 +-488 (704)|
+| scalar (per-unit LR only)        | 4387 | 6034 | 7015 +-485 (700)|
+| shuffle (marginals kept)         | 3838 | 5451 | 6440 +-377 (544)|
+| pc (the premise)                 | 3729 | 5099 | 6214 +-250 (360)|
+
+The premise is the WORST arm: -914 (-13%) vs plain PPO, behind at every
+checkpoint. Decomposition: the per-unit mean-level change costs nothing (scalar
+-113, noise); within-batch per-sample dispersion costs ~-690 regardless of which
+unit it is attached to (shuffle); the correct state->unit correspondence adds a
+further -226 on top of the shuffle. On the standard dense PPO net, per-perceptron
+state-conditional plasticity is not null on HalfCheetah -- it is harmful, and the
+harm is in exactly the component the premise is about.
