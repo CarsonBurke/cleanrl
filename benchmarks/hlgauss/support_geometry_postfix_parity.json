@@ -1,0 +1,218 @@
+{
+  "status": "passed",
+  "checked": [
+    {
+      "case": "bounds_only",
+      "bound": 10.0,
+      "key": "barycentric/uniform/fixed/k101/b10",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 10.0,
+      "key": "barycentric/asinh/fixed/k101/b10",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 10.0,
+      "key": "barycentric/asinh/fixed/k31/b10",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 10.0,
+      "key": "barycentric/asinh/local/k101/b10",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 10.0,
+      "key": "barycentric/asinh/twohot/k101/b10",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 50.0,
+      "key": "barycentric/uniform/fixed/k101/b50",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 50.0,
+      "key": "barycentric/asinh/fixed/k101/b50",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 50.0,
+      "key": "barycentric/asinh/fixed/k31/b50",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 50.0,
+      "key": "barycentric/asinh/local/k101/b50",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 50.0,
+      "key": "barycentric/asinh/twohot/k101/b50",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 200.0,
+      "key": "barycentric/uniform/fixed/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 200.0,
+      "key": "barycentric/asinh/fixed/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 200.0,
+      "key": "barycentric/asinh/fixed/k31/b200",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 200.0,
+      "key": "barycentric/asinh/local/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 200.0,
+      "key": "barycentric/asinh/twohot/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 1000.0,
+      "key": "barycentric/uniform/fixed/k101/b1000",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 1000.0,
+      "key": "barycentric/asinh/fixed/k101/b1000",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 1000.0,
+      "key": "barycentric/asinh/fixed/k31/b1000",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 1000.0,
+      "key": "barycentric/asinh/local/k101/b1000",
+      "targets": 4609
+    },
+    {
+      "case": "bounds_only",
+      "bound": 1000.0,
+      "key": "barycentric/asinh/twohot/k101/b1000",
+      "targets": 4609
+    },
+    {
+      "case": "offset_only",
+      "bound": 200.0,
+      "key": "barycentric/uniform/fixed/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "offset_only",
+      "bound": 200.0,
+      "key": "barycentric/asinh/fixed/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "offset_only",
+      "bound": 200.0,
+      "key": "barycentric/asinh/fixed/k31/b200",
+      "targets": 4609
+    },
+    {
+      "case": "offset_only",
+      "bound": 200.0,
+      "key": "barycentric/asinh/local/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "offset_only",
+      "bound": 200.0,
+      "key": "barycentric/asinh/twohot/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "broader_values",
+      "bound": 200.0,
+      "key": "barycentric/uniform/fixed/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "broader_values",
+      "bound": 200.0,
+      "key": "barycentric/asinh/fixed/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "broader_values",
+      "bound": 200.0,
+      "key": "barycentric/asinh/fixed/k31/b200",
+      "targets": 4609
+    },
+    {
+      "case": "broader_values",
+      "bound": 200.0,
+      "key": "barycentric/asinh/local/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "broader_values",
+      "bound": 200.0,
+      "key": "barycentric/asinh/twohot/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "rare_value_tail",
+      "bound": 200.0,
+      "key": "barycentric/uniform/fixed/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "rare_value_tail",
+      "bound": 200.0,
+      "key": "barycentric/asinh/fixed/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "rare_value_tail",
+      "bound": 200.0,
+      "key": "barycentric/asinh/fixed/k31/b200",
+      "targets": 4609
+    },
+    {
+      "case": "rare_value_tail",
+      "bound": 200.0,
+      "key": "barycentric/asinh/local/k101/b200",
+      "targets": 4609
+    },
+    {
+      "case": "rare_value_tail",
+      "bound": 200.0,
+      "key": "barycentric/asinh/twohot/k101/b200",
+      "targets": 4609
+    }
+  ],
+  "head_configurations": 35,
+  "labels_and_decodes": "bitwise identical for all original calibration/full-support diagnostic probes",
+  "limitation": "Numerical corpus parity, not a repeated training run"
+}

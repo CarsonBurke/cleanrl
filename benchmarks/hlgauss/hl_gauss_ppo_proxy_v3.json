@@ -140,7 +140,8 @@
         "mse",
         "mse_clipped"
       ]
-    }
+    },
+    "current_command": ".venv/bin/python -u scripts/hlgauss/ppo_proxy_v3.py --output runs/HLGaussPPOProxy__calibrated_v3_revision2__1 --rollouts 160"
   },
   "initial_calibration": {
     "job": 5097,
@@ -1038,5 +1039,9 @@
     "cleanrl/shared/host_actor.py": "3bfce9cd0c931dfe79e3f7e119bee602ba7ba43f5af7831b2c3391cb93b64268"
   },
   "post_execution_source_note": "Shared hl_gauss.py documentation was corrected; numerical behavior/default values are unchanged.",
-  "paired_sigma_contrasts_note": "All120 paired contrasts are retained in the full results archive; sphere cells are shown above."
+  "paired_sigma_contrasts_note": "All120 paired contrasts are retained in the full results archive; sphere cells are shown above.",
+  "subsequent_default_update": {
+    "record": "benchmarks/hlgauss/defaults.json",
+    "note": "Shared defaults now use the measured uniform-raw sigma0.75 configuration. The previous numeric-default disposition above records the earlier delivery state."
+  }
 }

@@ -122,7 +122,9 @@ class EnsembleCritic:
 def make_mdp(case, phase=0):
     n = 96
     angle = torch.arange(n, dtype=torch.float32) * (2 * math.pi / n)
-    x = torch.stack([angle.sin(), angle.cos(), (2 * angle).sin(), (2 * angle).cos(), (3 * angle).sin(), (3 * angle).cos()], -1)
+    x = torch.stack(
+        [angle.sin(), angle.cos(), (2 * angle).sin(), (2 * angle).cos(), (3 * angle).sin(), (3 * angle).cos()], -1
+    )
     p = torch.zeros(2, n, n)
     for action, direction in enumerate((-1, 1)):
         # Low transition noise is separate from the explicit reward-noise
@@ -244,13 +246,26 @@ def update_critics(model, optimizer, observations, labels, old_values, clipped_m
     return norm.detach()
 
 
-def train_group(candidates, case, architecture, rollouts, horizon=128, envs=4, bootstrap="own"):
+def train_group(
+    candidates,
+    case,
+    architecture,
+    rollouts,
+    horizon=128,
+    envs=4,
+    bootstrap="own",
+    *,
+    sampler=sample_rollout,
+    initialize=None,
+):
     heads = [c.config().build("cpu") for c in candidates] if candidates[0].loss == "gaussian" else []
     model = EnsembleCritic(len(candidates), candidates[0].outputs, architecture, bool(heads))
+    if initialize is not None:
+        initialize(model, heads)
     optimizer = torch.optim.Adam(model.parameters(), lr=case.lr, eps=1e-5)
     generator = torch.Generator().manual_seed(1)
     # Evaluation trajectories use a separate fixed stream. They never train.
-    evaluation = [sample_rollout(case, phase, horizon, envs * 4, torch.Generator().manual_seed(9001)) for phase in range(2)]
+    evaluation = [sampler(case, phase, horizon, envs * 4, torch.Generator().manual_seed(9001)) for phase in range(2)]
     curves = [[] for _ in candidates]
     overflow = torch.zeros(len(candidates))
     critic_norms = torch.zeros(len(candidates))
@@ -259,7 +274,7 @@ def train_group(candidates, case, architecture, rollouts, horizon=128, envs=4, b
     start = time.perf_counter()
     for rollout in range(rollouts):
         phase = int(case.shift and rollout >= 20)
-        x, states, _, rewards, truth = sample_rollout(case, phase, horizon, envs, generator)
+        x, states, _, rewards, truth = sampler(case, phase, horizon, envs, generator)
         with torch.no_grad():
             old = decode(model(x), heads)
             bootstrap_values = truth[None].expand_as(old) if bootstrap == "oracle" else old
@@ -280,7 +295,9 @@ def train_group(candidates, case, architecture, rollouts, horizon=128, envs=4, b
                 ex, es, ea, er, ev = evaluation[phase]
                 measured = metrics(decode(model(ex), heads), ev, ex, es, ea, er, case)
                 for i, c in enumerate(candidates):
-                    curves[i].append(dict(rollout=rollout + 1, phase=phase, **{k: float(v[i]) for k, v in measured.items()}))
+                    curves[i].append(
+                        dict(rollout=rollout + 1, phase=phase, **{k: float(v[i]) for k, v in measured.items()})
+                    )
     elapsed = time.perf_counter() - start
     rows = []
     for i, c in enumerate(candidates):
@@ -294,7 +311,9 @@ def train_group(candidates, case, architecture, rollouts, horizon=128, envs=4, b
                 bootstrap=bootstrap,
                 lr=case.lr,
                 **{k: v for k, v in curve[-1].items() if k not in ("rollout", "phase")},
-                **{f"tail_{k}": sum(p[k] for p in tail) / len(tail) for k in curve[-1] if k not in ("rollout", "phase")},
+                **{
+                    f"tail_{k}": sum(p[k] for p in tail) / len(tail) for k in curve[-1] if k not in ("rollout", "phase")
+                },
                 tail_checkpoint_count=len(tail),
                 mean_checkpoint_value_nmse=sum(p["value_nmse"] for p in curve) / len(curve),
                 mean_checkpoint_ppo_gradient_mse=sum(p["ppo_gradient_relative_mse"] for p in curve) / len(curve),
@@ -310,7 +329,8 @@ def train_group(candidates, case, architecture, rollouts, horizon=128, envs=4, b
 
 def grouped(candidates, width=10):
     for _, group in itertools.groupby(
-        sorted(candidates, key=lambda c: (c.loss == "gaussian", c.outputs)), key=lambda c: (c.loss == "gaussian", c.outputs)
+        sorted(candidates, key=lambda c: (c.loss == "gaussian", c.outputs)),
+        key=lambda c: (c.loss == "gaussian", c.outputs),
     ):
         group = list(group)
         for i in range(0, len(group), width):

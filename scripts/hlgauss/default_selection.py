@@ -5,6 +5,9 @@ Fixed K/sigma policies compete with resolution chosen from an independent
 calibration batch's return standard deviation, under the same 255-bin head
 budget. Absolute sigma always equals sigma_ratio * raw bin width. The budget
 is an explicit capacity constraint, not a target clamp. No moving supports.
+An additional rule chooses the sharpest tested kernel with a conservative
+infinite-grid quantization-bias bound below 0.5% of calibrated target std.
+That tolerance is a candidate heuristic, not an established learning optimum.
 
 Selection uses geometric-mean clipped-PPO gradient error relative to scalar MSE
 across all declared case/support cells. Lock best fixed and scale-aware policies
@@ -112,6 +115,7 @@ def main():
     policies = [Policy(bins=k, sigma=s) for k in (31, 101, 255) for s in (0.5, 0.75, 1.0, 2.0)]
     policies += [Policy(width_in_std=w, sigma=s) for w in (0.5, 1.0, 2.0) for s in (0.5, 0.75, 1.0, 2.0)]
     policies += [Policy(bins=k, auto_sigma=True) for k in (31, 101, 255)]
+    policies += [Policy(width_in_std=w, auto_sigma=True) for w in (0.5, 1.0, 2.0)]
     args.output.mkdir(parents=True, exist_ok=True)
     writer = SummaryWriter(str(args.output))
     report: dict[str, Any] = dict(
@@ -190,16 +194,29 @@ def main():
         for r in report["screening_ranking"]
         if by_key[r["policy"]].width_in_std is None and not by_key[r["policy"]].auto_sigma
     )
-    adaptive = next(by_key[r["policy"]] for r in report["screening_ranking"] if by_key[r["policy"]].width_in_std is not None)
-    sigma_adaptive = next(by_key[r["policy"]] for r in report["screening_ranking"] if by_key[r["policy"]].auto_sigma)
+    adaptive = next(
+        by_key[r["policy"]]
+        for r in report["screening_ranking"]
+        if by_key[r["policy"]].width_in_std is not None and not by_key[r["policy"]].auto_sigma
+    )
+    sigma_adaptive = next(
+        by_key[r["policy"]]
+        for r in report["screening_ranking"]
+        if by_key[r["policy"]].width_in_std is None and by_key[r["policy"]].auto_sigma
+    )
+    joint = next(
+        by_key[r["policy"]]
+        for r in report["screening_ranking"]
+        if by_key[r["policy"]].width_in_std is not None and by_key[r["policy"]].auto_sigma
+    )
     finalists = list(
         {
             p.key: p
-            for base in (fixed, adaptive, sigma_adaptive)
+            for base in (fixed, adaptive, sigma_adaptive, joint)
             for p in [Policy(bins=base.bins, width_in_std=base.width_in_std, sigma=s) for s in (0.5, 0.75, 1.0, 2.0)]
         }.values()
     )
-    finalists.append(sigma_adaptive)
+    finalists.extend((sigma_adaptive, joint))
     report["policies"].update({p.key: asdict(p) for p in finalists})
     report["locked_finalists"] = [p.key for p in finalists]
     save()

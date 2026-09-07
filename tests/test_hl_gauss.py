@@ -294,3 +294,45 @@ def test_symexp_center_cells_match_frozen_raw_gaussian_reference():
     )
     with pytest.raises(ValueError):
         config(bin_type="symexp_centers", transform="symlog")
+
+
+@pytest.mark.parametrize("lower,upper,std", [(-10.0, 10.0, 0.4), (-40.0, 15.0, 0.53)])
+def test_scale_default_uses_minimal_odd_resolution_for_target_spread(lower, upper, std):
+    cfg = HLGaussConfig.for_target_scale(v_min=lower, v_max=upper, target_std=std)
+    assert cfg.num_bins % 2 == 1
+    assert (upper - lower) / (cfg.num_bins - 1) <= 2 * std
+    assert (upper - lower) / (cfg.num_bins - 3) > 2 * std
+    head = cfg.build()
+    torch.testing.assert_close(head.support[[0, -1]], torch.tensor([lower, upper]))
+
+
+def test_scale_default_preserves_labels_and_decoding_under_return_unit_changes():
+    cfg = HLGaussConfig.for_target_scale(v_min=-12, v_max=18, target_std=0.47)
+    scale, offset = 3.7, 4.2
+    converted = HLGaussConfig.for_target_scale(
+        v_min=scale * cfg.v_min + offset,
+        v_max=scale * cfg.v_max + offset,
+        target_std=scale * 0.47,
+    )
+    head, other = cfg.build().double(), converted.build().double()
+    targets = torch.tensor([-2.3, 0.8, 12.0], dtype=torch.float64)
+    torch.testing.assert_close(head.project(targets), other.project(scale * targets + offset), atol=2e-6, rtol=2e-5)
+    logits = torch.sin(torch.arange(cfg.num_bins, dtype=torch.float64))
+    torch.testing.assert_close(other.to_scalar(logits), scale * head.to_scalar(logits) + offset, atol=2e-6, rtol=2e-5)
+
+
+def test_scale_default_honors_even_capacity_and_extremely_small_positive_spread():
+    cfg = HLGaussConfig.for_target_scale(v_min=-50, v_max=50, target_std=1e-320, max_bins=256)
+    assert cfg.num_bins == 255
+    head = cfg.build()
+    torch.testing.assert_close(head.support[[0, -1]], torch.tensor([-50.0, 50.0]))
+    assert head.project(torch.tensor(0.0)).shape == (255,)
+
+
+def test_scale_default_rejects_unusable_calibration_and_capacity():
+    with pytest.raises(ValueError, match="target_std"):
+        HLGaussConfig.for_target_scale(v_min=-10, v_max=10, target_std=0)
+    with pytest.raises(ValueError, match="max_bins"):
+        HLGaussConfig.for_target_scale(v_min=-10, v_max=10, target_std=1, max_bins=2)
+    with pytest.raises(ValueError, match="span"):
+        HLGaussConfig.for_target_scale(v_min=-1e308, v_max=1e308, target_std=1)

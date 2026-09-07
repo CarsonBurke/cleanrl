@@ -1,0 +1,95 @@
+{
+  "status": "implemented and verified; proxy-selected default",
+  "sigma_ratio": 0.75,
+  "transform": "linear",
+  "bin_type": "centers",
+  "decode": "scalar",
+  "preferred_factory": "HLGaussConfig.for_target_scale(v_min=..., v_max=..., target_std=...)",
+  "resolution_rule": {
+    "target_bin_width": "2 * representative normalized-return standard deviation",
+    "formula": "K = min(largest odd <= max_bins, max(3, 2*ceil((v_max-v_min)/(4*target_std))+1))",
+    "default_max_bins": 255,
+    "absolute_sigma": "0.75 * (v_max-v_min)/(K-1)",
+    "lifecycle": "Choose once before constructing critic; no moving support or optimizer reset"
+  },
+  "fixed_fallback": {
+    "num_bins": 101,
+    "sigma_ratio": 0.75,
+    "use_when": "No representative target scale is available"
+  },
+  "examples": [
+    {
+      "bounds": [
+        -10,
+        10
+      ],
+      "target_std": 0.4,
+      "num_bins": 27,
+      "absolute_sigma": 0.5769230769230769
+    },
+    {
+      "bounds": [
+        -50,
+        50
+      ],
+      "target_std": 0.4,
+      "num_bins": 127,
+      "absolute_sigma": 0.5952380952380952
+    }
+  ],
+  "evidence": {
+    "record": "benchmarks/hlgauss/default_selection.json",
+    "full_results": "benchmarks/hlgauss/default_selection_results.json.gz",
+    "job": 5103,
+    "state": "succeeded",
+    "execution_seconds": 1537.2624262889149,
+    "max_parallel_runs": 3,
+    "time_limit": "30m",
+    "unique_critic_fits": 279,
+    "screening_cells": 10,
+    "confirmation_cells": 4,
+    "ranking": "Selected adaptive-resolution/sigma0.75 policy ranked first in both screening and confirmation",
+    "confirmation_scalar_relative_gradient_mse": 0.8799757157455331,
+    "confirmation_improvement_vs_scalar": 0.12002428425446687,
+    "confirmation_improvement_vs_fixed101_sigma075": 0.11445631552299917,
+    "confirmation_improvement_vs_fixed31_sigma075": 0.3667111215096305,
+    "sigma_adaptation": "Bias-limited adaptive sigma did not beat the selected fixed0.75 ratio"
+  },
+  "support_geometry_audit": {
+    "record": "benchmarks/hlgauss/support_geometry.json",
+    "job": 5122,
+    "state": "succeeded",
+    "default_changed": false,
+    "conclusion": "Increasing uniform bins is not always optimal: fixed nonuniform mean-preserving supports matched 2353 bins with 31 or 101 on wide unused support, but regressed on a large mean offset. No universally superior replacement was established.",
+    "capacity_note": "255 remains a declared capacity constraint, not an experimentally optimal bin ceiling."
+  },
+  "frozen_experiment": "sphere_hlgauss_v2 Args and Agent(None) explicitly retain K31/sigma2/raw symexp centers; original training behavior preserved",
+  "organization": {
+    "scripts": {
+      "scripts/benchmark_hl_gauss.py": "scripts/hlgauss/factorial.py",
+      "scripts/benchmark_hl_gauss_ppo_proxy_v3.py": "scripts/hlgauss/ppo_proxy_v3.py",
+      "scripts/hl_gauss_diagnostics.py": "scripts/hlgauss/diagnostics.py"
+    },
+    "reports": "benchmarks/hlgauss",
+    "provenance": "Archived binaries and original command/hash fields preserved; current_command fields support relocated CLIs"
+  },
+  "verification": {
+    "final_tests_job": 5118,
+    "passed": 86,
+    "seconds": 3.44,
+    "includes": "CPU numerical/proxy tests and full-batch compiled CUDA integration",
+    "junit": "benchmarks/hlgauss/final_default_tests.xml",
+    "max_parallel_runs": 3,
+    "time_limit": "15m",
+    "source_types": "Pyright0errors/warnings for production/shared/benchmark sources",
+    "production_factory": "Matches all14 measured winning configurations",
+    "reviews": "Independent study/organization reviews and adaptive factory follow-up found no remaining actionable defect"
+  },
+  "limits": [
+    "One-seed fixed-policy critic proxy, not a proven MuJoCo-return or universal optimum",
+    "Representative target_std must be supplied; support endpoints alone cannot reveal target variation",
+    "Calibration study used oracle-bootstrap return spread, not conditional-noise estimation or cold-start PPO data",
+    "255-bin capacity can leave extremely broad support under-resolved; caller can change bounds or explicit capacity",
+    "No new MuJoCo training run was launched"
+  ]
+}

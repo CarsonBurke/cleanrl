@@ -20,7 +20,8 @@
     "environment": {
       "OMP_NUM_THREADS": "1",
       "MKL_NUM_THREADS": "1"
-    }
+    },
+    "current_command": ".venv/bin/python -u scripts/hlgauss/factorial.py --output runs/HLGaussProxy__factorial_v2__1 --steps 320 --threads 1"
   },
   "counts": {
     "configurations": 320,

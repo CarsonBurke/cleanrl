@@ -26,17 +26,19 @@ def symexp(x):
 
 @dataclass(frozen=True, kw_only=True)
 class HLGaussConfig:
-    """Raw-bound histogram configuration with historical proxy defaults.
+    """Raw-bound histogram configuration with a range-relative smoothing default.
 
     Bounds are always in raw scalar units, including for ``transform="symlog"``.
-    Bounds remain required. Defaults retain the v2 proxy's 31-bin, sigma-2,
-    raw-Gaussian, symexp-center configuration; they are NOT a PPO recommendation.
-    That configuration regressed in the reward-normalized sphere PPO run.
-    New experiments should explicitly compare sigma 0.5/0.75 on matched bins
-    and bounds, and measure raw bandwidth, projection bias and clipped-PPO
-    usefulness (benchmarks/hlgauss/hl_gauss_ppo_proxy_v3.json). Lower sigma need not
-    remove nonuniform-bin mean bias. Historical defaults are retained so frozen
-    versions that constructed this config implicitly do not silently change.
+    Defaults use uniform raw centers, raw expectation decode, and sigma/bin-width
+    ratio 0.75. For K centers, raw sigma = 0.75 * (v_max-v_min)/(K-1): changing
+    range or resolution automatically changes absolute smoothing, not the ratio.
+    The fixed fallback uses 101 bins; with a representative return standard
+    deviation, prefer ``for_target_scale`` to select resolution within a head
+    budget. Both choices were selected by the corrected PPO proxy
+    (benchmarks/hlgauss/defaults.json), not by a MuJoCo score claim. Frozen
+    experiments explicitly pin their previous configurations.
+    Oversized support still wastes resolution: use representative return bounds
+    or more bins rather than assuming a smaller ratio repairs coarse bins.
     ``sigma_ratio`` multiplies the bin width in the selected coordinate space.
     ``centers`` puts the outer centers on the bounds and extends edges by half
     a bin; ``edges`` puts the outer edges on the bounds.
@@ -51,29 +53,26 @@ class HLGaussConfig:
     Neither is in general the conditional raw target mean, and the two
     estimands differ for nonlinear transforms.
 
-    Historical v2 configuration (benchmarks/hlgauss/hl_gauss_proxy_v2.json)::
+    For representative reward-normalized targets with standard deviation 0.4::
 
-        head = HLGaussConfig(
-            num_bins=31, v_min=-150.0, v_max=150.0, sigma_ratio=2.0,
-            transform="linear", bin_type="symexp_centers", decode="scalar",
+        head = HLGaussConfig.for_target_scale(
+            v_min=-10.0, v_max=10.0, target_std=0.4,
         ).build("cuda")
 
-    Replace the example raw bounds with the task's return range. The selected
-    proxy support was +/-3 times its known generating scale; it was NOT an
-    automatic estimator, nor a universal range recommendation. ``centers`` is
-    the simpler uniform-raw comparator with the same bins/sigma/decode.
-    Nonuniform placement does not imply symlog Gaussian smoothing. Normalized
-    scalar MSE remained the stronger average supervised baseline. The old TD
-    utility cancelled constant critic bias and did not retain matched sigmas
-    for this configuration; its gains cannot justify a universal default.
+    This resolves to 27 bins and raw sigma about 0.577. Bounds and scale remain
+    caller-supplied: unknown target variation cannot be inferred from endpoints.
+    Select once before building the critic, not during updates. Without a
+    representative target scale, ``HLGaussConfig(v_min=..., v_max=...)`` uses
+    the best confirmed fixed-resolution fallback. Full comparison:
+    scripts/hlgauss/default_selection.py.
     """
 
     v_min: float
     v_max: float
-    num_bins: int = 31
-    sigma_ratio: float = 2.0
+    num_bins: int = 101
+    sigma_ratio: float = 0.75
     transform: Literal["linear", "symlog"] = "linear"
-    bin_type: Literal["centers", "edges", "symexp_centers"] = "symexp_centers"
+    bin_type: Literal["centers", "edges", "symexp_centers"] = "centers"
     decode: Literal["scalar", "transformed"] = "scalar"
 
     def __post_init__(self):
@@ -91,6 +90,48 @@ class HLGaussConfig:
             raise ValueError("symexp_centers integrates in raw space and requires transform='linear'")
         if self.decode not in ("scalar", "transformed"):
             raise ValueError("decode must be 'scalar' or 'transformed'")
+
+    @classmethod
+    def for_target_scale(
+        cls,
+        *,
+        v_min: float,
+        v_max: float,
+        target_std: float,
+        max_bins: int = 255,
+    ) -> "HLGaussConfig":
+        """Choose the measured raw-uniform resolution rule, then sigma=0.75 bins.
+
+        Target bin width is at most 2*target_std unless the head budget binds:
+        K = min(largest odd <= max_bins, max(3, 2*ceil(span/(4*std)) + 1)).
+        The 255-bin default budget is the tested capacity constraint, not a
+        range clamp. Wide supports can remain resolution-limited at the cap.
+
+        ``target_std`` is a representative post-normalization target spread,
+        not an estimate of conditional noise. Do not estimate it from empty,
+        constant, or unrepresentative startup data. This constructs a frozen
+        config; it never changes an existing head, support, or optimizer state.
+        """
+        if not math.isfinite(target_std) or target_std <= 0:
+            raise ValueError("target_std must be finite and positive")
+        if isinstance(max_bins, bool) or not isinstance(max_bins, int) or max_bins < 3:
+            raise ValueError("max_bins must be an integer >= 3")
+        span = v_max - v_min
+        if not math.isfinite(span) or span <= 0:
+            raise ValueError("bounds must define a finite, positive raw span")
+        capacity = max_bins if max_bins % 2 else max_bins - 1
+        scaled_span = span / target_std
+        # Saturate before ceil: tiny positive spreads can overflow this ratio.
+        bins = capacity if scaled_span >= 2 * (capacity - 1) else max(3, 2 * math.ceil(scaled_span / 4) + 1)
+        return cls(
+            v_min=v_min,
+            v_max=v_max,
+            num_bins=bins,
+            sigma_ratio=0.75,
+            transform="linear",
+            bin_type="centers",
+            decode="scalar",
+        )
 
     def build(self, device="cpu") -> "HistogramGaussian":
         """Build cached supports in the default floating dtype on ``device``."""

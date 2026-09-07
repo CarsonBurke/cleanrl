@@ -1,15 +1,15 @@
-# Hypothesis: HL-Gauss categorical value regression improves the high-LR sphere PPO critic.
-# Baseline: ppo_continuous_action_32xlr_1mb_noadvnorm_stiglu_sphere_v1.py;
-# matched run: HalfCheetah-v4__ppo_32xlr_1mb_noadvnorm_stiglu_sphere_50M__1__1788662844.
-# Actor, raw GAE surrogate, joint optimizer and host rollout path are unchanged.
-# Support bounds cover reward-normalized returns, NOT raw episodic scores;
-# [-50, 50] is a conservative starting range, not measured baseline coverage.
+# Hypothesis: fixed raw reward units avoid a moving critic target scale.
+# Baseline: HalfCheetah-v4__ppo_32xlr_1mb_noadvnorm_stiglu_sphere_50M__1__1788662844.
+# No reward normalization or clipping; observation normalization stays on.
+# Symlog HL-Gauss: 511 centers over raw +/-20000, sigma/bin-width=0.75,
+# decoded as E[raw center], not symexp(E[coordinate]). Bounds are not guaranteed;
+# monitor overflow and projection bias. Preserve raw GAE, joint Adam and 50M LR.
 import os
 import random
 import time
 from argparse import Namespace
 from contextlib import ExitStack
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import partial
 
 import gymnasium as gym
@@ -23,7 +23,8 @@ from torch.distributions import Beta
 from torch.utils.tensorboard import SummaryWriter
 
 from cleanrl.shared.hl_gauss import HistogramGaussian, HLGaussConfig
-from cleanrl.shared.host_actor import HostSiTUSphereActor, make_situ_sphere_trunk
+from cleanrl.shared.host_actor import make_situ_sphere_trunk
+from cleanrl.shared.host_graph import make_host_mirror
 from cleanrl.shared.mujoco_env import make_mujoco_vector_env
 from cleanrl.shared.ppo_loop import (
     TruncationBootstrapCache,
@@ -44,12 +45,21 @@ from cleanrl.shared.staggered_envs import (
 from cleanrl.shared.timing import PhaseTimer
 from cleanrl.shared.vector_norm import (
     VectorObsNorm,
-    VectorRewardNorm,
     make_raw_continuous_env,
 )
 
 SAMPLE_EPS = 1e-6
 NATIVE_TASKS = frozenset(("HalfCheetah-v4", "Hopper-v4", "Walker2d-v4"))
+# Frozen version: do not silently inherit subsequent shared-default changes.
+DEFAULT_VALUE_CONFIG = HLGaussConfig(
+    v_min=-20_000.0,
+    v_max=20_000.0,
+    num_bins=511,
+    sigma_ratio=0.75,
+    transform="symlog",
+    bin_type="centers",
+    decode="scalar",
+)
 
 
 @dataclass
@@ -111,24 +121,13 @@ class Args:
     target_kl: float | None = None
     """the target KL divergence threshold"""
 
-    # Pin the frozen v2 experiment rather than inheriting future shared defaults.
-    value: HLGaussConfig = field(
-        default_factory=lambda: HLGaussConfig(
-            v_min=-50.0,
-            v_max=50.0,
-            num_bins=31,
-            sigma_ratio=2.0,
-            transform="linear",
-            bin_type="symexp_centers",
-            decode="scalar",
-        )
-    )
-    """HL-Gauss support in reward-normalized return units; monitor overflow and projection bias"""
+    value: HLGaussConfig = DEFAULT_VALUE_CONFIG
+    """HL-Gauss support in raw discounted-return units; monitor overflow and projection bias"""
 
     # Execution controls, independent of PPO's batch and optimizer settings.
     env_backend: str = "auto"
     """native for supported v4 MuJoCo; sync for other continuous environments"""
-    env_threads: int = 4
+    env_threads: int = 2
     """maximum physics threads, capped at num_envs"""
     compile: bool = True
     """compile deterministic policy statistics, PPO loss and GAE"""
@@ -149,12 +148,11 @@ class Args:
 
 
 class _EvaluationNorm(gym.Wrapper):
-    """Single-env evaluation adapter using the same shared normalization math."""
+    """Normalize observations only; evaluation rewards stay raw and unclipped."""
 
-    def __init__(self, env, gamma):
+    def __init__(self, env):
         super().__init__(env)
         self.obs_norm = VectorObsNorm(1, env.observation_space.shape)
-        self.rew_norm = VectorRewardNorm(1, gamma)
 
     def reset(self, **kwargs):
         observation, info = self.env.reset(**kwargs)
@@ -163,7 +161,6 @@ class _EvaluationNorm(gym.Wrapper):
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)
         observation = self.obs_norm.normalize(np.asarray(observation)[None])[0]
-        reward = self.rew_norm.normalize(np.asarray([reward]), np.asarray([terminated]))[0]
         return observation, float(reward), terminated, truncated, info
 
 
@@ -171,7 +168,7 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
     raw_factory = make_raw_continuous_env(env_id, idx, capture_video, run_name)
 
     def thunk():
-        return _EvaluationNorm(raw_factory(), gamma)
+        return _EvaluationNorm(raw_factory())
 
     return thunk
 
@@ -216,15 +213,7 @@ class Agent(nn.Module):
             layer_init(nn.Linear(64, 2 * self.action_dim), std=0.01),
         )
         if value_config is None:
-            value_config = HLGaussConfig(
-                v_min=-50.0,
-                v_max=50.0,
-                num_bins=31,
-                sigma_ratio=2.0,
-                transform="linear",
-                bin_type="symexp_centers",
-                decode="scalar",
-            )
+            value_config = DEFAULT_VALUE_CONFIG
         self.value_support = HistogramGaussian(value_config)
         value_head = nn.Linear(64, value_config.num_bins)
         # Uniform logits are uninformative and decode near zero on default support.
@@ -283,7 +272,9 @@ def ppo_loss(agent, observations, native_actions, old_logprobs, advantages, targ
     v_loss = -(target_probs.detach() * value_logits.log_softmax(dim=-1)).sum(dim=-1).mean()
     entropy_loss = entropy.mean()
     loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
-    metrics = torch.stack((pg_loss.detach(), v_loss.detach(), entropy_loss.detach(), old_approx_kl, approx_kl, clipfrac))
+    metrics = torch.stack(
+        (pg_loss.detach(), v_loss.detach(), entropy_loss.detach(), old_approx_kl, approx_kl, clipfrac)
+    )
     return loss, metrics
 
 
@@ -348,11 +339,12 @@ def main():
     resources.callback(writer.close)
     try:
         writer.add_text(
-            "hyperparameters", "|param|value|\n|-|-|\n" + "\n".join(f"|{key}|{value}|" for key, value in vars(args).items())
+            "hyperparameters",
+            "|param|value|\n|-|-|\n" + "\n".join(f"|{key}|{value}|" for key, value in vars(args).items()),
         )
         writer.add_text(
             "policy",
-            "Beta host actor; 32x LR; 1 minibatch; hypersphered SiTU-GLU trunk; no advantage normalization; HL-Gauss critic",
+            "Beta host actor; 32x LR; 1 minibatch; sphere trunk; raw rewards and advantages; symlog HL-Gauss critic",
         )
         envs = make_training_env(args, run_name)
         resources.callback(envs.close)
@@ -382,7 +374,7 @@ def main():
         obs_shape = envs.single_observation_space.shape
         # The rollout never touches the GPU: act from an FP32 host mirror of the
         # actor, stage everything in pinned memory, upload once per rollout.
-        host_actor = HostSiTUSphereActor(agent.actor, args.num_envs)
+        host_actor = make_host_mirror(agent.actor, args.num_envs)
         action_low, action_high = (buffer.cpu().numpy() for buffer in (agent.action_low, agent.action_high))
         sampler = np.random.default_rng(args.seed)
 
@@ -403,7 +395,6 @@ def main():
         resources.callback(transfer.close)
         bootstraps = TruncationBootstrapCache(args.num_steps, args.num_envs, obs_shape)
         obs_norm = VectorObsNorm(args.num_envs, obs_shape)
-        rew_norm = VectorRewardNorm(args.num_envs, args.gamma)
         # Shuffling must not consume the policy sampler's CUDA random stream.
         shuffle_generator = torch.Generator(device=device).manual_seed(args.seed)
         max_updates = args.update_epochs * ((args.batch_size + args.minibatch_size - 1) // args.minibatch_size)
@@ -421,7 +412,6 @@ def main():
             warm = run_phase_warmup(
                 envs,
                 obs_norm=obs_norm,
-                rew_norm=rew_norm,
                 act_fn=warmup_action,
                 horizon=horizon,
                 phase_offsets=phases,
@@ -446,10 +436,9 @@ def main():
                 with timer.span("env", use_cuda=False):
                     raw_obs, raw_reward, terms, truncs, infos = envs.step(host_action)
                 with timer.span("normalize_transfer", use_cuda=False):
-                    reward = rew_norm.normalize(raw_reward, terms)
                     next_obs_np, transition_obs = obs_norm.normalize_step(raw_obs, terms, truncs, infos)
                     bootstraps.push_normalized(step, truncs, transition_obs)
-                    transfer.push(step, reward, terms, truncs, observations=obs_step, native_actions=native)
+                    transfer.push(step, raw_reward, terms, truncs, observations=obs_step, native_actions=native)
                 global_step += args.num_envs
                 for index, info in enumerate(infos.get("final_info", ())):
                     if info and "episode" in info:
@@ -486,11 +475,13 @@ def main():
                 b_target_probs = target_model(b_returns).detach()
                 projection_error = agent.value_support.probs_to_scalar(b_target_probs) - b_returns
                 value_diagnostics = {
-                    "hlgauss/normalized_return_mean": b_returns.mean(),
-                    "hlgauss/normalized_return_std": b_returns.std(unbiased=False),
-                    "hlgauss/normalized_return_min": b_returns.min(),
-                    "hlgauss/normalized_return_max": b_returns.max(),
-                    "hlgauss/support_overflow_fraction": ((b_returns < args.value.v_min) | (b_returns > args.value.v_max))
+                    "hlgauss/raw_return_mean": b_returns.mean(),
+                    "hlgauss/raw_return_std": b_returns.std(unbiased=False),
+                    "hlgauss/raw_return_min": b_returns.min(),
+                    "hlgauss/raw_return_max": b_returns.max(),
+                    "hlgauss/support_overflow_fraction": (
+                        (b_returns < args.value.v_min) | (b_returns > args.value.v_max)
+                    )
                     .float()
                     .mean(),
                     "hlgauss/projection_target_bias": projection_error.mean(),
@@ -543,7 +534,9 @@ def main():
             now = time.perf_counter()
             writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
             writer.add_scalar("charts/SPS", int(global_step / (now - start_time)), global_step)
-            writer.add_scalar("charts/interval_SPS", (global_step - interval_step) / (now - interval_start), global_step)
+            writer.add_scalar(
+                "charts/interval_SPS", (global_step - interval_step) / (now - interval_start), global_step
+            )
             for phase, timing in timer.summary().items():
                 writer.add_scalar(f"timing/{phase}_s", timing["total_s"], global_step)
             timer.reset()
@@ -576,7 +569,12 @@ def main():
                 repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
                 repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
                 push_to_hub(
-                    Namespace(**vars(args)), episodic_returns, repo_id, "PPO", f"runs/{run_name}", f"videos/{run_name}-eval"
+                    Namespace(**vars(args)),
+                    episodic_returns,
+                    repo_id,
+                    "PPO",
+                    f"runs/{run_name}",
+                    f"videos/{run_name}-eval",
                 )
     finally:
         resources.close()

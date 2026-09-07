@@ -1,15 +1,15 @@
-# Hypothesis: HL-Gauss categorical value regression improves the high-LR sphere PPO critic.
-# Baseline: ppo_continuous_action_32xlr_1mb_noadvnorm_stiglu_sphere_v1.py;
-# matched run: HalfCheetah-v4__ppo_32xlr_1mb_noadvnorm_stiglu_sphere_50M__1__1788662844.
-# Actor, raw GAE surrogate, joint optimizer and host rollout path are unchanged.
-# Support bounds cover reward-normalized returns, NOT raw episodic scores;
-# [-50, 50] is a conservative starting range, not measured baseline coverage.
+# Hypothesis: proxy-selected raw-uniform HL-Gauss improves the high-LR sphere critic.
+# Baseline: HalfCheetah-v4__ppo_32xlr_1mb_noadvnorm_stiglu_sphere_50M__1__1788662844.
+# Replace clipped scalar MSE with CE; preserve actor initialization, raw GAE,
+# joint Adam and the baseline's 50M-step LR schedule. Use the shared host mirror.
+# Pin current shared defaults: 101 raw centers, sigma/bin-width=0.75, raw decode.
+# Bounds +/-50 are conservative normalized-return bounds, not calibrated coverage.
 import os
 import random
 import time
 from argparse import Namespace
 from contextlib import ExitStack
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import partial
 
 import gymnasium as gym
@@ -23,7 +23,8 @@ from torch.distributions import Beta
 from torch.utils.tensorboard import SummaryWriter
 
 from cleanrl.shared.hl_gauss import HistogramGaussian, HLGaussConfig
-from cleanrl.shared.host_actor import HostSiTUSphereActor, make_situ_sphere_trunk
+from cleanrl.shared.host_actor import make_situ_sphere_trunk
+from cleanrl.shared.host_graph import make_host_mirror
 from cleanrl.shared.mujoco_env import make_mujoco_vector_env
 from cleanrl.shared.ppo_loop import (
     TruncationBootstrapCache,
@@ -50,6 +51,16 @@ from cleanrl.shared.vector_norm import (
 
 SAMPLE_EPS = 1e-6
 NATIVE_TASKS = frozenset(("HalfCheetah-v4", "Hopper-v4", "Walker2d-v4"))
+# Frozen version: do not silently inherit subsequent shared-default changes.
+DEFAULT_VALUE_CONFIG = HLGaussConfig(
+    v_min=-50.0,
+    v_max=50.0,
+    num_bins=101,
+    sigma_ratio=0.75,
+    transform="linear",
+    bin_type="centers",
+    decode="scalar",
+)
 
 
 @dataclass
@@ -111,24 +122,13 @@ class Args:
     target_kl: float | None = None
     """the target KL divergence threshold"""
 
-    # Pin the frozen v2 experiment rather than inheriting future shared defaults.
-    value: HLGaussConfig = field(
-        default_factory=lambda: HLGaussConfig(
-            v_min=-50.0,
-            v_max=50.0,
-            num_bins=31,
-            sigma_ratio=2.0,
-            transform="linear",
-            bin_type="symexp_centers",
-            decode="scalar",
-        )
-    )
+    value: HLGaussConfig = DEFAULT_VALUE_CONFIG
     """HL-Gauss support in reward-normalized return units; monitor overflow and projection bias"""
 
     # Execution controls, independent of PPO's batch and optimizer settings.
     env_backend: str = "auto"
     """native for supported v4 MuJoCo; sync for other continuous environments"""
-    env_threads: int = 4
+    env_threads: int = 2
     """maximum physics threads, capped at num_envs"""
     compile: bool = True
     """compile deterministic policy statistics, PPO loss and GAE"""
@@ -216,15 +216,7 @@ class Agent(nn.Module):
             layer_init(nn.Linear(64, 2 * self.action_dim), std=0.01),
         )
         if value_config is None:
-            value_config = HLGaussConfig(
-                v_min=-50.0,
-                v_max=50.0,
-                num_bins=31,
-                sigma_ratio=2.0,
-                transform="linear",
-                bin_type="symexp_centers",
-                decode="scalar",
-            )
+            value_config = DEFAULT_VALUE_CONFIG
         self.value_support = HistogramGaussian(value_config)
         value_head = nn.Linear(64, value_config.num_bins)
         # Uniform logits are uninformative and decode near zero on default support.
@@ -283,7 +275,9 @@ def ppo_loss(agent, observations, native_actions, old_logprobs, advantages, targ
     v_loss = -(target_probs.detach() * value_logits.log_softmax(dim=-1)).sum(dim=-1).mean()
     entropy_loss = entropy.mean()
     loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
-    metrics = torch.stack((pg_loss.detach(), v_loss.detach(), entropy_loss.detach(), old_approx_kl, approx_kl, clipfrac))
+    metrics = torch.stack(
+        (pg_loss.detach(), v_loss.detach(), entropy_loss.detach(), old_approx_kl, approx_kl, clipfrac)
+    )
     return loss, metrics
 
 
@@ -348,7 +342,8 @@ def main():
     resources.callback(writer.close)
     try:
         writer.add_text(
-            "hyperparameters", "|param|value|\n|-|-|\n" + "\n".join(f"|{key}|{value}|" for key, value in vars(args).items())
+            "hyperparameters",
+            "|param|value|\n|-|-|\n" + "\n".join(f"|{key}|{value}|" for key, value in vars(args).items()),
         )
         writer.add_text(
             "policy",
@@ -382,7 +377,7 @@ def main():
         obs_shape = envs.single_observation_space.shape
         # The rollout never touches the GPU: act from an FP32 host mirror of the
         # actor, stage everything in pinned memory, upload once per rollout.
-        host_actor = HostSiTUSphereActor(agent.actor, args.num_envs)
+        host_actor = make_host_mirror(agent.actor, args.num_envs)
         action_low, action_high = (buffer.cpu().numpy() for buffer in (agent.action_low, agent.action_high))
         sampler = np.random.default_rng(args.seed)
 
@@ -490,7 +485,9 @@ def main():
                     "hlgauss/normalized_return_std": b_returns.std(unbiased=False),
                     "hlgauss/normalized_return_min": b_returns.min(),
                     "hlgauss/normalized_return_max": b_returns.max(),
-                    "hlgauss/support_overflow_fraction": ((b_returns < args.value.v_min) | (b_returns > args.value.v_max))
+                    "hlgauss/support_overflow_fraction": (
+                        (b_returns < args.value.v_min) | (b_returns > args.value.v_max)
+                    )
                     .float()
                     .mean(),
                     "hlgauss/projection_target_bias": projection_error.mean(),
@@ -543,7 +540,9 @@ def main():
             now = time.perf_counter()
             writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
             writer.add_scalar("charts/SPS", int(global_step / (now - start_time)), global_step)
-            writer.add_scalar("charts/interval_SPS", (global_step - interval_step) / (now - interval_start), global_step)
+            writer.add_scalar(
+                "charts/interval_SPS", (global_step - interval_step) / (now - interval_start), global_step
+            )
             for phase, timing in timer.summary().items():
                 writer.add_scalar(f"timing/{phase}_s", timing["total_s"], global_step)
             timer.reset()
@@ -576,7 +575,12 @@ def main():
                 repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
                 repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
                 push_to_hub(
-                    Namespace(**vars(args)), episodic_returns, repo_id, "PPO", f"runs/{run_name}", f"videos/{run_name}-eval"
+                    Namespace(**vars(args)),
+                    episodic_returns,
+                    repo_id,
+                    "PPO",
+                    f"runs/{run_name}",
+                    f"videos/{run_name}-eval",
                 )
     finally:
         resources.close()

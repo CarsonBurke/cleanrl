@@ -1,0 +1,301 @@
+{
+  "status": "completed",
+  "job": 5103,
+  "max_parallel_runs": 3,
+  "time_limit": "30m",
+  "priority": 0,
+  "seed": 1,
+  "device": "cpu",
+  "execution_seconds": 1537.2624262889149,
+  "unique_critic_fits": 279,
+  "screening_cells": 10,
+  "confirmation_cells": 4,
+  "selected_policy": "stdwidth2_budget255/s0.75",
+  "fixed_fallback": "k101/s0.75",
+  "criterion": "geometric mean of final-quarter PPO-gradient MSE / scalar-control error across case/support cells",
+  "screening_ranking": [
+    {
+      "policy": "stdwidth2_budget255/s0.75",
+      "geometric_mean_relative_gradient_mse": 1.0037629389694427,
+      "worst_relative_gradient_mse": 2.371897939551664,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth2_budget255/s0.5",
+      "geometric_mean_relative_gradient_mse": 1.0100300975707512,
+      "worst_relative_gradient_mse": 2.177992715959042,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth2_budget255/bias_limited_sigma",
+      "geometric_mean_relative_gradient_mse": 1.0100300975707512,
+      "worst_relative_gradient_mse": 2.177992715959042,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth2_budget255/s1",
+      "geometric_mean_relative_gradient_mse": 1.0218052864243494,
+      "worst_relative_gradient_mse": 2.4665698606101722,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth1_budget255/s1",
+      "geometric_mean_relative_gradient_mse": 1.0408615185392267,
+      "worst_relative_gradient_mse": 2.192717440501566,
+      "cells": 10
+    },
+    {
+      "policy": "k101/s1",
+      "geometric_mean_relative_gradient_mse": 1.0657843829168128,
+      "worst_relative_gradient_mse": 1.8667675399125843,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth1_budget255/s0.75",
+      "geometric_mean_relative_gradient_mse": 1.0745143722121382,
+      "worst_relative_gradient_mse": 2.22461309630838,
+      "cells": 10
+    },
+    {
+      "policy": "k31/s0.5",
+      "geometric_mean_relative_gradient_mse": 1.083811092375853,
+      "worst_relative_gradient_mse": 2.0716836651734325,
+      "cells": 10
+    },
+    {
+      "policy": "k101/s2",
+      "geometric_mean_relative_gradient_mse": 1.0867635458098703,
+      "worst_relative_gradient_mse": 2.125333670520459,
+      "cells": 10
+    },
+    {
+      "policy": "k101/s0.75",
+      "geometric_mean_relative_gradient_mse": 1.0949930284286846,
+      "worst_relative_gradient_mse": 2.22650437090753,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth1_budget255/s2",
+      "geometric_mean_relative_gradient_mse": 1.104257714687327,
+      "worst_relative_gradient_mse": 3.078415563453943,
+      "cells": 10
+    },
+    {
+      "policy": "k31/s0.75",
+      "geometric_mean_relative_gradient_mse": 1.1045000772331652,
+      "worst_relative_gradient_mse": 2.2591688042054887,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth0.5_budget255/s2",
+      "geometric_mean_relative_gradient_mse": 1.1081108308820178,
+      "worst_relative_gradient_mse": 2.1743909430366797,
+      "cells": 10
+    },
+    {
+      "policy": "k31/bias_limited_sigma",
+      "geometric_mean_relative_gradient_mse": 1.1100918818674628,
+      "worst_relative_gradient_mse": 2.0716836651734325,
+      "cells": 10
+    },
+    {
+      "policy": "k31/s1",
+      "geometric_mean_relative_gradient_mse": 1.1580375731826793,
+      "worst_relative_gradient_mse": 2.395127531885903,
+      "cells": 10
+    },
+    {
+      "policy": "k255/s2",
+      "geometric_mean_relative_gradient_mse": 1.1630859340262214,
+      "worst_relative_gradient_mse": 2.719741864225379,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth0.5_budget255/s1",
+      "geometric_mean_relative_gradient_mse": 1.1689120334182364,
+      "worst_relative_gradient_mse": 6.598545266181047,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth1_budget255/s0.5",
+      "geometric_mean_relative_gradient_mse": 1.1799914303391306,
+      "worst_relative_gradient_mse": 4.080115332402675,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth1_budget255/bias_limited_sigma",
+      "geometric_mean_relative_gradient_mse": 1.1799914303391306,
+      "worst_relative_gradient_mse": 4.080115332402675,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth0.5_budget255/s0.75",
+      "geometric_mean_relative_gradient_mse": 1.200082457387691,
+      "worst_relative_gradient_mse": 6.526349208126854,
+      "cells": 10
+    },
+    {
+      "policy": "k101/s0.5",
+      "geometric_mean_relative_gradient_mse": 1.208223078477699,
+      "worst_relative_gradient_mse": 4.470021788401105,
+      "cells": 10
+    },
+    {
+      "policy": "k101/bias_limited_sigma",
+      "geometric_mean_relative_gradient_mse": 1.225742132139042,
+      "worst_relative_gradient_mse": 4.470021788401105,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth0.5_budget255/s0.5",
+      "geometric_mean_relative_gradient_mse": 1.332185299451898,
+      "worst_relative_gradient_mse": 12.121307435086567,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth0.5_budget255/bias_limited_sigma",
+      "geometric_mean_relative_gradient_mse": 1.332185299451898,
+      "worst_relative_gradient_mse": 12.121307435086567,
+      "cells": 10
+    },
+    {
+      "policy": "k31/s2",
+      "geometric_mean_relative_gradient_mse": 1.3908946665777813,
+      "worst_relative_gradient_mse": 2.555681390277013,
+      "cells": 10
+    },
+    {
+      "policy": "k255/s1",
+      "geometric_mean_relative_gradient_mse": 1.4043576731801033,
+      "worst_relative_gradient_mse": 12.756522433292792,
+      "cells": 10
+    },
+    {
+      "policy": "k255/s0.75",
+      "geometric_mean_relative_gradient_mse": 1.4654315390951316,
+      "worst_relative_gradient_mse": 13.288548544629055,
+      "cells": 10
+    },
+    {
+      "policy": "stdwidth2_budget255/s2",
+      "geometric_mean_relative_gradient_mse": 1.53523501015852,
+      "worst_relative_gradient_mse": 19.69250697027305,
+      "cells": 10
+    },
+    {
+      "policy": "k255/s0.5",
+      "geometric_mean_relative_gradient_mse": 1.7576813095398462,
+      "worst_relative_gradient_mse": 33.49088451754499,
+      "cells": 10
+    },
+    {
+      "policy": "k255/bias_limited_sigma",
+      "geometric_mean_relative_gradient_mse": 1.7576813095398462,
+      "worst_relative_gradient_mse": 33.49088451754499,
+      "cells": 10
+    }
+  ],
+  "confirmation_ranking": [
+    {
+      "policy": "stdwidth2_budget255/s0.75",
+      "geometric_mean_relative_gradient_mse": 0.8799757157455331,
+      "worst_relative_gradient_mse": 1.0524337275193696,
+      "cells": 4
+    },
+    {
+      "policy": "stdwidth2_budget255/s0.5",
+      "geometric_mean_relative_gradient_mse": 0.915980906057095,
+      "worst_relative_gradient_mse": 1.1882466433694698,
+      "cells": 4
+    },
+    {
+      "policy": "stdwidth2_budget255/bias_limited_sigma",
+      "geometric_mean_relative_gradient_mse": 0.9321497071650341,
+      "worst_relative_gradient_mse": 1.1882466433694698,
+      "cells": 4
+    },
+    {
+      "policy": "stdwidth2_budget255/s1",
+      "geometric_mean_relative_gradient_mse": 0.935670887402524,
+      "worst_relative_gradient_mse": 1.1907433043138207,
+      "cells": 4
+    },
+    {
+      "policy": "k101/s0.75",
+      "geometric_mean_relative_gradient_mse": 0.9937123726033277,
+      "worst_relative_gradient_mse": 1.1935646695416122,
+      "cells": 4
+    },
+    {
+      "policy": "k101/s0.5",
+      "geometric_mean_relative_gradient_mse": 1.0571944472822494,
+      "worst_relative_gradient_mse": 1.2981319299914527,
+      "cells": 4
+    },
+    {
+      "policy": "k101/s1",
+      "geometric_mean_relative_gradient_mse": 1.0659065275705528,
+      "worst_relative_gradient_mse": 1.3092791113955455,
+      "cells": 4
+    },
+    {
+      "policy": "k31/s0.5",
+      "geometric_mean_relative_gradient_mse": 1.1497992836777993,
+      "worst_relative_gradient_mse": 1.9914087755342573,
+      "cells": 4
+    },
+    {
+      "policy": "k101/s2",
+      "geometric_mean_relative_gradient_mse": 1.2834111594676043,
+      "worst_relative_gradient_mse": 2.535415074662786,
+      "cells": 4
+    },
+    {
+      "policy": "k31/bias_limited_sigma",
+      "geometric_mean_relative_gradient_mse": 1.370302409117709,
+      "worst_relative_gradient_mse": 2.8936694733812103,
+      "cells": 4
+    },
+    {
+      "policy": "k31/s0.75",
+      "geometric_mean_relative_gradient_mse": 1.3895328745441011,
+      "worst_relative_gradient_mse": 2.8936694733812103,
+      "cells": 4
+    },
+    {
+      "policy": "k31/s1",
+      "geometric_mean_relative_gradient_mse": 1.6411951650569143,
+      "worst_relative_gradient_mse": 4.493075800083853,
+      "cells": 4
+    },
+    {
+      "policy": "stdwidth2_budget255/s2",
+      "geometric_mean_relative_gradient_mse": 1.772401591873573,
+      "worst_relative_gradient_mse": 7.995510782994223,
+      "cells": 4
+    },
+    {
+      "policy": "k31/s2",
+      "geometric_mean_relative_gradient_mse": 1.8437131683769492,
+      "worst_relative_gradient_mse": 6.494242935173483,
+      "cells": 4
+    }
+  ],
+  "full_results": "benchmarks/hlgauss/default_selection_results.json.gz",
+  "source_sha256_at_execution": {
+    "/home/marvin/Documents/repositories/cleanrl/scripts/hlgauss/default_selection.py": "d75b613273c373cc589b9b45e3e980b0e6aa824ffca8be981f257246ab13aa1a",
+    "scripts/hlgauss/ppo_proxy_v3.py": "1878c9674891ec76c3eb493c02d72946965edf2c492a3f6ef5bcb656b9da4d38",
+    "cleanrl/shared/hl_gauss.py": "3efe0d7b700edff94ddf38a226da3ce6aa5e01b6c158fb794547b3bb15b3307c",
+    "cleanrl/shared/host_actor.py": "3bfce9cd0c931dfe79e3f7e119bee602ba7ba43f5af7831b2c3391cb93b64268"
+  },
+  "limitations": [
+    "One-seed synthetic fixed-policy evidence; not a MuJoCo score optimum",
+    "Calibration uses oracle-bootstrap returns, unavailable during cold-start PPO; a representative target scale must be supplied explicitly",
+    "255-bin ceiling is a declared head-capacity budget; oversized supports may remain resolution-limited",
+    "Amortized CPU timings share overhead across variable group sizes; not controlled per-policy or GPU throughput",
+    "Bias-limited sigma bounds infinite-grid quantization only, not finite-support truncation or learning error",
+    "Fallback sigma0.75 is the strongest fixed-resolution confirmation result; no between-seed significance is claimed",
+    "The primary selected adaptive-resolution/sigma0.75 policy ranked first before and after confirmation",
+    "No new MuJoCo training run was launched"
+  ]
+}

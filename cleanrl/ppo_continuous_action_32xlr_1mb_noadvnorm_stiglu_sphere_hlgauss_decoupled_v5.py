@@ -1,15 +1,15 @@
-# Hypothesis: HL-Gauss categorical value regression improves the high-LR sphere PPO critic.
-# Baseline: ppo_continuous_action_32xlr_1mb_noadvnorm_stiglu_sphere_v1.py;
-# matched run: HalfCheetah-v4__ppo_32xlr_1mb_noadvnorm_stiglu_sphere_50M__1__1788662844.
-# Actor, raw GAE surrogate, joint optimizer and host rollout path are unchanged.
-# Support bounds cover reward-normalized returns, NOT raw episodic scores;
-# [-50, 50] is a conservative starting range, not measured baseline coverage.
+# HL-Gauss integration study on the exact 32x-LR sphere PPO baseline.
+# Paper: arxiv.org/abs/2403.03950, Appendix A (uniform edges, raw Gaussian CE).
+# Decouple actor/critic clipping and LR; rescale unit-L2 critic features to RMS1.
+# Optional Dreamer percentile scaling acts ONLY on advantages, never value targets.
+# Frozen support and labels; normalized and raw reward experiments use explicit
+# ranges. This is a PPO adaptation, not Dreamer or a claim of optimal settings.
 import os
 import random
 import time
 from argparse import Namespace
 from contextlib import ExitStack
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import partial
 
 import gymnasium as gym
@@ -23,7 +23,8 @@ from torch.distributions import Beta
 from torch.utils.tensorboard import SummaryWriter
 
 from cleanrl.shared.hl_gauss import HistogramGaussian, HLGaussConfig
-from cleanrl.shared.host_actor import HostSiTUSphereActor, make_situ_sphere_trunk
+from cleanrl.shared.host_actor import make_situ_sphere_trunk
+from cleanrl.shared.host_graph import make_host_mirror
 from cleanrl.shared.mujoco_env import make_mujoco_vector_env
 from cleanrl.shared.ppo_loop import (
     TruncationBootstrapCache,
@@ -50,6 +51,16 @@ from cleanrl.shared.vector_norm import (
 
 SAMPLE_EPS = 1e-6
 NATIVE_TASKS = frozenset(("HalfCheetah-v4", "Hopper-v4", "Walker2d-v4"))
+# Frozen version: do not silently inherit subsequent shared-default changes.
+DEFAULT_VALUE_CONFIG = HLGaussConfig(
+    v_min=-10.0,
+    v_max=10.0,
+    num_bins=201,
+    sigma_ratio=0.75,
+    transform="linear",
+    bin_type="edges",
+    decode="scalar",
+)
 
 
 @dataclass
@@ -83,7 +94,7 @@ class Args:
     total_timesteps: int = 50_000_000
     """total timesteps of the experiments"""
     learning_rate: float = 9.6e-3
-    """32x the 3e-4 PPO default; one Adam covers actor and critic"""
+    """actor learning rate; baseline 32x the 3e-4 PPO default"""
     num_envs: int = 16
     """the number of parallel game environments"""
     num_steps: int = 2048
@@ -110,25 +121,22 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float | None = None
     """the target KL divergence threshold"""
+    critic_learning_rate: float = 3e-3
+    """independent categorical critic learning rate"""
+    critic_feature_scale: float = 8.0
+    """unit-L2 width64 features times8 have RMS1; actor is unchanged"""
+    reward_norm: bool = True
+    """normalize/clip rewards; false leaves environment rewards raw"""
+    actor_return_scale: bool = False
+    """Dreamer-style percentile EMA denominator for advantages only"""
 
-    # Pin the frozen v2 experiment rather than inheriting future shared defaults.
-    value: HLGaussConfig = field(
-        default_factory=lambda: HLGaussConfig(
-            v_min=-50.0,
-            v_max=50.0,
-            num_bins=31,
-            sigma_ratio=2.0,
-            transform="linear",
-            bin_type="symexp_centers",
-            decode="scalar",
-        )
-    )
-    """HL-Gauss support in reward-normalized return units; monitor overflow and projection bias"""
+    value: HLGaussConfig = DEFAULT_VALUE_CONFIG
+    """fixed support in the chosen reward units; explicitly set range for raw runs"""
 
     # Execution controls, independent of PPO's batch and optimizer settings.
     env_backend: str = "auto"
     """native for supported v4 MuJoCo; sync for other continuous environments"""
-    env_threads: int = 4
+    env_threads: int = 2
     """maximum physics threads, capped at num_envs"""
     compile: bool = True
     """compile deterministic policy statistics, PPO loss and GAE"""
@@ -151,10 +159,10 @@ class Args:
 class _EvaluationNorm(gym.Wrapper):
     """Single-env evaluation adapter using the same shared normalization math."""
 
-    def __init__(self, env, gamma):
+    def __init__(self, env, gamma, reward_norm=True):
         super().__init__(env)
         self.obs_norm = VectorObsNorm(1, env.observation_space.shape)
-        self.rew_norm = VectorRewardNorm(1, gamma)
+        self.rew_norm = VectorRewardNorm(1, gamma) if reward_norm else None
 
     def reset(self, **kwargs):
         observation, info = self.env.reset(**kwargs)
@@ -163,15 +171,16 @@ class _EvaluationNorm(gym.Wrapper):
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)
         observation = self.obs_norm.normalize(np.asarray(observation)[None])[0]
-        reward = self.rew_norm.normalize(np.asarray([reward]), np.asarray([terminated]))[0]
+        if self.rew_norm is not None:
+            reward = self.rew_norm.normalize(np.asarray([reward]), np.asarray([terminated]))[0]
         return observation, float(reward), terminated, truncated, info
 
 
-def make_env(env_id, idx, capture_video, run_name, gamma):
+def make_env(env_id, idx, capture_video, run_name, gamma, reward_norm=True):
     raw_factory = make_raw_continuous_env(env_id, idx, capture_video, run_name)
 
     def thunk():
-        return _EvaluationNorm(raw_factory(), gamma)
+        return _EvaluationNorm(raw_factory(), gamma, reward_norm)
 
     return thunk
 
@@ -182,13 +191,62 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
+class PercentileReturnScale(nn.Module):
+    """Dreamer's zero-initialized, non-debiased 5/95 percentile EMA."""
+
+    percentiles: torch.Tensor
+    bounds: torch.Tensor
+
+    def __init__(self):
+        super().__init__()
+        self.register_buffer("percentiles", torch.tensor([0.05, 0.95]))
+        self.register_buffer("bounds", torch.zeros(2))
+
+    @torch.no_grad()
+    def forward(self, returns):
+        self.bounds.lerp_(torch.quantile(returns.detach().flatten(), self.percentiles), 0.01)
+        return (self.bounds[1] - self.bounds[0]).clamp_min(1.0)
+
+
+class ScaledValueHead(nn.Linear):
+    """Control the input scale of the classifier without changing sphere geometry."""
+
+    def __init__(self, in_features, out_features, feature_scale):
+        super().__init__(in_features, out_features)
+        self.feature_scale = feature_scale
+
+    def forward(self, input):
+        return F.linear(input * self.feature_scale, self.weight, self.bias)
+
+
+def make_optimizer(agent, args):
+    return optim.Adam(
+        [
+            {"params": list(agent.actor.parameters()), "lr": args.learning_rate},
+            {"params": list(agent.critic.parameters()), "lr": args.critic_learning_rate},
+        ],
+        eps=1e-5,
+        fused=True,
+    )
+
+
+def optimizer_step(loss, optimizer, max_grad_norm):
+    """Independent clip budgets prevent actor reward units from clipping CE gradients."""
+    optimizer.zero_grad(set_to_none=True)
+    loss.backward()
+    actor_norm = nn.utils.clip_grad_norm_(optimizer.param_groups[0]["params"], max_grad_norm)
+    critic_norm = nn.utils.clip_grad_norm_(optimizer.param_groups[1]["params"], max_grad_norm)
+    optimizer.step()
+    return torch.stack((actor_norm.detach(), critic_norm.detach()))
+
+
 class Agent(nn.Module):
     action_low: torch.Tensor
     action_high: torch.Tensor
     action_scale: torch.Tensor
     log_action_scale: torch.Tensor
 
-    def __init__(self, envs, value_config: HLGaussConfig | None = None):
+    def __init__(self, envs, value_config: HLGaussConfig | None = None, critic_feature_scale=8.0):
         super().__init__()
         space = envs.single_action_space
         if not isinstance(space, gym.spaces.Box):
@@ -216,17 +274,9 @@ class Agent(nn.Module):
             layer_init(nn.Linear(64, 2 * self.action_dim), std=0.01),
         )
         if value_config is None:
-            value_config = HLGaussConfig(
-                v_min=-50.0,
-                v_max=50.0,
-                num_bins=31,
-                sigma_ratio=2.0,
-                transform="linear",
-                bin_type="symexp_centers",
-                decode="scalar",
-            )
+            value_config = DEFAULT_VALUE_CONFIG
         self.value_support = HistogramGaussian(value_config)
-        value_head = nn.Linear(64, value_config.num_bins)
+        value_head = ScaledValueHead(64, value_config.num_bins, critic_feature_scale)
         # Uniform logits are uninformative and decode near zero on default support.
         nn.init.zeros_(value_head.weight)
         nn.init.zeros_(value_head.bias)
@@ -283,7 +333,9 @@ def ppo_loss(agent, observations, native_actions, old_logprobs, advantages, targ
     v_loss = -(target_probs.detach() * value_logits.log_softmax(dim=-1)).sum(dim=-1).mean()
     entropy_loss = entropy.mean()
     loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
-    metrics = torch.stack((pg_loss.detach(), v_loss.detach(), entropy_loss.detach(), old_approx_kl, approx_kl, clipfrac))
+    metrics = torch.stack(
+        (pg_loss.detach(), v_loss.detach(), entropy_loss.detach(), old_approx_kl, approx_kl, clipfrac)
+    )
     return loss, metrics
 
 
@@ -292,6 +344,10 @@ def validate_args(args):
         raise ValueError("environment, rollout, minibatch and epoch counts must be positive")
     if args.env_backend not in {"auto", "native", "threaded", "sync"} or args.env_threads <= 0:
         raise ValueError("invalid environment backend or thread count")
+    if not np.isfinite(args.critic_learning_rate) or args.critic_learning_rate <= 0:
+        raise ValueError("critic_learning_rate must be finite and positive")
+    if not np.isfinite(args.critic_feature_scale) or args.critic_feature_scale <= 0:
+        raise ValueError("critic_feature_scale must be finite and positive")
     args.batch_size = args.num_envs * args.num_steps
     args.minibatch_size = args.batch_size // args.num_minibatches
     if args.minibatch_size == 0:
@@ -348,7 +404,8 @@ def main():
     resources.callback(writer.close)
     try:
         writer.add_text(
-            "hyperparameters", "|param|value|\n|-|-|\n" + "\n".join(f"|{key}|{value}|" for key, value in vars(args).items())
+            "hyperparameters",
+            "|param|value|\n|-|-|\n" + "\n".join(f"|{key}|{value}|" for key, value in vars(args).items()),
         )
         writer.add_text(
             "policy",
@@ -356,8 +413,8 @@ def main():
         )
         envs = make_training_env(args, run_name)
         resources.callback(envs.close)
-        agent = Agent(envs, value_config=args.value).to(device)
-        optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5, fused=True)
+        agent = Agent(envs, value_config=args.value, critic_feature_scale=args.critic_feature_scale).to(device)
+        optimizer = make_optimizer(agent, args)
         value_model = agent.get_value
         target_model = agent.value_support.project
 
@@ -382,7 +439,7 @@ def main():
         obs_shape = envs.single_observation_space.shape
         # The rollout never touches the GPU: act from an FP32 host mirror of the
         # actor, stage everything in pinned memory, upload once per rollout.
-        host_actor = HostSiTUSphereActor(agent.actor, args.num_envs)
+        host_actor = make_host_mirror(agent.actor, args.num_envs)
         action_low, action_high = (buffer.cpu().numpy() for buffer in (agent.action_low, agent.action_high))
         sampler = np.random.default_rng(args.seed)
 
@@ -403,11 +460,13 @@ def main():
         resources.callback(transfer.close)
         bootstraps = TruncationBootstrapCache(args.num_steps, args.num_envs, obs_shape)
         obs_norm = VectorObsNorm(args.num_envs, obs_shape)
-        rew_norm = VectorRewardNorm(args.num_envs, args.gamma)
+        rew_norm = VectorRewardNorm(args.num_envs, args.gamma) if args.reward_norm else None
+        actor_scale_model = PercentileReturnScale().to(device) if args.actor_return_scale else None
         # Shuffling must not consume the policy sampler's CUDA random stream.
         shuffle_generator = torch.Generator(device=device).manual_seed(args.seed)
         max_updates = args.update_epochs * ((args.batch_size + args.minibatch_size - 1) // args.minibatch_size)
         update_metrics = torch.empty((max_updates, 6), device=device)
+        update_grad_norms = torch.empty((max_updates, 2), device=device)
         timer = PhaseTimer()
         start_time = time.perf_counter()
         suppress = np.zeros(args.num_envs, dtype=bool)
@@ -436,7 +495,9 @@ def main():
 
         for iteration in range(1, args.num_iterations + 1):
             if args.anneal_lr:
-                optimizer.param_groups[0]["lr"] = (1.0 - (iteration - 1.0) / args.num_iterations) * args.learning_rate
+                fraction = 1.0 - (iteration - 1.0) / args.num_iterations
+                optimizer.param_groups[0]["lr"] = fraction * args.learning_rate
+                optimizer.param_groups[1]["lr"] = fraction * args.critic_learning_rate
             bootstraps.reset()
             host_actor.refresh()
             for step in range(args.num_steps):
@@ -446,7 +507,7 @@ def main():
                 with timer.span("env", use_cuda=False):
                     raw_obs, raw_reward, terms, truncs, infos = envs.step(host_action)
                 with timer.span("normalize_transfer", use_cuda=False):
-                    reward = rew_norm.normalize(raw_reward, terms)
+                    reward = rew_norm.normalize(raw_reward, terms) if rew_norm is not None else raw_reward
                     next_obs_np, transition_obs = obs_norm.normalize_step(raw_obs, terms, truncs, infos)
                     bootstraps.push_normalized(step, truncs, transition_obs)
                     transfer.push(step, reward, terms, truncs, observations=obs_step, native_actions=native)
@@ -482,15 +543,20 @@ def main():
                 )
                 b_advantages = advantages.flatten().clone()
                 b_returns = returns.flatten().clone()
+                actor_scale = actor_scale_model(b_returns) if actor_scale_model is not None else b_returns.new_ones(())
+                unscaled_advantage_rms = b_advantages.square().mean().sqrt()
+                b_advantages.div_(actor_scale)
                 # Freeze labels once per rollout, reusing them across every PPO epoch.
                 b_target_probs = target_model(b_returns).detach()
                 projection_error = agent.value_support.probs_to_scalar(b_target_probs) - b_returns
                 value_diagnostics = {
-                    "hlgauss/normalized_return_mean": b_returns.mean(),
-                    "hlgauss/normalized_return_std": b_returns.std(unbiased=False),
-                    "hlgauss/normalized_return_min": b_returns.min(),
-                    "hlgauss/normalized_return_max": b_returns.max(),
-                    "hlgauss/support_overflow_fraction": ((b_returns < args.value.v_min) | (b_returns > args.value.v_max))
+                    "hlgauss/return_mean": b_returns.mean(),
+                    "hlgauss/return_std": b_returns.std(unbiased=False),
+                    "hlgauss/return_min": b_returns.min(),
+                    "hlgauss/return_max": b_returns.max(),
+                    "hlgauss/support_overflow_fraction": (
+                        (b_returns < args.value.v_min) | (b_returns > args.value.v_max)
+                    )
                     .float()
                     .mean(),
                     "hlgauss/projection_target_bias": projection_error.mean(),
@@ -512,10 +578,7 @@ def main():
                             b_advantages[indices],
                             b_target_probs[indices],
                         )
-                        optimizer.zero_grad(set_to_none=True)
-                        loss.backward()
-                        nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
-                        optimizer.step()
+                        update_grad_norms[updates].copy_(optimizer_step(loss, optimizer, args.max_grad_norm))
                         update_metrics[updates].copy_(metrics)
                         updates += 1
                     # Preserve last-minibatch KL, checked after a complete epoch.
@@ -524,6 +587,8 @@ def main():
                         break
 
             last = update_metrics[updates - 1]
+            with torch.no_grad():
+                postupdate_error = value_model(b_obs).flatten() - b_returns
             logged = gather_metrics(
                 {
                     "losses/policy_loss": last[0],
@@ -533,6 +598,14 @@ def main():
                     "losses/approx_kl": last[4],
                     "losses/clipfrac": update_metrics[:updates, 5].mean(),
                     "losses/explained_variance": explained_variance(b_values, b_returns),
+                    "grad/actor_preclip_norm": update_grad_norms[:updates, 0].mean(),
+                    "grad/critic_preclip_norm": update_grad_norms[:updates, 1].mean(),
+                    "actor/return_scale": actor_scale,
+                    "actor/unscaled_advantage_rms": unscaled_advantage_rms,
+                    "actor/advantage_rms": b_advantages.square().mean().sqrt(),
+                    "actor/advantage_mean": b_advantages.mean(),
+                    "hlgauss/postupdate_value_bias": postupdate_error.mean(),
+                    "hlgauss/postupdate_value_rmse": postupdate_error.square().mean().sqrt(),
                     **value_diagnostics,
                 }
             )
@@ -543,7 +616,9 @@ def main():
             now = time.perf_counter()
             writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
             writer.add_scalar("charts/SPS", int(global_step / (now - start_time)), global_step)
-            writer.add_scalar("charts/interval_SPS", (global_step - interval_step) / (now - interval_start), global_step)
+            writer.add_scalar(
+                "charts/interval_SPS", (global_step - interval_step) / (now - interval_start), global_step
+            )
             for phase, timing in timer.summary().items():
                 writer.add_scalar(f"timing/{phase}_s", timing["total_s"], global_step)
             timer.reset()
@@ -560,11 +635,11 @@ def main():
 
             episodic_returns = evaluate(
                 model_path,
-                make_env,
+                partial(make_env, reward_norm=args.reward_norm),
                 args.env_id,
                 eval_episodes=10,
                 run_name=f"{run_name}-eval",
-                Model=partial(Agent, value_config=args.value),
+                Model=partial(Agent, value_config=args.value, critic_feature_scale=args.critic_feature_scale),
                 device=device,
                 gamma=args.gamma,
             )
@@ -576,7 +651,12 @@ def main():
                 repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
                 repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
                 push_to_hub(
-                    Namespace(**vars(args)), episodic_returns, repo_id, "PPO", f"runs/{run_name}", f"videos/{run_name}-eval"
+                    Namespace(**vars(args)),
+                    episodic_returns,
+                    repo_id,
+                    "PPO",
+                    f"runs/{run_name}",
+                    f"videos/{run_name}-eval",
                 )
     finally:
         resources.close()
