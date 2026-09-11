@@ -17,6 +17,8 @@ dependencies = [
     "gym==0.23.1",
     "gymnasium==0.29.1",
     "torch>=2.12",
+    "scipy>=1.10,<1.13",
+    "cma>=4.4,<5",
     # MuJoCo is required for this fork's benchmarks => keep it in the DEFAULT deps so a
     # plain `uv sync` always installs it (the `[mujoco]` extra is retained for compat).
     "mujoco<=2.3.3",

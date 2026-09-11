@@ -126,6 +126,12 @@ class TruncationBootstrapCache:
         self._size = 0
         self._entry_slots = np.empty(self._capacity, dtype=np.int64)
         self._observations = None
+        self._transfer_key = None
+        self._transfer_host = None
+        self._transfer_host_array = None
+        self._transfer_device = None
+        self._transfer_event = None
+        self._transfer_stream = None
         if obs_shape is not None:
             self._allocate(tuple(obs_shape))
 
@@ -256,6 +262,102 @@ class TruncationBootstrapCache:
                 raise ValueError("value_fn must return one value per observation")
             out.view(-1).index_copy_(0, index[start:stop], flat[: stop - start].to(out.dtype))
         return out
+
+    def resolve_with_tail(self, value_fn, tail_observations, device, *, batch_size):
+        """Evaluate tail and fixed-size truncation batches after one async upload.
+
+        The tail keeps its original ``num_envs`` rows; truncation rows retain
+        ``resolve``'s ordering and duplicate-last padding. Call under
+        ``torch.no_grad``. Returned tail values are cloned before another critic
+        call can overwrite compiled output storage. Enqueue all consumers on
+        the current CUDA stream before the next call, and call ``close`` before
+        discarding the cache to finish any outstanding pinned-host DMA.
+        """
+        if isinstance(batch_size, bool) or not isinstance(batch_size, int) or batch_size <= 0:
+            raise ValueError("batch_size must be a positive integer")
+        device = torch.device(device)
+        if device.type != "cuda":
+            raise ValueError("resolve_with_tail requires a CUDA device")
+        tail_observations = np.asarray(tail_observations)
+        if tail_observations.ndim < 1 or tail_observations.shape[0] != self.num_envs:
+            raise ValueError("tail observations must have one row per environment")
+        obs_shape = tail_observations.shape[1:]
+        if self._observations is not None and obs_shape != self._observations.shape[1:]:
+            raise ValueError("tail observation shape does not match cached observations")
+        device = torch.device(
+            "cuda", torch.cuda.current_device() if device.index is None else device.index
+        )
+        stream = torch.cuda.current_stream(device)
+        count = self._size
+        padded_count = ((count + batch_size - 1) // batch_size) * batch_size
+        row_bytes = int(np.prod(obs_shape)) * np.dtype(np.float32).itemsize
+        observation_bytes = (self.num_envs + padded_count) * row_bytes
+        index_offset = (observation_bytes + 7) // 8 * 8
+        active_bytes = index_offset + count * np.dtype(np.int64).itemsize
+        capacity_bytes = index_offset + padded_count * np.dtype(np.int64).itemsize
+
+        # Only the previous DMA owns host memory; waiting here never waits for
+        # the previous critic/update kernels on the device.
+        self.close()
+        if self._transfer_stream is not None and self._transfer_stream != stream:
+            # Consumers have already been queued by the caller. Order a stream
+            # switch without a CPU wait, including before retiring an old block.
+            stream.wait_event(self._transfer_stream.record_event())
+        key = (device, obs_shape)
+        if self._transfer_key != key or self._transfer_host.numel() < capacity_bytes:
+            self._transfer_host = torch.empty(capacity_bytes, dtype=torch.uint8, pin_memory=True)
+            self._transfer_host_array = self._transfer_host.numpy()
+            self._transfer_device = torch.empty(capacity_bytes, dtype=torch.uint8, device=device)
+            self._transfer_key = key
+        self._transfer_stream = stream
+        self._transfer_device.record_stream(stream)
+
+        # Place indices after the *active* observations, so a smaller rollout
+        # does not upload unused high-water capacity. The offset is int64-aligned.
+        observations = self._transfer_host_array[:observation_bytes].view(np.float32).reshape(
+            (self.num_envs + padded_count,) + obs_shape
+        )
+        observations[: self.num_envs] = tail_observations
+        if count:
+            order = np.argsort(self._entry_slots[:count])
+            truncation_observations = observations[self.num_envs :]
+            np.take(self._observations, order, axis=0, out=truncation_observations[:count])
+            truncation_observations[count:] = truncation_observations[count - 1]
+            indices = self._transfer_host_array[index_offset:active_bytes].view(np.int64)
+            np.take(self._entry_slots, order, out=indices)
+        if self._transfer_event is None or self._transfer_event.device != device:
+            self._transfer_event = torch.cuda.Event()
+        self._transfer_device[:active_bytes].copy_(
+            self._transfer_host[:active_bytes], non_blocking=True
+        )
+        self._transfer_event.record(stream)
+
+        batch = self._transfer_device[:observation_bytes].view(torch.float32).reshape(
+            (self.num_envs + padded_count,) + obs_shape
+        )
+        tail_values = value_fn(batch[: self.num_envs]).flatten()
+        if tail_values.numel() != self.num_envs:
+            raise ValueError("value_fn must return one value per observation")
+        tail_values = tail_values.to(torch.float32).clone()
+        out = torch.zeros(
+            (self.num_steps, self.num_envs), dtype=torch.float32, device=device
+        )
+        if count:
+            index = self._transfer_device[index_offset:active_bytes].view(torch.int64)
+            for start in range(0, count, batch_size):
+                stop = min(start + batch_size, count)
+                flat = value_fn(
+                    batch[self.num_envs + start : self.num_envs + start + batch_size]
+                ).flatten()
+                if flat.numel() != batch_size:
+                    raise ValueError("value_fn must return one value per observation")
+                out.view(-1).index_copy_(0, index[start:stop], flat[: stop - start].to(out.dtype))
+        return tail_values, out
+
+    def close(self):
+        """Wait for the last asynchronous upload before releasing/reusing its host block."""
+        if self._transfer_event is not None:
+            self._transfer_event.synchronize()
 
     def __len__(self):
         return self._size

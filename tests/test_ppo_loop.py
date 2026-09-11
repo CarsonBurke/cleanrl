@@ -253,6 +253,149 @@ def test_truncation_cache_compiled_fixed_batches_cuda():
         torch.testing.assert_close(got.cpu(), torch.from_numpy(expected), atol=0, rtol=0)
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+@pytest.mark.cuda
+@pytest.mark.parametrize("envs,dim,batch_size,count", [(3, 3, 4, 0), (3, 3, 4, 9),
+                                                        (3, 3, 4, 5), (64, 5, 64, 65)])
+def test_truncation_cache_with_tail_matches_legacy_consumers(envs, dim, batch_size, count):
+    torch.manual_seed(31)
+    rng = np.random.default_rng(31)
+    steps = 3
+    cache = TruncationBootstrapCache(steps, envs, obs_shape=(dim,))
+    critic = nn.Sequential(nn.Linear(dim, 7), nn.Tanh(), nn.Linear(7, 1)).cuda()
+    finals = rng.normal(size=(steps, envs, dim))
+    truncations = np.zeros((steps, envs), dtype=bool)
+    # Reverse insertion order, with holes, makes sorting observable at scatter.
+    slots = rng.permutation(steps * envs)[:count]
+    truncations.reshape(-1)[slots] = True
+    for step in reversed(range(steps)):
+        cache.push_normalized(step, truncations[step], finals[step])
+    if count:
+        step, env = divmod(int(slots[0]), envs)
+        finals[step, env] += 10
+        mask = np.arange(envs) == env
+        cache.push_normalized(step, mask, finals[step])
+    tail = rng.normal(size=(envs, dim))
+    # Include true terminations, truncations, and simultaneous flags. GAE must
+    # still kill terminal bootstraps rather than treating them as truncations.
+    terms = np.zeros((steps, envs), dtype=np.float32)
+    terms[::2, ::2] = 1
+    rewards = torch.as_tensor(rng.normal(size=(steps, envs)), dtype=torch.float32, device="cuda")
+    values = torch.as_tensor(rng.normal(size=(steps, envs)), dtype=torch.float32, device="cuda")
+    terms_gpu = torch.as_tensor(terms, device="cuda")
+    truncs_gpu = torch.as_tensor(truncations, dtype=torch.float32, device="cuda")
+    seen_batches = []
+
+    def value_fn(batch):
+        seen_batches.append(batch.clone())
+        return critic(batch)
+
+    try:
+        with torch.no_grad():
+            expected_tail = value_fn(torch.as_tensor(tail, dtype=torch.float32, device="cuda")).flatten().clone()
+            expected_trunc = cache.resolve(value_fn, "cuda", batch_size=batch_size)
+            expected_batches = seen_batches[:]
+            seen_batches.clear()
+            actual_tail, actual_trunc = cache.resolve_with_tail(
+                value_fn, tail, "cuda", batch_size=batch_size
+            )
+            actual_adv, actual_returns = compute_gae(
+                rewards, values, terms_gpu, truncs_gpu, actual_trunc, actual_tail, 0.99, 0.95
+            )
+            expected_adv, expected_returns = compute_gae(
+                rewards, values, terms_gpu, truncs_gpu, expected_trunc, expected_tail, 0.99, 0.95
+            )
+        torch.testing.assert_close(actual_tail, expected_tail, atol=0, rtol=0)
+        torch.testing.assert_close(actual_trunc, expected_trunc, atol=0, rtol=0)
+        torch.testing.assert_close(actual_adv, expected_adv, atol=0, rtol=0)
+        torch.testing.assert_close(actual_returns, expected_returns, atol=0, rtol=0)
+        # Observed network inputs also defend fixed GEMM geometry and padding,
+        # including the no-truncation case where only the tail is evaluated.
+        assert len(seen_batches) == len(expected_batches)
+        for actual, expected in zip(seen_batches, expected_batches):
+            torch.testing.assert_close(actual, expected, atol=0, rtol=0)
+    finally:
+        cache.close()
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+@pytest.mark.cuda
+def test_truncation_cache_with_tail_inflight_reuse_and_growth():
+    envs, dim, steps = 64, 5, 3
+    cache = TruncationBootstrapCache(steps, envs, obs_shape=(dim,))
+    stream = torch.cuda.Stream()
+    queued = []
+
+    def value_fn(batch):
+        return batch.square().sum(-1) + batch[:, 0]
+
+    try:
+        with torch.cuda.stream(stream), torch.no_grad():
+            # Stable capacity, growth, shrink-to-zero, then full capacity again.
+            for rollout, count in enumerate((63, 64, 65, 192, 0, 192)):
+                cache.reset()
+                observations = (
+                    np.arange(steps * envs * dim, dtype=np.float32).reshape(steps, envs, dim)
+                    / 100 + rollout
+                )
+                truncations = np.arange(steps * envs).reshape(steps, envs) < count
+                for step in reversed(range(steps)):
+                    cache.push_normalized(step, truncations[step], observations[step])
+                tail = observations[-1].copy() + 20
+                # Keep DMA genuinely outstanding when the next CPU iteration
+                # starts; corruption must not be hidden by a per-call readback.
+                torch.cuda._sleep(5_000_000)
+                tail_values, truncation_values = cache.resolve_with_tail(
+                    value_fn, tail, "cuda", batch_size=64
+                )
+                queued.append((
+                    tail_values.clone(),
+                    truncation_values.clone(),
+                    torch.from_numpy(np.square(tail).sum(-1) + tail[:, 0]),
+                    torch.from_numpy(np.where(
+                        truncations, np.square(observations).sum(-1) + observations[:, :, 0], 0
+                    )),
+                ))
+                tail[:] = -1000
+                observations[:] = -1000
+            cache.close()
+        # close() owns DMA only; host readback must also await the producing stream.
+        stream.synchronize()
+        for tail_values, truncation_values, expected_tail, expected_trunc in queued:
+            torch.testing.assert_close(tail_values.cpu(), expected_tail)
+            torch.testing.assert_close(truncation_values.cpu(), expected_trunc)
+    finally:
+        cache.close()
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+@pytest.mark.cuda
+def test_truncation_cache_with_tail_preserves_compiled_tail_output():
+    cache = TruncationBootstrapCache(2, 64, obs_shape=(5,))
+    observations = np.arange(64 * 5, dtype=np.float32).reshape(64, 5) / 100
+    cache.push_normalized(0, np.ones(64, dtype=bool), observations)
+    cache.push_normalized(1, np.arange(64) == 0, observations + 3)
+
+    def value_fn(batch):
+        return batch.square().sum(-1) + batch[:, 0]
+
+    compiled = torch.compile(value_fn, mode="reduce-overhead")
+    try:
+        with torch.no_grad():
+            for rollout in range(3):
+                torch.compiler.cudagraph_mark_step_begin()
+                tail = observations + 10 + rollout
+                expected_tail = compiled(torch.as_tensor(tail, device="cuda")).flatten().clone()
+                expected_trunc = cache.resolve(compiled, "cuda", batch_size=64)
+                actual_tail, actual_trunc = cache.resolve_with_tail(
+                    compiled, tail, "cuda", batch_size=64
+                )
+                torch.testing.assert_close(actual_tail, expected_tail, atol=0, rtol=0)
+                torch.testing.assert_close(actual_trunc, expected_trunc, atol=0, rtol=0)
+    finally:
+        cache.close()
+
+
 @pytest.mark.parametrize(
     "infos",
     [

@@ -24,10 +24,11 @@ Contracts (identical to the NumPy mirrors, so this is a drop-in replacement)
 - Supported architectures: ``Sequential(<trunk>, Linear)`` for every trunk in
   ``host_actor`` (``SiTUSphereTrunk``, ``SiTUDenseTrunk``, ``SiTUResTrunk``,
   ``LReluSphereTrunk``, ``LReluResTrunk``), ``NormResidualTrunk`` from
-  ``norm_residual`` and its ``PreRMSTrunk``/``PreRMSStageTrunk`` subclasses, and plain ``nn.Sequential`` stacks of
-  ``Linear``/``Tanh``/``ReLU``/``LeakyReluSq``/``SiTUGLUBranch`` (what
-  ``HostMLP`` accepts). Unsupported networks may use a NumPy mirror, except
-  ``NormResidualTrunk`` and its subclasses, which require fused execution.
+  ``norm_residual`` and its ``PreRMSTrunk``/``PreRMSStageTrunk``/``SiTUReorgTrunk``
+  subclasses, ``Sequential(NGPTTrunk, NGPTHead)`` from ``ngpt``, and plain
+  ``nn.Sequential`` stacks of ``Linear``/``Tanh``/``ReLU``/``LeakyReluSq``/
+  ``SiTUGLUBranch`` (what ``HostMLP`` accepts). Unsupported networks may use a
+  NumPy mirror, except normalized trunks and nGPT, which require fused execution.
 - Host arithmetic is true FP32 with no relaxed-IEEE compiler flags. It is not
   bit-identical to the NumPy mirrors: BLAS reassociates its dot products, the
   row sums in ``justnorm`` use a different (explicit, 16-way) partial-sum
@@ -39,6 +40,8 @@ Contracts (identical to the NumPy mirrors, so this is a drop-in replacement)
   must be non-affine; learned RMS gains use the same pinned refresh contract
   as linear parameters. Fixed scales and RMS gains lower to native gated-add
   with a zero base, without a sigmoid or per-call NumPy arithmetic.
+  nGPT uses uncapped SwiGLU, unit-sphere norms, raw learned channel gains and
+  absolute (not sigmoid or clipped) residual interpolation coefficients.
 
 Weight layout
 -------------
@@ -70,11 +73,15 @@ from cleanrl.shared.host_actor import (
     HostLReluSphereActor, HostMLP, HostSiTUDenseActor, HostSiTUResActor,
     HostSiTUSphereActor, LeakyReluSq, LReluResTrunk, LReluSphereTrunk,
     LReluSqPair, SignedSquare, SiTUDenseTrunk, SiTUGLUBranch, SiTUResTrunk,
-    SiTUSphereTrunk,
+    SiTUSphereTrunk, SITU_GLU_MEAN_SQUARE,
 )
-from cleanrl.shared.norm_residual import NormResidualTrunk
+from cleanrl.shared.ngpt import NGPTBlock, NGPTHead, NGPTTrunk
+from cleanrl.shared.norm_residual import Derf, NormResidualTrunk, SphereNorm
+from cleanrl.shared.paper_norm import PaperAttention, PaperNormBlock, PaperNormTrunk
 from cleanrl.shared.pre_rms import PreRMSPair, PreRMSTrunk
 from cleanrl.shared.pre_rms_stage import PreRMSStage, PreRMSStageTrunk
+from cleanrl.shared.situ_factorized import SiTUFactorizedTrunk
+from cleanrl.shared.situ_reorg import SiTUReorgTrunk
 
 # Must match the enum in host_kernel.c. Op codes are append-only: a graph
 # marshalled by an older process must never mean something else.
@@ -94,6 +101,9 @@ _OP_CAPSIGNSQ = 12
 _OP_CAPLRELUSQ = 13
 _OP_LAYERNORM = 14
 _OP_RMSNORM = 15
+_OP_DERF = 16
+_OP_ATTENTION = 17
+_OP_SWIGLU = 18
 _OP_STRIDE = 8
 
 # -march=native output is CPU specific and no flag here relaxes IEEE semantics.
@@ -232,6 +242,11 @@ class HostGraphActor:
     same constructor signature, same ``refresh()`` / ``__call__`` contract, and
     the same ``num_rows``, ``in_features``, ``out_features``, ``device``
     attributes. See the module docstring for the supported architectures.
+
+    Peri-norm trunks lower h = in_proj(x), then each block as
+    h += sigmoid(gate) * N_out(B(N_in(h) * branch_input_scale)), and finally
+    N_final(h) * output_scale before the head. Both branch norms use native
+    norm ops; the output norm precedes the unchanged, refreshable channel gate.
     """
 
     def __init__(self, sequential, num_rows):
@@ -244,7 +259,11 @@ class HostGraphActor:
         self._sources = []       # device parameters, in mirror order
         self._hosts = []         # pinned host tensors, same order
         self._weight_jobs = []   # (pinned (out, in) view, transposed C buffer)
+        self._normalized_weight_jobs = []  # weight, transposed buffer, row-norm scratch
         self._gate_jobs = []     # (pinned raw gate view, sigmoid(gate) buffer)
+        self._amplitude_jobs = []  # (pinned raw amplitude view, softplus buffer)
+        self._ngpt_gate_jobs = []  # (raw alpha, absolute scaled coefficient, ratio)
+        self._divided_scale_jobs = []  # (raw channel scale, divided scale, divisor)
         self._arrays = []        # every C buffer, indexed by graph slot
         self._ops = []           # flat int32 op stream
         self._scale_zeros = {}   # shared all-row zero bases for channel scaling
@@ -254,7 +273,11 @@ class HostGraphActor:
         self._x_slot = self._add(np.zeros(1, dtype=np.float32))
         self._zero_slot = self._add(None)
         kind = _trunk_kind(sequential[0]) if len(sequential) == 2 else None
-        if kind is not None:
+        if len(sequential) == 2 and isinstance(sequential[0], NGPTTrunk):
+            self._out_slot, self.out_features = self._build_ngpt_trunk(sequential)
+        elif len(sequential) == 2 and isinstance(sequential[0], PaperNormTrunk):
+            self._out_slot, self.out_features = self._build_paper_trunk(sequential)
+        elif kind is not None:
             self._out_slot, self.out_features = self._build_trunk(sequential, kind)
         else:
             self._out_slot, self.out_features = self._build_mlp(sequential)
@@ -274,8 +297,9 @@ class HostGraphActor:
         self._arrays.append(array)
         return len(self._arrays) - 1
 
-    def _scratch(self, cols):
-        return self._add(np.empty((self.num_rows, cols), dtype=np.float32))
+    def _scratch(self, cols, *, rows=None):
+        rows = self.num_rows if rows is None else rows
+        return self._add(np.empty((rows, cols), dtype=np.float32))
 
     def _op(self, code, *operands):
         self._ops.extend((code, *operands))
@@ -293,8 +317,9 @@ class HostGraphActor:
         if tensor.dtype != torch.float32 or not tensor.is_cuda:
             raise ValueError("HostGraphActor mirrors FP32 CUDA parameters only")
 
-    def _linear(self, dst, src, linear):
-        """Emit ``dst = src @ linear.weight.T + linear.bias``.
+    def _linear(self, dst, src, linear, *, normalize_rows=False, rows=None,
+                homogeneous=False):
+        """Emit a linear, optionally folding row norms or a homogeneous coordinate.
 
         ``dst`` is always a freshly allocated scratch buffer, so it never
         aliases ``src``/weight/bias -- which is what lets the kernel declare
@@ -303,13 +328,24 @@ class HostGraphActor:
         self._max_cols = max(self._max_cols, linear.out_features)
         weight = self._mirror(linear.weight)
         transposed = np.empty((linear.in_features, linear.out_features), dtype=np.float32)
-        self._weight_jobs.append((weight, transposed))
+        if normalize_rows:
+            row_norms = np.empty(linear.out_features, dtype=np.float32)
+            self._normalized_weight_jobs.append((weight, transposed, row_norms))
+        else:
+            self._weight_jobs.append((weight, transposed))
         bias = self._zero_slot if linear.bias is None else self._add(self._mirror(linear.bias))
+        if homogeneous:
+            # The last transposed row is contiguous and refreshed with the rest
+            # of the weight: use it as bias instead of allocating [obs, 1].
+            bias = self._add(transposed[-1])
         self._op(_OP_LINEAR, dst, src, self._add(transposed), bias,
-                 self.num_rows, linear.in_features, linear.out_features)
+                 self.num_rows if rows is None else rows,
+                 linear.in_features - int(homogeneous), linear.out_features)
 
-    def _situ_glu_branch(self, src, block):
-        """Emit a bias-free SiTU-GLU branch, returning the output slot."""
+    def _situ_glu_branch(self, src, block, *, up_src=None, product_norm=None,
+                         normalize_down=False, rows=None):
+        """Emit SiTU with optional split inputs, product RMS or down direction."""
+        rows = self.num_rows if rows is None else rows
         if (block.gate.in_features != block.in_dim or block.up.in_features != block.in_dim
                 or block.down.in_features != block.hidden_dim
                 or block.gate.out_features != block.hidden_dim
@@ -320,13 +356,16 @@ class HostGraphActor:
             self._require_fp32(linear.weight)
             if linear.bias is not None:
                 raise ValueError("HostGraphActor mirrors bias-free SiTUGLUBranch blocks only")
-        gate = self._scratch(block.hidden_dim)
-        up = self._scratch(block.hidden_dim)
-        self._linear(gate, src, block.gate)
-        self._linear(up, src, block.up)
-        self._op(_OP_SITU_GLU, gate, gate, up, 0, self.num_rows * block.hidden_dim)
-        out = self._scratch(block.out_dim)
-        self._linear(out, gate, block.down)
+        gate = self._scratch(block.hidden_dim, rows=rows)
+        up = self._scratch(block.hidden_dim, rows=rows)
+        self._linear(gate, src, block.gate, rows=rows)
+        self._linear(up, src if up_src is None else up_src, block.up, rows=rows)
+        self._op(_OP_SITU_GLU, gate, gate, up, 0, rows * block.hidden_dim)
+        if product_norm is not None:
+            self._norm(gate, gate, product_norm, block.hidden_dim, rows=rows)
+            self._channel_scale(gate, gate, SITU_GLU_MEAN_SQUARE ** 0.5, block.hidden_dim, rows=rows)
+        out = self._scratch(block.out_dim, rows=rows)
+        self._linear(out, gate, block.down, normalize_rows=normalize_down, rows=rows)
         return out
 
     def _lrelu_pair_branch(self, src, block):
@@ -404,37 +443,264 @@ class HostGraphActor:
             return self._situ_glu_branch(src, block)
         return self._lrelu_pair_branch(src, block)
 
-    def _channel_scale(self, dst, src, scale, width):
+    def _channel_scale(self, dst, src, scale, width, *, rows=None, divisor=None):
         """Emit a fixed or learned channel multiplier, not a sigmoid gate."""
+        rows = self.num_rows if rows is None else rows
         if isinstance(scale, torch.Tensor):
             self._require_fp32(scale)
             if tuple(scale.shape) != (width,):
                 raise ValueError("HostGraphActor requires width-wise channel scales")
             values = self._mirror(scale)
+            if divisor is not None:
+                raw = values
+                values = np.empty(width, dtype=np.float32)
+                self._divided_scale_jobs.append((raw, values, divisor))
         else:
             values = np.full(width, scale, dtype=np.float32)
-        if width not in self._scale_zeros:
-            self._scale_zeros[width] = self._add(
-                np.zeros((self.num_rows, width), dtype=np.float32))
-        self._op(_OP_GATED_ADD, dst, self._scale_zeros[width], src, self._add(values),
-                 self.num_rows, width)
+        key = (rows, width)
+        if key not in self._scale_zeros:
+            self._scale_zeros[key] = self._add(np.zeros((rows, width), dtype=np.float32))
+        self._op(_OP_GATED_ADD, dst, self._scale_zeros[key], src, self._add(values),
+                 rows, width)
 
-    def _norm(self, dst, src, norm, width):
-        """Emit a last-axis norm, including learned RMS gain; dst may alias src."""
+    def _norm(self, dst, src, norm, width, *, rows=None):
+        """Emit a branch transform or last-axis norm; dst may alias src."""
+        rows = self.num_rows if rows is None else rows
         if type(norm) is nn.Identity:
             if dst != src:
-                self._channel_scale(dst, src, 1.0, width)
+                self._channel_scale(dst, src, 1.0, width, rows=rows)
+            return
+        if type(norm) is SphereNorm:
+            self._op(_OP_JUSTNORM, dst, src, 0, 0, rows, width)
+            return
+        if type(norm) is Derf:
+            if tuple(norm.normalized_shape) != (width,):
+                raise ValueError("HostGraphActor requires width-wise Derf affine parameters")
+            # One contiguous kernel buffer, with parameter-shaped pinned views
+            # registered in the ordinary refresh loop: no repacking or temporary
+            # arrays in refresh/forward, and all four learned parameters update.
+            packed = torch.empty(2 + 2 * width, dtype=torch.float32,
+                                 device="cpu", pin_memory=True)
+            offset = 0
+            for parameter, shape in ((norm.alpha, (1,)), (norm.shift, (1,)),
+                                     (norm.weight, (width,)), (norm.bias, (width,))):
+                self._require_fp32(parameter)
+                if tuple(parameter.shape) != shape:
+                    raise ValueError("HostGraphActor requires scalar Derf alpha/shift and channel affine")
+                size = parameter.numel()
+                self._sources.append(parameter)
+                self._hosts.append(packed[offset:offset + size].view_as(parameter))
+                offset += size
+            self._op(_OP_DERF, dst, src, self._add(packed.numpy()), 0, rows, width)
             return
         if type(norm) not in (nn.LayerNorm, nn.RMSNorm):
-            raise TypeError("HostGraphActor requires LayerNorm, RMSNorm or Identity")
+            raise TypeError("HostGraphActor requires LayerNorm, RMSNorm, SphereNorm, Derf or Identity")
         if tuple(norm.normalized_shape) != (width,) or norm.eps != 1e-5:
             raise ValueError("HostGraphActor requires width-wise norms with eps=1e-5")
         if isinstance(norm, nn.LayerNorm) and (norm.elementwise_affine or norm.bias is not None):
             raise ValueError("HostGraphActor requires non-affine LayerNorm")
         code = _OP_LAYERNORM if isinstance(norm, nn.LayerNorm) else _OP_RMSNORM
-        self._op(code, dst, src, 0, 0, self.num_rows, width)
+        self._op(code, dst, src, 0, 0, rows, width)
         if norm.weight is not None:
-            self._channel_scale(dst, dst, norm.weight, width)
+            self._channel_scale(dst, dst, norm.weight, width, rows=rows)
+
+    def _build_ngpt_trunk(self, sequential):
+        """Lower nGPT geometry without normalizing weights during refresh."""
+        trunk, head = sequential
+        width, rows = int(trunk.width), self.num_rows
+        hidden = 4 * width
+        if width < 1 or trunk.n_blocks < 1 or len(trunk.blocks) != trunk.n_blocks:
+            raise ValueError("NGPTTrunk has inconsistent width or block count")
+        if (type(trunk.in_proj) is not nn.Linear
+                or trunk.in_proj.in_features != trunk.in_dim + 1
+                or trunk.in_proj.out_features != width
+                or trunk.in_proj.bias is not None):
+            raise ValueError("NGPTTrunk requires a bias-free homogeneous input projection")
+        if (type(head) is not NGPTHead or head.in_features != width
+                or head.bias is not None or head.base_scale != width ** -0.5):
+            raise ValueError("NGPTTrunk requires an NGPTHead consuming its width")
+        self._require_fp32(trunk.in_proj.weight)
+        self._require_fp32(head.weight)
+        current = self._scratch(width)
+        self._linear(current, self._x_slot, trunk.in_proj, homogeneous=True)
+        self._op(_OP_JUSTNORM, current, current, 0, 0, rows, width)
+        for block in trunk.blocks:
+            if type(block) is not NGPTBlock or block.base_scale != width ** -0.5:
+                raise ValueError("NGPTTrunk requires NGPTBlock with matching base scale")
+            for linear, in_dim, out_dim in ((block.gate, width, hidden),
+                                            (block.up, width, hidden),
+                                            (block.down, hidden, width)):
+                if (type(linear) is not nn.Linear or linear.in_features != in_dim
+                        or linear.out_features != out_dim or linear.bias is not None):
+                    raise ValueError("NGPTBlock has inconsistent bias-free projection shapes")
+                self._require_fp32(linear.weight)
+            self._require_fp32(block.suv)
+            self._require_fp32(block.alpha)
+            if tuple(block.suv.shape) != (2, hidden) or tuple(block.alpha.shape) != (width,):
+                raise ValueError("NGPTBlock requires channel-wise suv and alpha")
+            # The donor normalizes the stream again at every block entrance.
+            self._op(_OP_JUSTNORM, current, current, 0, 0, rows, width)
+            gate, up = self._scratch(hidden), self._scratch(hidden)
+            self._linear(gate, current, block.gate)
+            self._linear(up, current, block.up)
+            for slot, scale in ((up, block.suv[0]), (gate, block.suv[1])):
+                # Keep the two FP32 multiplications in donor order.
+                self._channel_scale(slot, slot, scale, hidden)
+                self._channel_scale(slot, slot, width ** 0.5, hidden)
+            self._op(_OP_SWIGLU, gate, gate, up, 0, rows * hidden)
+            branch = self._scratch(width)
+            self._linear(branch, gate, block.down)
+            self._op(_OP_JUSTNORM, branch, branch, 0, 0, rows, width)
+            alpha = np.empty(width, dtype=np.float32)
+            self._ngpt_gate_jobs.append(
+                (self._mirror(block.alpha), alpha, 0.05 / block.base_scale))
+            self._op(_OP_GATED_MIX, current, current, branch, self._add(alpha), rows, width)
+            self._op(_OP_JUSTNORM, current, current, 0, 0, rows, width)
+        logits = self._scratch(head.out_features)
+        self._linear(logits, current, head)
+        self._channel_scale(logits, logits, head.scale, head.out_features,
+                            divisor=head.base_scale)
+        self.in_features = int(trunk.in_dim)
+        return logits, int(head.out_features)
+
+    def _paper_attention(self, src, attn, width, n_tokens, n_heads):
+        """Project token rows, normalize head rows, and attend within samples."""
+        if not isinstance(attn, PaperAttention):
+            raise TypeError("PaperNormBlock attention must be PaperAttention")
+        rows = self.num_rows * n_tokens
+        if (attn.width != width or attn.n_heads != n_heads
+                or attn.head_dim != width // n_heads
+                or attn.scale != (width // n_heads) ** -0.5):
+            raise ValueError("PaperAttention has inconsistent head dimensions or scale")
+        head_dim = width // n_heads
+        qkv = []
+        for linear, norm in ((attn.q_proj, attn.q_norm),
+                             (attn.k_proj, attn.k_norm),
+                             (attn.v_proj, attn.v_norm)):
+            if (type(linear) is not nn.Linear or linear.in_features != width
+                    or linear.out_features != width or linear.bias is not None):
+                raise ValueError("PaperAttention requires bias-free width-preserving projections")
+            self._require_fp32(linear.weight)
+            projected = self._scratch(width, rows=rows)
+            self._linear(projected, src, linear, rows=rows)
+            self._norm(projected, projected, norm, head_dim, rows=rows * n_heads)
+            qkv.append(projected)
+        linear = attn.out_proj
+        if (type(linear) is not nn.Linear or linear.in_features != width
+                or linear.out_features != width or linear.bias is not None):
+            raise ValueError("PaperAttention requires a bias-free width-preserving output projection")
+        self._require_fp32(linear.weight)
+        attended = self._scratch(width, rows=rows)
+        shape = self._add(np.asarray(
+            (self.num_rows, n_tokens, n_heads, head_dim), dtype=np.int32))
+        scores = self._add(np.empty(n_tokens, dtype=np.float32))
+        scale = self._add(np.asarray([attn.scale], dtype=np.float32))
+        self._op(_OP_ATTENTION, attended, *qkv, shape, scores, scale)
+        out = self._scratch(width, rows=rows)
+        self._linear(out, attended, linear, rows=rows)
+        return out
+
+    def _build_paper_trunk(self, sequential):
+        """Lower the paper topologies with PPO gates/SiTU, not LLM recipes.
+
+        Token buffers stay [sample, token, channel]; reinterpreting contiguous
+        rows for head norms/readout requires no transpose or runtime copy.
+        """
+        trunk, head = sequential
+        width, n_tokens, n_heads = int(trunk.width), int(trunk.n_tokens), int(trunk.n_heads)
+        if min(width, n_tokens, n_heads) < 1 or width % n_heads:
+            raise ValueError("PaperNormTrunk requires positive dimensions and divisible heads")
+        if trunk.method not in ("peri", "span", "hybrid", "siamese"):
+            raise ValueError("PaperNormTrunk has an unsupported method")
+        if trunk.n_blocks < 1 or len(trunk.blocks) != trunk.n_blocks:
+            raise ValueError("PaperNormTrunk has an inconsistent block count")
+        out_dim = n_tokens * width
+        if (trunk.out_dim != out_dim or trunk.in_proj.in_features != trunk.in_dim
+                or trunk.in_proj.out_features != out_dim):
+            raise ValueError("PaperNormTrunk has inconsistent projection shapes")
+        if type(head) is not nn.Linear or head.in_features != out_dim:
+            raise ValueError("PaperNormTrunk requires a Linear head consuming flattened tokens")
+        for linear in (trunk.in_proj, head):
+            self._require_fp32(linear.weight)
+            if linear.bias is not None:
+                self._require_fp32(linear.bias)
+        rows = self.num_rows * n_tokens
+        ones = self._add(np.ones(width, dtype=np.float32))
+
+        def normalized(src, norm):
+            if type(norm) is nn.Identity:
+                return src
+            dst = self._scratch(width, rows=rows)
+            self._norm(dst, src, norm, width, rows=rows)
+            return dst
+
+        def added(base, branch, gate=ones):
+            dst = self._scratch(width, rows=rows)
+            self._op(_OP_GATED_ADD, dst, base, branch, gate, rows, width)
+            return dst
+
+        def mirrored_gate(parameter):
+            self._require_fp32(parameter)
+            if tuple(parameter.shape) != (width,):
+                raise ValueError("PaperNormTrunk requires per-channel residual gates")
+            values = np.empty(width, dtype=np.float32)
+            self._gate_jobs.append((self._mirror(parameter), values))
+            return self._add(values)
+
+        current = self._scratch(out_dim)
+        self._linear(current, self._x_slot, trunk.in_proj)
+        post = identity = current
+        zero = (self._add(np.zeros((rows, width), dtype=np.float32))
+                if trunk.method == "siamese" else None)
+        for index, block in enumerate(trunk.blocks):
+            if not isinstance(block, PaperNormBlock) or not isinstance(block.ffn, SiTUGLUBranch):
+                raise TypeError("PaperNormTrunk requires PaperNormBlocks with SiTUGLUBranch FFNs")
+            if block.ffn.in_dim != width or block.ffn.out_dim != width:
+                raise ValueError("PaperNormBlock requires a width-preserving FFN")
+            attn_gate, ffn_gate = mirrored_gate(block.attn_gate), mirrored_gate(block.ffn_gate)
+            if trunk.method == "siamese":
+                depth = self._add(np.full(width, (index + 1) ** -0.5, dtype=np.float32))
+                for is_attention, pre_norm, input_norm, post_norm, gate in (
+                    (True, block.attn_pre_norm, block.attn_input_norm,
+                     block.attn_post_norm, attn_gate),
+                    (False, block.ffn_pre_norm, block.ffn_input_norm,
+                     block.ffn_post_norm, ffn_gate),
+                ):
+                    merged = normalized(added(post, normalized(identity, pre_norm)), input_norm)
+                    delta = (self._paper_attention(merged, block.attn, width, n_tokens, n_heads)
+                             if is_attention else self._situ_glu_branch(merged, block.ffn, rows=rows))
+                    # Materialize the gated delta ONCE for both streams; only
+                    # the post stream receives the paper's depth coefficient.
+                    self._op(_OP_GATED_ADD, delta, zero, delta, gate, rows, width)
+                    post = normalized(added(post, delta, depth), post_norm)
+                    identity = added(identity, delta)
+            elif trunk.method == "span":
+                saved = current
+                attn_input = normalized(current, trunk.initial_norm) if index == 0 else current
+                branch = self._paper_attention(attn_input, block.attn, width, n_tokens, n_heads)
+                y = normalized(added(saved, branch, attn_gate), block.attn_post_norm)
+                branch = self._situ_glu_branch(y, block.ffn, rows=rows)
+                # SpanNorm's FFN skip deliberately returns to saved, not y.
+                current = normalized(added(saved, branch, ffn_gate), block.ffn_post_norm)
+            elif trunk.method == "hybrid":
+                branch = self._paper_attention(current, block.attn, width, n_tokens, n_heads)
+                z = normalized(added(current, branch, attn_gate), block.ffn_pre_norm)
+                branch = self._situ_glu_branch(z, block.ffn, rows=rows)
+                current = added(z, branch, ffn_gate)
+            else:
+                branch_input = normalized(current, block.attn_pre_norm)
+                branch = self._paper_attention(branch_input, block.attn, width, n_tokens, n_heads)
+                y = added(current, normalized(branch, block.attn_post_norm), attn_gate)
+                branch = self._situ_glu_branch(
+                    normalized(y, block.ffn_pre_norm), block.ffn, rows=rows)
+                current = added(y, normalized(branch, block.ffn_post_norm), ffn_gate)
+        if trunk.method == "siamese":
+            current = added(post, normalized(identity, trunk.final_norm))
+        self._channel_scale(current, current, trunk.output_scale, width, rows=rows)
+        logits = self._scratch(head.out_features)
+        self._linear(logits, current, head)
+        self.in_features = int(trunk.in_dim)
+        return logits, int(head.out_features)
 
     def _build_mlp(self, sequential):
         current, cols = self._x_slot, None
@@ -477,21 +743,99 @@ class HostGraphActor:
             raise ValueError("HostGraphActor needs at least one Linear or SiTUGLUBranch layer")
         return current, cols
 
+    def _build_situ_reorg_trunk(self, sequential):
+        """Lower relocated norms directly, never through generic pre-norm."""
+        trunk, head = sequential
+        width = int(trunk.width)
+        variant = trunk.variant
+        if variant not in ("baseline", "gate_only", "up_only", "product_norm",
+                           "branch_norm", "blend", "anchor"):
+            raise ValueError("SiTUReorgTrunk has an unsupported variant")
+        if not isinstance(head, nn.Linear) or head.in_features != width:
+            raise ValueError("SiTUReorgTrunk requires a Linear head consuming its width")
+        if (trunk.in_proj.in_features != trunk.in_dim
+                or trunk.in_proj.out_features != width):
+            raise ValueError("SiTUReorgTrunk has inconsistent projection shapes")
+        if trunk.in_proj.bias is None or head.bias is None:
+            raise ValueError("HostGraphActor requires biased in_proj and head linears")
+        for linear in (trunk.in_proj, head):
+            self._require_fp32(linear.weight)
+            self._require_fp32(linear.bias)
+        if (trunk.n_blocks < 1 or len(trunk.blocks) != trunk.n_blocks
+                or len(trunk.block_norms) != trunk.n_blocks
+                or len(trunk.block_gates) != trunk.n_blocks):
+            raise ValueError("SiTUReorgTrunk has inconsistent block/norm/gate counts")
+        for norm in (*trunk.block_norms, trunk.final_norm):
+            if type(norm) is not nn.RMSNorm or norm.elementwise_affine:
+                raise ValueError("SiTUReorgTrunk requires non-affine RMS norms")
+        hidden = None
+        gates = []
+        for block, gate in zip(trunk.blocks, trunk.block_gates):
+            if not isinstance(block, SiTUGLUBranch):
+                raise TypeError("SiTUReorgTrunk blocks must be SiTUGLUBranch")
+            if hidden is None:
+                hidden = block.hidden_dim
+            if _branch_shape(block) != (width, width, hidden):
+                raise ValueError("SiTUReorgTrunk has inconsistent branch shapes")
+            self._require_fp32(gate)
+            if tuple(gate.shape) != (width,):
+                raise ValueError("SiTUReorgTrunk requires per-channel gates")
+            values = np.empty(width, dtype=np.float32)
+            self._gate_jobs.append((self._mirror(gate), values))
+            gates.append(self._add(values))
+
+        x0 = self._scratch(width)
+        self._linear(x0, self._x_slot, trunk.in_proj)
+        current = x0
+        for block, norm, gate in zip(trunk.blocks, trunk.block_norms, gates):
+            previous = current
+            gate_src = up_src = previous
+            if variant in ("baseline", "gate_only", "up_only", "blend", "anchor"):
+                normalized = self._scratch(width)
+                self._norm(normalized, previous, norm, width)
+                if variant != "up_only":
+                    gate_src = normalized
+                if variant != "gate_only":
+                    up_src = normalized
+            branch = self._situ_glu_branch(
+                gate_src, block, up_src=up_src,
+                product_norm=norm if variant == "product_norm" else None)
+            if variant == "branch_norm":
+                self._norm(branch, branch, norm, width)
+                self._channel_scale(branch, branch, 0.5 ** 0.5, width)
+            current = self._scratch(width)
+            code = _OP_GATED_MIX if variant == "blend" else _OP_GATED_ADD
+            base = x0 if variant == "anchor" else previous
+            self._op(code, current, base, branch, gate, self.num_rows, width)
+        self._norm(current, current, trunk.final_norm, width)
+        self._channel_scale(current, current, trunk.output_scale, width)
+        logits = self._scratch(head.out_features)
+        self._linear(logits, current, head)
+        self.in_features = int(trunk.in_dim)
+        return logits, int(head.out_features)
+
     def _build_trunk(self, sequential, kind):
+        """Lower residual placements without moving gates across branch norms."""
+        if isinstance(sequential[0], SiTUReorgTrunk):
+            return self._build_situ_reorg_trunk(sequential)
         trunk, head = sequential
         if not isinstance(head, nn.Linear):
             raise TypeError(
                 f"HostGraphActor mirrors Sequential({type(trunk).__name__}, Linear)")
         width = int(trunk.width)
         normalized = isinstance(trunk, NormResidualTrunk)
+        factorized = isinstance(trunk, SiTUFactorizedTrunk)
         plain = isinstance(trunk, (PreRMSTrunk, PreRMSStageTrunk)) and not trunk.residual
         if plain and trunk.placement != "pre":
             raise ValueError("Plain pre-RMS trunks require pre normalization")
         if normalized:
-            if trunk.placement not in ("pre", "post"):
-                raise ValueError("NormResidualTrunk placement must be pre or post")
+            if trunk.placement not in ("pre", "post", "peri"):
+                raise ValueError("NormResidualTrunk placement must be pre, post or peri")
             if len(trunk.block_norms) != trunk.n_blocks:
                 raise ValueError("NormResidualTrunk has an inconsistent norm count")
+            if (trunk.placement == "peri"
+                    and len(trunk.block_output_norms) != trunk.n_blocks):
+                raise ValueError("NormResidualTrunk has an inconsistent output norm count")
         if kind.blocks is None:
             blocks = list(trunk.blocks)
             gate_params = list(trunk.block_gates)
@@ -538,11 +882,12 @@ class HostGraphActor:
                     f"HostGraphActor mirrors {'per-channel' if per_channel else 'scalar'} "
                     "FP32 CUDA gates only")
         gates = []
+        gate_jobs = self._amplitude_jobs if factorized else self._gate_jobs
         for scalar in gate_params:
             # A layer-wide scalar gate broadcasts into the per-channel buffer at
             # refresh, so the mixing ops need no scalar variants.
             values = np.empty(width, dtype=np.float32)
-            self._gate_jobs.append((self._mirror(scalar), values))
+            gate_jobs.append((self._mirror(scalar), values))
             gates.append(self._add(values))
 
         rows = self.num_rows
@@ -556,14 +901,19 @@ class HostGraphActor:
         for k in range(1, n_blocks + 1):
             previous = streams[-1]
             branch_input = previous
-            if normalized and trunk.placement == "pre":
+            if normalized and trunk.placement in ("pre", "peri"):
                 branch_input = self._scratch(width)
                 self._norm(branch_input, previous, trunk.block_norms[k - 1], width)
             if normalized and trunk.branch_input_scale != 1.0:
                 scaled_input = self._scratch(width)
                 self._channel_scale(scaled_input, branch_input, trunk.branch_input_scale, width)
                 branch_input = scaled_input
-            branch = self._branch(branch_input, blocks[k - 1])
+            if factorized:
+                branch = self._situ_glu_branch(branch_input, blocks[k - 1], normalize_down=True)
+            else:
+                branch = self._branch(branch_input, blocks[k - 1])
+            if normalized and trunk.placement == "peri":
+                self._norm(branch, branch, trunk.block_output_norms[k - 1], width)
             current = branch if plain else self._scratch(width)
             if kind.sphere:
                 self._op(_OP_JUSTNORM, branch, branch, 0, 0, rows, width)
@@ -584,7 +934,7 @@ class HostGraphActor:
             if normalized and trunk.placement == "post":
                 self._norm(current, current, trunk.block_norms[k - 1], width)
             streams.append(current)
-        if normalized and trunk.placement == "pre":
+        if normalized and trunk.placement in ("pre", "peri"):
             self._norm(streams[-1], streams[-1], trunk.final_norm, width)
         if normalized:
             # Fixed readout calibration, not a learned sigmoid gate, even
@@ -606,6 +956,13 @@ class HostGraphActor:
         self._event.synchronize()
         for weight, transposed in self._weight_jobs:
             np.copyto(transposed, weight.T)
+        for weight, transposed, row_norms in self._normalized_weight_jobs:
+            np.einsum("ij,ij->i", weight, weight, out=row_norms)
+            np.sqrt(row_norms, out=row_norms)
+            np.maximum(row_norms, 1e-12, out=row_norms)
+            np.divide(weight.T, row_norms, out=transposed)
+        for raw, values in self._amplitude_jobs:
+            np.logaddexp(0.0, raw, out=values)
         for raw, values in self._gate_jobs:
             np.negative(raw, out=values)
             # Saturated gates overflow exp toward inf; the following reciprocal
@@ -614,6 +971,11 @@ class HostGraphActor:
                 np.exp(values, out=values)
             np.add(values, 1.0, out=values)
             np.reciprocal(values, out=values)
+        for raw, values, ratio in self._ngpt_gate_jobs:
+            np.multiply(raw, ratio, out=values)
+            np.abs(values, out=values)
+        for raw, values, divisor in self._divided_scale_jobs:
+            np.divide(raw, divisor, out=values)
 
     def __call__(self, x):
         if x.shape != (self.num_rows, self.in_features) or x.dtype != np.float32:
@@ -646,13 +1008,13 @@ def make_host_mirror(sequential, num_rows, *, fused=True):
     own reason. If the fallback mirror rejects the network too, its error
     propagates instead: the network is unsupported, not merely unfused. The
     result carries ``fused`` and ``fallback_reason`` for logging.
-    ``NormResidualTrunk`` has no NumPy fallback: disabling fused execution or
-    an unsupported normalized graph raises instead.
+    ``NormResidualTrunk``, ``PaperNormTrunk`` and ``NGPTTrunk`` have no NumPy
+    fallback: disabling fused execution or an unsupported graph raises.
     """
     if (isinstance(sequential, nn.Sequential) and len(sequential)
-            and isinstance(sequential[0], NormResidualTrunk)):
+            and isinstance(sequential[0], (NormResidualTrunk, PaperNormTrunk, NGPTTrunk))):
         if not fused:
-            raise ValueError("NormResidualTrunk requires the fused host mirror")
+            raise ValueError(f"{type(sequential[0]).__name__} requires the fused host mirror")
         mirror = HostGraphActor(sequential, num_rows)
         mirror.fused = True
         mirror.fallback_reason = None

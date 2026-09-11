@@ -26,6 +26,13 @@ def configure_compile_cache():
     root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "cleanrl"
     os.environ.setdefault("TORCHINDUCTOR_CACHE_DIR", str(root / "torchinductor"))
     os.environ.setdefault("TRITON_CACHE_DIR", str(root / "triton"))
+    # Compiler workers are independent of Torch intra-op threads. Bound cold
+    # compilation memory when several trainers start together; explicit queue
+    # configuration still wins. Set config too if another import loaded it.
+    os.environ.setdefault("TORCHINDUCTOR_COMPILE_THREADS", "1")
+    from torch._inductor import config
+
+    config.compile_threads = int(os.environ["TORCHINDUCTOR_COMPILE_THREADS"])
 
 
 def configure_runtime(

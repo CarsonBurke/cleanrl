@@ -58,7 +58,10 @@ enum {
     CLEANRL_OP_CAPSIGNSQ = 12,    /* t = 4*tanh(src/4); dst = t*|t|             */
     CLEANRL_OP_CAPLRELUSQ = 13,   /* t = 4*tanh(src/4); dst = leaky_relu(t,0.5)^2 */
     CLEANRL_OP_LAYERNORM = 14,   /* dst = (src-mean) / sqrt(var + 1e-5)        */
-    CLEANRL_OP_RMSNORM = 15      /* dst = src / sqrt(mean(src^2) + 1e-5)      */
+    CLEANRL_OP_RMSNORM = 15,     /* dst = src / sqrt(mean(src^2) + 1e-5)      */
+    CLEANRL_OP_DERF = 16,        /* dst = erf(alpha*src + shift)*weight + bias */
+    CLEANRL_OP_ATTENTION = 17,   /* token-major, noncausal per-sample attention */
+    CLEANRL_OP_SWIGLU = 18       /* dst = up * silu(gate), without caps       */
 };
 
 /* ops[k * OP_STRIDE + 0] is the code; the remaining seven slots are buffer
@@ -187,6 +190,18 @@ static void situ_glu(float *dst, const float *gate, const float *up, int n)
     }
 }
 
+static void swiglu(float *dst, const float *gate, const float *up, int n)
+{
+    for (int o = 0; o < n; ++o) {
+        const float g = gate[o];
+        /* The capped SiTU path can tolerate exp_nonpos's -87 floor; an
+         * uncapped gate cannot: g times that floor grows again as g -> -inf.
+         * Match SiLU's exp(-g) underflow/overflow behavior in the negative tail. */
+        const float silu = g < -80.0f ? g / (1.0f + expf(-g)) : g * sigmoid_fast(g);
+        dst[o] = up[o] * silu;
+    }
+}
+
 static void justnorm(float *dst, const float *src, int rows, int cols)
 {
     for (int r = 0; r < rows; ++r) {
@@ -243,6 +258,66 @@ static void moment_norm(float *dst, const float *src, int rows, int cols,
         for (int t = 0; t < 16; ++t) sum += acc[t];
         const float inv = 1.0f / sqrtf(sum / (float)cols + 1e-5f);
         for (c = 0; c < cols; ++c) dr[c] = (sr[c] - mean) * inv;
+    }
+}
+
+/* Author-defined Dynamic erf with scalar alpha/shift and channel affine.
+ * Parameters are packed [alpha, shift, weight[cols], bias[cols]] in pinned
+ * storage refreshed directly from the CUDA learner. Independent elementwise
+ * writes allow dst == src; no scratch or per-call allocation is needed.
+ * Keep the affine multiply/add rounding separate, as in the torch expression. */
+static void derf(float *dst, const float *src, const float *params, int rows, int cols)
+{
+    const float alpha = params[0], shift = params[1];
+    const float *weight = params + 2, *bias = weight + cols;
+    for (int r = 0; r < rows; ++r) {
+        const size_t base = (size_t)r * (size_t)cols;
+        for (int c = 0; c < cols; ++c)
+            dst[base + c] = erff(alpha * src[base + c] + shift) * weight[c] + bias[c];
+    }
+}
+
+/* Q/K/V and dst are contiguous [batch, tokens, heads, head_dim].
+ * Only the tokens of one sample/head participate in each softmax. The graph
+ * owns the tokens-wide score scratch and int32 shape; forward never allocates.
+ * dst is distinct from Q/K/V, including when later projections reuse buffers. */
+static void attention(float *restrict dst, const float *restrict q,
+                      const float *restrict k, const float *restrict v,
+                      const int32_t *shape, float *restrict scores, float scale)
+{
+    const int batches = shape[0], tokens = shape[1];
+    const int heads = shape[2], dim = shape[3];
+    const size_t width = (size_t)heads * (size_t)dim;
+    for (int b = 0; b < batches; ++b) {
+        const size_t sample = (size_t)b * (size_t)tokens * width;
+        for (int h = 0; h < heads; ++h) {
+            const size_t base = sample + (size_t)h * (size_t)dim;
+            for (int i = 0; i < tokens; ++i) {
+                const float *query = q + base + (size_t)i * width;
+                float maximum = -INFINITY;
+                for (int j = 0; j < tokens; ++j) {
+                    const float *key = k + base + (size_t)j * width;
+                    float dot = 0.0f;
+                    for (int d = 0; d < dim; ++d)
+                        dot = fmaf(query[d], key[d], dot);
+                    scores[j] = dot * scale;
+                    if (scores[j] > maximum) maximum = scores[j];
+                }
+                float total = 0.0f;
+                for (int j = 0; j < tokens; ++j) {
+                    scores[j] = exp_nonpos(scores[j] - maximum);
+                    total += scores[j];
+                }
+                for (int j = 0; j < tokens; ++j) scores[j] /= total;
+                float *result = dst + base + (size_t)i * width;
+                for (int d = 0; d < dim; ++d) result[d] = 0.0f;
+                for (int j = 0; j < tokens; ++j) {
+                    const float *value = v + base + (size_t)j * width;
+                    for (int d = 0; d < dim; ++d)
+                        result[d] = fmaf(scores[j], value[d], result[d]);
+                }
+            }
+        }
     }
 }
 
@@ -421,6 +496,16 @@ void cleanrl_host_forward(const cleanrl_host_graph *graph, const float *x, float
             break;
         case CLEANRL_OP_RMSNORM:
             moment_norm(dst, bufs[op[2]], op[5], op[6], 0);
+            break;
+        case CLEANRL_OP_DERF:
+            derf(dst, bufs[op[2]], bufs[op[3]], op[5], op[6]);
+            break;
+        case CLEANRL_OP_ATTENTION:
+            attention(dst, bufs[op[2]], bufs[op[3]], bufs[op[4]],
+                      (const int32_t *)bufs[op[5]], bufs[op[6]], bufs[op[7]][0]);
+            break;
+        case CLEANRL_OP_SWIGLU:
+            swiglu(dst, bufs[op[2]], bufs[op[3]], op[5]);
             break;
         default:
             return;

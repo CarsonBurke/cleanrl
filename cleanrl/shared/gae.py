@@ -13,10 +13,19 @@ import triton.language as tl
 
 @triton.jit
 def _gae_kernel(
-    rewards_ptr, values_ptr, terms_ptr, truncs_ptr, next_ptr, tail_ptr,
-    advantages_ptr, returns_ptr,
-    steps: tl.constexpr, envs: tl.constexpr,
-    gamma: tl.constexpr, decay: tl.constexpr, explicit: tl.constexpr,
+    rewards_ptr,
+    values_ptr,
+    terms_ptr,
+    truncs_ptr,
+    next_ptr,
+    tail_ptr,
+    advantages_ptr,
+    returns_ptr,
+    steps: tl.constexpr,
+    envs: tl.constexpr,
+    gamma: tl.constexpr,
+    decay: tl.constexpr,
+    explicit: tl.constexpr,
     tile: tl.constexpr,
 ):
     env = tl.program_id(0)
@@ -82,36 +91,61 @@ def _launch(rewards, values, terminations, truncations, next_values, tail_value,
     advantages = torch.empty_like(rewards)
     returns = torch.empty_like(rewards)
     _gae_kernel[(rewards.shape[1],)](
-        rewards, values, terminations, truncations, next_values, tail_value,
-        advantages, returns, rewards.shape[0], rewards.shape[1],
-        gamma, gamma * gae_lambda, explicit, 32,
-        num_warps=1, enable_fp_fusion=False,
+        rewards,
+        values,
+        terminations,
+        truncations,
+        next_values,
+        tail_value,
+        advantages,
+        returns,
+        rewards.shape[0],
+        rewards.shape[1],
+        gamma,
+        gamma * gae_lambda,
+        explicit,
+        32,
+        num_warps=1,
+        enable_fp_fusion=False,
     )
     return advantages, returns
 
 
 def gae_cuda_or_reference(
-    rewards, values, terminations, truncations, truncation_bootstrap_values,
-    tail_value, gamma, gae_lambda,
+    rewards,
+    values,
+    terminations,
+    truncations,
+    truncation_bootstrap_values,
+    tail_value,
+    gamma,
+    gae_lambda,
 ):
     from cleanrl.shared.ppo_loop import compute_gae
 
     matrices = (rewards, values, terminations, truncations, truncation_bootstrap_values)
-    if (_supported(rewards, (*matrices, tail_value), gamma, gae_lambda)
-            and all(tensor.shape == rewards.shape for tensor in matrices)
-            and tail_value.shape == rewards.shape[1:]):
+    if (
+        _supported(rewards, (*matrices, tail_value), gamma, gae_lambda)
+        and all(tensor.shape == rewards.shape for tensor in matrices)
+        and tail_value.shape == rewards.shape[1:]
+    ):
         return _launch(*matrices, tail_value, gamma, gae_lambda, False)
     return compute_gae(*matrices, tail_value, gamma, gae_lambda)
 
 
 def gae_next_cuda_or_reference(
-    rewards, values, terminations, truncations, next_values, gamma, gae_lambda,
+    rewards,
+    values,
+    terminations,
+    truncations,
+    next_values,
+    gamma,
+    gae_lambda,
 ):
     from cleanrl.shared.ppo_loop import compute_gae_from_next_values
 
     matrices = (rewards, values, terminations, truncations, next_values)
-    if (_supported(rewards, matrices, gamma, gae_lambda)
-            and all(tensor.shape == rewards.shape for tensor in matrices)):
+    if _supported(rewards, matrices, gamma, gae_lambda) and all(tensor.shape == rewards.shape for tensor in matrices):
         # The explicit kernel does not read tail_ptr; reuse an input pointer.
         return _launch(*matrices, next_values, gamma, gae_lambda, True)
     return compute_gae_from_next_values(*matrices, gamma, gae_lambda)

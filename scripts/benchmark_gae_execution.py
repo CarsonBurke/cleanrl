@@ -10,12 +10,12 @@ import hashlib
 import importlib.util
 import json
 import os
-from pathlib import Path
 import statistics
 import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -25,9 +25,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from cleanrl.shared.ppo_loop import get_gae_fn
 from cleanrl.shared.runtime import configure_runtime
 from scripts.benchmark_mujoco_throughput import (
-    json_compatible, tensor_difference, timing_summary, write_scalars,
+    json_compatible,
+    tensor_difference,
+    timing_summary,
+    write_scalars,
 )
-
 
 TOLERANCES = {"atol": 1e-5, "rtol": 1e-5}
 SHAPES = ((2048, 1), (2048, 16), (128, 16))
@@ -125,10 +127,18 @@ def worker(args):
     expected = tuple(tensor.clone() for tensor in reference(*inputs))
     factory = baseline.get_gae_fn if args.implementation == "old" else get_gae_fn
     fn = factory(compiled=True, mode=args.mode, explicit_next_values=args.explicit)
-    result = {"status": "running", "boundaries": boundaries, "parity": {},
-              "torch": torch.__version__, "gpu": torch.cuda.get_device_name(),
-              "steps": args.steps, "envs": args.envs, "explicit_next_values": args.explicit,
-              "precision": "FP32/highest/TF32 disabled", "empty_compiler_caches": True}
+    result = {
+        "status": "running",
+        "boundaries": boundaries,
+        "parity": {},
+        "torch": torch.__version__,
+        "gpu": torch.cuda.get_device_name(),
+        "steps": args.steps,
+        "envs": args.envs,
+        "explicit_next_values": args.explicit,
+        "precision": "FP32/highest/TF32 disabled",
+        "empty_compiler_caches": True,
+    }
     save_json(args.output, result)
 
     def replay():
@@ -165,12 +175,19 @@ def main(args):
     run_dir = Path("runs") / f"GAE__{args.exp_name}__{args.seed}__{time.time_ns()}"
     run_dir.mkdir(parents=True, exist_ok=False)
     writer = SummaryWriter(str(run_dir))
-    report = {"kind": "fixed_work_gae_not_training", "status": "running",
-              "args": {key: str(value) if isinstance(value, Path) else value for key, value in vars(args).items()},
-              "numerical_tolerances": TOLERANCES, "cases": {}, "sources": {}}
-    sources = {"baseline": args.baseline_root / "cleanrl/shared/ppo_loop.py",
-               "current_factory": Path("cleanrl/shared/ppo_loop.py"),
-               "current_kernel": Path("cleanrl/shared/gae.py")}
+    report = {
+        "kind": "fixed_work_gae_not_training",
+        "status": "running",
+        "args": {key: str(value) if isinstance(value, Path) else value for key, value in vars(args).items()},
+        "numerical_tolerances": TOLERANCES,
+        "cases": {},
+        "sources": {},
+    }
+    sources = {
+        "baseline": args.baseline_root / "cleanrl/shared/ppo_loop.py",
+        "current_factory": Path("cleanrl/shared/ppo_loop.py"),
+        "current_kernel": Path("cleanrl/shared/gae.py"),
+    }
     report["sources"] = {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in sources.items()}
 
     def save():
@@ -186,18 +203,41 @@ def main(args):
                 row = report["cases"][name] = {}
                 for implementation in ("old", "current"):
                     output = run_dir / f"{name}_{implementation}.json"
-                    command = [sys.executable, str(Path(__file__).resolve()), "--worker",
-                               "--baseline-root", str(args.baseline_root), "--seed", str(args.seed),
-                               "--steps", str(steps), "--envs", str(envs), "--mode", args.mode,
-                               "--iterations", str(args.iterations), "--repeats", str(args.repeats),
-                               "--implementation", implementation, "--output", str(output)]
+                    command = [
+                        sys.executable,
+                        str(Path(__file__).resolve()),
+                        "--worker",
+                        "--baseline-root",
+                        str(args.baseline_root),
+                        "--seed",
+                        str(args.seed),
+                        "--steps",
+                        str(steps),
+                        "--envs",
+                        str(envs),
+                        "--mode",
+                        args.mode,
+                        "--iterations",
+                        str(args.iterations),
+                        "--repeats",
+                        str(args.repeats),
+                        "--implementation",
+                        implementation,
+                        "--output",
+                        str(output),
+                    ]
                     if explicit:
                         command.append("--explicit")
                     # Fresh processes alone are not cold if disk caches survive.
                     with tempfile.TemporaryDirectory(prefix="gae-compile-") as cache:
-                        environment = dict(os.environ, TORCHINDUCTOR_CACHE_DIR=f"{cache}/inductor",
-                                           TRITON_CACHE_DIR=f"{cache}/triton", TORCHINDUCTOR_FX_GRAPH_CACHE="0",
-                                           TORCHINDUCTOR_AUTOGRAD_CACHE="0", TORCHINDUCTOR_FORCE_DISABLE_CACHES="1")
+                        environment = dict(
+                            os.environ,
+                            TORCHINDUCTOR_CACHE_DIR=f"{cache}/inductor",
+                            TRITON_CACHE_DIR=f"{cache}/triton",
+                            TORCHINDUCTOR_FX_GRAPH_CACHE="0",
+                            TORCHINDUCTOR_AUTOGRAD_CACHE="0",
+                            TORCHINDUCTOR_FORCE_DISABLE_CACHES="1",
+                        )
                         completed = subprocess.run(command, env=environment, check=False)
                     row[implementation] = json.loads(output.read_text()) if output.exists() else {"status": "failed"}
                     save()

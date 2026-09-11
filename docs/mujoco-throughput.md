@@ -595,3 +595,688 @@ Use `mlq show JOB_ID` for execution state and wall time. The reported training
 SPS includes initial warmup and compilation; component benchmark results report
 startup separately. A requested 8M budget stops at the same last complete
 rollout in both original v30 jobs.
+
+### V-MPO short-rollout bootstrap transfer correction
+
+The 64×39 V-MPO reference exposed small blocking uploads that long-rollout
+PERI timing obscured. `TruncationBootstrapCache.resolve_with_tail` packs tail
+observations, final observations and scatter indices into a reusable pinned
+block, uploads its active prefix asynchronously, and preserves the original
+critic batch layouts. Host reuse waits for the preceding DMA event. Consume
+returned tensors on the calling stream before the next cache call; `close()`
+waits for staging DMA, not arbitrary downstream work on another stream.
+
+MLQ **5605** passed 93 tests covering packed bootstrap values, GAE compatibility,
+repeated reuse/growth and compiled output lifetime alongside existing shared
+contracts. MLQ **5607** preserved model/PopArt/dual state bitwise after 110
+fixed-rollout updates and reduced synchronized return-plus-update time from
+**1.170 s to 0.366 s** per 100 timed iterations. Moving the graph boundary alone
+did not help. These totals include optimizer work; individual host attribution
+times are not isolated GPU-kernel timings.
+
+Real-trainer median interval throughput over 1M–8M increased from **48.9k SPS**
+(v62 normalized) to **75.7k SPS** (v63 raw), with return generation falling from
+**16.17 to 2.91 ms/update**. Reward settings differ; use the fixed-rollout gate
+for controlled runtime evidence, not this comparison for an algorithm claim.
+The faster covariance-dual algorithm was subsequently set aside in favor of
+v60. v64 carries only the proven runtime changes and an optional reward-
+normalization ablation onto that selected baseline; see `cleanrl/vmpo/FAMILY.md`
+for job IDs and learning outcomes. All cited profiling/validation jobs declare
+parallel limit one and a 20-minute runtime limit.
+
+### Collective-control v8 execution refactor
+
+`cleanrl/collective_control/control.py` uses compiled FP32 recurrence inside the
+shared `RolloutStepGraph`: one captured observation upload, recurrent update,
+action download and host wait per step. Source addresses are decoded on genome
+reload, not per observation. Fixed node capacity permits insertion/deletion
+without recapture; reset restores recurrent state after capture and between
+episodes. Public `action()` returns owned storage; the evaluator consumes the
+borrowed graph buffer before the next step.
+
+`TeamEvaluator` owns native environments and controllers for each
+`(team_count, seed_count)` shape. Training reuses them across generations,
+encodes shared genomes once per reload, and uses shallow team snapshots.
+Mutation candidates and saved champions still own independent genome copies.
+The proposal incumbent is evaluated in the candidate batch. Confirmation is
+still sequential by victim: accepted replacements affect later confirmations.
+No horizons, episode counts, mutation draws, acceptance thresholds or checkpoint
+schemas were changed. Compiled arithmetic can change FP32 rounding.
+
+MLQ **6053**, RTX 5090, HalfCheetah-v4, seed 1, eight physics threads:
+16 residents, initial 32-node and heterogeneously mutated genomes, 128-node
+capacity, 1,000-step horizons. Four paired calls per case alternate evaluation
+order and genome payloads. Below are baseline/reused-evaluator median times,
+excluding the first cold call:
+
+| Batch | Initial genomes | Mutated genomes | Speedup |
+| --- | --- | --- | --- |
+| Proposal: 129 teams × 1 episode | 1025.5 → 477.0 ms | 958.7 → 440.1 ms | 2.15–2.18× |
+| Confirmation: 5 teams × 4 episodes | 520.3 → 143.7 ms | 538.0 → 130.6 ms | 3.62–4.12× |
+| Development: 1 team × 16 episodes | 488.5 → 119.9 ms | 453.0 → 111.0 ms | 4.07–4.08× |
+
+Public controller action latency improved 6.56–9.62×. Shared-observation
+32-step traces differed by at most `1.08e-7`; paired full-horizon episode
+returns differed by at most `2.88e-6`. These are execution benchmarks, not a
+training-quality result or a claim of bitwise-identical evolutionary trajectories.
+Cold controller compilation/capture is reported separately by the benchmark.
+MLQ **6054** passed six tests, including independent recurrent-state equations,
+uniform/evolved authority, reset/remapping, genome growth/shrink, action-buffer
+ownership and sequential acceptance of complementary candidates.
+
+Before editing a future implementation, retain its `control.py` and `genome.py`
+in a reference directory, then compare with:
+
+```bash
+mlq submit --name collective-v8-benchmark --max-parallel-runs 1 --time-limit 20m \
+  --cwd "$PWD" --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 -- \
+  .venv/bin/python scripts/benchmark_collective_control.py \
+  --baseline-path /path/to/reference --seed 1 --threads 8 \
+  --stage all --repeats 4 --output /tmp/collective-v8-benchmark.json
+```
+
+Both reported jobs used `maxParallelRuns=1`; the regression job had a
+15-minute limit. No new training run was launched for this refactor.
+
+### Collective-control v9: typed wiring and paired evolutionary selection
+
+The learning audit found two source-address bugs, not a need for a prediction
+head. Observation and previous-proposal indices were accidentally remapped
+through node IDs; deleting a disconnected node could flip an action from
+`+tanh(2)` to `-tanh(2)`. Only previous-proposal channel zero could be generated.
+V9 uses node-ID lookup only for node sources and generates all action channels.
+The recurrent feedback remains each resident's own normalized proposal, not the
+collective executed action. A collective with zero total evolved authority now
+has the defined neutral action-space midpoint rather than an undefined quotient.
+
+Search remains gradient-free episodic policy evolution:
+
+- Local mutation clones the resident being replaced. The separate
+  `transplant_probability` operator (default 0.1) copies a distinct resident
+  without simultaneous mutation. Operator proposals, acceptance and gains are
+  logged separately; singleton populations always use local mutation.
+- Proposals nominate a shortlist; screening selects its winner. Only an
+  independent, full-horizon, 16-episode paired validation decides replacement.
+  Its one-sided Student-t lower bound must exceed zero, at alpha
+  `0.05 / residents`. Later resident decisions see prior accepted replacements
+  but receive fresh screening and validation seeds.
+- The Student-t bound assumes approximately normal independent paired
+  differences. Bonferroni controls the per-generation family under those
+  assumptions, not the entire adaptive run; it is not a distribution-free
+  guarantee.
+- Development uses a fixed 64-episode suite. Champions therefore compete on
+  the same cases. Final test and diagnostic suites are separate and independent
+  of checkpoint generation. Schema3 records seed lists and typed-source
+  semantics; evaluating older checkpoints explicitly reports reinterpretation,
+  not exact reproduction of the broken decoder.
+- `total_transitions` counts actual stepped vector slots, including inactive
+  lanes still simulated, and includes final development. Calibration is
+  excluded and its upper bound recorded separately. Budget/time stops finish
+  the current generation and always score/save its final population. Thus a
+  transition target may overshoot by one generation plus final development.
+- Plateau culling tracks both raw material progress and development EMA
+  (decay 0.8, delta 0.01): 20 warmup evaluations, then 20 stale evaluations.
+  Either signal resets patience; `plateau_patience=0` disables it. Cull state is
+  checkpointed; a completed cull emits `AUTOCULL` and exits successfully (0).
+  It can stop an architecture before the common transition target.
+
+MLQ **6072** passed **23** focused tests, including typed deletion invariance,
+all proposal channels, recurrent reset/reload, neutral zero authority,
+independent winner validation, rejection of harm/uncertainty/ties, complementary
+sequential improvements, pure transplantation, fixed evaluation suites, and
+forced final scoring at budget/plateau stops. Independent static review found
+no material correctness defect. The module CLI no longer eagerly imports its
+own entrypoint through unused package reexports.
+
+Full-horizon initialization calibration (MLQ **6074**, coherent; **6075**,
+ensemble): 32 local births per dose, 16 common 1,000-step training-pool episodes,
+plus a 1,000-step teacher-forced observation trace. Candidate RNG starts and
+victims are paired across doses. These are frozen candidate panels, not
+training results:
+
+| Architecture | Dose | Mean team-action RMS change | Numerically neutral | Mean gain of best four candidates |
+| --- | ---: | ---: | ---: | ---: |
+| 16-resident ensemble | 2 | 0.000362 | 28.1% | 0.01493 |
+| 16-resident ensemble | 8 | 0.001969 | 0% | 0.07655 |
+| 16-resident ensemble | 32 | 0.004213 | 0% | 0.12402 |
+| One coherent controller | 2 | 0.0000519 | 25.0% | 0.000102 |
+| One coherent controller | 8 | 0.000509 | 0% | 0.001489 |
+| One coherent controller | 32 | 0.003271 | 0% | 0.029648 |
+
+These initialization-only diagnostics motivated dose 32 for the controlled
+training experiment; they do not establish a universally optimal mutation dose.
+The experiment driver is `scripts/experiment_collective_control_v9.py`:
+`calibrate --arm ensemble|coherent --output PATH`, or
+`train --arm ensemble|coherent --mutation-events 32 --run-dir PATH --output PATH`.
+Run it through `mlq`, with `max-parallel-runs=1`. The two arms start with
+4,192 versus 4,190 mutable fields (16 × 32 nodes versus 1 × 523), use only local
+mutation, a common 128M-transition target, seed1, and full 1,000-step horizons.
+They do not match effective mutation impact, per-decision acceptance threshold,
+or allocation between proposal and validation episodes. The comparison is of
+two complete search/controller configurations, not an isolated causal test of
+averaging. One training seed supports conditional checkpoint comparisons only.
+
+#### Completed v9 training evidence
+
+Both jobs succeeded, with `max-parallel-runs=1`, priority0, and a 45-minute
+runtime limit. All values below are raw 1,000-step episode returns. The same
+64 fresh final-test seeds score both v9 champions and the saved v4 reference:
+
+| Configuration | MLQ job | Actual training/evaluation transitions | Training seconds | Champion generation | Fresh mean return | Observations replaced with adapter mean |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Saved v4 reference | evaluated inside both jobs | historical budget differs | — | 52 | 3.15865 | not remeasured in these jobs |
+| V9 averaged ensemble | 6078 | 128,156,000 | 693.24 | 130 | 3.81798 | 3.22006 |
+| V9 coherent controller | 6079 | 101,809,000 | 760.63 | 415 | 12.07577 | 12.04234 |
+
+The ensemble reached its transition target at generation132, accepting 234
+of 2,111 paired decisions. The coherent arm accepted 96 of 525 decisions and
+culled at generation525 after 20 stale development evaluations; it did **not**
+consume the same actual budget as the ensemble. Its stable-suite champion
+(development11.8318 at generation415) was retained even though the terminal
+population had fallen to development8.7811. Independent paired acceptance
+reduces selection noise but does not prevent population regressions across an
+adaptive run; the stable champion and cull serve distinct purposes.
+
+Paired final-test comparisons (mean ± SEM over 64 shared episodes):
+
+- Ensemble minus v4: **+0.65933 ± 0.03028**, positive on64/64.
+- Coherent minus v4: **+8.91712 ± 0.13087**, positive on64/64.
+- Coherent minus ensemble: **+8.25779 ± 0.12340**, positive on64/64.
+- Ensemble observation advantage: **+0.59792 ± 0.03324**.
+- Coherent observation advantage: **+0.03342 ± 0.04297**.
+
+Thus the coherent configuration wins raw reward for this seed, with fewer
+consumed transitions, but its gain is essentially autonomous under the
+observation ablation; it is **not evidence of better feedback control**.
+The ensemble shows a clear observation benefit. Neither result establishes
+competitive general locomotion, across-seed reliability, or an optimal dose.
+The old reference used a different historical training budget, so its paired
+test comparison is not a sample-efficiency claim.
+
+Artifacts:
+
+- `runs/collective_control_v9_ensemble_seed1/champion.json`
+- `runs/collective_control_v9_coherent_seed1/champion.json`
+- `runs/collective_v9_ensemble_result.json`
+- `runs/collective_v9_coherent_result.json`
+- `runs/collective_v9_{ensemble,coherent}_calibration.json`
+
+Each run also retains its source-hashed manifest, TensorBoard events, latest
+checkpoint, per-generation transition accounting, paired decision evidence and
+development returns. The result JSON includes all fresh returns and the
+generation-independent seed list, allowing paired comparisons without treating
+the initial calibration or repeated development cases as a final test.
+
+### Coherent CMA v10: direct feedback and joint parameter search
+
+The v9 coherent champion was better than the ensemble but remained near an
+autonomous low-action solution. Of its six output nodes, five reached sensors
+only through three to five additional recurrent node hops. Its 523-node graph
+had 399 reachable nodes but just 25 reachable observation-source edges; the
+median maximum truth-table partial slope was 0.2877. Connectivity alone did not
+provide a strong, easily mutable sensor-to-action map.
+
+MLQ **6085** checked the actual old CUDA controller against stock Gymnasium over
+four full 1,000-step episodes: maximum raw reward and observation differences
+were both **zero**. This was not a reward-normalization or backend-units problem.
+Its action RMS was0.09492 and mean late-episode temporal action SD0.002282.
+The new affine CUDA evaluator also reproduced the stock Gym returns exactly
+under an independently specified constant-action oracle. Evidence is retained
+in `runs/coherent_cma_boundary_check.json`; the throwaway driver was removed.
+
+`cleanrl/coherent_cma_v10.py` changes both the policy representation and search:
+
+- One signed affine policy, `clip(midpoint + half_range * (W z + b), low, high)`,
+  where `z=(observation-mean)/scale` uses a fixed calibrated adapter without an
+  input tanh. HalfCheetah has108 parameters: all17 observed state dimensions
+  connect directly to all6 actuators. There is no resident averaging.
+- Active full-covariance CMA-ES from `cma` evolves those parameters jointly.
+  All64 candidate fitnesses update the search distribution. This replaces
+  isolated graph-field mutation and winner-only replacement; there is no PPO,
+  critic, backpropagation, replay buffer or model-based rollout.
+- Policy evaluation stays compiled FP32 CUDA, with cached graphs and native
+  environments per population/episode shape. Only the small evolutionary
+  distribution's statistics run through the established NumPy CMA implementation.
+- Candidates share two rotating full-horizon training episodes. Every ten
+  generations, the current distribution mean and current train-best candidate
+  compete on the same fixed64-episode development suite. The persisted champion
+  is reloaded before final evaluation on128 separate heldout episodes, including
+  a paired observation-blind ablation.
+- Default budget128M actual train/development transitions; whole-generation
+  overshoot is reported. Culling uses development EMA0.8, material delta5,
+  20 warmup evaluations and30 stale evaluations. Numerical library stops and
+  budget stops also score/save the final population before final testing.
+
+Each optimizer owns its random sampler. In particular, seed zero does not
+silently invoke pycma's time-based seeding or share global NumPy state.
+Run names now describe the method/version, **without a seed suffix**; the seed
+remains recorded in configuration and manifests. Historical v9 artifact paths
+are unchanged so existing evidence links remain valid.
+
+Entrypoints:
+
+```bash
+mlq submit --name coherent-cma-v10 --max-parallel-runs 1 --time-limit 45m \
+  --cwd "$PWD" --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 -- \
+  .venv/bin/python -m cleanrl.coherent_cma_v10 train
+```
+
+The default run directory is `runs/coherent_cma_v10`, containing
+`champion.json`, `latest.json`, `manifest.json`, `metrics.jsonl`,
+`tensorboard/` and `final_result.json`. Checkpoints are evaluable policies,
+not resumable CMA optimizer states. Evaluate with
+`python -m cleanrl.coherent_cma_v10 evaluate --checkpoint PATH --output PATH`
+through `mlq`. This is a new architecture/search configuration, not an isolated
+ablation of covariance adaptation.
+
+MLQ **6090** passed **44** combined regressions, including full-horizon raw
+HalfCheetah returns, native Hopper terminal masking, all sensor-to-actuator
+paths, graph reload/blind toggles, real CMA convergence on a rotated
+anisotropic objective, fixed-suite champion selection, every stop boundary,
+checkpoint loading and isolated seed-zero reproducibility. Independent review
+found the pycma seed-zero issue; its correction passed focused re-review with
+no remaining material finding. The full training job is **6093**, named
+`coherent-cma-v10`, with exclusive queue limit1 and a 45-minute runtime limit.
+
+#### V10 result: four-digit feedback control
+
+Job **6093** completed successfully at its transition budget, not a plateau
+cull. The generation910 CMA mean was the development champion, scoring6607.58
+on the fixed development suite. Reloading its saved checkpoint and evaluating
+128 separate full-horizon episodes produced:
+
+| Measurement | Result |
+| --- | ---: |
+| Heldout mean raw return | **6582.44 ± 21.85 SEM** |
+| Heldout return range | 5579.29–7000.52 |
+| Episodes above1000 | 128/128 |
+| Observation-blind mean | −179.71 |
+| Paired observation advantage | **+6762.15 ± 21.84 SEM** |
+| Actual train/development transitions | 128,192,000 |
+| Final evaluation transitions, including blindness | 256,000 |
+| Training-loop wall time | 421.07 seconds |
+
+The independent test suite was touched only after champion selection and the
+stop checkpoint were frozen. These are conditional results from one training
+seed, not an across-seed reliability estimate.
+
+Learning milestones below are **development** scores, not repeated final tests:
+
+| First development champion above | Generation | Actual transitions | Elapsed seconds |
+| --- | ---: | ---: | ---: |
+| 1000 | 10 | 1,472,000 | 8.63 |
+| 3000 | 50 | 7,104,000 | 28.41 |
+| 5000 | 180 | 25,408,000 | 89.13 |
+| 6000 | 320 | 45,120,000 | 152.32 |
+
+The observation ablation separates this from v9's nearly autonomous12-return
+solution: removing state feedback destroys performance. This establishes a
+useful direct-feedback evolutionary baseline, not a claim that affine control
+or CMA-ES is globally optimal.
+
+MLQ **6095** then reloaded the learned checkpoint and drove native MuJoCo and
+stock Gymnasium with the same compiled CUDA actions for four complete1,000-step
+test episodes. Returns were6481.83,6579.92,6774.03,6609.14 in **both** backends,
+also identical to the corresponding original test returns; maximum per-step
+reward and observation errors were both zero. That job used queue limit1 and
+a 15-minute runtime limit. Its throwaway driver was removed.
+
+Primary artifacts:
+
+- `runs/coherent_cma_v10/champion.json`
+- `runs/coherent_cma_v10/final_result.json`
+- `runs/coherent_cma_v10/stock_gym_verification.json`
+- `runs/coherent_cma_v10/manifest.json`
+- `runs/coherent_cma_v10/metrics.jsonl`
+
+### Emergent coherent control: neutral construction and acquired state
+
+`cleanrl.emergent_control` is the discovery experiment, not another CMA policy
+upgrade. It inherits a random 32-node two-input soft-logic graph, with capacity
+256. Synchronous bounded recurrence, observation encoding and outer evolution
+are supplied computational priors; no task-solving circuit, fitted controller,
+estimator or within-life optimizer is seeded. Historical v9 and CMA v10 remain
+unchanged baselines. There is one coherent organism, not an action ensemble.
+
+Two mechanisms transfer from current bitlearn:
+
+- **Neutral construction:** every eighth mutation proposal is structural-only;
+  the others use two point events by default. Exact genotype copies are removed.
+  A separate uniform reservoir retains genotype-distinct offspring with a
+  conservative all-input equivalence proof over every action root and its
+  transitive recurrent dependencies. If no positive birth is admitted, a fair
+  coin can admit that neutral offspring. Equal return is not a neutrality proof.
+- **Acquisition interventions:** inherited structure stays frozen while useful,
+  irrelevant and restricted experience change life-local state. This measures
+  what an organism acquires rather than relabeling increased return as learning.
+
+A lifetime is two full 1,000-step HalfCheetah-v4 episodes: support followed by an
+independently reset query. Both use the same hidden scalar actuator gain,
+independent random sign times Uniform[0.5,1]. The gain multiplies nominal actions
+before native physics; neither the gain nor the post-gain action is a sensor.
+Inputs are the 17 ordinary observations, `asinh(previous raw reward)`, and an
+episode-start indicator. Reward and previous-proposal feedback reset at each
+physical boundary; recurrent node state persists from support to query and
+resets from the inherited genome between lifetimes. Observation calibration is
+fixed, task-blind random-action calibration, not a trained controller.
+
+Fitness is **query raw return only**. Support can serve exploration but all its
+physics is counted. Positive candidates pass rotating proposal lives, fresh
+shortlist screening, then an independent one-sided paired Student-t lower bound.
+The normal-difference approximation is not an across-run error guarantee.
+Development chooses checkpoints, not births. The hidden-gain objective is a
+different task and must not be plotted as ordinary HalfCheetah benchmark return.
+
+Frozen evaluation uses 128 fresh lifetimes, paired across:
+
+1. Intact support state.
+2. Pristine state at the query boundary.
+3. Support under the opposite gain, followed by the true query gain.
+4. Only the last eight actual support inputs and previous proposals replayed
+   from pristine state.
+5. Reward withheld during support, with ordinary query feedback restored.
+
+All branches reset the physical query with matching seeds, true gains and
+immediate boundary inputs. First actions, first-100 and remaining-900-step
+effects are reported separately. A separate gain-one, pristine-query control
+reports ordinary raw HalfCheetah return. State carryover can be controller phase
+or warmup; donor trajectories differ on-policy; recent-input replay is not a
+universal context-removal control. Null late differences do not exclude rapid
+reacquisition. None of these contrasts alone proves a novel learning algorithm.
+
+```bash
+mlq submit --name emergent-control-full --max-parallel-runs 1 --time-limit 45m \
+  --cwd "$PWD" --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 -- \
+  .venv/bin/python -m cleanrl.emergent_control train
+```
+
+The default budget is 128 million actual physics transitions, a 30-minute
+internal limit, and plateau stopping after 40 development evaluations without
+at least 1.0 return of raw/EMA progress, following 20 warmup evaluations. Development runs
+every five generations. A completed run automatically evaluates its frozen
+champion. `latest.json` saves the full inherited continuation state and
+generation-indexed RNG schedule; `champion.json` is evaluation-only. Continue
+through `resume --run-dir PATH --additional-transitions N`, or evaluate through
+`evaluate --checkpoint PATH --lives 128`, always via mlq. Source fingerprints,
+including native physics C source, reject incompatible replay. Lineage records
+retain the complete genome of each admitted descendant.
+
+#### First full run: construction enabled, learning not discovered
+
+MLQ **6127** completed and plateau-stopped at generation 295 after
+**83,776,000** train/development transitions, with a 128-million ceiling; it was
+not stopped by the queue or shortened as a smoke run. Training-loop wall time
+was **453.34 seconds**. The generation 285 development champion improved from
+−5.58985 to −0.18920. Frozen evaluation used another **1,536,000** physics
+transitions, plus separately counted recent-input replay.
+Node-update telemetry counts logical genotype nodes; fixed-capacity CUDA also
+executes padding. These counters are not measured FLOP counts.
+
+| Frozen measurement, 128 independent lifetimes | Mean ± SEM |
+| --- | ---: |
+| Hidden-gain query return | −0.221027 ± 0.058272 |
+| Intact minus pristine-query state | +0.000746 ± 0.003842 |
+| Intact minus opposite-gain support | +0.0000000731 ± 0.0000000346 |
+| Intact minus recent-eight-input replay | +0.000653 ± 0.001670 |
+| Intact minus reward-withheld support | exactly 0 |
+
+There were **19 positive and 146 neutral births**. Seven neutral duplications
+survived, but no subsequent positive birth recruited any of those new IDs.
+All six positive structural births were deletions. The champion has 25 inherited
+nodes, only **three action-reachable nodes**, five dangling outputs decoding to
+exact zero action, and no reward/boundary input in its reachable computation.
+The final continuation genome has 23 nodes. Neutral construction is operational;
+useful cumulative construction and task-specific acquired competence were not
+demonstrated. Do not scale this run on the strength of neutral-birth counts.
+
+The frozen zero-action control confirmed that the apparent improvement was
+effectively **inaction**, not acquired competence. On the same 128 query lives,
+zero action scored **−0.219342 ± 0.058167 SEM**; the champion's paired advantage
+was **−0.001685 ± 0.001297**. On four full nominal episodes, its action RMS was
+only **0.001574** on the [−1,1] action scale. Native and stock Gymnasium received
+the same compiled CUDA actions and matched observations and rewards exactly,
+with identical returns also matching the saved nominal-query results. This
+diagnostic, MLQ **6139**, used max-parallel-runs=1 and a 15-minute hard cap.
+It added 256,000 null-control and 8,000 native/stock physics transitions, never
+modified a checkpoint, and never used the null controller as a training seed.
+
+Verification **6126** passed **85 tests** on real CUDA/native physics, including
+the historical addressing and affine/CMA regressions. An earlier combined run
+passed 83 but exhausted Dynamo's process-global specialization cache in two later
+legacy shape tests; the new CUDA fixtures now isolate compiler state without
+raising production limits or enabling eager fallback. Independent reviews found
+one post-development deadline overrun; a failing regression established it, the
+fix passed, and focused re-review cleared it. The acquisition review found no
+material defect. Verification and training used max-parallel-runs=1, with
+20-minute and 45-minute hard caps respectively.
+
+Artifacts are under `runs/emergent_control/`: `initial_genome.json`,
+`latest.json`, `champion.json`, `metrics.jsonl`, `lineage.jsonl`,
+`acquisition_generation_285.json`, `final_result.json`,
+`postrun_verification.json`, `assessment.json`, and `tb/`.
+
+### Arithmetic population: evolving a feedback network from scalar programs
+
+`cleanrl/arithmetic_evolution.py` and `cleanrl/evolving_programs/` replace the
+single-incumbent convex soft-logic experiment with **256 independently acting
+programs**. This is not affine/CMA parameter fitting, PPO, SGD, action voting, or
+an installed learning algorithm. Every initial program is random: 16 nodes,
+with a capacity of 128. Evolution chooses opcodes, wiring, literals, initial
+state, and motor roots. The supplied scalar operations are `COPY`, `ADD`, `SUB`,
+`MUL`, `DIV`, `TANH`, and `CONST`.
+
+The redesign addresses several coupled barriers, not one isolated hypothesis:
+the old parallel proposals were not a persistent breeding population; convex
+tables attenuated individual incoming signals; synchronous graph depth incurred
+physical-action latency; and symmetric motor reversal rewarded inaction before
+there was a useful controller to adapt. Accordingly, the new system has:
+
+- Four synchronous internal microticks per physical observation. Previous action
+  is held fixed through those ticks. This is a supplied compute allowance, not an
+  evolved discovery.
+- Signed float32 state and `asinh`-encoded normalized observations. Internal
+  arithmetic is not implicitly clipped or squashed; `TANH` is an explicit op.
+  Motor commands alone are clamped to [−1,1].
+- Permanent lifetime invalidation for nonfinite active computation. Safe-zero
+  motor commands protect batched physics, but the invalid organism scores
+  **−infinity**, never the zero-action return. Unused arithmetic is not a death
+  condition.
+- Whole-program generational reproduction: 95% exponential rank selection at
+  temperature 0.1 plus 5% full-support sampling, with averaged exact tie ranks.
+  Ordinary sampled-parent copies occur with probability 0.1; they are not
+  privileged elites. Other births get point edits or isolated duplication/deletion.
+- A preregistered curriculum: cold, nominal-gain HalfCheetah first; a development
+  return of **1,000** unlocks positive hidden gains sampled uniformly from [0.5,1].
+  Positive-gain lives contain a full 1,000-step support episode and a separate
+  1,000-step query. Only program state crosses that physical reset; previous
+  action and previous reward are cleared. Reward and boundary inputs are
+  available, but no estimator or update rule is provided.
+
+Training uses two lives per organism. Every ten generations, the top eight
+training candidates are scored on the same 64 development lives; development,
+not final evaluation, chooses the champion and the curriculum transition.
+The two frozen stage champions then receive the same reserved 128-case suite.
+Its controls are intact state, reset state, support at gain `1.5−g`, independently
+reset support at the same gain, replay of the last eight support inputs/actions,
+and support with the reward input suppressed. The mismatched support gain stays
+inside the training range. Cold-state differences alone do not establish
+acquired knowledge: gait phase and warmup can change them.
+
+#### Full run and frozen acquisition test
+
+MLQ **6164** passed **102 tests** in 23.86 seconds on CUDA/native physics,
+including legacy emergent-control regressions. Two independent source reviews
+found no material defect. MLQ **6165** ran the full experiment with
+max-parallel-runs=1 and a 60-minute hard cap. Seed **1** is checkpoint metadata,
+not a run-directory suffix.
+
+The nominal gate opened at **generation 10**, at development return
+**1,320.4785**. The positive-gain champion was selected at generation **150**,
+at development return **3,438.8667**. Training stopped at generation **232**
+after **257,536,000 train/development transitions**, in **738.64 seconds**.
+The configured 256-million transition threshold is checked between complete
+batches, and the final development batch is still evaluated; it is not an exact
+hard transition ceiling. Both frozen evaluations together added **3,328,000**
+physical transitions and **2,048** replay transitions. No episode was shortened.
+
+| Frozen query measurement | Nominal-stage champion | Positive-stage champion |
+| --- | ---: | ---: |
+| Cold nominal return | 1322.639 ± 0.981 | 301.192 ± 88.068 |
+| Positive-gain intact return | 830.664 ± 34.306 | 2901.209 ± 149.715 |
+| Intact minus reset | −2.117 ± 9.889 | −51.331 ± 129.380 |
+| Intact minus mismatched support | −16.957 ± 12.974 | 28.885 ± 133.303 |
+| Intact minus independently reset same-task support | −6.772 ± 7.787 | −39.679 ± 117.776 |
+| Intact minus last-eight replay | exactly 0 | exactly 0 |
+| Intact minus no support reward | exactly 0 | exactly 0 |
+
+Values are means ± SEM over 128 lives; every reported champion life was valid.
+This is useful evolved control, not another zero-action plateau. However,
+**task-specific acquired competence is not demonstrated**, and nominal
+competence was not retained through positive-gain selection. The development
+and final returns also differ materially; the development-selected value must
+not be substituted for held-out performance.
+
+At the end, 97.27% of the population was viable, with 22.46 total and 10.82
+action-reachable nodes on average. Realized parent effective counts ranged from
+40.53 to 107.24. These are counts of contributing parent slots, not a claim of
+independent genealogical founders.
+
+Both champion paths reconstruct, with every parent/child genotype hash checked,
+to **random founder 163**. Its seven action-reachable nodes became nine in the
+nominal champion and eleven in the positive champion. The nominal champion is
+not the positive champion's literal ancestor; their paths share the founder.
+On the positive path, node 21 was neutrally duplicated at generation 86 and
+became action-reachable at generations 90–96. No post-founder node is active in
+the final champion. Reachability alone is not proof of useful new capacity.
+
+Run artifacts are in `runs/arithmetic_evolution/`: `initial_population.json`,
+`nominal_foundation_population.json`, `latest.json`, both `champion_*.json` and
+`final_*.json` files, `metrics.jsonl`, `lineage.jsonl`, `ancestry_audit.json`, and
+`tb/`. The latest checkpoint saves the full population, but this experiment has
+**no resume CLI**. Frozen champion loading requires matching source fingerprints.
+
+#### What the evolved computation actually does
+
+The positive champion's active graph reduces to the following real-arithmetic
+form, with zero-based observation/action indices and the existing encoder
+`z = asinh((observation−mean)/scale)`:
+
+```text
+b[t] = tanh(a[t−1,1])
+d[t] = tanh(z[t,5]) / −1.532714963 − b[t]
+r[t] = d[t−1] + tanh(a[t−1,4] + z[t,15]) + z[t,0]
+a[t] = clip([b[t], r[t], b[t], d[t], d[t], −0.971990108], −1, 1)
+```
+
+The one-step delay follows from the graph's four synchronous microticks.
+At cold start, `d[−1]` is initial(node 9) minus initial(node 2), and previous
+action is zero. At the support/query boundary, the delayed value is retained
+but previous action is cleared. The observations used here are torso height,
+front-thigh angle, and front-shin angular velocity. Neither reward nor the
+boundary channel reaches an output.
+
+This is a small **neural-style recurrent feedback controller**, not an installed
+neural policy architecture and not evidence of an evolved optimizer. We supplied
+the scalar `TANH` primitive and action-feedback interface; evolution selected
+the useful wiring and constants. The reduced equations, at zero encoded sensory
+input, produce a four-step action-1 cycle `−1, 0, +1, 0`. That is an algebraic
+zero-input check, not a physical locomotion measurement.
+
+The compiled CUDA algebraic shadow and full graph were compared at identical
+observations and actual previous actions over four full 1,000-step native
+episodes. Maximum motor discrepancy was **2.3842e−7**. This checks the local
+transition, not independent long-run floating-point trajectory equivalence.
+Native and stock Gym matched observations and rewards **exactly**, including
+terminal observations and boundary flags.
+
+On **512 fresh frozen cases**, the positive champion scored
+**3044.130 ± 65.897 SEM**, against zero action **−0.274743 ± 0.029942**.
+The nominal-stage comparison champion scored **747.994 ± 15.933** on those
+same positive-gain cases. All diagnostic variants remained valid.
+
+| Intervention on the positive champion | Paired positive-query return loss, mean ± SEM |
+| --- | ---: |
+| Remove all previous-action inputs | 3112.550 ± 65.963 |
+| Remove torso-height input | 200.344 ± 68.664 |
+| Remove front-thigh-angle input | 977.127 ± 60.688 |
+| Remove front-shin-velocity input | 4.205 ± 63.959 |
+| Replace the denominator by −1 | −16.620 ± 61.385 |
+| Delete all nine inactive nodes | exactly 0 |
+
+Source ablations substitute zero **after** the encoder. The feedback dependence
+and front-thigh contribution are real, but neither the front-shin sensor nor
+fine-tuning that denominator has a resolved benefit in this assay. Do not infer
+necessity from a wire merely being reachable.
+
+The 512-case cold-nominal scores were **194.724 ± 38.750** for the positive
+champion and **1311.890 ± 3.791** for the nominal-stage champion. A separate
+128-case fixed-gain sweep, with full support at the same gain, gave the positive
+champion means **1827, 2778, 3943, 4324, 188** at gains
+**0.5, 0.625, 0.75, 0.875, 1.0**. Its high-gain collapse therefore remains with
+support; it is not explained simply by cold initialization.
+
+An **exploratory
+clairvoyant comparison**, with effective gain `min(g,0.8)`, scored
+**3523.728 ± 41.981**, a paired gain of **479.599 ± 66.880** over the frozen
+controller on the 512 fresh cases. The cap was fixed from the earlier 128-case
+response bins before these cases were observed. A context-aware actuator wrapper
+could implement this by applying `min(1,0.8/g)` after the controller clamp while
+preserving its unscaled internal action feedback. This is not a learned policy,
+not a training seed, and not a global optimum. On its own, this does not isolate
+context value from context-independent actuator attenuation.
+
+MLQ **6198** supplied the missing controls on those same 512 cases, with full
+support/query episodes, max-parallel-runs=1, and a 20-minute cap. It added
+**9,216,000** physical transitions. Every arm used the same compiled core,
+preserved its unscaled internal action feedback, and applied a diagnostic
+actuator multiplier. The unscaled arm reproduced the prior baseline exactly.
+
+| Actuator-shell rule | Positive-query return, mean ± SEM |
+| --- | ---: |
+| Unscaled | 3044.130 ± 65.897 |
+| Fixed 0.80 | 2603.662 ± 41.747 |
+| Fixed 0.85 | 2893.358 ± 45.947 |
+| Fixed 0.90 | 3125.963 ± 51.068 |
+| Fixed 0.95 | 3217.942 ± 55.754 |
+| Correct context: `min(1,0.8/g)` | 3534.010 ± 41.451 |
+| Mean of three shuffled-context controls | 3013.304 ± 53.566 |
+
+Each shuffled arm had **exactly the same multiplier multiset** as the
+correct-context arm; only its association with the actual gains changed. Correct
+context beat their mean by **520.707 ± 48.773**, and beat the best fixed-grid
+member by **316.069 ± 40.992** in paired comparisons. The fixed-grid winner was
+chosen on this evaluation, optimistically favoring the context-free comparator.
+The three shuffles are controls on 512 cases, not 1,536 independent samples.
+
+This isolates useful context information **within this frozen-core scaling
+family**. It is not a bound against every context-free controller, proof that
+the allowed program can construct or learn the estimator, or an evolved
+learning mechanism. The explicit shell uses two float32 multiplications;
+the earlier effective-gain simulation used one. Therefore compare arms within
+this controlled experiment, rather than interpreting its small numerical
+difference from the initial clairvoyant result. Cases, multipliers, permutations,
+paired results, and verification source are in `context_control_audit.json`.
+
+The genealogy controls also distinguish growth from new capacity. The
+generation-86 duplication was exactly neutral. The generation-90 recruitment
+event was **595.491 ± 154.059 worse** than its parent on a frozen positive suite.
+By generation 96, deleting the recruited node cost **1247.390 ± 210.729**:
+that route had become useful. But redirecting node 21's consumer to its original
+producer, node 13, at generation 90 reproduced the return exactly. Thus there
+was temporary causal recruitment, not proof of irreducible extra capacity;
+the final champion used none of the added nodes.
+
+MLQ **6176** completed these measurements with max-parallel-runs=1 and a
+25-minute hard cap: **19,456,000** evaluation transitions plus **8,000**
+native/stock parity transitions. An earlier diagnostic attempt, **6169**, passed
+its algebraic check but compared the vector environment's autoreset observation
+with Gym's terminal observation. The diagnostic now reads `final_observation`;
+no training or policy code was changed. The repeated cases are not counted as
+additional independent samples.
+
+`mechanism_audit.json` contains the cases, variant genotypes, paired results,
+reduced equations, and archived verification source. `assessment.json`
+summarizes the supported conclusion. This single-seed, jointly redesigned
+experiment establishes useful unseeded feedback construction, **not acquired
+learning, retained nominal competence, or optimality**. More capacity alone is
+not supported by these measurements.

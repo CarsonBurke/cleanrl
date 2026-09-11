@@ -11,10 +11,10 @@ import argparse
 import importlib.util
 import json
 import os
-from pathlib import Path
 import statistics
 import sys
 import time
+from pathlib import Path
 
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
@@ -57,12 +57,18 @@ def parity(reference, candidate, seed, steps):
         if step == 7 and reference.num_envs > 1:
             assert_equal(reference.envs[1].reset(), candidate.envs[1].reset())
     for left, right in zip(reference.envs, candidate.envs):
-        assert_equal(left.unwrapped.np_random.bit_generator.state,
-                     right.unwrapped.np_random.bit_generator.state, "reset_rng")
-        for attribute in ("episode_returns", "episode_lengths", "episode_count",
-                          "return_queue", "length_queue", "_elapsed_steps"):
-            assert_equal(np.asarray(left.get_wrapper_attr(attribute)),
-                         np.asarray(right.get_wrapper_attr(attribute)), attribute)
+        assert_equal(left.unwrapped.np_random.bit_generator.state, right.unwrapped.np_random.bit_generator.state, "reset_rng")
+        for attribute in (
+            "episode_returns",
+            "episode_lengths",
+            "episode_count",
+            "return_queue",
+            "length_queue",
+            "_elapsed_steps",
+        ):
+            assert_equal(
+                np.asarray(left.get_wrapper_attr(attribute)), np.asarray(right.get_wrapper_attr(attribute)), attribute
+            )
     return {"bitwise_parity": True, "boundary_count": boundaries, "steps": steps}
 
 
@@ -78,8 +84,7 @@ def measure(env, actions, seed, gap_us):
             deadline = time.perf_counter() + gap_us * 1e-6
             while time.perf_counter() < deadline:
                 pass
-    return {"wall_seconds": time.perf_counter() - wall_start,
-            "cpu_seconds": time.process_time() - cpu_start}
+    return {"wall_seconds": time.perf_counter() - wall_start, "cpu_seconds": time.process_time() - cpu_start}
 
 
 def main():
@@ -106,9 +111,11 @@ def main():
     spec.loader.exec_module(baseline)
     run_dir = Path("runs") / args.run_name
     run_dir.mkdir(parents=True, exist_ok=False)
-    report = {"config": vars(args) | {"baseline_root": str(args.baseline_root.resolve()),
-                                     "CLEANRL_ENV_SPIN": os.environ.get("CLEANRL_ENV_SPIN")},
-              "environments": {}}
+    report = {
+        "config": vars(args)
+        | {"baseline_root": str(args.baseline_root.resolve()), "CLEANRL_ENV_SPIN": os.environ.get("CLEANRL_ENV_SPIN")},
+        "environments": {},
+    }
     writer = SummaryWriter(str(run_dir))
     try:
         for env_id in args.env_ids:
@@ -120,25 +127,33 @@ def main():
                 result.update(parity(reference, candidate, args.seed, args.parity_steps))
                 # Original Gym is an independent oracle, not just the snapshot.
                 oracle = make_mujoco_vector_env(env_id, args.num_envs, backend="sync", copy=args.copy)
+                oracle_candidate = make_mujoco_vector_env(env_id, args.num_envs, **kwargs)
                 try:
-                    parity(oracle, candidate, args.seed, args.parity_steps)
+                    # reset() preserves lifetime episode counters/queues. Use
+                    # a fresh pair, not the candidate from the snapshot replay.
+                    parity(oracle, oracle_candidate, args.seed, args.parity_steps)
                     result["gym_bitwise_parity"] = True
                 finally:
                     oracle.close()
-                actions = np.random.default_rng(args.seed).normal(
-                    size=(args.steps,) + reference.action_space.shape).astype(np.float32)
+                    oracle_candidate.close()
+                actions = (
+                    np.random.default_rng(args.seed)
+                    .normal(size=(args.steps,) + reference.action_space.shape)
+                    .astype(np.float32)
+                )
                 samples = result["samples"] = {"baseline": [], "candidate": []}
                 paths = [("baseline", reference), ("candidate", candidate)]
                 for repeat in range(args.repeats):
-                    for name, env in paths[::1 if repeat % 2 == 0 else -1]:
+                    for name, env in paths[:: 1 if repeat % 2 == 0 else -1]:
                         sample = measure(env, actions, args.seed, args.gap_us)
                         samples[name].append(sample)
                         for metric, value in sample.items():
                             writer.add_scalar(f"{env_id}/{name}/{metric}", value, repeat)
                     writer.flush()
                 for name, rows in samples.items():
-                    result[name] = {metric: statistics.median(row[metric] for row in rows)
-                                    for metric in ("wall_seconds", "cpu_seconds")}
+                    result[name] = {
+                        metric: statistics.median(row[metric] for row in rows) for metric in ("wall_seconds", "cpu_seconds")
+                    }
                 result["wall_speedup"] = result["baseline"]["wall_seconds"] / result["candidate"]["wall_seconds"]
                 result["cpu_speedup"] = result["baseline"]["cpu_seconds"] / result["candidate"]["cpu_seconds"]
                 writer.add_scalar(f"{env_id}/wall_speedup", result["wall_speedup"], 0)

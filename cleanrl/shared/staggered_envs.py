@@ -43,8 +43,9 @@ episode ages uniformly. Warmup transitions count against the total budget::
     args.num_iterations = (args.total_timesteps - warm.transitions) // batch
 
 Contracts (do not "improve" without renaming):
-- ``act_fn`` maps normalized float32 ``(N, *obs)`` to action ``(N, *act)``
-  arrays. Warmup actions must be stochastic draws from the initial behavior
+- ``act_fn`` maps float32 ``(N, *obs)`` observations to action ``(N, *act)``
+  arrays: normalized with ``obs_norm``, or raw when it is ``None``.
+  Warmup actions must be stochastic draws from the initial behavior
   policy, never greedy means: greedy warmup collapses the phase spread the
   warmup exists to create.
 - Raw rewards flow through ``rew_norm`` (burns in return stats) but the
@@ -68,7 +69,7 @@ import numpy as np
 
 @dataclass
 class PhaseWarmupResult:
-    next_obs: np.ndarray  # normalized float32 (N, *obs): first recorded obs
+    next_obs: np.ndarray  # float32 (N, *obs): normalized or raw first recorded obs
     transitions: int  # num_envs * horizon, charged against the total budget
     suppress_mask: np.ndarray  # bool (N,): skip one completion log where True
     phase_offsets: np.ndarray  # int (N,): established episode ages
@@ -118,16 +119,27 @@ def run_phase_warmup(
         single_reset = lambda index: _default_single_reset(envs, index)  # noqa: E731
 
     raw_next_obs, _ = envs.reset(seed=seed)
-    next_obs = obs_norm.normalize(raw_next_obs)
+    next_obs = (
+        obs_norm.normalize(raw_next_obs)
+        if obs_norm is not None
+        else np.asarray(raw_next_obs, dtype=np.float32)
+    )
 
     for warmup_step in range(1, int(horizon) + 1):
         raw_next_obs, raw_rew, terms, truncs, infos = envs.step(act_fn(next_obs))
         if rew_norm is not None:
             rew_norm.normalize(raw_rew, terms)
-        next_obs, _ = obs_norm.normalize_step(raw_next_obs, terms, truncs, infos)
+        if obs_norm is not None:
+            next_obs, _ = obs_norm.normalize_step(raw_next_obs, terms, truncs, infos)
+        else:
+            next_obs = np.asarray(raw_next_obs, dtype=np.float32)
         for i in reset_at.get(warmup_step, ()):
             reset_obs = np.asarray(single_reset(i))
-            next_obs[i] = obs_norm.normalize(reset_obs[None, ...], rows=slice(i, i + 1))[0]
+            next_obs[i] = (
+                obs_norm.normalize(reset_obs[None, ...], rows=slice(i, i + 1))[0]
+                if obs_norm is not None
+                else np.asarray(reset_obs, dtype=np.float32)
+            )
 
     return PhaseWarmupResult(
         next_obs=next_obs,

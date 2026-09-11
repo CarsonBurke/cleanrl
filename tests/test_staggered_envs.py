@@ -110,6 +110,57 @@ def test_warmup_establishes_phases_fake_envs():
     assert np.all(rew_norm.counts - 1e-4 == horizon)
 
 
+def test_warmup_raw_observations_preserve_values_and_scheduled_resets():
+    num_envs, horizon = 4, 8
+    offsets = np.array([0, 6, 3, 6])
+    bias = np.array([-25.5, 50.25, 100.75])
+
+    class RawVecEnvs(_FakeVecEnvs):
+        def reset(self, seed=None):
+            obs, infos = super().reset(seed=seed)
+            return obs + bias, infos
+
+        def step(self, actions):
+            obs, rewards, terms, truncs, infos = super().step(actions)
+            return obs + bias, rewards, terms, truncs, infos
+
+        def single_reset(self, index):
+            return super().single_reset(index) + bias
+
+    envs = RawVecEnvs(num_envs, horizon)
+    action_observations = []
+
+    def act_fn(obs):
+        action_observations.append(obs.copy())
+        return np.zeros((num_envs, 1))
+
+    result = run_phase_warmup(
+        envs,
+        obs_norm=None,
+        act_fn=act_fn,
+        horizon=horizon,
+        phase_offsets=offsets,
+        seed=7,
+        rew_norm=None,
+        single_reset=envs.single_reset,
+    )
+
+    # Every policy input, including initial and scheduled resets, stays raw.
+    reset_steps = horizon - offsets
+    for step, obs in enumerate(action_observations):
+        ages = np.where(step < reset_steps, step, step - reset_steps)
+        assert obs.dtype == np.float32
+        np.testing.assert_array_equal(obs, ages[:, None] + bias)
+    assert result.next_obs.dtype == np.float32
+    np.testing.assert_array_equal(result.next_obs, offsets[:, None] + bias)
+    np.testing.assert_array_equal(envs.ages, offsets)
+    # Duplicate phases reset together; offset zero resets at the final boundary.
+    assert envs.single_resets == [1, 3, 2, 0]
+    assert result.transitions == num_envs * horizon
+    np.testing.assert_array_equal(result.suppress_mask, [False, True, True, True])
+    np.testing.assert_array_equal(result.phase_offsets, offsets)
+
+
 def test_warmup_halfcheetah_integration(capsys):
     import time
 

@@ -9,17 +9,17 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import time
+from pathlib import Path
 
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts._runs import RunScalars
-
 
 ROOT = Path(__file__).resolve().parents[1]
 STEPS = 8_000_000
@@ -29,30 +29,76 @@ FINAL_STEP = 16_000 + ITERATIONS * BATCH
 
 
 def fingerprints(root):
-    paths = [root / "cleanrl/ppo_continuous_action.py", *sorted((root / "cleanrl/shared").glob("*.py")),
-             *sorted((root / "cleanrl/shared").glob("*.c"))]
+    paths = [
+        root / "cleanrl/ppo_continuous_action.py",
+        *sorted((root / "cleanrl/shared").glob("*.py")),
+        *sorted((root / "cleanrl/shared").glob("*.c")),
+    ]
     return {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
 
 
-def run_group(root, label, count, threads, spin, name, report_dir):
+def available_memory():
+    for line in Path("/proc/meminfo").read_text().splitlines():
+        if line.startswith("MemAvailable:"):
+            return int(line.split()[1]) * 1024
+    raise RuntimeError("Linux MemAvailable is required for the benchmark's memory safety guard")
+
+
+def run_group(root, label, count, threads, spin, name, report_dir, cache):
     processes, outputs = [], []
+    reserve = 8 * 1024**3
+    if available_memory() < reserve + count * 2 * 1024**3:
+        raise RuntimeError("insufficient free memory for concurrent benchmark; no trainers launched")
     started = time.perf_counter()
     environment = dict(os.environ, OMP_NUM_THREADS="1", MKL_NUM_THREADS="1", CLEANRL_ENV_SPIN=str(spin))
+    environment.update(
+        XDG_CACHE_HOME=cache,
+        TORCHINDUCTOR_CACHE_DIR=f"{cache}/inductor",
+        TRITON_CACHE_DIR=f"{cache}/triton",
+        CUDA_CACHE_PATH=f"{cache}/cuda",
+        TORCHINDUCTOR_COMPILE_THREADS="1",
+        TORCHINDUCTOR_FX_GRAPH_REMOTE_CACHE="0",
+        TORCHINDUCTOR_AUTOGRAD_REMOTE_CACHE="0",
+    )
     # A caller's source path must not defeat the explicit baseline/candidate cwd.
     environment.pop("PYTHONPATH", None)
     try:
         for index in range(count):
             experiment = f"{name}_{label}_{index}"
-            command = [str(ROOT / ".venv/bin/python"), "-u", "-m", "cleanrl.ppo_continuous_action",
-                       "--env-id", "HalfCheetah-v4", "--num-envs", "16", "--num-steps", "2048",
-                       "--num-minibatches", "32", "--update-epochs", "10", "--seed", "1",
-                       "--total-timesteps", str(STEPS), "--env-threads", str(threads),
-                       "--compile", "--compile-mode", "reduce-overhead", "--exp-name", experiment]
+            command = [
+                str(ROOT / ".venv/bin/python"),
+                "-u",
+                "-m",
+                "cleanrl.ppo_continuous_action",
+                "--env-id",
+                "HalfCheetah-v4",
+                "--num-envs",
+                "16",
+                "--num-steps",
+                "2048",
+                "--num-minibatches",
+                "32",
+                "--update-epochs",
+                "10",
+                "--seed",
+                "1",
+                "--total-timesteps",
+                str(STEPS),
+                "--env-threads",
+                str(threads),
+                "--compile",
+                "--compile-mode",
+                "reduce-overhead",
+                "--exp-name",
+                experiment,
+            ]
             output = (report_dir / f"{label}_{index}.log").open("w")
             outputs.append(output)
             process = subprocess.Popen(command, cwd=root, env=environment, stdout=output, stderr=subprocess.STDOUT)
             processes.append((experiment, process, command))
         while any(process.poll() is None for _, process, _ in processes):
+            if available_memory() < reserve:
+                raise RuntimeError("aborting benchmark before system memory reserve is exhausted")
             for experiment, process, _ in processes:
                 if process.poll() not in (None, 0):
                     raise RuntimeError(f"{experiment} failed with exit {process.returncode}; see {report_dir}")
@@ -76,14 +122,22 @@ def run_group(root, label, count, threads, spin, name, report_dir):
             for tag in sorted(run.tags):
                 if tag.startswith("timing/") and tag.endswith("_s"):
                     _, values = run.series(tag)
-                    phases[tag] = {"total_seconds": float(values.sum()),
-                                   "first_seconds": float(values[0]),
-                                   "steady_mean_seconds": float(values[1:].mean()) if values.size > 1 else None}
-            records.append({"run_dir": str(directories[0]), "command": command, "final_step": int(steps[-1]),
-                            "final_100_return": float(returns[-100:].mean()),
-                            "cumulative_sps": run.latest("charts/SPS"),
-                            "steady_interval_sps": float(BATCH * (len(interval) - 1) / (BATCH / interval[1:]).sum()),
-                            "phases": phases})
+                    phases[tag] = {
+                        "total_seconds": float(values.sum()),
+                        "first_seconds": float(values[0]),
+                        "steady_mean_seconds": float(values[1:].mean()) if values.size > 1 else None,
+                    }
+            records.append(
+                {
+                    "run_dir": str(directories[0]),
+                    "command": command,
+                    "final_step": int(steps[-1]),
+                    "final_100_return": float(returns[-100:].mean()),
+                    "cumulative_sps": run.latest("charts/SPS"),
+                    "steady_interval_sps": float(BATCH * (len(interval) - 1) / (BATCH / interval[1:]).sum()),
+                    "phases": phases,
+                }
+            )
         return {"wall_seconds": elapsed, "aggregate_sps": count * FINAL_STEP / elapsed, "runs": records}
     finally:
         for _, process, _ in processes:
@@ -102,37 +156,66 @@ def run_group(root, label, count, threads, spin, name, report_dir):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline-root", type=Path, required=True)
+    parser.add_argument("--candidate-root", type=Path, default=ROOT, help="immutable candidate snapshot, or current checkout")
     parser.add_argument("--runs", type=int, choices=[1, 3, 6], default=1)
     parser.add_argument("--env-threads", type=int, choices=[1, 2, 4], default=2)
     parser.add_argument("--env-spin", type=int, default=5000)
     parser.add_argument("--exp-name", default="ppo_execution_v1")
     args = parser.parse_args()
     baseline = args.baseline_root.resolve()
+    candidate = args.candidate_root.resolve()
     if not (baseline / "cleanrl/ppo_continuous_action.py").is_file():
         parser.error("--baseline-root must contain the pre-change trainer and shared modules")
+    if not (candidate / "cleanrl/ppo_continuous_action.py").is_file():
+        parser.error("--candidate-root must contain the candidate trainer and shared modules")
     if args.env_spin < 0:
         parser.error("--env-spin must be nonnegative")
     stamp = int(time.time())
     name = f"{args.exp_name}_{stamp}"
     directory = ROOT / "runs" / f"HalfCheetah-v4__{name}__1__{stamp}"
     directory.mkdir(parents=True, exist_ok=False)
-    report = {"kind": "complete_base_ppo_execution_comparison", "status": "running", "seed": 1,
-              "budget": STEPS, "runs_per_group": args.runs, "env_threads": args.env_threads,
-              "env_spin": args.env_spin, "sources": {"before": fingerprints(baseline), "after": fingerprints(ROOT)},
-              "groups": {}}
+    report = {
+        "kind": "complete_base_ppo_execution_comparison",
+        "status": "running",
+        "seed": 1,
+        "budget": STEPS,
+        "runs_per_group": args.runs,
+        "env_threads": args.env_threads,
+        "env_spin": args.env_spin,
+        "sources": {"before": fingerprints(baseline), "after": fingerprints(candidate)},
+        "cache_protocol": "separate caches per version; one complete serial cold run warms each cache before concurrent measured runs; compile_threads=1",
+        "cold_runs": {},
+        "groups": {},
+    }
     writer = SummaryWriter(str(directory))
+
     def save():
         (directory / "benchmark.json").write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
         writer.flush()
+
     try:
         save()
-        for label, root in [("before", baseline), ("after", ROOT)]:
-            print(f"Starting {label}: {args.runs} complete 8M runs", flush=True)
-            group = run_group(root, label, args.runs, args.env_threads, args.env_spin, name, directory)
+        for label, root in [("before", baseline), ("after", candidate)]:
+            if fingerprints(root) != report["sources"][label]:
+                raise RuntimeError(f"{label} sources changed before execution; use an immutable snapshot")
+            with tempfile.TemporaryDirectory(prefix=f"ppo-execution-{label}-") as cache:
+                print(f"Starting {label}: one complete cold 8M run", flush=True)
+                cold = run_group(root, f"{label}_cold", 1, args.env_threads, args.env_spin, name, directory, cache)
+                report["cold_runs"][label] = cold
+                save()
+                if args.runs == 1:
+                    group = cold
+                else:
+                    print(f"Starting {label}: {args.runs} complete warm-cache 8M runs", flush=True)
+                    group = run_group(root, label, args.runs, args.env_threads, args.env_spin, name, directory, cache)
+            if fingerprints(root) != report["sources"][label]:
+                raise RuntimeError(f"{label} sources changed during execution; comparison is invalid")
             report["groups"][label] = group
             writer.add_scalar(f"benchmark/{label}/aggregate_sps", group["aggregate_sps"], FINAL_STEP)
             save()
-        report["whole_process_speedup"] = report["groups"]["before"]["wall_seconds"] / report["groups"]["after"]["wall_seconds"]
+        report["whole_process_speedup"] = (
+            report["groups"]["before"]["wall_seconds"] / report["groups"]["after"]["wall_seconds"]
+        )
         writer.add_scalar("benchmark/whole_process_speedup", report["whole_process_speedup"], FINAL_STEP)
         report["status"] = "complete"
     except BaseException as error:
