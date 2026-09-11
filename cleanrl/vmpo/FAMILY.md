@@ -971,3 +971,313 @@ Verified finite on CPU (support, decode, project, moment-matched at ±5000).
 hardcoded `set-priority 4969` briefly raised an unrelated job
 (`ppo_base_beta_shared_validation`); reverted to 0 within the minute, no
 effect on execution order.
+
+### v59 — Gaussian paper reference
+
+`ppo_continuous_action_vmpo_paper_v59.py` reconstructs the stated objective in
+[V-MPO](https://arxiv.org/pdf/1909.12238), rather than retaining the Beta/HL-Gauss
+chassis. The frozen v30–v58 scripts are unchanged.
+
+- Diagonal Gaussian; Appendix C mean metric uses old covariance, covariance
+  metric holds the old mean fixed. The separately logged full KL uses online
+  covariance in its mean term; the split metrics do not sum to full KL.
+- Scalar PopArt (rate `1e-4`, std bounds `[1e-2, 1e6]`), raw observations and
+  rewards, online-value n-step returns via shared GAE with lambda exactly one.
+- One shared learned eta and two learned alpha multipliers, initialized at one,
+  jointly optimized with Adam `1e-4`, then projected to `1e-8`. No exact eta solve.
+- Eight trajectory-preserving replicas: local inclusive top-half selection and
+  normalized likelihoods, averaged across replicas. One update per 64×39 rollout.
+- Behavior policy copied after exactly 100 learner updates, never on a KL gate.
+  No entropy, gradient clipping, reward scaling, advantage scaling or LR annealing.
+- Shared native MuJoCo with two threads, host actor mirror, staged raw Gaussian
+  samples and their actual behavior statistics, CUDA FP32 compiled learner.
+  Raw samples are scored; only executed actions are clipped. Stochastic phase
+  warmup uses shared `run_phase_warmup(obs_norm=None)`.
+- Post-update mean/covariance/full KL and host/device policy agreement are
+  measured before promotion. Evaluation uses an isolated fixed set of eight
+  seeds and deterministic means. A final checkpoint stores both online and
+  deployed target policies, PopArt, duals, optimizer and step counts.
+
+**Reconstruction choices, not exact experimental parity:** the paper does not
+fully report Gym backbone/activation, initialization, batch count, covariance
+parameterization, preprocessing, or PopArt update granularity. This reference
+uses the humanoid-state 512/256 shared MLP with separate 256-unit heads, ReLU,
+orthogonal mean initialization, softplus std initialized exactly one, zero
+initial value output, and one batch-moment PopArt EMA before each learner update.
+The KL budgets are geometric midpoints of Table 7's search ranges, not reported
+winning settings. Gymnasium-v4, initial phase staggering, CPU host inference and
+CUDA FP32 are also disclosed runtime choices. FP32 avoids mixed-precision
+disagreement against the tiny covariance budget.
+
+**Validation and run:** MLQ **5545**, attempt two, passed all **11** focused
+CUDA/reference and shared warmup tests. Attempt one failed an overly strict
+absolute FP32 ESS tolerance (relative error `4.89e-7`); corrected to relative
+tolerance `1e-6`, with no algorithm change. Dependent **5546** was skipped.
+Replacement training job **5547** succeeded: HalfCheetah-v4, seed one, 64 envs,
+39 steps, eight replicas, requested 8M transitions. Both jobs declared parallel
+limit one and priority zero; validation limit 20 minutes, training limit 60
+minutes. No automatic retries or learning-based autocull were configured.
+Independent math and runtime reviewers found no blockers.
+
+Run: `HalfCheetah-v4__vmpo_paper_v59_8m__1__1788892020`.
+Actual training steps **7,998,784**, learner updates **3,179**, separately
+counted evaluation steps **264,000**. Final throughput was about **52.8k SPS**.
+No logged scalar was nonfinite.
+
+| Matched-step sampled return | 1M | 2M | 4M | Near 8M |
+|---|---:|---:|---:|---:|
+| v59 paper reference | -355 | -348 | -341 | -309 |
+| v30 50M baseline, timestamp 1788241500 | -58 | 1,989 | 5,157 | 7,751 |
+
+Means use ±100k transition windows; v59's final window is right-truncated.
+v59 last-100 mean is **-308.4**, final target deterministic mean **-0.281**.
+The reference did not learn locomotion.
+
+Final eta is **1.3126**, E-step KL **3.1000** versus budget **0.01**, global
+effective sample size **26.66** (effective weights include the replica-average
+factor). Final post-update mean KL is **0.195×** budget, covariance KL **52.46×**
+budget. Final policy std is **0.949**, critic EV **0.463**. Host mean max error
+is **1.94e-7** and std max relative error **2.53e-7**.
+
+Over 6–8M, mean E-step KL is **3.67**, global ESS **18.23**, and covariance
+KL/budget **76.88**. Thus this raw-advantage/learned-eta reconstruction introduces
+severe E-step concentration absent from v30's exact solver: the shared eta only
+grows by about 0.31 across 3,179 Adam steps. This is a measured dual-tracking
+bottleneck, not proof of the sole cause or evidence against billion-step paper
+results. Unlike v30's exact eta, finite-time learned eta is not invariant to
+rescaling advantages while keeping its initialization and optimizer fixed.
+Do not describe this failed 8M reference as a reproduction of the paper's
+unpublished HalfCheetah setup or as a solution to v30's plateau.
+
+### v60 — repairing E-step conditioning is not the whole learning fix
+
+`ppo_continuous_action_vmpo_paper_v60_solved_estep.py` numerically minimizes the
+same shared replica-averaged temperature dual, rather than taking one Adam
+step in raw reward units. For its locally normalized weights,
+`dL/deta = epsilon_eta - mean(replica_KL)`; 40 geometric bisections find the
+common temperature. Each replica does **not** receive its own temperature or
+KL equality. The numerical floor handles slack/flat cases. Weights are detached;
+only the two alpha multipliers remain in the joint Adam optimizer. This changes
+the paper's optimization trajectory, not the E-step constrained objective.
+
+**Frozen-checkpoint diagnosis, MLQ 5559:** 100 new unrolls from v59, with the
+same observations/actions/critic evaluated under different temperature choices:
+
+| E-step | Mean KL | Global ESS | Policy-head gradient cosine between two disjoint half-batches, accumulated over 100 batches |
+|---|---:|---:|---:|
+| Learned raw eta, 1.313 | 3.375 | 21.4 | 0.136 |
+| Eta expressed through the current PopArt scale | 0.03355 | 1,157 | 0.876 |
+| Exact shared raw eta, average 32.44 | 0.01000 | 1,222 | 0.883 |
+
+This isolates a severe weighting/gradient-noise failure. It does not establish
+that PopArt-normalized advantages were used in the private V-MPO implementation:
+the published equations use raw advantages, and RLax's V-MPO loss consumes the
+advantages supplied by its caller. With an exact eta solve, uniform positive
+advantage scaling is already immaterial unless the numerical floor is active.
+The frozen diagnostic did not show the hypothesized systematic preference for
+the final unroll steps; do not attribute the failure to that unmeasured mechanism.
+Its JSON is saved in the v59 run directory as `frozen_diagnostic.json`.
+
+**Controlled runs, HalfCheetah-v4, seed one, 64×39, eight replicas:**
+
+| MLQ job | Configuration | Requested steps | Last-100 sampled return | Final deterministic target return |
+|---|---|---:|---:|---:|
+| 5547 | v59, learned eta, initial std 1 | 8M | -308.4 | -0.281 |
+| 5561 | v60, solved eta, initial std 1 | 8M | -303.9 | -0.276 |
+| 5562 | v60, solved eta, initial std 0.3 | 8M | 231.6 | 0.912 |
+| 5566 | Same std-0.3 configuration, trained from scratch | 50M | 3,987.2 | 4,380.0 |
+
+The unit-std v60 run achieved E-step KL **0.01000**, ESS **1,222.1**, eta
+**29.39**, yet still failed locomotion. That falsifies temperature lag as the
+sole cause. Final std was **0.9469**. Unit initial std was an undocumented
+reconstruction choice, not a V-MPO paper requirement. For six unit Gaussians
+clipped to [-1,1], zero forward reward alone gives approximately **-309.6**
+control reward per 1,000-step episode; std 0.3 gives approximately **-54**.
+Therefore a less-negative score alone is not evidence of learned movement.
+
+The covariance budget makes the initialization persistent. For a homogeneous
+log-std change `d`, the six-dimensional covariance KL is approximately `6*d²`.
+At the configured budget this suggests `|d| ~= 0.00162` per target hold, or
+std 1 to about **0.95** over 31 promotions. This is an illustrative near-budget
+timescale, not a bound: learned alpha does not enforce exact per-update
+feasibility, and final v60 covariance KL was **9.43×** budget.
+
+The std-0.3 run's frozen diagnostic (**5563**) measured sampled return **217.6**,
+mean-head accumulated gradient cosine **0.925**, versus **0.428** for std rows.
+Mean-head gradient norm was **0.989**, std-head **0.163**. Shared-trunk component
+norms were policy **0.321**, value **0.497**, mean-KL **0.0565**, covariance-KL
+**0.00905**; policy/value cosine **-0.0146**. These measurements reject simple
+mean-signal starvation and opposing-critic-gradient explanations at that
+checkpoint. JSON is saved in the std-0.3 8M run directory.
+
+The 50M run first exceeded 100 deterministic return around **9.3M** transitions.
+Its matched sampled returns were **243 / 1,298 / 2,667 / 3,320 / 3,994** near
+10M / 20M / 30M / 40M / 50M. Actual final training count **49,998,976**;
+**20,006** learner updates and **200** target promotions, compared with only
+**3,179** updates and **31** promotions at 8M. It demonstrates real locomotion,
+not v30-level sample efficiency or a reproduction of the paper's billion-step
+Gym curves. Final std **0.2292**, critic EV **0.721**, mean-KL/budget **0.705**,
+covariance-KL/budget **11.52**: the covariance multiplier remains a limitation.
+
+**Verification:** MLQ **5560** passed 15 focused CUDA/compiled-loss and raw-warmup
+tests. Independent final review found no introduced blockers in the solver,
+replica reductions, detaches, reduced optimizer dual state or metric mapping.
+All listed jobs used `--max-parallel-runs 1`, priority zero; diagnostic/validation
+limits 20 minutes, training limits 60 minutes. All completed successfully.
+The 50M run was a fresh seed-one run, not checkpoint fine-tuning.
+
+Run directories:
+- `HalfCheetah-v4__vmpo_paper_v60_solved_estep_8m__1__1788895921`
+- `HalfCheetah-v4__vmpo_v60_std03_8m__1__1788896112`
+- `HalfCheetah-v4__vmpo_v60_std03_50m__1__1788896493`
+
+Keep the distinction between [V-MPO's equations and settings](https://arxiv.org/pdf/1909.12238),
+[the cited PopArt implementation](https://arxiv.org/pdf/1809.04474), and our
+explicit reconstruction choices. In particular, the paper's Gym curves cover
+Ant-v1, Walker2d-v1 and Humanoid-v1, not this HalfCheetah-v4 setup.
+
+**Update-density ablation, MLQ 5574:** v60, same std 0.3 and all algorithm
+settings, but 16 rather than 64 environments, completed 8M requested transitions:
+last-100 sampled return **1,474.8**, deterministic target return **2,464.5**.
+Matched sampled returns near 1M / 2M / 4M / 8M were **25 / 149 / 334 / 1,479**.
+This uses **12,794** learner updates and **127** target promotions; each
+100-update hold covers **62,400**, rather than **249,600**, transitions.
+Local replica sample count falls from 312 to 78, and global ESS from about
+1,222 to **305.8**. Thus estimator noise also changes: this is not a pure
+batch-size-independent identification of the hold-timescale effect.
+Final mean-KL/budget **1.202**, covariance-KL/budget **29.89**, std **0.2713**.
+It restores deterministic locomotion inside 8M, but is not evidence that the
+original v30 ~10k plateau is solved or that V-MPO outperforms PPO.
+
+**Reference configuration retained for subsequent comparisons:** v60 with
+`--initial-std 0.3 --num-envs 64 --num-steps 39 --num-replicas 8`, fixed target
+period 100, two environment threads, seed one and CUDA compilation.
+The 16-env experiment remains a diagnostic, not the replacement baseline:
+keep the original batch geometry for the requested 50M comparisons.
+Submit through MLQ with explicit parallel limit one. Frozen defaults are
+unchanged, so specify the experiment flags.
+16-env diagnostic: `HalfCheetah-v4__vmpo_v60_std03_env16_8m__1__1788897490`.
+
+### v61 — cited-PopArt trajectory statistics, isolated ablation
+
+`ppo_continuous_action_vmpo_paper_v61_rollout_popart.py` changes only the
+statistics update from v60. The [cited PopArt paper, implementation notes](https://arxiv.org/pdf/1809.04474)
+averages target returns within each trajectory, then performs one online
+moment update per trajectory. v61 implements the equivalent closed-form
+sequential EMA in environment-index order: the second-moment sample is the
+**square of each trajectory mean**, not the mean squared timestep targets.
+It preserves raw critic predictions and still regresses every individual
+normalized timestep target. Pre-fit statistics ordering is explicitly allowed
+by the cited paper. V-MPO's private statistics cadence/replica synchronization
+is not established; this is a disclosed reconstruction, not verified parity.
+
+**MLQ 5572**, full 8M, seed one, initial std 0.3, 64×39 and eight replicas:
+sampled last-100 return **218.3**, deterministic target return **25.96**.
+The matched v60/std-0.3 control achieved **231.6 / 0.912**. Final critic EV
+improved from **0.899** to **0.955**, while sampled performance did not improve
+and the mean policy remained weak. Normalized value loss was **0.02025**
+versus **0.2238**, but these losses use different learned scales and are not
+direct raw-error comparisons. This ablation does not justify attributing the
+learning failure to PopArt cadence or recommending v61 over the 16-env v60 run.
+Final covariance-KL/budget remained **18.91**.
+Run: `HalfCheetah-v4__vmpo_v61_rollout_popart_8m__1__1788897739`.
+
+**Final validation:** MLQ **5571** passed **17** tests, including repeated
+compiled PopArt updates after critic optimization, nonzero prior moments,
+raw-value preservation and the rate-one endpoint. PyTorch emitted 14 existing
+`torch.jit.script_method` deprecation warnings; no suppression was added.
+Two fresh independent reviewers found no introduced blockers in v60/v61;
+their repeated-state coverage suggestion was incorporated and reviewed.
+FP32 second-moment cancellation is an inherited limitation, not a demonstrated
+new regression. Jobs 5571, 5572 and 5574 all completed successfully, priority
+zero and parallel limit one. The incorrectly rooted queued validation **5569**
+was cancelled before execution; dependent **5570** was skipped and replaced
+with the successful jobs above. No unrelated jobs were modified.
+
+### v62 / v63 — covariance-dual experiment and runtime-only acceleration
+
+v62 moves only covariance alpha out of Adam. Projected ascent uses the
+budget-relative residual: `alpha += (KL / epsilon - 1) / target_update_period`,
+floored at `1e-8`. Mean alpha and actor/critic Adam remain unchanged.
+This is an optimization departure from the paper, not a more faithful copy.
+Optional reward normalization uses the shared per-env discounted-return RMS,
+including stochastic warmup, and clips normalized rewards at 10. Observations
+remain raw; episode and deterministic evaluation returns are never normalized.
+
+v63 retains that algorithm but replaces the small blocking tail/index/final-
+observation transfers with `TruncationBootstrapCache.resolve_with_tail`.
+One event-protected pinned block stages an asynchronous upload; critic batch
+layouts and shifted GAE/n-step recurrence are preserved. The PERI-style return-
+phase graph marker alone did not improve the benchmark: fragmented blocking
+transfers, not the GAE kernel, were the measured bottleneck.
+
+**Verification:** MLQ **5605** passed **93** tests after fixing asynchronous
+readback ordering in the new test (no helper arithmetic change). MLQ **5607**
+compared 110 fixed-rollout updates: model, PopArt and dual state were bitwise
+equal. Synchronized return-plus-update time for 100 timed iterations fell from
+**1.170 s to 0.366 s**. This is not a whole-training speedup of 3.2× and the
+host phase attribution is not isolated GPU-kernel timing.
+
+Over the logged 1M–8M interval, v62 normalized versus v63 raw median return-
+phase time fell from **16.17 to 2.91 ms/update**; median interval throughput rose
+from **48.9k to 75.7k SPS**. Reward settings differ in this real-trainer comparison;
+the fixed-rollout benchmark above is the controlled runtime evidence.
+
+Original normalized job **5589** was cancelled by request before 50M; raw job
+**5590** was cancelled before starting. Runtime replacements **5619** (raw) and
+**5620** (normalized) were also cancelled before 50M. No completed paired 50M
+result is claimed. All declare parallel limit one and 60-minute training limits.
+
+### v64 — selected v60 baseline with the verified runtime path
+
+`ppo_continuous_action_vmpo_paper_v64_fast_baseline.py` starts directly from v60.
+**Both alpha multipliers are again in the original fused Adam parameter vector.**
+The covariance-relative ascent is absent. Better KL feasibility is not the
+selection objective: retain v60 as the baseline and judge changes by returns.
+Keep its solved shared eta, replica-local E-step, batch PopArt, raw observations,
+64×39 batching, eight replicas and fixed 100-update target holds.
+
+Only the packed runtime path and optional reward-normalization ablation carry
+forward. Initial std defaults to the explicitly selected **0.3** configuration;
+v60 and every previous version remain frozen.
+
+MLQ **5625 passed** the actual-v60-versus-v64 compiled parity gate: all model
+buffers, both duals and Adam step/moment tensors were **bitwise identical after
+110 fixed-rollout updates**. Synchronized return-plus-update time for 100 timed
+iterations fell from **0.975 s to 0.325 s**; this excludes physics, collection and
+evaluation. Independent source review found no retained fast-dual wiring.
+The gate does not establish whole-run bitwise parity or rewardnorm equivalence.
+
+Fresh 50M seed-one jobs **5627** (raw) and **5626** (normalized) both **succeeded**
+behind this successful gate. Both logged **49,998,016** transitions and **20,006**
+learner updates. All declare parallel limit one; gate limit 20 minutes,
+training limits 60 minutes. Temporary profiling scripts were removed after
+successful execution; measurements remain in MLQ logs.
+
+| Reward setting | Sampled, last 100 episodes | Deterministic target | Covariance KL / budget | Final cumulative SPS |
+| --- | ---: | ---: | ---: | ---: |
+| Raw | 3,987.2 | 4,380.0 | 11.52 | 82,595 |
+| Per-env normalized | 4,068.9 | 4,764.5 | 16.90 | 81,981 |
+
+The raw final returns match the historical v60/std-0.3 50M result to displayed
+precision. This supports preserving the selected learning behavior, separately
+from the fixed-rollout bitwise gate; it is not whole-run bitwise equivalence.
+
+Matched sampled-return windows (100k transitions around each requested step):
+
+| Steps | Raw | Normalized |
+| --- | ---: | ---: |
+| 8M | 230.8 | 286.4 |
+| 10M | 239.3 | 321.0 |
+| 20M | 1,263.5 | 1,657.4 |
+| 30M | 2,672.1 | 2,986.0 |
+| 40M | 3,316.9 | 3,702.8 |
+| Near 50M | 3,989.0 | 4,066.8 |
+
+Reward normalization gives a modest sampled improvement and a larger
+deterministic improvement in this one-seed comparison. It is not evidence of
+cross-seed superiority or of solving v30's plateau. Retain v60's original Adam
+dual dynamics: normalized rewards improve return here despite a *larger*
+covariance-budget violation. Exact constraint tracking is not the benchmark
+objective, and these measurements do not establish that constraint violations
+themselves cause better learning.
