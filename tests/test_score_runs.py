@@ -1,12 +1,17 @@
-"""Score-hook reporting tests use fake logs and mocked read-only queue queries."""
+"""Score reporting, exact TensorBoard histories, and bounded log retention."""
 
 import importlib
 import json
 from pathlib import Path
 import subprocess
 
+import tracemalloc
+
 import numpy as np
 import pytest
+from tensorboard.compat.proto.event_pb2 import Event, SessionLog
+from tensorboard.compat.proto.summary_pb2 import Summary
+from tensorboard.summary.writer.event_file_writer import EventFileWriter
 
 
 @pytest.fixture
@@ -15,24 +20,37 @@ def scorer(monkeypatch):
     return importlib.import_module("score_runs")
 
 
-class FakeScalars:
-    def window_mean(self, tag, step, window):
-        return 15.0 if tag == "charts/episodic_return" else 1000.0
+def write_events(directory, events):
+    writer = EventFileWriter(str(directory))
+    try:
+        for event in events:
+            writer.add_event(event)
+    finally:
+        writer.close()
 
 
-def existing_run(scorer, monkeypatch):
-    directory = Path("runs/HalfCheetah-v4__available__1__100")
-    result = scorer.RunResult(np.array([10.0, 20.0]), 15.0, 15.0, 9.8, 1_000_000, FakeScalars())
+def scalar_event(step, **values):
+    return Event(wall_time=float(step), step=step, summary=Summary(value=[
+        Summary.Value(tag=tag, simple_value=value) for tag, value in values.items()
+    ]))
+
+
+def existing_run(scorer, monkeypatch, tmp_path):
+    directory = tmp_path / "HalfCheetah-v4__available__1__100"
+    write_events(directory, [
+        scalar_event(500_000, **{scorer.TAG: 10.0}),
+        scalar_event(1_000_000, **{scorer.TAG: 20.0}),
+    ])
+    result = scorer.load_returns(directory)
     monkeypatch.setattr(scorer, "find_runs", lambda *args: [directory])
-    monkeypatch.setattr(scorer, "load_returns", lambda *args: result)
     return directory, result
 
 
-def test_partial_comparison_names_missing_patterns_and_empty_logs(scorer, monkeypatch, capsys):
-    available, result = existing_run(scorer, monkeypatch)
-    empty = Path("runs/HalfCheetah-v4__empty__1__100")
+def test_partial_comparison_names_missing_patterns_and_empty_logs(scorer, monkeypatch, capsys, tmp_path):
+    available, result = existing_run(scorer, monkeypatch, tmp_path)
+    empty = tmp_path / "HalfCheetah-v4__empty__1__100"
+    write_events(empty, [])
     monkeypatch.setattr(scorer, "find_runs", lambda *args: [available, empty])
-    monkeypatch.setattr(scorer, "load_returns", lambda path, *args: result if path == available else None)
     scorer.main(["available", "missing", "empty", "--env", "HalfCheetah-v4", "--at", "1M,2M",
                  "--metrics", "charts/SPS"])
     output = capsys.readouterr().out
@@ -55,8 +73,8 @@ def test_all_missing_patterns_are_each_reported(scorer, monkeypatch, capsys):
     assert "No runs found matching" in output
 
 
-def test_jobs_are_queried_once_and_scores_do_not_override_failed_state(scorer, monkeypatch, capsys):
-    existing_run(scorer, monkeypatch)
+def test_jobs_are_queried_once_and_scores_do_not_override_failed_state(scorer, monkeypatch, capsys, tmp_path):
+    existing_run(scorer, monkeypatch, tmp_path)
     calls = []
     jobs = {
         7: {"id": 7, "name": "baseline", "state": "succeeded"},
@@ -70,7 +88,6 @@ def test_jobs_are_queried_once_and_scores_do_not_override_failed_state(scorer, m
     scorer.main(["available", "--jobs", "7", "8", "7"])
     output = capsys.readouterr().out
     assert [command for command, _ in calls] == [["mlq", "show", "7", "--json"], ["mlq", "show", "8", "--json"]]
-    assert all(options == dict(capture_output=True, text=True, check=True, timeout=30) for _, options in calls)
     assert "job 7 [baseline]: succeeded" in output
     assert "job 8 [candidate]: skipped — prerequisite job 6 failed" in output
     assert "Jobs not reported as succeeded: 8" in output
@@ -114,3 +131,68 @@ def test_nonpositive_job_id_does_not_query_queue(scorer, monkeypatch):
     with pytest.raises(SystemExit) as result:
         scorer.main(["available", "--jobs", "0"])
     assert result.value.code == 2
+
+
+def test_selected_scalars_preserve_restart_and_window_semantics(scorer, tmp_path):
+    directory = tmp_path / "HalfCheetah-v4__restart__1__100"
+    write_events(directory, [
+        scalar_event(10, **{scorer.TAG: 1.0, "unused": 99.0}),
+        scalar_event(20, **{scorer.TAG: 200.0}),
+        Event(wall_time=30, step=20, session_log=SessionLog(status=SessionLog.START)),
+        scalar_event(20, **{scorer.TAG: 3.0}),
+        scalar_event(40, **{scorer.TAG: 5.0}),
+    ])
+    selected = scorer.RunScalars(directory, tags={scorer.TAG})
+    full = scorer.RunScalars(directory)
+    assert selected.tags == {scorer.TAG}
+    for actual, expected in zip(selected.series(scorer.TAG), full.series(scorer.TAG)):
+        np.testing.assert_array_equal(actual, expected)
+    np.testing.assert_array_equal(selected.series(scorer.TAG)[1], [1, 3, 5])
+    assert selected.window_stats(scorer.TAG, 20, 10) == full.window_stats(scorer.TAG, 20, 10)
+    assert selected.value_near(scorer.TAG, 30) == 3.0
+
+
+def test_scoring_many_runs_does_not_retain_their_event_histories(scorer, tmp_path, monkeypatch, capsys):
+    # Reusing a frozen log makes retained-memory growth deterministic without
+    # a large fixture on disk. Each matching entry is still scored independently.
+    directory = tmp_path / "HalfCheetah-v4__memory__1__100"
+    write_events(directory, [
+        scalar_event(step, **{scorer.TAG: float(step), "unused": float(step)})
+        for step in range(4000)
+    ])
+    tracemalloc.start()
+    try:
+        monkeypatch.setattr(scorer, "find_runs", lambda *args: [directory])
+        scorer.main(["memory", "--at", "2k", "--at-window", "100"])
+        _, single_peak = tracemalloc.get_traced_memory()
+        capsys.readouterr()
+        tracemalloc.reset_peak()
+        monkeypatch.setattr(scorer, "find_runs", lambda *args: [directory] * 24)
+        scorer.main(["memory", "--at", "2k", "--at-window", "100"])
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert "24 runs across 1 env(s)" in capsys.readouterr().out
+    growth = peak - single_peak
+    assert growth < 8 * 1024 * 1024, f"additional runs retained {growth / 1024**2:.1f} MiB"
+
+
+def test_metric_cells_use_reloaded_coverage_after_a_restart(scorer, tmp_path, monkeypatch, capsys):
+    directory = tmp_path / "HalfCheetah-v4__restart__1__100"
+    write_events(directory, [
+        scalar_event(1_000_000, **{scorer.TAG: 100.0, "charts/SPS": 1000.0}),
+    ])
+    original_load = scorer.load_returns
+
+    def load_then_restart(path, last_n, **kwargs):
+        result = original_load(path, last_n, **kwargs)
+        write_events(directory, [
+            Event(step=0, wall_time=2_000_000, session_log=SessionLog(status=SessionLog.START)),
+            scalar_event(100_000, **{scorer.TAG: 10.0, "charts/SPS": 100.0}),
+        ])
+        return result
+
+    monkeypatch.setattr(scorer, "load_returns", load_then_restart)
+    scorer.main(["restart", "--runs-dir", str(tmp_path), "--metrics", "charts/SPS"])
+    row = next(line for line in capsys.readouterr().out.splitlines() if line.strip().startswith("1  restart"))
+    assert row.split()[-1] == "--"

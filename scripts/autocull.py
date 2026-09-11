@@ -482,6 +482,24 @@ def judge(run: RunView, ref: RunView | None, a) -> tuple[str, str]:
         return "nan", "non-finite episodic_return/value_loss"
     if run.age > a.stall:
         return "stall", f"no tfevents write for {run.age / 60:.0f}m (limit {a.stall / 60:.0f}m)"
+    # Opt-in stability criterion: a severe smoothed collapse disqualifies a
+    # trial even if it later recovers. Unlike plateau/behind this compares the
+    # run with its own prior peak and does not penalize slow starters.
+    if a.collapse_ratio > 0 and (not a.calibrated_envs or run.env in a.calibrated_envs):
+        curve = ema_series(run.steps, run.vals, a.collapse_ema_halflife)
+        peak = np.maximum.accumulate(curve)
+        hits = np.flatnonzero(
+            (run.steps >= a.min_steps)
+            & (peak - curve >= a.collapse_drop)
+            & (curve <= a.collapse_ratio * peak)
+        )
+        if hits.size:
+            index = hits[0]
+            return "collapse", (
+                f"EMA fell from own peak {peak[index]:.0f} to {curve[index]:.0f} "
+                f"at {fmt_step(int(run.steps[index]))}: <= {a.collapse_ratio:.2f}x "
+                f"and >= {a.collapse_drop:.0f} drop; recovery does not erase collapse"
+            )
     if ref is None:
         if run.max_step < a.min_steps:
             return "keep", f"grace: {fmt_step(run.max_step)} < {fmt_step(a.min_steps)}"
@@ -600,7 +618,7 @@ def enforceable(verdict: str, a) -> bool:
     about which rules actually kill jobs -- the audit's whole value is that its "never culled"
     means "would not have been cancelled".
     """
-    return verdict in ("nan", "stall", "plateau") or a.enforce == "all"
+    return verdict in ("nan", "stall", "plateau", "collapse") or a.enforce == "all"
 
 
 def log_decision(root: Path, record: dict) -> None:
@@ -841,6 +859,13 @@ def main() -> None:
     p.add_argument("--dead-steps", default="600k", help="grace period before the dead check")
     p.add_argument("--min-steps", default="3M", help="grace period before any performance verdict")
     p.add_argument("--ema-halflife", default="400k", help="EMA half-life in STEPS")
+    p.add_argument("--collapse-ratio", type=float, default=0.0,
+                   help="opt-in irreversible cull after EMA falls to this fraction of its "
+                        "own prior peak, with --collapse-drop; 0 disables")
+    p.add_argument("--collapse-drop", type=float, default=2000.0,
+                   help="minimum absolute EMA drop for the opt-in collapse rule")
+    p.add_argument("--collapse-ema-halflife", default="100k",
+                   help="step-aware EMA half-life for collapse detection; ignores single episodes")
     p.add_argument("--plateau-slope-window", default="1M",
                    help="trailing window for the PLATEAU slope test. Must be short enough not to "
                         "straddle an earlier rise: at 2M this read +13%%/1M on a curve that had "
@@ -893,7 +918,7 @@ def main() -> None:
     p.add_argument("--yes", action="store_true", help="actually cancel (default: dry-run)")
     p.add_argument("--enforce", choices=("health", "all"), default="health",
                    help="which verdicts may cancel when --yes: "
-                        "health=nan/stall/dead/plateau (default), all=+behind")
+                        "health=nan/stall/plateau/opt-in collapse (default), all=+dead/behind")
     p.add_argument("--json", action="store_true")
     p.add_argument("--replay", default="", help="comma-separated run patterns: print verdicts and exit (queue untouched)")
     p.add_argument("--audit", default="",
@@ -908,6 +933,9 @@ def main() -> None:
     a.min_steps = parse_step(a.min_steps)
     a.dead_steps = parse_step(a.dead_steps)
     a.ema_halflife = parse_step(a.ema_halflife)
+    a.collapse_ema_halflife = parse_step(a.collapse_ema_halflife)
+    if not 0 <= a.collapse_ratio < 1 or a.collapse_drop <= 0 or a.collapse_ema_halflife <= 0:
+        p.error("collapse ratio must be in [0,1), with positive drop and EMA half-life")
     a.plateau_slope_window = parse_step(a.plateau_slope_window)
     a.plateau_min_steps = parse_step(a.plateau_min_steps)
     a.plateau_ema_halflife = parse_step(a.plateau_ema_halflife)

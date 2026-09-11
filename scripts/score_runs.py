@@ -21,6 +21,11 @@ global step (so variants are compared at matched steps, not just at the end).
 With --metrics, appends extra scalar tags AT A MATCHED STEP (not their latest
 value -- see below).
 
+Memory scales with one run's requested scalar history plus compact report rows,
+not the combined event histories of all matching runs. Only --metrics without
+--at or --metrics-latest requires a second pass to find the common comparison
+step; live logs can advance between those passes.
+
 READ THIS BEFORE COMPARING TWO RUNS OF DIFFERENT LENGTHS.
   Mean / +-CI95 / Avg all are END-OF-RUN statistics. A run stopped at 2M and a
   run finished at 8M are at different points on their own learning curves, so
@@ -103,36 +108,54 @@ def print_job_states(job_ids: list[int]):
 
 
 class RunResult(NamedTuple):
-    returns: np.ndarray
     mean_end: float
     mean_all: float
     ci95: float
     max_step: int
-    scalars: RunScalars  # underlying accessor, for --at / --metrics columns
+    run_dir: Path
+    at_cells: tuple[str, ...]
+    metric_cells: tuple[str, ...] | None
 
 
-def load_returns(run_dir: Path, last_n: int = 20) -> RunResult | None:
-    """Load episodic returns and stats for a run dir via EventAccumulator."""
-    sc = RunScalars(run_dir)
+def load_returns(
+    run_dir: Path,
+    last_n: int = 20,
+    *,
+    at_steps: tuple[int, ...] | list[int] = (),
+    metrics: tuple[str, ...] | list[str] = (),
+    window: int = 50_000,
+    metrics_latest: bool = False,
+) -> RunResult | None:
+    """Reduce one run to exact statistics and cells before releasing its logs."""
+    immediate_metrics = metrics_latest or bool(at_steps)
+    tags = {TAG} | (set(metrics) if immediate_metrics else set())
+    sc = RunScalars(run_dir, tags=tags)
     _, values = sc.series(TAG)
     if not values.size:
         return None
     all_values = np.asarray(values)
     end_values = all_values[-last_n:]
     return RunResult(
-        returns=end_values,
         mean_end=float(np.mean(end_values)),
         mean_all=float(np.mean(all_values)),
         ci95=1.96 * float(np.std(end_values, ddof=1)) / np.sqrt(len(end_values)) if len(end_values) > 1 else float("nan"),
         max_step=sc.max_step(TAG),
-        scalars=sc,
+        run_dir=run_dir,
+        at_cells=tuple(_cell(sc, TAG, step, window) for step in at_steps),
+        metric_cells=(
+            tuple(
+                _fmt_metric(sc.latest(tag)) if metrics_latest
+                else _cell(sc, tag, at_steps[-1], window)
+                for tag in metrics
+            ) if immediate_metrics or not metrics else None
+        ),
     )
 
 
 THIN_WINDOW = 10
 
 
-def _cell(r: RunResult, tag: str, step: int, window: int) -> str:
+def _cell(sc: RunScalars, tag: str, step: int, window: int) -> str:
     """Matched-step cell, with out-of-range made VISIBLE rather than extrapolated.
 
     RunScalars.window_mean falls back to the nearest sample when the requested
@@ -145,16 +168,19 @@ def _cell(r: RunResult, tag: str, step: int, window: int) -> str:
     backed by three episodes must not render identically to one backed by a
     hundred, or a trend gets read off sampling noise.
     """
-    if step - window > r.max_step:
+    # Live logs may grow or restart between report passes. Coverage must come
+    # from the same snapshot as the values, not the earlier ranking summary.
+    max_step = sc.max_step(TAG)
+    if step - window > max_step:
         return "--"
-    stats = r.scalars.window_stats(tag, step, window)
+    stats = sc.window_stats(tag, step, window)
     if stats is None:
         return "--"
     mean, _ci, n = stats
     text = _fmt_metric(mean)
     if n < THIN_WINDOW:
         text += "!"
-    return f"~{text}" if step > r.max_step else text
+    return f"~{text}" if step > max_step else text
 
 
 def _fmt_metric(v: float | None) -> str:
@@ -199,21 +225,22 @@ def print_group(
         for m in metrics
     ]
 
-    # Precompute appended cells so columns can be width-sized.
+    # Retain formatted cells, not event histories. Only the implicit common
+    # metric step needs another read, after the shortest run is known.
     at_cells = {
-        (i, s): _cell(r, TAG, s, window)
+        (i, step): cell
         for i, (_, r) in enumerate(ranked)
-        for s in at_steps
+        for step, cell in zip(at_steps, r.at_cells)
     }
-    metric_cells = {
-        (i, m): (
-            _fmt_metric(r.scalars.latest(m))
-            if metrics_latest
-            else _cell(r, m, metric_step, window)
-        )
-        for i, (_, r) in enumerate(ranked)
-        for m in metrics
-    }
+    metric_cells = {}
+    for i, (_, r) in enumerate(ranked):
+        cells = r.metric_cells
+        if cells is None:
+            sc = RunScalars(r.run_dir, tags=set(metrics) | {TAG})
+            cells = tuple(_cell(sc, tag, metric_step, window) for tag in metrics)
+            del sc
+        for tag, cell in zip(metrics, cells):
+            metric_cells[i, tag] = cell
     rows = range(len(ranked))
     at_w = [max([len(lbl)] + [len(at_cells[(i, s)]) for i in rows]) for s, lbl in zip(at_steps, at_labels)]
     m_w = [max([len(lbl)] + [len(metric_cells[(i, m)]) for i in rows]) for m, lbl in zip(metrics, metric_labels)]
@@ -326,7 +353,10 @@ def main(argv=None):
     by_env: dict[str, list[tuple[str, RunResult]]] = {}
     for d in matched:
         env, variant = parse_run_name(d.name)
-        result = load_returns(d, args.last)
+        result = load_returns(
+            d, args.last, at_steps=at_steps, metrics=metrics,
+            window=args.at_window, metrics_latest=args.metrics_latest,
+        )
         if result is not None:
             by_env.setdefault(env, []).append((variant, result))
         else:

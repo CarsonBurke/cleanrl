@@ -6,10 +6,9 @@ concurrent job until measured. Extra trainer options follow ``--``.
 """
 
 import argparse
-from pathlib import Path
 import shlex
 import subprocess
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE_SCRIPT = Path("cleanrl/ppo_continuous_action.py")
@@ -31,10 +30,15 @@ def main():
     parser.add_argument("--total-timesteps", type=positive, default=8_000_000)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--env-threads", type=positive, default=2)
-    parser.add_argument("--max-parallel-runs", type=positive,
-                        help="default 6 for base N16/2-thread PPO; 1 for uncharacterized configurations")
-    parser.add_argument("--env-spin", type=int,
-                        help="pause iterations before parking; defaults to 5000 at the standard operating point, else 0")
+    parser.add_argument("--compile-threads", type=positive, default=1, help="Inductor compiler workers per trainer")
+    parser.add_argument(
+        "--max-parallel-runs", type=positive, help="default 6 for base N16/2-thread PPO; 1 for uncharacterized configurations"
+    )
+    parser.add_argument(
+        "--env-spin",
+        type=int,
+        help="pause iterations before parking; defaults to 5000 at the standard operating point, else 0",
+    )
     parser.add_argument("--time-limit", default="2h")
     parser.add_argument("--after-success", action="append", default=[])
     parser.add_argument("--dry-run", action="store_true", help="print the exact submission without queueing")
@@ -52,24 +56,61 @@ def main():
     for token in extra:
         if token.split("=", 1)[0].replace("_", "-") in reserved:
             parser.error(f"set {token.split('=', 1)[0]} before -- so resource settings remain consistent")
-    standard = (script == (ROOT / BASE_SCRIPT).resolve() and args.num_envs == 16
-                and args.env_threads == 2 and args.env_id in {"HalfCheetah-v4", "Hopper-v4", "Walker2d-v4"}
-                and not extra)
+    standard = (
+        script == (ROOT / BASE_SCRIPT).resolve()
+        and args.num_envs == 16
+        and args.env_threads == 2
+        and args.compile_threads == 1
+        and args.env_id in {"HalfCheetah-v4", "Hopper-v4", "Walker2d-v4"}
+        and not extra
+    )
     limit = args.max_parallel_runs if args.max_parallel_runs is not None else (6 if standard else 1)
     spin = args.env_spin if args.env_spin is not None else (5000 if standard and limit <= 6 else 0)
     if spin < 0:
         parser.error("--env-spin must be nonnegative")
     name = args.name or script.stem
-    command = ["mlq", "submit", "--name", name, "--max-parallel-runs", str(limit),
-               "--time-limit", args.time_limit, "--cwd", str(ROOT),
-               "--env", "OMP_NUM_THREADS=1", "--env", "MKL_NUM_THREADS=1",
-               "--env", f"CLEANRL_ENV_SPIN={spin}"]
+    command = [
+        "mlq",
+        "submit",
+        "--name",
+        name,
+        "--max-parallel-runs",
+        str(limit),
+        "--time-limit",
+        args.time_limit,
+        "--cwd",
+        str(ROOT),
+        "--env",
+        "OMP_NUM_THREADS=1",
+        "--env",
+        "MKL_NUM_THREADS=1",
+        "--env",
+        f"TORCHINDUCTOR_COMPILE_THREADS={args.compile_threads}",
+        "--env",
+        f"CLEANRL_ENV_SPIN={spin}",
+    ]
     for job in args.after_success:
         command.extend(["--after-success", job])
-    command.extend(["--", str(ROOT / ".venv/bin/python"), "-u", str(script),
-                    "--env-id", args.env_id, "--num-envs", str(args.num_envs),
-                    "--exp-name", name, "--total-timesteps", str(args.total_timesteps),
-                    "--seed", str(args.seed), "--env-threads", str(args.env_threads)])
+    command.extend(
+        [
+            "--",
+            str(ROOT / ".venv/bin/python"),
+            "-u",
+            str(script),
+            "--env-id",
+            args.env_id,
+            "--num-envs",
+            str(args.num_envs),
+            "--exp-name",
+            name,
+            "--total-timesteps",
+            str(args.total_timesteps),
+            "--seed",
+            str(args.seed),
+            "--env-threads",
+            str(args.env_threads),
+        ]
+    )
     # Maintained trainers compile by default. Leave explicit compile-mode and
     # algorithm options to the trainer instead of injecting duplicate flags.
     command.extend(extra)

@@ -112,17 +112,32 @@ def latest_per_variant(run_dirs: list[Path]) -> list[Path]:
 # --------------------------------------------------------------------------- #
 # Scalar loading (cached EventAccumulator)
 # --------------------------------------------------------------------------- #
-class RunScalars:
-    """Lazily-loaded scalar accessor for a single run dir.
+class _SelectedScalars(EventAccumulator):
+    """Keep TensorBoard's restart handling without retaining unrelated scalars."""
 
-    Wraps an EventAccumulator and exposes (steps, values) numpy arrays per tag,
-    caching results so repeated lookups (e.g. many tags) are cheap.
+    def __init__(self, run_dir: Path, tags: set[str]):
+        self._selected_tags = tags
+        super().__init__(str(run_dir), size_guidance={"scalars": 0})
+
+    def _ProcessScalar(self, tag, wall_time, step, scalar):
+        if tag in self._selected_tags:
+            super()._ProcessScalar(tag, wall_time, step, scalar)
+
+
+class RunScalars:
+    """Scalar accessor for one run, optionally retaining only requested tags.
+
+    Keeps exact TensorBoard scalar history and caches NumPy series. Callers
+    processing many runs should reduce each accessor to results before moving on.
     """
 
-    def __init__(self, run_dir: Path):
+    def __init__(self, run_dir: Path, tags: set[str] | None = None):
         self.run_dir = run_dir
         self.env, self.variant = parse_run_name(run_dir.name)
-        self._ea = EventAccumulator(str(run_dir), size_guidance={"scalars": 0})
+        self._ea = (
+            EventAccumulator(str(run_dir), size_guidance={"scalars": 0})
+            if tags is None else _SelectedScalars(run_dir, tags)
+        )
         self._ea.Reload()
         self._tags = set(self._ea.Tags().get("scalars", []))
         self._cache: dict[str, tuple[np.ndarray, np.ndarray]] = {}
