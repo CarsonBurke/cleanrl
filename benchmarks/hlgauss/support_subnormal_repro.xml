@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.371" timestamp="2026-09-06T00:16:13.726170" hostname="cachyos-x8664-desktop"><testcase classname="tests.test_hl_gauss_support_projection" name="test_subnormal_support_retains_gaussian_smoothing_not_only_its_mean" time="0.348"><failure message="AssertionError: Tensor-likes are not equal!&#10;&#10;Mismatched elements: 3 / 3 (100.0%)&#10;Greatest absolute difference: 0.5 at index (1,)&#10;Greatest relative difference: 1.0 at index (0,)">def test_subnormal_support_retains_gaussian_smoothing_not_only_its_mean():
+        unit = math.ulp(0.0)
+        head = MeanPreservingSupport(
+            v_min=0.0, v_max=2 * unit, num_bins=3, center=0.0, scale=1.0, geometry="uniform"
+        )
+        labels = head.project(torch.tensor(unit, dtype=torch.float64))
+        # The Gaussian is uniform at this scale; integrating the linear basis
+        # must retain its spread, even though every distribution here decodes to unit.
+&gt;       torch.testing.assert_close(labels, torch.tensor([0.25, 0.5, 0.25], dtype=torch.float64), rtol=0, atol=0)
+E       AssertionError: Tensor-likes are not equal!
+E       
+E       Mismatched elements: 3 / 3 (100.0%)
+E       Greatest absolute difference: 0.5 at index (1,)
+E       Greatest relative difference: 1.0 at index (0,)
+
+tests/test_hl_gauss_support_projection.py:158: AssertionError</failure></testcase></testsuite></testsuites>
