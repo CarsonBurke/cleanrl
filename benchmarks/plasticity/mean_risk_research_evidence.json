@@ -1,0 +1,503 @@
+{
+  "hypothesis": "Sparse prior structure can preserve rare large coefficients at the same initial marginal variance as a dense Gaussian prior; density-vs-risk selection is a paired secondary mechanism test.",
+  "jobs": {
+    "prerequisite_contracts": 5416,
+    "v2_contracts": 5420,
+    "v2_stationary": 5421,
+    "v3_scale_repro": 5440,
+    "v3_contracts": 5442,
+    "v3_stationary": 5443,
+    "v3_change": 5454,
+    "v3_null": 5455,
+    "support_relapse_full_replay": 5470
+  },
+  "resources": {
+    "max_parallel_runs": 1,
+    "v2_stationary_time_limit_minutes": 8,
+    "max_attempts": 1,
+    "automatic_pruning": true
+  },
+  "stationary_result": "runs/SparseStream__mean_risk_v2_stationary__1__1788847384308413949/results.json",
+  "v2_stationary_rows": [
+    {
+      "step": 15000,
+      "method": "likelihood_static",
+      "clean_mse": 0.00010787588063180852,
+      "coefficient_0": 1.092785120010376,
+      "coefficient_1": -1.8699826114243479e-06,
+      "distractor": 2.0943032672153515e-05
+    },
+    {
+      "step": 15000,
+      "method": "likelihood_switching",
+      "clean_mse": 7.17116414817513e-05,
+      "coefficient_0": 1.0660756826400757,
+      "coefficient_1": -4.127787906327285e-05,
+      "distractor": 2.730152137443647e-05
+    },
+    {
+      "step": 15000,
+      "method": "mean_risk_static",
+      "clean_mse": 0.0001072516722739117,
+      "coefficient_0": 1.0926347970962524,
+      "coefficient_1": -1.8439673112879973e-06,
+      "distractor": 2.060409208634164e-05
+    },
+    {
+      "step": 15000,
+      "method": "mean_risk_switching",
+      "clean_mse": 7.084953230109487e-05,
+      "coefficient_0": 1.068085789680481,
+      "coefficient_1": -2.8888520319014788e-05,
+      "distractor": 2.377554331977271e-05
+    },
+    {
+      "step": 15000,
+      "method": "null",
+      "clean_mse": 0.01,
+      "coefficient_0": 0.0,
+      "coefficient_1": 0.0,
+      "distractor": 0.0
+    },
+    {
+      "step": 30000,
+      "method": "likelihood_static",
+      "clean_mse": 3.7100851685261454e-05,
+      "coefficient_0": 1.060829758644104,
+      "coefficient_1": -1.0184518259848119e-06,
+      "distractor": 1.54953506549339e-07
+    },
+    {
+      "step": 30000,
+      "method": "likelihood_switching",
+      "clean_mse": 2.47901884634826e-06,
+      "coefficient_0": 1.0143322944641113,
+      "coefficient_1": 4.148187599639641e-06,
+      "distractor": 4.3506465603407156e-07
+    },
+    {
+      "step": 30000,
+      "method": "mean_risk_static",
+      "clean_mse": 3.6599970078431056e-05,
+      "coefficient_0": 1.0604078769683838,
+      "coefficient_1": -9.83700601864257e-07,
+      "distractor": 1.5846686008362175e-07
+    },
+    {
+      "step": 30000,
+      "method": "mean_risk_switching",
+      "clean_mse": 2.2347583994829754e-06,
+      "coefficient_0": 1.0127657651901245,
+      "coefficient_1": 7.00033524481114e-06,
+      "distractor": 6.088914465013402e-07
+    },
+    {
+      "step": 30000,
+      "method": "null",
+      "clean_mse": 0.01,
+      "coefficient_0": 0.0,
+      "coefficient_1": 0.0,
+      "distractor": 0.0
+    },
+    {
+      "step": 60000,
+      "method": "likelihood_static",
+      "clean_mse": 4.227583286235467e-06,
+      "coefficient_0": 1.0204070806503296,
+      "coefficient_1": -4.819869445782388e-07,
+      "distractor": 9.102493241581934e-08
+    },
+    {
+      "step": 60000,
+      "method": "likelihood_switching",
+      "clean_mse": 4.53141966044674e-05,
+      "coefficient_0": 0.9332862496376038,
+      "coefficient_1": -2.1032044514868176e-06,
+      "distractor": 6.02557585033077e-07
+    },
+    {
+      "step": 60000,
+      "method": "mean_risk_static",
+      "clean_mse": 4.228946998029245e-06,
+      "coefficient_0": 1.020410418510437,
+      "coefficient_1": -4.820316803488822e-07,
+      "distractor": 9.103271186111855e-08
+    },
+    {
+      "step": 60000,
+      "method": "mean_risk_switching",
+      "clean_mse": 5.001351067835612e-05,
+      "coefficient_0": 0.9300617575645447,
+      "coefficient_1": 1.8591924799693516e-07,
+      "distractor": 8.547049535232033e-07
+    },
+    {
+      "step": 60000,
+      "method": "null",
+      "clean_mse": 0.01,
+      "coefficient_0": 0.0,
+      "coefficient_1": 0.0,
+      "distractor": 0.0
+    }
+  ],
+  "prior_diagnosis": {
+    "gaussian_coordinate_prior_variance": 0.000244140625,
+    "spike_slab_coordinate_prior_variance": 0.000244140625,
+    "expected_signal_observations": 600.0,
+    "isolated_gaussian_expected_coefficient": 0.12776831345826234,
+    "actual_zero_diffusion_coefficient": 0.1264938861131668,
+    "spike_slab_static_coefficient": 1.0204118490219116,
+    "interpretation": "same initial marginal variance; different higher-order prior structure, not a covariance-scale tuning claim; isolated Gaussian calculation ignores feature correlations"
+  },
+  "archived_covariance_matched_steps": [
+    {
+      "view": "stationary",
+      "step": 15000,
+      "clean_mse": 0.009535951201912168,
+      "coefficient_0": 0.03858917951583862,
+      "coefficient_1": -0.0022763994056731462
+    },
+    {
+      "view": "stationary",
+      "step": 30000,
+      "clean_mse": 0.009235263021637317,
+      "coefficient_0": 0.07657327502965927,
+      "coefficient_1": -0.0031227017752826214
+    },
+    {
+      "view": "stationary",
+      "step": 60000,
+      "clean_mse": 0.008783570708383173,
+      "coefficient_0": 0.15921014547348022,
+      "coefficient_1": -0.003963817376643419
+    },
+    {
+      "view": "null",
+      "step": 15000,
+      "clean_mse": 0.00038611227537547777,
+      "coefficient_0": 0.0034908358938992023,
+      "coefficient_1": -0.0030302442610263824
+    },
+    {
+      "view": "null",
+      "step": 30000,
+      "clean_mse": 0.0007957555760032504,
+      "coefficient_0": 0.004620243329554796,
+      "coefficient_1": -0.0037353564985096455
+    },
+    {
+      "view": "null",
+      "step": 60000,
+      "clean_mse": 0.001792362943079572,
+      "coefficient_0": 0.0028793637175112963,
+      "coefficient_1": -0.003980850335210562
+    },
+    {
+      "view": "change",
+      "step": 15000,
+      "clean_mse": 0.009535951201912168,
+      "coefficient_0": 0.03858917951583862,
+      "coefficient_1": -0.0022763994056731462
+    },
+    {
+      "view": "change",
+      "step": 30000,
+      "clean_mse": 0.010813243362375168,
+      "coefficient_0": 0.07657327502965927,
+      "coefficient_1": -0.0031227017752826214
+    },
+    {
+      "view": "change",
+      "step": 60000,
+      "clean_mse": 0.010108833872641932,
+      "coefficient_0": 0.06782699376344681,
+      "coefficient_1": 0.08574739843606949
+    }
+  ],
+  "inference": "Both likelihood and mean-risk recover signal; mean-risk switching does not beat likelihood switching at final checkpoint. Prior structure, not scoring replacement, is supported here. One seed and synthetic sparse task only.",
+  "v3_followthrough": {
+    "implementation": "positive retained inverse-Gamma scale prior; exact prefix/stream/LR provenance validation",
+    "host_checks_passed": 31,
+    "jobs": {
+      "paired_numerical_reproduction": 5440,
+      "cuda_contracts": 5442,
+      "stationary_full": 5443
+    },
+    "admission": {
+      "max_parallel_runs": 1,
+      "max_attempts": 1,
+      "time_limits_minutes": [
+        3,
+        5,
+        8
+      ]
+    },
+    "verification": "Paired compiled regression succeeded: v2 nonfinite, v3 finite after200zero updates at rate.5. Eight CUDA contract tests passed; all three full60000observation v3 experiments completed."
+  },
+  "v3_results": {
+    "stationary": "runs/SparseStream__mean_risk_conjugate_v3_stationary__1__1788851282160870522/results.json",
+    "null": "runs/SparseStream__mean_risk_conjugate_v3_null__1__1788851362297260405/results.json",
+    "change": "runs/SparseStream__mean_risk_conjugate_v3_change__1__1788851340160054300/results.json"
+  },
+  "v3_full_stream_comparisons": [
+    {
+      "view": "stationary",
+      "old_covariance_full_noisy_error_ratio": 0.999327363396835,
+      "methods": {
+        "likelihood_static": {
+          "full_noisy_error_ratio": 0.9903712939725615,
+          "full_online_clean_mse": 0.00029874298709911003,
+          "final_exact_clean_mse": 4.0915401096837e-06
+        },
+        "likelihood_switching": {
+          "full_noisy_error_ratio": 0.9905438193895888,
+          "full_online_clean_mse": 0.0004038569449948181,
+          "final_exact_clean_mse": 4.5358435606324945e-05
+        },
+        "mean_risk_static": {
+          "full_noisy_error_ratio": 0.9904281685664712,
+          "full_online_clean_mse": 0.0003298260694347575,
+          "final_exact_clean_mse": 4.092832693150724e-06
+        },
+        "mean_risk_switching": {
+          "full_noisy_error_ratio": 0.9906122760168055,
+          "full_online_clean_mse": 0.0004375308894354349,
+          "final_exact_clean_mse": 5.0030948388981796e-05
+        },
+        "adam_1e-05": {
+          "full_noisy_error_ratio": 0.9996765074754945,
+          "full_online_clean_mse": 0.009488215109255876,
+          "final_exact_clean_mse": 0.009369905347418047
+        }
+      }
+    },
+    {
+      "view": "null",
+      "old_covariance_full_noisy_error_ratio": 1.000804075793778,
+      "methods": {
+        "likelihood_static": {
+          "full_noisy_error_ratio": 1.000008666993745,
+          "full_online_clean_mse": 5.96851847719329e-07,
+          "final_exact_clean_mse": 1.2184294667447708e-08
+        },
+        "likelihood_switching": {
+          "full_noisy_error_ratio": 1.000043165657958,
+          "full_online_clean_mse": 7.5045976053861655e-06,
+          "final_exact_clean_mse": 3.1740726725590646e-07
+        },
+        "mean_risk_static": {
+          "full_noisy_error_ratio": 1.0000151248081537,
+          "full_online_clean_mse": 1.274437037745026e-06,
+          "final_exact_clean_mse": 1.075942342060644e-08
+        },
+        "mean_risk_switching": {
+          "full_noisy_error_ratio": 1.0000646260896882,
+          "full_online_clean_mse": 1.061430928838014e-05,
+          "final_exact_clean_mse": 5.837289080898283e-07
+        },
+        "adam_1e-05": {
+          "full_noisy_error_ratio": 1.0000681432954812,
+          "full_online_clean_mse": 0.00011210833648311777,
+          "final_exact_clean_mse": 0.00023082925107844834
+        }
+      }
+    },
+    {
+      "view": "change",
+      "old_covariance_full_noisy_error_ratio": 1.0000593205369968,
+      "methods": {
+        "likelihood_static": {
+          "full_noisy_error_ratio": 0.9913319118141898,
+          "full_online_clean_mse": 0.0013823369464079564,
+          "final_exact_clean_mse": 1.3916646549185656e-06
+        },
+        "likelihood_switching": {
+          "full_noisy_error_ratio": 0.9914041792736836,
+          "full_online_clean_mse": 0.0014742058761517526,
+          "final_exact_clean_mse": 3.999794133637286e-06
+        },
+        "mean_risk_static": {
+          "full_noisy_error_ratio": 0.9914027036157883,
+          "full_online_clean_mse": 0.0014167999179559843,
+          "final_exact_clean_mse": 1.3916646549185656e-06
+        },
+        "mean_risk_switching": {
+          "full_noisy_error_ratio": 0.9914944311989395,
+          "full_online_clean_mse": 0.0015351927212860449,
+          "final_exact_clean_mse": 4.572806515662969e-06
+        },
+        "adam_1e-05": {
+          "full_noisy_error_ratio": 0.9998791671710674,
+          "full_online_clean_mse": 0.009581312813057505,
+          "final_exact_clean_mse": 0.00977857225193128
+        }
+      }
+    }
+  ],
+  "v3_change_recovery": [
+    {
+      "method": "likelihood_static",
+      "first_sustained_gate_checkpoint": 57344,
+      "observations_after_change": 27344,
+      "final_old_coordinate": -7.2208617893920746e-06,
+      "curve": [
+        [
+          32768,
+          0.00997568113191842
+        ],
+        [
+          36864,
+          0.0003600116553704679
+        ],
+        [
+          40960,
+          0.007466345972264767
+        ],
+        [
+          45056,
+          0.0001226086270315798
+        ]
+      ]
+    },
+    {
+      "method": "likelihood_switching",
+      "first_sustained_gate_checkpoint": 57344,
+      "observations_after_change": 27344,
+      "final_old_coordinate": 0.0017705375794321299,
+      "curve": [
+        [
+          32768,
+          0.009989143678732208
+        ],
+        [
+          36864,
+          0.0015842884075194733
+        ],
+        [
+          40960,
+          0.008029901005350493
+        ],
+        [
+          45056,
+          0.0002619587251925113
+        ]
+      ]
+    },
+    {
+      "method": "mean_risk_static",
+      "first_sustained_gate_checkpoint": 57344,
+      "observations_after_change": 27344,
+      "final_old_coordinate": -7.2208617893920746e-06,
+      "curve": [
+        [
+          32768,
+          0.009975681045773946
+        ],
+        [
+          36864,
+          0.0003600116553702804
+        ],
+        [
+          40960,
+          0.007466345972264767
+        ],
+        [
+          45056,
+          0.0001226086270315798
+        ]
+      ]
+    },
+    {
+      "method": "mean_risk_switching",
+      "first_sustained_gate_checkpoint": 57344,
+      "observations_after_change": 27344,
+      "final_old_coordinate": 0.0018508705543354154,
+      "curve": [
+        [
+          32768,
+          0.009964832705105595
+        ],
+        [
+          36864,
+          0.003036625986198689
+        ],
+        [
+          40960,
+          0.008137384224535015
+        ],
+        [
+          45056,
+          0.0002728824038801357
+        ]
+      ]
+    }
+  ],
+  "conclusion": {
+    "supported": "Structured rare-large-coefficient prior solves the sparse signal/noise tradeoff that a narrow dense Gaussian prior did not. Same initial coordinate variance does not imply same inference behavior.",
+    "rejected": "Mean-risk scoring did not improve over predictive-likelihood scoring on any of the three v3 views; no reason to promote it as the main method.",
+    "provisional_best_control": "Static likelihood aggregation across static and changing sparse experts; static describes aggregation, not all expert dynamics. This is a post-experiment direction choice, not a predeclared winning hypothesis.",
+    "remaining_bottleneck": "Verified support-belief fragility: expert conditional mean .91555, inclusion probability .14850, effective coefficient .13594 at40960. At39937/40030, noise values -2.4668/-2.6967 reduce inclusion .7983 -> .3719 -> .07117 while conditional mean moves only1.0157 -> .9828 -> .9477.",
+    "next_hypothesis": "Infer persistent support and regime transitions explicitly; compare survive/remove/new-support hypotheses instead of a fixed per-coordinate reset rule. Retain static likelihood aggregation as a strong control and measure full-stream adaptation regret/relapse as well as endpoints.",
+    "scope": "One seed, linear Bernoulli synthetic proxy, no proof of neural or financial transfer, no global-optimum claim."
+  },
+  "cleanup": {
+    "temporary_scale_repro_script": "removed after successful queued reproduction; durable log job5440",
+    "frozen_versions": "executed v2 preserved; corrected v3 versioned separately",
+    "automatic_pruning": "Enabled in the four v2/v3 learning experiments, all of which completed; numerical tests and the bitwise-checked known-trajectory replay were separately time-limited verification jobs.",
+    "temporary_support_trace_script": "removed after successful queued full replay; durable log job5470 and JSON trace retained"
+  },
+  "support_attribution": {
+    "job": 5470,
+    "artifact": "benchmarks/plasticity/mean_risk_support_trace.json",
+    "full_observations": 60000,
+    "final_state_bitwise_identical": true,
+    "at_step_40960": {
+      "step": 40960,
+      "signal_observed": false,
+      "target": -0.41624757647514343,
+      "noise": -0.41624757647514343,
+      "inclusion_probability": 0.14849813282489777,
+      "conditional_slab_mean": 0.9155508279800415,
+      "conditional_slab_variance": 0.012602915056049824,
+      "effective_weight": 0.13594399392604828,
+      "residual_scale": 1.0091984272003174
+    },
+    "two_negative_noise_observations": [
+      {
+        "step": 39922,
+        "signal_observed": true,
+        "target": 1.5617103576660156,
+        "noise": 0.5617104172706604,
+        "inclusion_probability": 0.7983273863792419,
+        "conditional_slab_mean": 1.0156817436218262,
+        "conditional_slab_variance": 0.013976449146866798,
+        "effective_weight": 0.8107654452323914,
+        "residual_scale": 1.0452804565429688
+      },
+      {
+        "step": 39937,
+        "signal_observed": true,
+        "target": -1.466783046722412,
+        "noise": -2.466783046722412,
+        "inclusion_probability": 0.37190136313438416,
+        "conditional_slab_mean": 0.9828260540962219,
+        "conditional_slab_variance": 0.013791597448289394,
+        "effective_weight": 0.3654778003692627,
+        "residual_scale": 1.044284701347351
+      },
+      {
+        "step": 40030,
+        "signal_observed": true,
+        "target": -1.6967442035675049,
+        "noise": -2.696744203567505,
+        "inclusion_probability": 0.07117190957069397,
+        "conditional_slab_mean": 0.9477435350418091,
+        "conditional_slab_variance": 0.013611013069748878,
+        "effective_weight": 0.06744597107172012,
+        "residual_scale": 1.0417072772979736
+      }
+    ],
+    "finding": "The conditional coefficient remains near the correct value; inclusion probability collapses. The mixture has not switched to a worse expert. This identifies support-belief fragility rather than a coefficient-optimization failure.",
+    "interpretation_limit": "This trace does not prove that moment matching alone causes the relapse; the fixed support-transition prior and uncertain change inference are the next hypotheses."
+  }
+}

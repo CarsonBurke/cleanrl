@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="4.863" timestamp="2026-09-09T15:02:01.222078" hostname="cachyos-x8664-desktop"><testcase classname="tests.test_optimizer_proxy_v7" name="test_full_reuse_high_update_grid_capture_preserves_transition_and_replay" time="4.700"><failure message="AssertionError: transition tensor 0: max normalized error 1.12659669 exceeds 1">@torch.no_grad()
+    def test_full_reuse_high_update_grid_capture_preserves_transition_and_replay():
+        runtime.configure_runtime()
+        torch.set_float32_matmul_precision("highest")
+        torch.backends.cuda.matmul.allow_tf32 = False
+        args = Args()
+        plan = json.loads(Path(args.plan).read_text())
+        scenario = next(s for s in plan["suite"] if s["name"] == "drifting_reuse")
+        initial = reference.init_weights(args, generator(1, 1), "cuda")
+        teacher_gen = generator(1, 2)
+        teachers = [reference.draw_teacher(args, teacher_gen, "cuda") for _ in range(9)]
+        train_gen = generator(1, 3)
+        count, batch = scenario["samples"], scenario["batch_size"]
+        xs = torch.randn(count, args.input_dim, generator=train_gen, device="cuda")
+        noise = torch.randn(count, generator=train_gen, device="cuda")
+        policy_noise = torch.randn(count, generator=train_gen, device="cuda")
+        xs, targets = training_task(teachers, xs, batch, True)
+        learner = RoundLearner(initial, plan["configurations"], scenario, "round_full")
+        learner.x.copy_(xs[:batch])
+        learner.target.copy_(targets[:batch] + noise[:batch])
+        learner.action_noise.copy_(policy_noise[:batch])
+        learner.reward_noise.copy_(noise[:batch])
+        before = [x.clone() for x in learner.mutable]
+        # Internally checks every local transition against eager at exactly that
+        # state, finite masks, and exact repeated graph replay. Failed in v6.
+&gt;       graph = learner.capture()
+
+tests/test_optimizer_proxy_v7.py:41: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+cleanrl/plasticity/optimizer_proxy_eval_v7.py:210: in capture
+    self.audit_transition(epoch_before, self.mutable, eager)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+before_state = [tensor([[[-4.4878e-01,  1.2992e-01, -1.2295e-01,  ..., -1.6992e-01,
+          -2.0969e-01,  1.4969e-04],
+         [-1...-8.9052e-02,  1.2518e-01,  7.3828e-02,  ..., -1.1412e-01,
+          -6.5652e+00, -1.2230e-01]]], device='cuda:0'), ...]
+actual_state = [tensor([[[-0.4489,  0.1298, -0.1228,  ..., -0.1698, -0.2098,  0.0000],
+         [-0.1489, -0.0782,  0.0872,  ...,  0....116,  0.0000]],
+
+        [[-0.1557, -0.0927, -0.0249,  ..., -0.2045, -0.0116,  0.0000]]],
+       device='cuda:0'), ...]
+expected_state = [tensor([[[-4.4875e-01,  1.2995e-01, -1.2298e-01,  ..., -1.6995e-01,
+          -2.0966e-01,  1.7954e-04],
+         [-1...-1.0800e-01, -2.3043e-01, -6.2543e-02,  ...,  3.8646e-02,
+           1.9391e+01, -6.9139e-02]]], device='cuda:0'), ...]
+
+    @staticmethod
+    def audit_transition(before_state, actual_state, expected_state):
+        """Audit same-state local updates, accounting only for FP32 input rounding."""
+        for index, (before, actual, expected) in enumerate(zip(before_state, actual_state, expected_state, strict=True)):
+            context = f"transition tensor {index}"
+            assert actual.shape == expected.shape == before.shape, f"{context}: shape mismatch"
+            assert actual.dtype == expected.dtype == before.dtype, f"{context}: dtype mismatch"
+            finite = torch.isfinite(expected)
+            torch.testing.assert_close(torch.isfinite(actual), finite, rtol=0, atol=0,
+                                       msg=f"{context}: finite-mask mismatch")
+            if not actual.is_floating_point():
+                torch.testing.assert_close(actual, expected, rtol=0, atol=0, msg=context)
+                continue
+            # Preserve strict NaN/Inf equality, including infinity signs. These
+            # candidates still retain the ordinary learner validity mask.
+            torch.testing.assert_close(actual[~finite], expected[~finite], rtol=0, atol=0,
+                                       equal_nan=True, msg=f"{context}: nonfinite-state mismatch")
+            finite_before = torch.isfinite(before)
+            # A nonfinite input has no defined local delta; any finite result
+            # must therefore agree exactly rather than receive an infinite bound.
+            recovered = finite &amp; ~finite_before
+            torch.testing.assert_close(actual[recovered], expected[recovered], rtol=0, atol=0,
+                                       msg=f"{context}: finite recovery mismatch")
+            compared = finite &amp; finite_before
+            actual_update = actual[compared] - before[compared]
+            expected_update = expected[compared] - before[compared]
+            error = (actual_update - expected_update).abs()
+            allowance = (3e-5 + 3e-3 * expected_update.abs()
+                         + 4 * torch.finfo(before.dtype).eps * before[compared].abs())
+            if not bool((error &lt;= allowance).all()):
+                maximum = float((error / allowance).max())
+&gt;               raise AssertionError(f"{context}: max normalized error {maximum:.9g} exceeds 1")
+E               AssertionError: transition tensor 0: max normalized error 1.12659669 exceeds 1
+
+cleanrl/plasticity/optimizer_proxy_eval_v7.py:178: AssertionError</failure></testcase></testsuite></testsuites>

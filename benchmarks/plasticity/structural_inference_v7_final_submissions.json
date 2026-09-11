@@ -1,0 +1,237 @@
+{
+  "contracts": 6183,
+  "superseded_contract": 6174,
+  "superseded_dependent_jobs": [
+    6177,
+    6178,
+    6179,
+    6180,
+    6181,
+    6182
+  ],
+  "reason": "6174 cancelled before start. Before any v7 learning, factor the common Student-t normalizer outside support reduction and cancel df*scale² algebraically. Priors, model family, grid and data protocol unchanged. New numerical contracts cover the final implementation; no measured speedup claim.",
+  "jobs": [
+    {
+      "id": 6184,
+      "name": "structure-v7-development-stationary-final",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6183]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "development",
+        "--view",
+        "stationary",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "attemptCount": 0,
+      "createdAt": 1789101096993,
+      "updatedAt": 1789101096993,
+      "dependencies": [
+        {
+          "parent": 6183,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6185,
+      "name": "structure-v7-development-change-final",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6183]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "development",
+        "--view",
+        "change",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "attemptCount": 0,
+      "createdAt": 1789101097009,
+      "updatedAt": 1789101097009,
+      "dependencies": [
+        {
+          "parent": 6183,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6186,
+      "name": "structure-v7-development-null-final",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6183]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "development",
+        "--view",
+        "null",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "attemptCount": 0,
+      "createdAt": 1789101097027,
+      "updatedAt": 1789101097027,
+      "dependencies": [
+        {
+          "parent": 6183,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6187,
+      "name": "structure-v7-development-recurrent-final",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6183]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "development",
+        "--view",
+        "recurrent",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "attemptCount": 0,
+      "createdAt": 1789101097041,
+      "updatedAt": 1789101097041,
+      "dependencies": [
+        {
+          "parent": 6183,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6188,
+      "name": "structure-v7-development-two_support-final",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6183]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "development",
+        "--view",
+        "two_support",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "attemptCount": 0,
+      "createdAt": 1789101097055,
+      "updatedAt": 1789101097055,
+      "dependencies": [
+        {
+          "parent": 6183,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6189,
+      "name": "return-hierarchy-v7-development-final",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6183]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.panel_return_hierarchy_eval_v7",
+        "--output-dir",
+        "runs/panel_return_hierarchy_v7_development",
+        "--cache",
+        "/tmp/panel_cache.npz"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 14400000,
+      "attemptCount": 0,
+      "createdAt": 1789101097070,
+      "updatedAt": 1789101097070,
+      "dependencies": [
+        {
+          "parent": 6183,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    }
+  ]
+}

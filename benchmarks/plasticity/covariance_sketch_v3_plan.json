@@ -1,0 +1,40 @@
+{
+  "objective": "Improve state-conditioned incoming-weight learning through joint posterior geometry; no architecture, feature, target, or loss-head change.",
+  "family_source": "Original cleanrl/plasticity/FAMILY.md in HEAD; current measurements in notes/per_unit.md and notes/cross_neuron.md.",
+  "hypothesis": "Compressing precision and folding discarded correlation energy into its diagonal can assert certainty in unsupported directions. Compress covariance downdates instead: P = diag(D) - U U^T, retaining largest prior-whitened modes and restoring uncertainty in discarded directions. This may preserve acquisition and adaptation without destroying coordinated credit assignment.",
+  "derivation": {
+    "prior": "D <- D + Q; P = diag(D) - U U^T",
+    "observation": "j = exact network output Jacobian; v = P j; s = R + j^T v; theta <- theta - v residual / s; U <- [U, v / sqrt(s)]",
+    "compression": "V are top-r eigenvectors of U^T diag(D)^-1 U; U_new = U V. P_new - P_old = U(I - VV^T)U^T is PSD in exact arithmetic.",
+    "meaning": "Current state enters every update through j(x). Joint covariance can give a unit credit even where its local Jacobian vanishes. This is network-coordinated plasticity, not an autonomous scalar gate.",
+    "risk": "Restoring uncertainty can overfit noise or repeatedly relearn discarded directions. PSD preservation does not prove good learning, nonlinear posterior calibration, or global optimality. FP32 must be checked; do not clip away negative variances."
+  },
+  "primary": "sketch_r64",
+  "arms": ["adam", "unit", "network", "diagonal", "sketch_r16", "sketch_r64", "sketch_r256", "sketch_scalar_r64"],
+  "controls": {
+    "network": "Full covariance EKF, same initialization/prior/process/noise rule; approximation reference, not ground-truth Bayesian posterior for nonlinear weights.",
+    "unit": "Neuron-block covariance, same initialization and noise/process setting.",
+    "diagonal": "Exact diagonal projection after each covariance observation update.",
+    "sketch_scalar_r64": "Keeps sketch posterior conditioning but replaces mean-update direction by j times (j^T Pj)/(j^T j). Same instantaneous output leverage; erases directional preconditioning. Independent subsequent trajectories.",
+    "capacity": "All learners use identical 17-64-64-1 tanh network, 5377 parameters. Posterior state and compute explicitly differ."
+  },
+  "experiments": [
+    {"name":"stationary", "samples":65536,"seed":1,"noise":1.0,"hetero":0.0,"switch_at":0.0},
+    {"name":"heteroscedastic_switch", "samples":65536,"seed":1,"noise":1.0,"hetero":1.0,"switch_at":0.5}
+  ],
+  "selection": {
+    "adam_lrs":[0.00001,0.00003,0.0001,0.0003,0.001,0.003,0.01],
+    "prior_scales":[0.001,0.01,0.1,1.0,10.0],
+    "criterion":"Independently minimize duration-weighted sustained clean-validation error for each arm. Save selection before evaluating stored checkpoints on untouched test examples. Report edge winners, all validation candidates, sustained/endpoint/phase test errors. No clean target affects updates.",
+    "success":"Primary must improve sustained clean test error against full covariance to establish a stronger learner, not merely beat Adam or run faster. Beating scalar control is required to credit joint geometry. Rank arms measure approximation curve, not post-hoc primary replacement."
+  },
+  "execution": {
+    "queue":"mlq", "max_parallel_runs":1,"max_attempts":1,"priority":0,
+    "contracts_time_limit":"20m","experiment_time_limit":"45m",
+    "diffusion":0.00001,"noise_rate":0.001,"buffer":64,
+    "precision":"CUDA float32 posterior with TF32 disabled, matching full-reference arithmetic policy. Compiled updates and CUDA graph recurrence, no eager/CPU fallback. Report compression execution mode and actual timings.",
+    "autocull":"No performance cull within these fixed 65536-observation diagnostic streams: the midpoint switch and final recovery are required endpoints. Stop on invalid numerical state; no automatic retries. Root TensorBoard logging required."
+  },
+  "verification":"Independent small dense Gaussian updates before compression; whitened mode choice; PSD covariance restoration; scalar leverage equality/directional difference; current-label causality and clean-target isolation; complete CUDA capture state restoration; correct sample and phase clocks; sustained-validation selection before test.",
+  "limits":"One paired task seed; no independent-seed or PPO claim. Existing precision-sketch results use a different selection protocol and are not directly ranked against this experiment. No global-maximum guarantee."
+}

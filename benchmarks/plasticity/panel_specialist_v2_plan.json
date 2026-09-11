@@ -1,0 +1,54 @@
+{
+  "objective":"Optimizer/model superiority through learned state-dependent credit assignment, not changed inputs or score normalization.",
+  "previous_experiment":"benchmarks/plasticity/panel_distributional_v1_plan.json",
+  "motivation":"Primary categoricalCE failed against scalarJS:0.764573 vs0.748147. Predeclared categoricalCEJS reached0.740715 on the same6.03Mstock-bar observations, a modest0.993%relativeMSE gain. Strongest current learned baseline is therefore retained, not replaced by weaker Adam alone.",
+  "hypothesis":"One globally shared dense representation mixes gradients from distinct states. Four small jointly trained specialists with learned input-dependent responsibilities can reduce interference. Routing is optimized by prediction error, not a hand-crafted variance/novelty gate.",
+  "model":{
+    "experts":"Four independent tanh257-64-64-1 experts;256 total first-layer units. Same four expert initializations across all specialist arms/LRs; seed1 with distinct deterministic expert seeds.",
+    "router":"Softmax of a learned linear257->4 map, initiallyzero/uniform. No entropy regularizer, load-balancing loss, routing labels, top-k selection, forgetting, resets, or imposed clipping.",
+    "prediction":"m(x)=sum_e a_e(x) f_e(x)",
+    "credit":"For masked mean squared loss, dL/df_e=2(m-y)a_e/n; dL/drouterlogit_e=2(m-y)a_e(f_e-m)/n. The latter trains current-state allocation from relative expert predictions. All forecasts precede label updates.",
+    "optimizer":"Vanilla Adam or exactly the existing prior-history postAdam positivepart cumulativeS1/S2 evidence gate, kappa1. No added optimizer rate.",
+    "budget":"Specialists use fewer effective parameters than the132097-parameter dense scalar network; report exact counts, not padded allocation as capacity. Shared batched runtime cannot establish standalone speed superiority."
+  },
+  "arms":[
+    "scalar_adam",
+    "scalar_js",
+    "categorical_ce_js",
+    "uniform_moe_js",
+    "constant_moe_js",
+    "state_moe_adam",
+    "state_moe_js"
+  ],
+  "controls":{
+    "dense":"Delegate frozen v1 learner without changing initialization or update rules.",
+    "uniform":"Identical experts with equal fixed routing.",
+    "constant":"Identical experts with learned router biases but zero fixed input-router weights. Distinguishes state dependence from selecting a globally better expert mixture.",
+    "state_adam":"Same state-routed architecture without the cumulative evidence gate. Distinguishes architecture from evidence-gating complementarity."
+  },
+  "data":{
+    "cohort":"Next200eligible stocks by frozen panel universe rank, rank_offset200, new cache/tmp/panel_distributional_rank200.npz; verify actual stock-symbol disjointness against original/tmp/panel_cache.npz, not rank alone. SPY market features are shared by design.",
+    "within_run":"Everyarm has identical frozenBank features,targets,masks,ordering,mu and seed1; all257inputfeatures unchanged. No added available bar or target transformation.",
+    "between_runs":"New-cohort scores are not directly comparable to first-cohort v1 scores. Confirm superiority ONLY through matched within-cohort controls.",
+    "normalization":"FrozenBank mean uses first60% labels; shared assumption explicitly retained. No test-suffix normalization fitting."
+  },
+  "selection":{
+    "lrs":[0.00003,0.0001,0.0003,0.001,0.003,0.01],
+    "prefix":"Same full prequential stream, independent seven-family LR locks from [floor(.4T),floor(.6T)); first/minimum LR tie-break. Lock before barfloor(.6T). No model resets.",
+    "primary":"state_moe_js, fixed before seeing new-cohort results.",
+    "forward":"All consumed last40% bars; full file requested, automatic pruning only. Endpoint winners flagged; no suffixLR/family reselection.",
+    "permuted":"If informative, fresh learners on frozenBank target+valid time permutation; inherit allreal locks and source/data hashes. Not an independent-sign conditional-mean null."
+  },
+  "acceptance":{
+    "superiority":"Primary must materially beat scalarJS and categoricalCEJS, not merely scalarAdam.",
+    "mechanism":"Primary must beat both uniformMoEJS and learnedconstantMoEJS to support state-conditioned specialization. Compare stateMoEAdam to attribute evidence-gate contribution.",
+    "evidence":"All42candidates retained, paired valid-sample SSE/MSE,8chronologicalblocks including censoredpartialblocks explicitly, counts, selectedLRs, parameterbudgets, rawartifacts and clocks. No claim of global optimality or PPO improvement.",
+    "failure":"Reject state-routing claim if learnedconstant control matches/wins. Do not rebrand a winning secondary as preregistered primary success."
+  },
+  "execution":{
+    "queue":"mlq","max_parallel_runs":1,"max_attempts":1,"priority":0,
+    "contracts_time_limit":"15m","experiment_time_limit":"45m",
+    "precision":"CUDAFP32 model/optimizer,TF32disabled,FP64maskedmetrics, compiled batchedmanualgradients with CUDAgraphs1/8/16 and fullstate capture verification.",
+    "pruning":"Suffixonly selectedstate_moe_js relativeMSE min_delta.001,16384barwarmup,8192half-life,median3,patience3; rawfailures distinguished from intentionalexit75. No unpruned continuation of pruned streams."
+  }
+}

@@ -1,0 +1,162 @@
+[
+  {
+    "id": 6133,
+    "name": "segment-v5-dev-change",
+    "state": "queued",
+    "eligibility": "backfill_window_open: job 6131",
+    "maxParallelRuns": 1,
+    "priority": 0,
+    "cwd": "/home/marvin/Documents/repositories/cleanrl",
+    "args": [
+      ".venv/bin/python",
+      "-m",
+      "cleanrl.plasticity.predictive_segment_eval_v5",
+      "--phase",
+      "development",
+      "--view",
+      "change",
+      "--lock",
+      "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+      "--output",
+      "runs"
+    ],
+    "maxAttempts": 1,
+    "retryDelayMs": 0,
+    "timeLimitMs": 1800000,
+    "readySequence": 5845,
+    "attemptCount": 0,
+    "createdAt": 1789092370438,
+    "updatedAt": 1789092370438,
+    "dependencies": [
+      {
+        "parent": 6129,
+        "condition": "succeeded",
+        "parentState": "succeeded",
+        "resolution": "satisfied",
+        "parentOutcome": "succeeded",
+        "resolvedAt": 1789092370438
+      }
+    ],
+    "attempts": []
+  },
+  {
+    "id": 6134,
+    "name": "segment-v5-dev-null",
+    "state": "queued",
+    "eligibility": "backfill_window_open: job 6131",
+    "maxParallelRuns": 1,
+    "priority": 0,
+    "cwd": "/home/marvin/Documents/repositories/cleanrl",
+    "args": [
+      ".venv/bin/python",
+      "-m",
+      "cleanrl.plasticity.predictive_segment_eval_v5",
+      "--phase",
+      "development",
+      "--view",
+      "null",
+      "--lock",
+      "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+      "--output",
+      "runs"
+    ],
+    "maxAttempts": 1,
+    "retryDelayMs": 0,
+    "timeLimitMs": 1800000,
+    "readySequence": 5846,
+    "attemptCount": 0,
+    "createdAt": 1789092370453,
+    "updatedAt": 1789092370453,
+    "dependencies": [
+      {
+        "parent": 6129,
+        "condition": "succeeded",
+        "parentState": "succeeded",
+        "resolution": "satisfied",
+        "parentOutcome": "succeeded",
+        "resolvedAt": 1789092370453
+      }
+    ],
+    "attempts": []
+  },
+  {
+    "id": 6135,
+    "name": "segment-v5-dev-recurrent",
+    "state": "queued",
+    "eligibility": "backfill_window_open: job 6131",
+    "maxParallelRuns": 1,
+    "priority": 0,
+    "cwd": "/home/marvin/Documents/repositories/cleanrl",
+    "args": [
+      ".venv/bin/python",
+      "-m",
+      "cleanrl.plasticity.predictive_segment_eval_v5",
+      "--phase",
+      "development",
+      "--view",
+      "recurrent",
+      "--lock",
+      "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+      "--output",
+      "runs"
+    ],
+    "maxAttempts": 1,
+    "retryDelayMs": 0,
+    "timeLimitMs": 1800000,
+    "readySequence": 5847,
+    "attemptCount": 0,
+    "createdAt": 1789092370466,
+    "updatedAt": 1789092370466,
+    "dependencies": [
+      {
+        "parent": 6129,
+        "condition": "succeeded",
+        "parentState": "succeeded",
+        "resolution": "satisfied",
+        "parentOutcome": "succeeded",
+        "resolvedAt": 1789092370466
+      }
+    ],
+    "attempts": []
+  },
+  {
+    "id": 6136,
+    "name": "segment-v5-dev-two_support",
+    "state": "queued",
+    "eligibility": "backfill_window_open: job 6131",
+    "maxParallelRuns": 1,
+    "priority": 0,
+    "cwd": "/home/marvin/Documents/repositories/cleanrl",
+    "args": [
+      ".venv/bin/python",
+      "-m",
+      "cleanrl.plasticity.predictive_segment_eval_v5",
+      "--phase",
+      "development",
+      "--view",
+      "two_support",
+      "--lock",
+      "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+      "--output",
+      "runs"
+    ],
+    "maxAttempts": 1,
+    "retryDelayMs": 0,
+    "timeLimitMs": 1800000,
+    "readySequence": 5848,
+    "attemptCount": 0,
+    "createdAt": 1789092370480,
+    "updatedAt": 1789092370480,
+    "dependencies": [
+      {
+        "parent": 6129,
+        "condition": "succeeded",
+        "parentState": "succeeded",
+        "resolution": "satisfied",
+        "parentOutcome": "succeeded",
+        "resolvedAt": 1789092370480
+      }
+    ],
+    "attempts": []
+  }
+]

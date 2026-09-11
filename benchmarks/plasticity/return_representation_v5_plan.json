@@ -1,0 +1,31 @@
+{
+  "goal": "Direct return prediction, not substituting volatility accuracy for return forecasting.",
+  "hypothesis": "Shared training on a more predictable auxiliary volatility quantity can improve features for a weak signed conditional mean. This is a falsifiable representation hypothesis, not evidence that brains or auxiliary objectives are optimal.",
+  "competing_explanation": "Conditional return signs may be nearly unpredictable even when magnitudes are predictable; auxiliary learning may add irrelevant gradients or fit common volatility only.",
+  "target": "Uncentered, unclipped next-retained-bar log return divided by causal trailing RMS through forecast bar. Score both normalized MSE and raw log-return MSE after multiplying prediction by the same known scale. Zero forecast maps exactly to raw zero.",
+  "data": "Same survivor-selected rank0 development and rank400 confirmation panel, coverage filtering and eight original channels. Forecast after bar t; target t+1; features old/latest/memory from predictive-memory-v4.",
+  "families": ["old_adam", "latest_adam", "memory_adam", "memory_aux", "memory_aux_permuted"],
+  "primary": "memory_aux",
+  "architecture": {"width": 128, "hidden_layers": 2, "activation": "tanh", "return_head": "scalar linear with zero initial forecast", "auxiliary_head": "33 categorical volatility support points [0,25], expectation-preserving two-hot CE", "memory_extra_features": 24},
+  "selection": {
+    "window": "40–60% chronological development prefix; normalized noisy signed MSE only",
+    "learning_rates": [0.00003,0.0001,0.0003,0.001,0.003,0.01],
+    "baseline_beta2": [0.9,0.99,0.999],
+    "auxiliary_weights": [0.1,1,10],
+    "auxiliary_beta2": 0.999,
+    "beta1": 0.9,
+    "epsilon": 0.00000001,
+    "budget": "18 configurations per family; no clean-label or suffix selection",
+    "confirmation": "Development locks inherited before rank400 training. Historical stream authenticated before scoring [90145,T-1). No fresh choice after confirmation."
+  },
+  "controls": {
+    "ordinary_adam": "Same information, hidden width, initialization and signed objective without auxiliary teaching; separately tuned beta2/LR.",
+    "auxiliary_permutation": "Fixed seed1 stock permutation inside each current labeled cross-section, requiring both source and destination validity. Preserves shared common-state information; not an independent noise null.",
+    "financial_references": ["raw-return zero", "prefix-fitted, suffix-frozen ridge1 affine mean-reversion forecast using own/market/common signed means at1/4/16/32 bars"],
+    "null": "Independent Rademacher signs on current signed labels, volatility unchanged, same real-prefix locks. No future-time labels."
+  },
+  "metrics": ["normalized MSE versus zero", "raw log-return MSE versus zero", "paired chronological error differences versus tuned memory Adam and ridge", "candidate numerical failures", "state/parameter/MAC counts", "measured runtime and storage"],
+  "promotion": "Require at least1% lower raw-return confirmation MSE than both zero and matched memory Adam, also outperform the ridge reference. Report smaller gains numerically without calling them substantial. Auxiliary improvement must not be equally explained by the mispaired auxiliary control.",
+  "resources": {"mlq_required": true, "cuda_required": true, "seed": 1, "max_parallel_runs": 1, "priority": 0, "max_attempts": 1, "culling": "Complete full streams unless numerical failure or declared time limit; preserve durable consumed metrics."},
+  "limitations": ["Auxiliary head adds parameters and compute; no equal-compute claim", "Variance predictability need not imply sign predictability", "Cohorts share market dates", "Historical suffix is new relative to cited run, not globally untouched market", "Survivor and liquidity-ranking selection risk", "Coverage-filtered bars can span gaps/sessions", "No transaction costs/profitability claim", "One seed, no across-seed significance", "No global optimum certification"]
+}

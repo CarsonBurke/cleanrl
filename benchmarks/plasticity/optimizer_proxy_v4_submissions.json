@@ -1,0 +1,68 @@
+[
+  {
+    "scenario": "iid_online",
+    "command": "mlq submit --name optimizer-proxy-v4-iid_online --max-parallel-runs 1 --max-attempts 1 --time-limit 60m --after-success 5852 --cwd /home/marvin/Documents/repositories/cleanrl --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 -- .venv/bin/python -u cleanrl/plasticity/optimizer_proxy_eval_v4.py --scenario iid_online --seed 1",
+    "submission": {
+      "text": "submitted job 5853 [optimizer-proxy-v4-iid_online] maxParallelRuns=1 priority=0\n\n\nWall time: 0.06 seconds",
+      "details": {
+        "timeoutSeconds": 300,
+        "wallTimeMs": 57.61100899986923
+      }
+    }
+  },
+  {
+    "scenario": "drifting_reuse",
+    "command": "mlq submit --name optimizer-proxy-v4-drifting_reuse --max-parallel-runs 1 --max-attempts 1 --time-limit 60m --after-success 5852 --cwd /home/marvin/Documents/repositories/cleanrl --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 -- .venv/bin/python -u cleanrl/plasticity/optimizer_proxy_eval_v4.py --scenario drifting_reuse --seed 1",
+    "submission": {
+      "text": "submitted job 5854 [optimizer-proxy-v4-drifting_reuse] maxParallelRuns=1 priority=0\n\n\nWall time: 0.05 seconds",
+      "details": {
+        "timeoutSeconds": 300,
+        "wallTimeMs": 47.63093899935484
+      }
+    }
+  },
+  {
+    "scenario": "clipped_bandit",
+    "command": "mlq submit --name optimizer-proxy-v4-clipped_bandit --max-parallel-runs 1 --max-attempts 1 --time-limit 60m --after-success 5852 --cwd /home/marvin/Documents/repositories/cleanrl --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 -- .venv/bin/python -u cleanrl/plasticity/optimizer_proxy_eval_v4.py --scenario clipped_bandit --seed 1",
+    "submission": {
+      "text": "submitted job 5855 [optimizer-proxy-v4-clipped_bandit] maxParallelRuns=1 priority=0\n\n\nWall time: 0.04 seconds",
+      "details": {
+        "timeoutSeconds": 300,
+        "wallTimeMs": 35.4727619998157
+      }
+    }
+  },
+  {
+    "scenario": "iid_online",
+    "command": "mlq submit --name optimizer-proxy-v4-iid_online-verified --max-parallel-runs 1 --max-attempts 1 --time-limit 60m --after-success 5856 --cwd /home/marvin/Documents/repositories/cleanrl --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 -- .venv/bin/python -u cleanrl/plasticity/optimizer_proxy_eval_v4.py --scenario iid_online --seed 1",
+    "submission": {
+      "text": "submitted job 5857 [optimizer-proxy-v4-iid_online-verified] maxParallelRuns=1 priority=0\n\n\nWall time: 0.04 seconds",
+      "details": {
+        "timeoutSeconds": 300,
+        "wallTimeMs": 40.18859599996358
+      }
+    }
+  },
+  {
+    "scenario": "drifting_reuse",
+    "command": "mlq submit --name optimizer-proxy-v4-drifting_reuse-verified --max-parallel-runs 1 --max-attempts 1 --time-limit 60m --after-success 5856 --cwd /home/marvin/Documents/repositories/cleanrl --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 -- .venv/bin/python -u cleanrl/plasticity/optimizer_proxy_eval_v4.py --scenario drifting_reuse --seed 1",
+    "submission": {
+      "text": "submitted job 5858 [optimizer-proxy-v4-drifting_reuse-verified] maxParallelRuns=1 priority=0\n\n\nWall time: 0.04 seconds",
+      "details": {
+        "timeoutSeconds": 300,
+        "wallTimeMs": 38.20064800046384
+      }
+    }
+  },
+  {
+    "scenario": "clipped_bandit",
+    "command": "mlq submit --name optimizer-proxy-v4-clipped_bandit-verified --max-parallel-runs 1 --max-attempts 1 --time-limit 60m --after-success 5856 --cwd /home/marvin/Documents/repositories/cleanrl --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 -- .venv/bin/python -u cleanrl/plasticity/optimizer_proxy_eval_v4.py --scenario clipped_bandit --seed 1",
+    "submission": {
+      "text": "submitted job 5859 [optimizer-proxy-v4-clipped_bandit-verified] maxParallelRuns=1 priority=0\n\n\nWall time: 0.03 seconds",
+      "details": {
+        "timeoutSeconds": 300,
+        "wallTimeMs": 33.09537199977785
+      }
+    }
+  }
+]

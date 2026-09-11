@@ -1,0 +1,165 @@
+{
+  "purpose": "execution benchmark, not a reduced learning experiment",
+  "options": {
+    "batch": 1,
+    "iterations": 256,
+    "repeats": 4,
+    "output": "benchmarks/plasticity/proxy_throughput.json"
+  },
+  "config": {
+    "seeds": 1,
+    "lr_grid": [
+      1e-06,
+      3e-06,
+      1e-05,
+      3e-05,
+      0.0001,
+      0.0003,
+      0.001,
+      0.003,
+      0.01,
+      0.03,
+      0.1
+    ],
+    "batch": 1,
+    "ema": 0.999,
+    "methods": [
+      "adam",
+      "oracle",
+      "agree",
+      "agree_shuffle",
+      "huber",
+      "hetvar",
+      "hetvar_r2",
+      "hetvar_t",
+      "hetvar_ta",
+      "hetvar_shuffle"
+    ],
+    "switch_at": 0.5,
+    "huber_k": 1.345,
+    "var_floor": 0.02,
+    "nu": 5.0,
+    "readout_lr": 0.002,
+    "readout_decay": 0.0,
+    "cap": 20.0
+  },
+  "device": "NVIDIA GeForce RTX 5090",
+  "torch": "2.12.0+cu130",
+  "setup_seconds": 2.218843028997071,
+  "runs": [
+    {
+      "mode": "eager",
+      "repetition": 0,
+      "wall_seconds": 1.6919313450343907,
+      "cpu_seconds": 1.6786196519999996,
+      "stream_samples_per_second": 151.30637584753563,
+      "candidate_samples_per_second": 16643.70134322892
+    },
+    {
+      "mode": "compiled",
+      "repetition": 0,
+      "wall_seconds": 0.3110818180721253,
+      "cpu_seconds": 0.310510861,
+      "stream_samples_per_second": 822.9346272518106,
+      "candidate_samples_per_second": 90522.80899769916
+    },
+    {
+      "mode": "graph",
+      "repetition": 0,
+      "wall_seconds": 0.05961196206044406,
+      "cpu_seconds": 0.05950283299999981,
+      "stream_samples_per_second": 4294.440094765319,
+      "candidate_samples_per_second": 472388.41042418516
+    },
+    {
+      "mode": "compiled",
+      "repetition": 1,
+      "wall_seconds": 0.31429799005854875,
+      "cpu_seconds": 0.3136205959999998,
+      "stream_samples_per_second": 814.5136402313971,
+      "candidate_samples_per_second": 89596.50042545368
+    },
+    {
+      "mode": "graph",
+      "repetition": 1,
+      "wall_seconds": 0.05828168091829866,
+      "cpu_seconds": 0.058181837000000236,
+      "stream_samples_per_second": 4392.460820731473,
+      "candidate_samples_per_second": 483170.6902804621
+    },
+    {
+      "mode": "eager",
+      "repetition": 1,
+      "wall_seconds": 1.4987994590774179,
+      "cpu_seconds": 1.4952970429999999,
+      "stream_samples_per_second": 170.8033709576998,
+      "candidate_samples_per_second": 18788.370805346978
+    },
+    {
+      "mode": "graph",
+      "repetition": 2,
+      "wall_seconds": 0.0585365149891004,
+      "cpu_seconds": 0.05845812400000039,
+      "stream_samples_per_second": 4373.338591265087,
+      "candidate_samples_per_second": 481067.2450391596
+    },
+    {
+      "mode": "eager",
+      "repetition": 2,
+      "wall_seconds": 1.498602609965019,
+      "cpu_seconds": 1.495141319,
+      "stream_samples_per_second": 170.82580685347642,
+      "candidate_samples_per_second": 18790.838753882406
+    },
+    {
+      "mode": "compiled",
+      "repetition": 2,
+      "wall_seconds": 0.31056157196871936,
+      "cpu_seconds": 0.3100890510000003,
+      "stream_samples_per_second": 824.3131897393444,
+      "candidate_samples_per_second": 90674.45087132788
+    },
+    {
+      "mode": "eager",
+      "repetition": 3,
+      "wall_seconds": 1.4934843250084668,
+      "cpu_seconds": 1.4897736120000005,
+      "stream_samples_per_second": 171.41123995295277,
+      "candidate_samples_per_second": 18855.236394824802
+    },
+    {
+      "mode": "compiled",
+      "repetition": 3,
+      "wall_seconds": 0.31240820209495723,
+      "cpu_seconds": 0.3118307110000007,
+      "stream_samples_per_second": 819.440713410553,
+      "candidate_samples_per_second": 90138.47847516084
+    },
+    {
+      "mode": "graph",
+      "repetition": 3,
+      "wall_seconds": 0.05872339894995093,
+      "cpu_seconds": 0.05864477699999959,
+      "stream_samples_per_second": 4359.4206837071015,
+      "candidate_samples_per_second": 479536.2752077812
+    }
+  ],
+  "wall_speedup": 25.5620353823593,
+  "compiled_graph_state_parity_max_abs": 0.0,
+  "eager_graph_state_drift_max_abs": 5910.80859375,
+  "eager_graph_state_drift_by_lr": [
+    3.0517578125e-05,
+    1.52587890625e-05,
+    3.0517578125e-05,
+    3.0517578125e-05,
+    0.0038328170776367188,
+    0.000217437744140625,
+    4.57763671875e-05,
+    0.010028839111328125,
+    0.4320821762084961,
+    44.124637603759766,
+    1108.37841796875
+  ],
+  "eager_graph_nonfinite_disagreements": 0,
+  "parity_scope": "compiled versus replay exact, eager versus compiled numerical drift reported"
+}

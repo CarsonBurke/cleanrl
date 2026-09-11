@@ -1,0 +1,45 @@
+{
+  "question": "Do the frozen sparse-stream v3/v4 gains transfer to actual streaming SPY return prediction against Adam?",
+  "primary": "v3_likelihood_static",
+  "secondary": ["v3_likelihood_switching", "v4_likelihood_birth_only", "v4_likelihood_switching"],
+  "algorithm_policy": "Unmodified frozen models and hyperparameters. No suffix-based selection of models, learning rates, feature transforms, reset schedules, or score windows.",
+  "data": {
+    "source": "stock_stream.read_bars and stock_stream.build_stream with default Args(seed=1, steps=0)",
+    "symbol": "SPY",
+    "bar_seconds": 300,
+    "horizon": "Every available observation; expected 468021 for unchanged source file, unless default autocull stops a view.",
+    "input": "224 trailing-scaled features, seven channels by 32 lags; unchanged original preprocessing and clipping.",
+    "target": "Original clipped trailing-centred, trailing-volatility-scaled return, not raw P&L.",
+    "alignment": "For row t, final feature bar is t+31, target return is t+33, target centring/scale use through t+32. Forecast after t+32, before t+33. No feature repair in this transfer experiment.",
+    "views": ["real", "random_sign"],
+    "control": "Independent per-observation Rademacher signs, rng seed1, multiply real targets without changing feature order or target magnitude. Each view starts from independent fresh learner states."
+  },
+  "comparators": {
+    "linear_adam": "Same bias-free linear prediction class and zero initialization as sparse models, existing LinearLearner update.",
+    "mlp_adam": "Existing stock MeasuredLearner and frozen bayes initialization, hidden64, seed1. Distinct nonlinear model class, included to retain original benchmark reference.",
+    "zero": "Always predict zero; relative MSE equals1.",
+    "adam_lr_grid": [1e-7, 3e-7, 1e-6, 3e-6, 1e-5, 3e-5, 1e-4, 3e-4, 1e-3, 3e-3, 1e-2],
+    "selection": "Each Adam class selects its own LR on the real chronological first-quarter prefix excluding first2000 cold-start observations. Save lock exactly at boundary before suffix. Transfer these locks unchanged to random-sign control. No model reset at prefix."
+  },
+  "metrics": {
+    "primary_window": "Chronological suffix after first-quarter prefix, predicting each observation before learning its label.",
+    "primary_score": "Sum squared noisy prediction errors / sum squared targets. No observable clean market target.",
+    "paired_comparison": "Identical consumed labels and window for each model and both prefix-locked Adam controls. Also report zero benchmark, prediction energy, signed target-prediction cross term, and temporal block loss differences.",
+    "reporting": "Report all four named models; never relabel a winning secondary as the primary. Report full/partial horizon and actual suffix count explicitly. Pruned empty phases are not evidence."
+  },
+  "interpretation": {
+    "adam_win": "Lower paired observed-suffix error than prefix-selected Adam, distinguishing linear and MLP comparisons.",
+    "useful_prediction": "Must also beat zero prediction on actual labels, not merely suppress Adam noise. Check magnitude, time-block consistency, and randomized-sign control before claiming market signal.",
+    "uncertainty": "One market, seed1, one historical path; sequential model selection and adaptive pruning prevent an unqualified statistical significance or investment profitability claim. Proxy advantage is not proof of optimizer superiority in neural training."
+  },
+  "resources": {
+    "queue": "mlq",
+    "max_parallel_runs": 1,
+    "max_attempts": 1,
+    "priority": 0,
+    "contracts_time_limit": "8m",
+    "experiment_time_limit": "15m per view, includes preprocessing and compilation",
+    "autocull": "Enabled. Four posterior candidates only; default median/EMA/warmup/patience. Observation begins on suffix with phase_start=prefix, preserving causal prefix selection and a meaningful untouched suffix. Real error-ratio progress; null also prediction-energy progress. All candidates stale before group stops. Exit75, save consumed forecasts, targets, states and phase summaries before unwind.",
+    "null_dependency": "After real reaches terminal state; use saved validated real locks even if real was pruned. No null training if real never reached the lock."
+  }
+}

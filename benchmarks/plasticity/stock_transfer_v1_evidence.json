@@ -1,0 +1,318 @@
+{
+  "question": "Do frozen sparse-proxy v3/v4 methods outperform Adam on the actual streaming stock task?",
+  "decision": "no_demonstrated_stock_advantage_over_matched_linear_adam",
+  "prospective_plan": "benchmarks/plasticity/stock_transfer_v1_plan.json",
+  "primary": "v3_likelihood_static",
+  "jobs": {
+    "contracts": 5512,
+    "real": 5513,
+    "cancelled_before_start_wrong_cli_spelling": 5514,
+    "random_sign": 5515
+  },
+  "resources": {
+    "max_parallel_runs": 1,
+    "max_attempts": 1,
+    "priority": 0,
+    "contracts_time_limit": "8m",
+    "experiment_time_limit": "15m per view",
+    "autocull": true
+  },
+  "verification": {
+    "contracts": {
+      "tests": 35,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "contract_artifact": "benchmarks/plasticity/stock_transfer_v1_contracts.xml",
+    "independent_reviews": {
+      "StockCausalityReview": {
+        "findings": 0,
+        "scope": "causality, frozen learner integration, complete graph restore"
+      },
+      "StockEvidenceReview": {
+        "findings": 0,
+        "scope": "prefix selection, provenance, censored scoring, artifact persistence"
+      }
+    },
+    "original_spy_data_fingerprint_match": true,
+    "real_null_feature_and_original_target_hashes_match": true,
+    "real_null_source_hashes_match": true,
+    "transferred_adam_locks_match": true,
+    "transferred_lock_artifact_hash_match": true,
+    "all_saved_predictions_and_targets_finite": true,
+    "real_null_consumed_target_magnitudes_bitwise_equal": true,
+    "graph_complete_state_replay_verified": {
+      "real": true,
+      "random_sign": true
+    },
+    "original_mlp_comparison": {
+      "source_artifact": "runs/SPY__covariance_stock_v1__1__1788841102070220284/results.json",
+      "unchanged_original_network_source": true,
+      "note": "Independent compiled long trajectories are not bitwise identical. Short frozen-recurrence parity passed; source and initializer unchanged. Do not conflate this run with historical full-suffix scores.",
+      "all_grid_max_absolute_prediction_delta": 8.265159606933594,
+      "selected_grid_max_absolute_prediction_delta": 0.5913614481687546,
+      "old_cached_selected_mlp_on_same_consumed_suffix_error_ratio": 1.0053351674775939,
+      "new_selected_mlp_on_same_consumed_suffix_error_ratio": 1.0052888159189413,
+      "interpretation": "Both historical and current original-MLP runs lose to zero and frozen static sparse predictors on this identical window; this does not rescue loss against linear Adam."
+    }
+  },
+  "views": {
+    "real": {
+      "artifact": "runs/SPY__predictive_stock_transfer_v1_real__1__20260908/results.json",
+      "status": "pruned",
+      "observations": 163840,
+      "suffix_count": 46835,
+      "full_horizon": false,
+      "adam_locks": {
+        "linear": 3e-06,
+        "mlp": 0.0003
+      },
+      "models": {
+        "v3_likelihood_static": {
+          "error_ratio": 1.000002811525094,
+          "prediction_energy_ratio": 1.912964887048659e-06,
+          "signed_cross_term_ratio": 8.985602046002763e-07
+        },
+        "v3_likelihood_switching": {
+          "error_ratio": 1.1292746593407066,
+          "prediction_energy_ratio": 0.12462891617050505,
+          "signed_cross_term_ratio": 0.0046457431701975695
+        },
+        "v4_likelihood_birth_only": {
+          "error_ratio": 1.0000000725422784,
+          "prediction_energy_ratio": 2.427627715098989e-08,
+          "signed_cross_term_ratio": 4.8265992257361175e-08
+        },
+        "v4_likelihood_switching": {
+          "error_ratio": 1.0660709949408798,
+          "prediction_energy_ratio": 0.06743399182649477,
+          "signed_cross_term_ratio": -0.0013629968856118408
+        },
+        "adam_linear_3e-06": {
+          "error_ratio": 0.9991472536266359,
+          "prediction_energy_ratio": 0.0007981430796947057,
+          "signed_cross_term_ratio": -0.0016508894530491845
+        },
+        "adam_mlp_0.0003": {
+          "error_ratio": 1.0052888159189413,
+          "prediction_energy_ratio": 0.004983827005044423,
+          "signed_cross_term_ratio": 0.00030498891389882875
+        }
+      },
+      "blocks8192": [
+        {
+          "start": 117005,
+          "end": 125197,
+          "count": 8192,
+          "primary_minus_zero": -3.5086507284745165e-05,
+          "primary_minus_linear_adam": 0.001427869524666247,
+          "primary_minus_mlp_adam": -0.0057215163054996085
+        },
+        {
+          "start": 125197,
+          "end": 133389,
+          "count": 8192,
+          "primary_minus_zero": 5.850057232187219e-05,
+          "primary_minus_linear_adam": 0.00046617971935719723,
+          "primary_minus_mlp_adam": -0.003882657086938442
+        },
+        {
+          "start": 133389,
+          "end": 141581,
+          "count": 8192,
+          "primary_minus_zero": 1.0947163706653358e-05,
+          "primary_minus_linear_adam": 0.0006529713695695054,
+          "primary_minus_mlp_adam": -0.004784881556302996
+        },
+        {
+          "start": 141581,
+          "end": 149773,
+          "count": 8192,
+          "primary_minus_zero": -3.3183092742448315e-06,
+          "primary_minus_linear_adam": 0.0013934692823461075,
+          "primary_minus_mlp_adam": -0.006561969752657575
+        },
+        {
+          "start": 149773,
+          "end": 157965,
+          "count": 8192,
+          "primary_minus_zero": -5.527595850659932e-07,
+          "primary_minus_linear_adam": 0.00011123670394010939,
+          "primary_minus_mlp_adam": -0.006243390914082603
+        },
+        {
+          "start": 157965,
+          "end": 163840,
+          "count": 5875,
+          "primary_minus_zero": -2.140582792466064e-05,
+          "primary_minus_linear_adam": 0.0011989598853807055,
+          "primary_minus_mlp_adam": -0.0042691807939060095
+        }
+      ],
+      "primary_relative_error_reduction_vs_adam": {
+        "linear": -0.0008562880950258034,
+        "mlp": 0.00525819476964462
+      },
+      "timing_seconds": {
+        "capture_seconds": 22.001076414017007,
+        "replay_seconds": 8.5811576875858,
+        "wall_seconds": 35.61627289804164
+      },
+      "pruning": {
+        "step": 163840,
+        "phase": "suffix",
+        "reason": "all proxy candidates plateaued after warmup and full patience",
+        "exit_code": 75
+      },
+      "clocks": {
+        "runner": 163840,
+        "linear_index": 163840,
+        "linear_steps": 163840,
+        "mlp_index": 163840,
+        "mlp_steps": 163840,
+        "model": 163840,
+        "v4": 163840
+      }
+    },
+    "random_sign": {
+      "artifact": "runs/SPY__predictive_stock_transfer_v1_random_sign__1__20260908/results.json",
+      "status": "pruned",
+      "observations": 163840,
+      "suffix_count": 46835,
+      "full_horizon": false,
+      "adam_locks": {
+        "linear": 3e-06,
+        "mlp": 0.0003
+      },
+      "models": {
+        "v3_likelihood_static": {
+          "error_ratio": 1.0000729523856067,
+          "prediction_energy_ratio": 0.00016052136689774255,
+          "signed_cross_term_ratio": -8.756898128331399e-05
+        },
+        "v3_likelihood_switching": {
+          "error_ratio": 1.1216367583546405,
+          "prediction_energy_ratio": 0.12843010696403293,
+          "signed_cross_term_ratio": -0.006793348609399772
+        },
+        "v4_likelihood_birth_only": {
+          "error_ratio": 1.000000975126681,
+          "prediction_energy_ratio": 6.802510513662166e-10,
+          "signed_cross_term_ratio": 9.744464288542611e-07
+        },
+        "v4_likelihood_switching": {
+          "error_ratio": 1.0521289986437985,
+          "prediction_energy_ratio": 0.05563698692272585,
+          "signed_cross_term_ratio": -0.0035079882789254262
+        },
+        "adam_linear_3e-06": {
+          "error_ratio": 1.0002326114868392,
+          "prediction_energy_ratio": 0.0002257776472522843,
+          "signed_cross_term_ratio": 6.833839581359159e-06
+        },
+        "adam_mlp_0.0003": {
+          "error_ratio": 1.005252324758341,
+          "prediction_energy_ratio": 0.004668253629895158,
+          "signed_cross_term_ratio": 0.0005840711284392375
+        }
+      },
+      "blocks8192": [
+        {
+          "start": 117005,
+          "end": 125197,
+          "count": 8192,
+          "primary_minus_zero": 7.710858756994649e-06,
+          "primary_minus_linear_adam": -0.0004854934929462777,
+          "primary_minus_mlp_adam": -0.005036022333519524
+        },
+        {
+          "start": 125197,
+          "end": 133389,
+          "count": 8192,
+          "primary_minus_zero": 2.994352853540719e-06,
+          "primary_minus_linear_adam": -0.0006759396261298782,
+          "primary_minus_mlp_adam": -0.0060631964354856726
+        },
+        {
+          "start": 133389,
+          "end": 141581,
+          "count": 8192,
+          "primary_minus_zero": 0.0003432575209612647,
+          "primary_minus_linear_adam": 0.00021980951782096813,
+          "primary_minus_mlp_adam": -0.005305506941509779
+        },
+        {
+          "start": 141581,
+          "end": 149773,
+          "count": 8192,
+          "primary_minus_zero": 3.6159372953676254e-05,
+          "primary_minus_linear_adam": 6.409611477831513e-05,
+          "primary_minus_mlp_adam": -0.004969239222691197
+        },
+        {
+          "start": 149773,
+          "end": 157965,
+          "count": 8192,
+          "primary_minus_zero": 2.8436129354253225e-06,
+          "primary_minus_linear_adam": -0.00012009677844317867,
+          "primary_minus_mlp_adam": -0.005056545973421164
+        },
+        {
+          "start": 157965,
+          "end": 163840,
+          "count": 5875,
+          "primary_minus_zero": 2.854052130378139e-06,
+          "primary_minus_linear_adam": 5.7459961545521645e-05,
+          "primary_minus_mlp_adam": -0.0044344321667763135
+        }
+      ],
+      "primary_relative_error_reduction_vs_adam": {
+        "linear": 0.0001596219713284608,
+        "mlp": 0.0051523107633492105
+      },
+      "timing_seconds": {
+        "capture_seconds": 2.41387226304505,
+        "replay_seconds": 8.660586279584095,
+        "wall_seconds": 15.25789160199929
+      },
+      "pruning": {
+        "step": 163840,
+        "phase": "suffix",
+        "reason": "all proxy candidates plateaued after warmup and full patience",
+        "exit_code": 75
+      },
+      "clocks": {
+        "runner": 163840,
+        "linear_index": 163840,
+        "linear_steps": 163840,
+        "mlp_index": 163840,
+        "mlp_steps": 163840,
+        "model": 163840,
+        "v4": 163840
+      }
+    }
+  },
+  "real_temporal_consistency": {
+    "blocks": 6,
+    "primary_beats_linear_adam_blocks": 0,
+    "primary_beats_mlp_adam_blocks": 6,
+    "primary_beats_zero_blocks": 4,
+    "interpretation": "Descriptive 8192-observation chronological blocks, last block shorter; not independent significance trials."
+  },
+  "conclusions": [
+    "Primary v3 static lost to same-class linear Adam on real observed suffix; linear Adam also won each of six temporal blocks.",
+    "Both static/persistent primary rows predict almost zero; their MLP Adam improvement is noise suppression, not demonstrated additional market signal.",
+    "Both continuously switching rows substantially regress on real and randomized-sign labels.",
+    "Synthetic sparse-stream superiority did not transfer to superiority over matched linear Adam in this experiment.",
+    "Both views stopped by the configured resource guard at163840 of468021 observations, after46835 scored suffix observations. Do not claim full-file stock outcome.",
+    "No posterior parameters were tuned on stock suffix; neither continuation without pruning nor a successful secondary was substituted for the predeclared primary."
+  ],
+  "limitations": [
+    "One historical SPY path, seed1, adaptively censored suffix; no generalization, financial significance, profitability or trading-cost evidence.",
+    "Stock scores use observed noisy returns relative to zero, not synthetic clean MSE; large synthetic factor gains are not numerically comparable.",
+    "Unchanged helper target scaling/centering and clipping retained; final feature is two bars before target and forecast occurs after intervening normalization bar.",
+    "These are transferred sparse linear predictive filters, not an implementation of a general replacement optimizer inside arbitrary neural networks."
+  ],
+  "next_research_implication": "A stock method must preserve weak distributed correlated predictive information while suppressing noise. The static sparse prior mostly abstains; fixed-share resets reintroduce large prediction energy without compensating target correlation. Stock transfer, not further synthetic endpoint optimization, must gate any promotion."
+}

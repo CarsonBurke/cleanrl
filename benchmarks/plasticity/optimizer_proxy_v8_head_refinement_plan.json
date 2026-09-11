@@ -1,0 +1,1062 @@
+{
+  "goal": "Finish output-head boundary refinement on clipped-policy proxy; no algorithm changes. Preserve the original2036-config validation selections for final comparison.",
+  "diagnosis": "Prior proxy was B=1, scalar squared loss, mostly stationary IID data, fixed beta2=.999 and zero decay. PPO transfer used a fixed LR and only two beta1 values. These are different optimization regimes, not an established transfer test.",
+  "suite": [
+    {
+      "name": "iid_online",
+      "objective": "regression",
+      "samples": 65536,
+      "batch_size": 1,
+      "epochs": 1,
+      "drift": false
+    },
+    {
+      "name": "drifting_reuse",
+      "objective": "regression",
+      "samples": 65536,
+      "batch_size": 64,
+      "epochs": 8,
+      "drift": true
+    },
+    {
+      "name": "clipped_bandit",
+      "objective": "ppo",
+      "samples": 262144,
+      "batch_size": 256,
+      "epochs": 8,
+      "drift": true
+    }
+  ],
+  "model": "Same 17-64-64-1 tanh MLP and initialization API as previous dense proxy. CUDA FP32, TF32 off; compiled updates and captured repeated-epoch rounds. No covariance or Fisher state.",
+  "moving_task": "Eight equal segments interpolate through independently drawn nonlinear teachers; input mean shifts smoothly. No task ID, teacher, clean targets or noise variance enters optimizer. Targets/action rewards are noisy. Changes occur in full rounds so old PPO logprobs/advantages remain frozen within reuse epochs.",
+  "bandit": "Gaussian scalar policy with fixed std=.5; noisy reward=-(action-teacher(context))^2+N(0,1); advantages use only same-round sampled reward minus round mean. Real signed clipped PPO score with clip=.2, no critic, no advantage normalization. New on-policy actions each round, common base noise across candidates. This is a policy-optimization proxy, NOT MuJoCo or a claim of PPO ranking validity.",
+  "families": [
+    "adamw",
+    "matrix_rms",
+    "adam_rms",
+    "polar",
+    "polar_3",
+    "polar_8"
+  ],
+  "equations": {
+    "predictive": "C=J_current^T(score_current-score_previous), scores on same current batch and objective; m'=beta*m+(1-beta)*g+beta*(1-beta^(t-1))*C; v tracks raw g^2.",
+    "full": "C=g(theta,current_batch)-g(theta_previous,current_batch), same first-moment mass and raw-gradient v.",
+    "mars": "h=g+gamma*beta*(1-beta^(t-1))/(1-beta)*C_full; m'=beta*m+(1-beta)*h; v tracks h^2; gamma=.1 or1. No clipping, no claim to reproduce every detail of published MARS.",
+    "adamw": "C=0; ordinary bias-corrected AdamW, beta2 tuned, decoupled decay excludes bias columns in every family. Adam is the decay=0 subset.",
+    "round_clock": "For new batch, use ordinary transport mass with t=fresh batch count. For reuse, m += (1-beta1^t)*C and v stays fixed. Bias correct using fresh count. C full/predictive/zero selects round_full/round_predictive/round_adamw. Weights and decay update each epoch. No batch target/teacher oracle enters optimizer. Epochs=1 reduces exactly to corresponding v4 algorithm.",
+    "matrix_direction": "Hiddenmatrix q=beta1*mhat+(1-beta1)*g. matrix_rms rescalesq toFrobeniusnorm .2sqrt(out*in). polar uses5NewtonSchulz quinticiterations onFro-normalizedq, then rescales toSAMEFrobeniusnorm. Scalarhead andallbiascolumns useordinaryAdamW. This isolatesmatrixdirectiongeometry fromlayerwisestepsize. It is Muon-inspired, not claimedidenticalpublishedMuon.",
+    "head_lr": "Finalscalaroutputlayer useslr*head_lr_scale forweights,biasandweightdecay. Allhiddenmatrices/biaseskeepbaseLR. Everyfamily receivesidentical headratiosearch. Recomputeheadupdateexplicitlyfromm/v, notscalealreadyroundedparameterdelta.",
+    "spectral_strength": "polar_3/standardpolar/polar_8 use3/5/8fixedNSiterations, allsameFrobeniusRMS. No extra learnedstate. adam_rms normalizesordinaryAdammhat/(sqrt(vhat)+eps) hiddenmatrixdirection tosameRMS, retainsfullv; biases/headordinaryAdamW."
+  },
+  "grid": {
+    "lr": [
+      0.001,
+      0.0014,
+      0.002,
+      0.003,
+      0.005,
+      0.007,
+      0.01
+    ],
+    "beta1": [
+      0.1,
+      0.3,
+      0.5,
+      0.9
+    ],
+    "beta2": [
+      0.9,
+      0.95,
+      0.99,
+      0.999,
+      0.9999
+    ],
+    "weight_decay": [
+      0,
+      0.01,
+      0.1
+    ],
+    "head_lr_scale": [
+      0.0625,
+      0.125,
+      0.25,
+      0.5,
+      1.0,
+      2.0,
+      4.0,
+      8.0,
+      16.0
+    ],
+    "candidates_per_family": 135,
+    "eps": 1e-08
+  },
+  "selection": "Targeted common 135configuration grid: allv8selectedbaseconfigurations crossed withheadratios .0625..16 plusadjacentpolarhiddenLRs. Samegridfor6retainedfamilies. Final choice must be minimum noisy validation across v8 andthisrefinement, never test-based. The originalsearch is not discarded. Failed temporal/reusefamilies remainhistoricalnegativeevidence.",
+  "heldout": "Independent train/validation/test RNG namespaces under seed1, no extra-seed claims. Noisy validation observed independently, clean risk diagnostic only. Held-out scoring after locks over saved selected trajectories; test scores never rerank configurations. Adaptive development rounds must be labelled, not disguised as untouched confirmation.",
+  "diagnostics": "Retain16equal right-endpoint checkpoints; sustained risk is a quadrature estimate, not continuous measurement. Heldout deployment-gradient diagnostics at preupdate weights include clipping/reuse/same-batch-baseline discrepancy in bandit, not pure noise. No confidence acrosstrainingseeds. Save locked selected trajectories, prune only generated unselected grid tensors after all selected writes and scores complete.",
+  "promotion": "Seek >=20% lower sustained held-out excess risk than independently tuned AdamW, no substantial regression in other regimes, and account for extra gradient evaluations/runtime. This is an experimental target, not a promised result. No RL promotion from one proxy win.",
+  "execution": {
+    "queue": "mlq",
+    "seed": 1,
+    "max_parallel_runs": 1,
+    "max_attempts": 1,
+    "priority": 0,
+    "contracts_time_limit": "20m",
+    "experiment_time_limit": "60m",
+    "culling": "No short-horizon culling of a full comparative stream; nonfinite candidates invalidated visibly. No blind retries."
+  },
+  "configurations": [
+    {
+      "lr": 0.001,
+      "beta1": 0.1,
+      "beta2": 0.99,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.001,
+      "beta1": 0.1,
+      "beta2": 0.99,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.001,
+      "beta1": 0.1,
+      "beta2": 0.99,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.001,
+      "beta1": 0.1,
+      "beta2": 0.99,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.001,
+      "beta1": 0.1,
+      "beta2": 0.99,
+      "weight_decay": 0.01,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.001,
+      "beta1": 0.1,
+      "beta2": 0.99,
+      "weight_decay": 0.01,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.001,
+      "beta1": 0.1,
+      "beta2": 0.99,
+      "weight_decay": 0.01,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.001,
+      "beta1": 0.1,
+      "beta2": 0.99,
+      "weight_decay": 0.01,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.001,
+      "beta1": 0.1,
+      "beta2": 0.99,
+      "weight_decay": 0.01,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.0014,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.0014,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.0014,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.0014,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.0014,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.0014,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.0014,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.0014,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.0014,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.3,
+      "beta2": 0.95,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.3,
+      "beta2": 0.95,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.3,
+      "beta2": 0.95,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.3,
+      "beta2": 0.95,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.3,
+      "beta2": 0.95,
+      "weight_decay": 0.01,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.3,
+      "beta2": 0.95,
+      "weight_decay": 0.01,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.3,
+      "beta2": 0.95,
+      "weight_decay": 0.01,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.3,
+      "beta2": 0.95,
+      "weight_decay": 0.01,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.3,
+      "beta2": 0.95,
+      "weight_decay": 0.01,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.5,
+      "beta2": 0.9,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.5,
+      "beta2": 0.9,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.5,
+      "beta2": 0.9,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.5,
+      "beta2": 0.9,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.5,
+      "beta2": 0.9,
+      "weight_decay": 0.1,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.5,
+      "beta2": 0.9,
+      "weight_decay": 0.1,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.5,
+      "beta2": 0.9,
+      "weight_decay": 0.1,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.5,
+      "beta2": 0.9,
+      "weight_decay": 0.1,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.5,
+      "beta2": 0.9,
+      "weight_decay": 0.1,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.9999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.9999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.9999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.9999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.9999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.9999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.9999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.9999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.002,
+      "beta1": 0.9,
+      "beta2": 0.9999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.5,
+      "beta2": 0.999,
+      "weight_decay": 0.01,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.003,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.007,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.95,
+      "weight_decay": 0.1,
+      "head_lr_scale": 16.0
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.0625
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.125
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.25
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 0.5
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 1.0
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 2.0
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 4.0
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 8.0
+    },
+    {
+      "lr": 0.01,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "weight_decay": 0.1,
+      "head_lr_scale": 16.0
+    }
+  ],
+  "scenario_families": {},
+  "iteration_evidence": {
+    "reason": "polar_8 selectedheadratio .25lowerboundary; Adamzero-decay control selected4upperboundary. Expand bothdirections andpairedhiddenLR neighborhood for all retainedfamilies.",
+    "scope": "Same complete262144sample horizon andseed1. Conditionalheadrefinement, not exhaustive5Dglobalgrid."
+  },
+  "verification": "Prior23numericalcontracts plusNSstrengthindependentsingularpolynomial, headLR1 identity, independentAdamWheadgrouplr/decay andnormalizedAdammatrixcontrol. Captureauditunchangedfromv6; no testtolerancechanges.",
+  "state": "No samplecovariance/Fisherestimatedorstored. Polar uses ephemeral Gramproducts ofthemomentummatrix withinNewtonSchulz, onsmallerrectangularside; persistentstate remainslinear. Hiddenweightsecondmoments unusedandnotupdated; bias/headuseAdamvariance.",
+  "parent_results": "runs/OptimizerProxy__v8_clipped_bandit__1__1788991978943482702/results.json"
+}

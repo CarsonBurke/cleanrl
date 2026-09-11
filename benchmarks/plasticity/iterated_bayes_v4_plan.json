@@ -1,0 +1,21 @@
+{
+  "objective": "Improve the family's state-conditioned joint posterior learner itself, not its prediction head or inputs.",
+  "motivation": "Covariance-sketch v3 retained useful geometry but lost to full covariance on stationary and heteroscedastic-switch streams. Do not promote its compute advantage as stronger learning. Test the single-linearization approximation in the full learner next.",
+  "hypothesis": "A noisy nonlinear observation may require more than one tangent approximation. Fixed-prior iterated EKF can refine the mean's local observation fit without falsely treating that observation as multiple independent pieces of evidence.",
+  "method": {
+    "prior": "theta0 and C=P+diag(Q) are fixed throughout the current observation's inner iterations; R comes from prior history.",
+    "iteration": "j_k=grad f(theta_k,x); v_k=C j_k; s_k=R+j_k^T v_k; e_k=f(theta_k,x)-y-j_k^T(theta_k-theta0); theta_(k+1)=theta0-v_k e_k/s_k.",
+    "posterior": "After the final inner iteration only: P_new=C-v_k v_k^T/s_k. Add Q once, assimilate evidence once, update inferred R once from the original pre-update residual.",
+    "reference": "One iteration is the frozen full-network EKF; a linear-in-parameters observation gives the same result for any iteration count.",
+    "novelty_limit": "Iterated EKF is an established method, not a claimed invention. Its value in this neural plasticity setup is an empirical hypothesis.",
+    "risk": "Local Gauss-Newton iteration can oscillate, fit observation noise, or chase a poor local mode. More iterations need not improve prequential or clean held-out error. No clipping, fallback, or repeated posterior conditioning to hide this."
+  },
+  "primary": "iterated4",
+  "arms": ["adam", "network", "iterated2", "iterated4"],
+  "data": {"samples":65536,"seed":1,"input_dim":17,"hidden":64,"parameters":5377,"first_experiment":{"hetero":1,"switch_at":0.5,"noise":1},"confirmation":"Run full stationary stream if primary improves sustained clean risk over the full-covariance reference; otherwise reject this hypothesis without a favorable endpoint substitution."},
+  "selection": {"adam_lrs":[0.00001,0.00003,0.0001,0.0003,0.001,0.003,0.01],"prior_scales":[0.001,0.01,0.1,1,10],"criterion":"Independent duration-weighted sustained clean-validation error; every successful arm locks before any untouched test scoring. Report every grid and edge winner. Never select from clean test or use clean targets in the optimizer."},
+  "success": "Primary iterated4 lowers sustained clean test MSE versus network at independently validation-selected interior priors. Report endpoint and both phases; reject a favorable endpoint if sustained risk worsens. Any nonfinite configuration remains a failure rather than a secretly removed candidate.",
+  "execution": {"queue":"mlq","max_parallel_runs":1,"max_attempts":1,"priority":0,"contracts_time_limit":"20m","experiment_time_limit":"45m","diffusion":0.00001,"noise_rate":0.001,"precision":"CUDA float32 highest precision, TF32 disabled; compiled single-observation CUDA graph. No CPU/eager fallback.","autocull":"No performance cull within fixed65536-observation stream; complete midpoint-switch recovery is required. Fail visibly on invalid numerical state. Clear disjoint-arm Dynamo caches without raising cache limits."},
+  "verification": "Independent double-precision/autograd nonlinear recurrence; exact linear Gaussian invariance; one-iteration reference parity; Q/noise/observation only assimilated once; clean-target isolation; complete capture restoration and sample clocks. Root TensorBoard events and durable selection/checkpoint/source/data evidence.",
+  "limits": "One paired task seed, no PPO or global-optimality claim. Joint coordinated geometry is not autonomous scalar per-neuron gating. More inner iterations cost more compute and are not compute-matched."
+}

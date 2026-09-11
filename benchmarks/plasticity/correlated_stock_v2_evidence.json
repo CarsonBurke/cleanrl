@@ -1,0 +1,562 @@
+{
+  "decision": "do_not_promote_covariance_alone_over_linear_adam",
+  "plan": "benchmarks/plasticity/correlated_stock_v2_plan.json",
+  "primary": "real-prefix-selected dense prior",
+  "jobs": {
+    "contracts": 5531,
+    "real": 5532,
+    "random_sign": 5533,
+    "full_prefix_batch_reference": 5534,
+    "final_combined_contracts": 5550
+  },
+  "resources": {
+    "max_parallel_runs": 1,
+    "max_attempts": 1,
+    "priority": 0,
+    "experiment_time_limit": "15m per view",
+    "autocull": true
+  },
+  "verification": {
+    "initial_contracts_passed": 45,
+    "final_combined_contracts_passed": 93,
+    "independent_model_review": "NIGMathReview: no findings",
+    "independent_evaluator_review": "DenseStockEvidenceReview: missing direct diagonal pair in raw evaluator table resolved by explicit paired differences and blocks in this final artifact; reviewer withdrew end-to-end finding.",
+    "all_saved_predictions_and_targets_finite": true,
+    "real_null_data_hashes_match": true,
+    "original_stock_data_hashes_match": true,
+    "real_null_source_hashes_match": true,
+    "real_null_model_locks_match": true,
+    "real_null_adam_locks_match": true,
+    "transferred_lock_artifact_hash_match": true,
+    "tensorboard_root_discovery": {
+      "real": {
+        "tensorboard_dir": "runs/SPY__correlated_stock_v2_real__1__20260908",
+        "scalar_tag": "real/dense_1e-06/error_ratio",
+        "last_step": 237568,
+        "events": 30,
+        "matches_consumed": true
+      },
+      "random_sign": {
+        "tensorboard_dir": "runs/SPY__correlated_stock_v2_random_sign__1__20260908",
+        "scalar_tag": "random_sign/dense_1e-06/error_ratio",
+        "last_step": 237568,
+        "events": 30,
+        "matches_consumed": true
+      }
+    },
+    "batch_reference_artifact": "benchmarks/plasticity/correlated_stock_v2_batch_reference.json",
+    "batch_reference": {
+      "reference": "Direct FP64 CUDA normal equations over all consumed observations; no model training or tuning.",
+      "views": {
+        "real": {
+          "observations": 237568,
+          "artifact": "runs/SPY__correlated_stock_v2_real__1__20260908/results.json",
+          "priors": [
+            {
+              "prior": 1e-07,
+              "coefficient_max_absolute_error": 2.3573856162165075e-07,
+              "checkpoint_forecast_rms_difference_on_consumed_features": 3.313100446854257e-06,
+              "covariance_frobenius_relative_error": 0.0007743272650701513,
+              "beta_relative_error": 4.963701009705815e-08,
+              "dense_covariance_cholesky_info": 0,
+              "dense_covariance_max_asymmetry": 0.0,
+              "reference_effective_df": 8.619142537139624
+            },
+            {
+              "prior": 1e-06,
+              "coefficient_max_absolute_error": 4.407916535693478e-07,
+              "checkpoint_forecast_rms_difference_on_consumed_features": 9.251772512744046e-06,
+              "covariance_frobenius_relative_error": 0.000584942785580092,
+              "beta_relative_error": 7.197154414969614e-08,
+              "dense_covariance_cholesky_info": 0,
+              "dense_covariance_max_asymmetry": 0.0,
+              "reference_effective_df": 47.584776186451506
+            },
+            {
+              "prior": 1e-05,
+              "coefficient_max_absolute_error": 2.514824947438604e-06,
+              "checkpoint_forecast_rms_difference_on_consumed_features": 7.080640566865158e-05,
+              "covariance_frobenius_relative_error": 0.0003635646074733062,
+              "beta_relative_error": 2.3382622095872313e-07,
+              "dense_covariance_cholesky_info": 0,
+              "dense_covariance_max_asymmetry": 0.0,
+              "reference_effective_df": 119.34508571090382
+            },
+            {
+              "prior": 0.0001,
+              "coefficient_max_absolute_error": 7.523436455171215e-06,
+              "checkpoint_forecast_rms_difference_on_consumed_features": 0.0002581891808272498,
+              "covariance_frobenius_relative_error": 0.00017711405155115256,
+              "beta_relative_error": 8.799057632875106e-07,
+              "dense_covariance_cholesky_info": 0,
+              "dense_covariance_max_asymmetry": 0.0,
+              "reference_effective_df": 180.134082994631
+            },
+            {
+              "prior": 0.001,
+              "coefficient_max_absolute_error": 2.0063317949581012e-05,
+              "checkpoint_forecast_rms_difference_on_consumed_features": 0.0004668360892521081,
+              "covariance_frobenius_relative_error": 0.00012322095592572706,
+              "beta_relative_error": 1.6620056203092507e-06,
+              "dense_covariance_cholesky_info": 0,
+              "dense_covariance_max_asymmetry": 0.0,
+              "reference_effective_df": 215.60246357179076
+            }
+          ]
+        },
+        "random_sign": {
+          "observations": 237568,
+          "artifact": "runs/SPY__correlated_stock_v2_random_sign__1__20260908/results.json",
+          "priors": [
+            {
+              "prior": 1e-07,
+              "coefficient_max_absolute_error": 1.1536282092957208e-07,
+              "checkpoint_forecast_rms_difference_on_consumed_features": 1.0845760608780553e-06,
+              "covariance_frobenius_relative_error": 0.0007743272650701513,
+              "beta_relative_error": 1.1574625150656867e-08,
+              "dense_covariance_cholesky_info": 0,
+              "dense_covariance_max_asymmetry": 0.0,
+              "reference_effective_df": 8.619142537139624
+            },
+            {
+              "prior": 1e-06,
+              "coefficient_max_absolute_error": 4.03132122324477e-07,
+              "checkpoint_forecast_rms_difference_on_consumed_features": 8.021544239174957e-06,
+              "covariance_frobenius_relative_error": 0.000584942785580092,
+              "beta_relative_error": 4.403088325913571e-08,
+              "dense_covariance_cholesky_info": 0,
+              "dense_covariance_max_asymmetry": 0.0,
+              "reference_effective_df": 47.584776186451506
+            },
+            {
+              "prior": 1e-05,
+              "coefficient_max_absolute_error": 1.860681302403612e-06,
+              "checkpoint_forecast_rms_difference_on_consumed_features": 4.284499703370238e-05,
+              "covariance_frobenius_relative_error": 0.0003635646074733062,
+              "beta_relative_error": 1.9104528123293312e-07,
+              "dense_covariance_cholesky_info": 0,
+              "dense_covariance_max_asymmetry": 0.0,
+              "reference_effective_df": 119.34508571090382
+            },
+            {
+              "prior": 0.0001,
+              "coefficient_max_absolute_error": 1.086594194326648e-05,
+              "checkpoint_forecast_rms_difference_on_consumed_features": 0.00014855805681458645,
+              "covariance_frobenius_relative_error": 0.00017711405155115256,
+              "beta_relative_error": 7.864159611302994e-07,
+              "dense_covariance_cholesky_info": 0,
+              "dense_covariance_max_asymmetry": 0.0,
+              "reference_effective_df": 180.134082994631
+            },
+            {
+              "prior": 0.001,
+              "coefficient_max_absolute_error": 2.3773268810567492e-05,
+              "checkpoint_forecast_rms_difference_on_consumed_features": 0.0003088731750368981,
+              "covariance_frobenius_relative_error": 0.00012322095592572706,
+              "beta_relative_error": 1.7393172520261019e-06,
+              "dense_covariance_cholesky_info": 0,
+              "dense_covariance_max_asymmetry": 0.0,
+              "reference_effective_df": 215.60246357179076
+            }
+          ]
+        }
+      }
+    },
+    "numeric_interpretation": "Full-consumed-prefix FP64 solves quantify final checkpoint roundoff. All covariance Cholesky checks pass; no numerical repair or clamp. Not bitwise identity, and not a bound on every earlier forecast."
+  },
+  "views": {
+    "real": {
+      "artifact": "runs/SPY__correlated_stock_v2_real__1__20260908/results.json",
+      "status": "pruned",
+      "observations": 237568,
+      "suffix_count": 73728,
+      "maximum_observations": 468021,
+      "full_horizon": false,
+      "selected_priors": {
+        "dense": 1e-06,
+        "diagonal": 1e-06
+      },
+      "selected_adam_lrs": {
+        "linear": 3e-06,
+        "mlp": 0.0003
+      },
+      "models": {
+        "dense": {
+          "name": "dense_1e-06",
+          "error_ratio": 0.9990670036827811,
+          "prediction_energy_ratio": 0.0005215973189882887,
+          "signed_cross_term_ratio": -0.0014545936362046839
+        },
+        "diagonal": {
+          "name": "diagonal_1e-06",
+          "error_ratio": 0.9990588056911872,
+          "prediction_energy_ratio": 0.0007428814826857972,
+          "signed_cross_term_ratio": -0.0016840757914991995
+        },
+        "mixture": {
+          "name": "dense_bayes_mixture",
+          "error_ratio": 0.9990670060581138,
+          "prediction_energy_ratio": 0.0005216284877314936,
+          "signed_cross_term_ratio": -0.0014546224296124578
+        },
+        "zero": {
+          "name": "zero",
+          "error_ratio": 1.0000000000000366,
+          "prediction_energy_ratio": 0.0,
+          "signed_cross_term_ratio": -0.0
+        },
+        "linear_adam": {
+          "name": "adam_linear_3e-06",
+          "error_ratio": 0.9990298774870673,
+          "prediction_energy_ratio": 0.001092652925393004,
+          "signed_cross_term_ratio": -0.00206277543832123
+        },
+        "mlp_adam": {
+          "name": "adam_mlp_0.0003",
+          "error_ratio": 1.0049123294766666,
+          "prediction_energy_ratio": 0.005365060819355635,
+          "signed_cross_term_ratio": -0.0004527313426925045
+        }
+      },
+      "blocks8192": [
+        {
+          "start": 163840,
+          "end": 172032,
+          "count": 8192,
+          "dense_minus_diagonal": -4.8194109433946056e-05,
+          "dense_minus_mixture": -4.0242630779579564e-08,
+          "dense_minus_zero": -0.00019905596174266824,
+          "dense_minus_linear_adam": -2.671758839280934e-05,
+          "dense_minus_mlp_adam": -0.0053245496764849215
+        },
+        {
+          "start": 172032,
+          "end": 180224,
+          "count": 8192,
+          "dense_minus_diagonal": 2.0628710205774966e-06,
+          "dense_minus_mixture": -4.1176682626372325e-10,
+          "dense_minus_zero": -0.0010037158307426243,
+          "dense_minus_linear_adam": 9.674740644409899e-05,
+          "dense_minus_mlp_adam": -0.006356027484642038
+        },
+        {
+          "start": 180224,
+          "end": 188416,
+          "count": 8192,
+          "dense_minus_diagonal": 1.3378417760445826e-05,
+          "dense_minus_mixture": -2.542140900661881e-09,
+          "dense_minus_zero": -0.0007120113590658413,
+          "dense_minus_linear_adam": -9.636832479358613e-06,
+          "dense_minus_mlp_adam": -0.005049161581060037
+        },
+        {
+          "start": 188416,
+          "end": 196608,
+          "count": 8192,
+          "dense_minus_diagonal": 5.302679269013288e-05,
+          "dense_minus_mixture": 1.950006715270329e-08,
+          "dense_minus_zero": -0.0015271133100397546,
+          "dense_minus_linear_adam": 0.0002399183193231256,
+          "dense_minus_mlp_adam": -0.005668564110511613
+        },
+        {
+          "start": 196608,
+          "end": 204800,
+          "count": 8192,
+          "dense_minus_diagonal": 2.8887151336338522e-06,
+          "dense_minus_mixture": -2.9586112541132048e-08,
+          "dense_minus_zero": -0.0005829224611108616,
+          "dense_minus_linear_adam": -3.4702606304890565e-05,
+          "dense_minus_mlp_adam": -0.006288395822192264
+        },
+        {
+          "start": 204800,
+          "end": 212992,
+          "count": 8192,
+          "dense_minus_diagonal": 9.918852852888038e-05,
+          "dense_minus_mixture": 1.8937495757523723e-09,
+          "dense_minus_zero": -0.001233553713088339,
+          "dense_minus_linear_adam": 2.0607172994450678e-05,
+          "dense_minus_mlp_adam": -0.00633428684904867
+        },
+        {
+          "start": 212992,
+          "end": 221184,
+          "count": 8192,
+          "dense_minus_diagonal": -0.0001489996211676749,
+          "dense_minus_mixture": 5.225030132964164e-10,
+          "dense_minus_zero": -0.0007643489079747267,
+          "dense_minus_linear_adam": -0.0001633889578229908,
+          "dense_minus_mlp_adam": -0.006245242811840611
+        },
+        {
+          "start": 221184,
+          "end": 229376,
+          "count": 8192,
+          "dense_minus_diagonal": 9.056033632353601e-05,
+          "dense_minus_mixture": 8.155186518768593e-09,
+          "dense_minus_zero": -0.0012512364845922595,
+          "dense_minus_linear_adam": 0.00014687758388480277,
+          "dense_minus_mlp_adam": -0.005495230388817121
+        },
+        {
+          "start": 229376,
+          "end": 237568,
+          "count": 8192,
+          "dense_minus_diagonal": 7.19337187759421e-06,
+          "dense_minus_mixture": 1.7738379763624354e-08,
+          "dense_minus_zero": -0.001072272565034602,
+          "dense_minus_linear_adam": 6.382487775461219e-05,
+          "dense_minus_mlp_adam": -0.005801088184201598
+        }
+      ],
+      "all_output_error_ratios": {
+        "dense_1e-07": 0.9996930287615938,
+        "dense_1e-06": 0.9990670036827811,
+        "dense_1e-05": 0.9990789968943119,
+        "dense_0.0001": 0.9993461207155253,
+        "dense_0.001": 0.999560297893381,
+        "diagonal_1e-07": 0.9996751105996533,
+        "diagonal_1e-06": 0.9990588056911872,
+        "diagonal_1e-05": 0.9993375621761605,
+        "diagonal_0.0001": 0.9998125186266978,
+        "diagonal_0.001": 1.0007637978987376,
+        "dense_bayes_mixture": 0.9990670060581138,
+        "zero": 1.0000000000000366,
+        "adam_linear_1e-07": 0.9998446772542793,
+        "adam_linear_3e-07": 0.9995948040271143,
+        "adam_linear_1e-06": 0.999166131747283,
+        "adam_linear_3e-06": 0.9990298774870673,
+        "adam_linear_1e-05": 0.9997321950803882,
+        "adam_linear_3e-05": 1.00201965692268,
+        "adam_linear_0.0001": 1.0098916656432282,
+        "adam_linear_0.0003": 1.032744729095652,
+        "adam_linear_0.001": 1.1269672227365186,
+        "adam_linear_0.003": 1.6561974433428206,
+        "adam_linear_0.01": 8.146032037377587,
+        "adam_mlp_1e-07": 1.1171915990602141,
+        "adam_mlp_3e-07": 1.088455836395576,
+        "adam_mlp_1e-06": 1.0541257654380236,
+        "adam_mlp_3e-06": 1.0290527989277347,
+        "adam_mlp_1e-05": 1.0138002681561706,
+        "adam_mlp_3e-05": 1.0069311002035037,
+        "adam_mlp_0.0001": 1.0028885884320584,
+        "adam_mlp_0.0003": 1.0049123294766666,
+        "adam_mlp_0.001": 1.0202921532609506,
+        "adam_mlp_0.003": 1.0724715248863166,
+        "adam_mlp_0.01": 1.3353965632156457
+      },
+      "dense_relative_error_reduction": {
+        "diagonal": -8.205714765896488e-06,
+        "mixture": 2.3775509339074574e-09,
+        "zero": 0.0009329963172555189,
+        "linear_adam": -3.7162247646937985e-05,
+        "mlp_adam": 0.005816751991618685
+      }
+    },
+    "random_sign": {
+      "artifact": "runs/SPY__correlated_stock_v2_random_sign__1__20260908/results.json",
+      "status": "pruned",
+      "observations": 237568,
+      "suffix_count": 73728,
+      "maximum_observations": 468021,
+      "full_horizon": false,
+      "selected_priors": {
+        "dense": 1e-06,
+        "diagonal": 1e-06
+      },
+      "selected_adam_lrs": {
+        "linear": 3e-06,
+        "mlp": 0.0003
+      },
+      "models": {
+        "dense": {
+          "name": "dense_1e-06",
+          "error_ratio": 1.0001643240888078,
+          "prediction_energy_ratio": 0.00012120280635025372,
+          "signed_cross_term_ratio": 4.312128247655919e-05
+        },
+        "diagonal": {
+          "name": "diagonal_1e-06",
+          "error_ratio": 1.0002524853971575,
+          "prediction_energy_ratio": 0.00013924555134280363,
+          "signed_cross_term_ratio": 0.00011323984581572032
+        },
+        "mixture": {
+          "name": "dense_bayes_mixture",
+          "error_ratio": 1.0000115148208097,
+          "prediction_energy_ratio": 4.228026081322562e-06,
+          "signed_cross_term_ratio": 7.286794727650745e-06
+        },
+        "zero": {
+          "name": "zero",
+          "error_ratio": 1.0000000000000366,
+          "prediction_energy_ratio": 0.0,
+          "signed_cross_term_ratio": -0.0
+        },
+        "linear_adam": {
+          "name": "adam_linear_3e-06",
+          "error_ratio": 1.0004337911788337,
+          "prediction_energy_ratio": 0.00024496599490723443,
+          "signed_cross_term_ratio": 0.00018882518392780823
+        },
+        "mlp_adam": {
+          "name": "adam_mlp_0.0003",
+          "error_ratio": 1.0051665193122374,
+          "prediction_energy_ratio": 0.004527515155334122,
+          "signed_cross_term_ratio": 0.0006390041568975848
+        }
+      },
+      "blocks8192": [
+        {
+          "start": 163840,
+          "end": 172032,
+          "count": 8192,
+          "dense_minus_diagonal": -5.470951792849541e-05,
+          "dense_minus_mixture": 0.00037429930487403897,
+          "dense_minus_zero": 0.0004510051422791766,
+          "dense_minus_linear_adam": -0.00023293144555974567,
+          "dense_minus_mlp_adam": -0.0057363624242595486
+        },
+        {
+          "start": 172032,
+          "end": 180224,
+          "count": 8192,
+          "dense_minus_diagonal": -0.00015911115761588706,
+          "dense_minus_mixture": 4.815092853037958e-05,
+          "dense_minus_zero": 3.6764111115372155e-05,
+          "dense_minus_linear_adam": -0.0004071387259021267,
+          "dense_minus_mlp_adam": -0.00495348768206666
+        },
+        {
+          "start": 180224,
+          "end": 188416,
+          "count": 8192,
+          "dense_minus_diagonal": -0.00010238597163225677,
+          "dense_minus_mixture": 0.00025332902737152134,
+          "dense_minus_zero": 0.00028233774063787597,
+          "dense_minus_linear_adam": -0.000265323795983493,
+          "dense_minus_mlp_adam": -0.005140575694186135
+        },
+        {
+          "start": 188416,
+          "end": 196608,
+          "count": 8192,
+          "dense_minus_diagonal": -3.694981313585827e-05,
+          "dense_minus_mixture": -1.0602033222252123e-05,
+          "dense_minus_zero": -1.031272621152028e-05,
+          "dense_minus_linear_adam": -0.0002200564138911806,
+          "dense_minus_mlp_adam": -0.005212920163199675
+        },
+        {
+          "start": 196608,
+          "end": 204800,
+          "count": 8192,
+          "dense_minus_diagonal": -0.00011735146221889353,
+          "dense_minus_mixture": 0.00014283111152664727,
+          "dense_minus_zero": 0.00013242777895053505,
+          "dense_minus_linear_adam": -0.00023307020866886018,
+          "dense_minus_mlp_adam": -0.0051605934302621
+        },
+        {
+          "start": 204800,
+          "end": 212992,
+          "count": 8192,
+          "dense_minus_diagonal": -5.944298991460889e-05,
+          "dense_minus_mixture": -0.00010728444315690872,
+          "dense_minus_zero": -0.000155154454717055,
+          "dense_minus_linear_adam": -0.00022490672401043839,
+          "dense_minus_mlp_adam": -0.006101127062344742
+        },
+        {
+          "start": 212992,
+          "end": 221184,
+          "count": 8192,
+          "dense_minus_diagonal": -7.001846958971842e-05,
+          "dense_minus_mixture": 0.0002482265805331774,
+          "dense_minus_zero": 0.0002966633596119793,
+          "dense_minus_linear_adam": -0.0002585021408564475,
+          "dense_minus_mlp_adam": -0.004008439868059286
+        },
+        {
+          "start": 221184,
+          "end": 229376,
+          "count": 8192,
+          "dense_minus_diagonal": -0.00012678013012536437,
+          "dense_minus_mixture": 0.00033200658313103443,
+          "dense_minus_zero": 0.00035490237576138494,
+          "dense_minus_linear_adam": -0.0003444948830413216,
+          "dense_minus_mlp_adam": -0.004999461584042222
+        },
+        {
+          "start": 229376,
+          "end": 237568,
+          "count": 8192,
+          "dense_minus_diagonal": -6.123613857785655e-05,
+          "dense_minus_mixture": 0.00010947856221638678,
+          "dense_minus_zero": 0.00011177780412936418,
+          "dense_minus_linear_adam": -0.0002359489836588331,
+          "dense_minus_mlp_adam": -0.003863754947308024
+        }
+      ],
+      "all_output_error_ratios": {
+        "dense_1e-07": 1.0000084058501428,
+        "dense_1e-06": 1.0001643240888078,
+        "dense_1e-05": 1.0006670071251846,
+        "dense_0.0001": 1.001053622175722,
+        "dense_0.001": 1.0013310515027292,
+        "diagonal_1e-07": 1.0000153352946721,
+        "diagonal_1e-06": 1.0002524853971575,
+        "diagonal_1e-05": 1.0009538592256506,
+        "diagonal_0.0001": 1.0015656175911458,
+        "diagonal_0.001": 1.002305953429047,
+        "dense_bayes_mixture": 1.0000115148208097,
+        "zero": 1.0000000000000366,
+        "adam_linear_1e-07": 1.0000023336136135,
+        "adam_linear_3e-07": 1.000023942251189,
+        "adam_linear_1e-06": 1.0001186587423732,
+        "adam_linear_3e-06": 1.0004337911788337,
+        "adam_linear_1e-05": 1.001386187240358,
+        "adam_linear_3e-05": 1.0035891588317856,
+        "adam_linear_0.0001": 1.01136460012007,
+        "adam_linear_0.0003": 1.0347743173548103,
+        "adam_linear_0.001": 1.1226008731752164,
+        "adam_linear_0.003": 1.502755560023803,
+        "adam_linear_0.01": 8.461859191068054,
+        "adam_mlp_1e-07": 1.118961713830923,
+        "adam_mlp_3e-07": 1.08893190502728,
+        "adam_mlp_1e-06": 1.0544398427982613,
+        "adam_mlp_3e-06": 1.0296104705577256,
+        "adam_mlp_1e-05": 1.0148580630277209,
+        "adam_mlp_3e-05": 1.0088667601561812,
+        "adam_mlp_0.0001": 1.0041663853623684,
+        "adam_mlp_0.0003": 1.0051665193122374,
+        "adam_mlp_0.001": 1.0201012987401807,
+        "adam_mlp_0.003": 1.0677037004306493,
+        "adam_mlp_0.01": 1.3289545987059537
+      },
+      "dense_relative_error_reduction": {
+        "diagonal": 8.813905452542681e-05,
+        "mixture": -0.00015280750844692825,
+        "zero": -0.00016432408877120608,
+        "linear_adam": 0.000269350248264133,
+        "mlp_adam": 0.004976484122105718
+      }
+    }
+  },
+  "real_block_wins": {
+    "diagonal": 2,
+    "zero": 9,
+    "linear_adam": 4,
+    "mlp_adam": 9
+  },
+  "real_block_count": 9,
+  "conclusions": [
+    "Dense primary beats zero in9/9 real forward blocks, but fails the predefined primary gate against linear Adam.",
+    "Selected dense prior is1e-6, interior to five-value grid; diagonal selects same prior and slightly beats dense on real labels. Covariance-alone causal advantage is not supported.",
+    "Static Bayesian mixture matches real selected dense quality and has much lower randomized-label excess error than selected dense and Adam.",
+    "Retain calibrated model evidence and test mean-preserving drift, not coordinate resets or suffix-retuned priors.",
+    "Both views intentionally pruned at237568 of468021 observations; scored73728 forward observations after163840. No full-horizon or statistical-significance claim."
+  ],
+  "next_prospective_iteration": "benchmarks/plasticity/dynamic_stock_v3_plan.json"
+}

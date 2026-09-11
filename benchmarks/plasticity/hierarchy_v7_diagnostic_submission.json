@@ -1,0 +1,53 @@
+{
+  "command": [
+    "mlq",
+    "submit",
+    "--json",
+    "--name",
+    "hierarchy-v7-full-leverage-diagnostic",
+    "--max-parallel-runs",
+    "1",
+    "--time-limit",
+    "15m",
+    "--after-success",
+    "6189",
+    "--env",
+    "OMP_NUM_THREADS=1",
+    "--env",
+    "MKL_NUM_THREADS=1",
+    "--",
+    ".venv/bin/python",
+    "benchmarks/plasticity/hierarchy_v7_leverage_diagnostic.py"
+  ],
+  "submission": {
+    "id": 6220,
+    "name": "hierarchy-v7-full-leverage-diagnostic",
+    "state": "queued",
+    "eligibility": "backfill_window_open: job 6205",
+    "maxParallelRuns": 1,
+    "priority": 0,
+    "cwd": "/home/marvin/Documents/repositories/cleanrl",
+    "args": [
+      ".venv/bin/python",
+      "benchmarks/plasticity/hierarchy_v7_leverage_diagnostic.py"
+    ],
+    "maxAttempts": 1,
+    "retryDelayMs": 0,
+    "timeLimitMs": 900000,
+    "readySequence": 5918,
+    "attemptCount": 0,
+    "createdAt": 1789106554621,
+    "updatedAt": 1789106554621,
+    "dependencies": [
+      {
+        "parent": 6189,
+        "condition": "succeeded",
+        "parentState": "succeeded",
+        "resolution": "satisfied",
+        "parentOutcome": "succeeded",
+        "resolvedAt": 1789106554621
+      }
+    ],
+    "attempts": []
+  }
+}

@@ -1,0 +1,1275 @@
+{
+  "plan": "benchmarks/plasticity/predictive_transport_v2_plan.json",
+  "contracts": {
+    "job": 5807,
+    "max_parallel_runs": 1,
+    "xml": "benchmarks/plasticity/predictive_transport_v2_final_contracts.xml",
+    "suites": [
+      {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "38",
+        "time": "5.081",
+        "timestamp": "2026-09-09T00:25:01.035997",
+        "hostname": "cachyos-x8664-desktop"
+      }
+    ]
+  },
+  "audit_regression": {
+    "reproduction_job": 5806,
+    "prefixed_failure_count": 2,
+    "fix": "Assert eager/compiled and production/replay finite masks agree before masking; regression tests now pass."
+  },
+  "experiments": {
+    "stationary": {
+      "run_dir": "runs/DenseStream__predictive_transport_v2_stationary_refined__1__20260909",
+      "status": "completed",
+      "source_sha256": {
+        "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+        "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+        "cleanrl/plasticity/predictive_transport_eval_v2.py": "9c71a11c035a5c4c27ba61fd66629bd5017c4993e1dcb790b907bb1c23c0c356",
+        "cleanrl/plasticity/predictive_transport_stream_v2.py": "26a7845278239be8f42ce8572b56c88f90e897ef80180ca867ccf793e6d372fd",
+        "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+      },
+      "data_hashes": {
+        "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+        "ys": "56f15e4d6a3a3f5b890772228aacacaca2661655c0c628581b0200f0f4fa314f",
+        "clean": "2a8742079fb85ebdca9c4a64b36acf9f0552742f15dd452761385fdbe13c14c3",
+        "noise_variance": "17faa485f5409354c6aed458c8cc8dfad1922c98532b3e0349c26f9349388261",
+        "noise_direction": "3cb6c53ea43ded0ca87f50722c0a7977ac0ddbd28f86187750fb4c60f79fd93d",
+        "validation_x": "45575ef5d08e87405c167beea804cdeaa70ffcd207c1f30141c1f77de3e270f7",
+        "test_x": "60d635fdbe976bb2de85ba67bb2a02bca51c50e93c01373c5b3c4110136f2318",
+        "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+        "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+        "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e",
+        "teacher_0_0": "77a29d674824f73993b17438efbe53439006c81ec755220b5dd45a69b5366df4",
+        "teacher_0_1": "637bd45fcbcdd69a64448dd86000c2bcbf3abafa8876de1fc5491ac465cecfe3",
+        "teacher_0_2": "7b6213b7ab8438b0b5178df6f1dbc32d57e9bd236a1c309cfec37d87ff7e22d2",
+        "teacher_1_0": "745fc605560effcc43d9965eeb4a2ed280ac608a4bcbe6d30fe60184d57679d1",
+        "teacher_1_1": "998c477a9398495a3a50855a65d9ae68a1cbaaca700835a48190fdde0a803836",
+        "teacher_1_2": "e5dfe353f9f0edb0c5b2c2e5730fd8ba11380e99c9ef96162d34f347a0507bb3",
+        "validation_y_0": "08258471e4c07a7f998a53acfcb13d48894637a48bcb34d138b8e668283b10d4",
+        "validation_y_1": "b316c201f3590f2fa84ac8ef6b06518ae70d52efc9e3d711cec3dc35184a0bec",
+        "test_y_0": "79caae3ddbf15c3380df7f56983174e8db8dc1d187e5a530ef37631f5e9109ac",
+        "test_y_1": "63db8aa007130537dda4503220375b4dd6fa87bdfb24f4d3bd3461822e122996"
+      },
+      "timing": {
+        "generation_and_hashing_seconds": 0.9756081759696826,
+        "generation_training_selection_test_seconds": 94.60167423600797,
+        "total_seconds": 107.06029032892548
+      },
+      "selection_barrier": {
+        "adam": {
+          "status": "selected",
+          "sha256": "4069b0a1a0a0fea3adf2fabf9881b4f00de7aa5ec3add467674be3ee7e1c80a2"
+        },
+        "predictive": {
+          "status": "selected",
+          "sha256": "32d7f508a539e5184b51e641d5fa8f16f91b39546690698bdc4eb2a94cff00ca"
+        },
+        "tangent": {
+          "status": "selected",
+          "sha256": "dd6518bd6e65f957907bb8d1c1cf49cb23b393ce5220d49a1a0cf49ef3ead88d"
+        },
+        "implicit": {
+          "status": "selected",
+          "sha256": "fe82e2bef89f8f50f840de843b19e6092ac46d8732de25c69c5e218e6d22c22d"
+        },
+        "robust": {
+          "status": "selected",
+          "sha256": "7d42478d267f6310772fdca3074399dea34f04136ea4766034cdefb8bfb5a720"
+        }
+      },
+      "selection_barrier_sha256": "51e89a94babaefb0aef4456831cb4fa461ff2ca787d6ef7dee8b7a87feab8e45",
+      "job": 5808,
+      "max_parallel_runs": 1,
+      "methods": {
+        "adam": {
+          "test_sustained_mse": 0.1737424759194255,
+          "test_mse": 0.13099335134029388,
+          "selected_learning_rate": 0.0003,
+          "selected_beta1": 0.9,
+          "edge_flags": {
+            "learning_rate": {
+              "lower": false,
+              "upper": false
+            },
+            "beta1": {
+              "lower": false,
+              "upper": false
+            }
+          },
+          "timing": {
+            "startup_seconds": 13.564741942915134,
+            "training_seconds": 3.1809944399865344,
+            "training_scope": "full joint-grid graph replay, clean validation, diagnostics, CPU transfers, checkpoints, TensorBoard, JSON and progress reporting; excludes startup and held-out scoring",
+            "aggregate_candidate_samples_per_second": 4614929.160348404,
+            "test_seconds": 0.11120627692434937
+          },
+          "resources": {
+            "candidate_count": 224,
+            "forward_evaluations_per_step": 1,
+            "jacobian_evaluations_per_step": 1,
+            "mutable_tensor_bytes": 14455408,
+            "startup_candidate_forward_evaluations": 14784,
+            "startup_candidate_jacobian_evaluations": 14784,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "candidate_samples": 14680064,
+            "candidate_forward_evaluations": 14680064,
+            "candidate_jacobian_evaluations": 14680064,
+            "candidate_validation_forward_evaluations": 7340032,
+            "peak_allocated_bytes": 225348608,
+            "peak_reserved_bytes": 398458880,
+            "selected_test_forward_evaluations": 131072
+          },
+          "fixed_selected_replay": {
+            "status": "completed",
+            "candidate_count": 1,
+            "chosen": {
+              "learning_rate": 0.0003,
+              "beta1": 0.9
+            },
+            "chosen_index": 103,
+            "selection_sha256": "4069b0a1a0a0fea3adf2fabf9881b4f00de7aa5ec3add467674be3ee7e1c80a2",
+            "data_hashes": {
+              "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+              "ys": "56f15e4d6a3a3f5b890772228aacacaca2661655c0c628581b0200f0f4fa314f",
+              "clean": "2a8742079fb85ebdca9c4a64b36acf9f0552742f15dd452761385fdbe13c14c3",
+              "noise_variance": "17faa485f5409354c6aed458c8cc8dfad1922c98532b3e0349c26f9349388261",
+              "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+              "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+              "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e"
+            },
+            "source_sha256": {
+              "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+              "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+              "cleanrl/plasticity/predictive_transport_eval_v2.py": "9c71a11c035a5c4c27ba61fd66629bd5017c4993e1dcb790b907bb1c23c0c356",
+              "cleanrl/plasticity/predictive_transport_stream_v2.py": "26a7845278239be8f42ce8572b56c88f90e897ef80180ca867ccf793e6d372fd",
+              "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+            },
+            "selection_policy": "performance only; choice is immutable and no score participates in reselection",
+            "scope": "CUDA-event elapsed full-stream graph replay from initial state, K=1; includes optimizer online telemetry and host graph-submission gaps; excludes construction, compilation, capture/audit, input hashing, validation, test scoring, checkpoints and report IO",
+            "comparison_limit": "single-candidate compiled shape is benchmarked independently; not the joint-grid training/report throughput or a second accuracy estimate",
+            "startup_seconds": 0.26260608597658575,
+            "graph_parity_max_abs": 9.5367431640625e-07,
+            "capture_failed_candidates": [
+              false
+            ],
+            "startup_candidate_forward_evaluations": 66,
+            "startup_candidate_jacobian_evaluations": 66,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "samples": 65536,
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "capture_steps": 16,
+            "graph_replays": 4096,
+            "replay_seconds": 1.556169921875,
+            "samples_per_second": 42113.65293645883,
+            "forward_evaluations_per_step": 1,
+            "jacobian_evaluations_per_step": 1,
+            "candidate_forward_evaluations": 65536,
+            "candidate_jacobian_evaluations": 65536,
+            "mutable_tensor_bytes": 64549,
+            "source_and_data_equality_verified": true,
+            "benchmark_wall_seconds": 1.8238121339818463,
+            "peak_allocated_bytes_including_capture": 140649472,
+            "peak_reserved_bytes_including_capture": 159383552
+          },
+          "selection_sha256": "4069b0a1a0a0fea3adf2fabf9881b4f00de7aa5ec3add467674be3ee7e1c80a2",
+          "validation_by_phase": {
+            "0": {
+              "samples": 65536,
+              "mse": 0.1759124482050538
+            }
+          },
+          "test_by_phase": {
+            "0": {
+              "samples": 65536,
+              "mse": 0.1737424759194255
+            }
+          }
+        },
+        "predictive": {
+          "test_sustained_mse": 0.13047605846077204,
+          "test_mse": 0.09995526075363159,
+          "selected_learning_rate": 0.001,
+          "selected_beta1": 0.9998,
+          "edge_flags": {
+            "learning_rate": {
+              "lower": false,
+              "upper": false
+            },
+            "beta1": {
+              "lower": false,
+              "upper": false
+            }
+          },
+          "timing": {
+            "startup_seconds": 12.679549100925215,
+            "training_seconds": 4.6572226888965815,
+            "training_scope": "full joint-grid graph replay, clean validation, diagnostics, CPU transfers, checkpoints, TensorBoard, JSON and progress reporting; excludes startup and held-out scoring",
+            "aggregate_candidate_samples_per_second": 3152106.9488472524,
+            "test_seconds": 0.06940029608085752
+          },
+          "resources": {
+            "candidate_count": 224,
+            "forward_evaluations_per_step": 2,
+            "jacobian_evaluations_per_step": 1,
+            "mutable_tensor_bytes": 19273200,
+            "startup_candidate_forward_evaluations": 29568,
+            "startup_candidate_jacobian_evaluations": 14784,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "candidate_samples": 14680064,
+            "candidate_forward_evaluations": 29360128,
+            "candidate_jacobian_evaluations": 14680064,
+            "candidate_validation_forward_evaluations": 7340032,
+            "peak_allocated_bytes": 246168576,
+            "peak_reserved_bytes": 413138944,
+            "selected_test_forward_evaluations": 131072
+          },
+          "fixed_selected_replay": {
+            "status": "completed",
+            "candidate_count": 1,
+            "chosen": {
+              "learning_rate": 0.001,
+              "beta1": 0.9998
+            },
+            "chosen_index": 151,
+            "selection_sha256": "32d7f508a539e5184b51e641d5fa8f16f91b39546690698bdc4eb2a94cff00ca",
+            "data_hashes": {
+              "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+              "ys": "56f15e4d6a3a3f5b890772228aacacaca2661655c0c628581b0200f0f4fa314f",
+              "clean": "2a8742079fb85ebdca9c4a64b36acf9f0552742f15dd452761385fdbe13c14c3",
+              "noise_variance": "17faa485f5409354c6aed458c8cc8dfad1922c98532b3e0349c26f9349388261",
+              "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+              "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+              "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e"
+            },
+            "source_sha256": {
+              "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+              "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+              "cleanrl/plasticity/predictive_transport_eval_v2.py": "9c71a11c035a5c4c27ba61fd66629bd5017c4993e1dcb790b907bb1c23c0c356",
+              "cleanrl/plasticity/predictive_transport_stream_v2.py": "26a7845278239be8f42ce8572b56c88f90e897ef80180ca867ccf793e6d372fd",
+              "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+            },
+            "selection_policy": "performance only; choice is immutable and no score participates in reselection",
+            "scope": "CUDA-event elapsed full-stream graph replay from initial state, K=1; includes optimizer online telemetry and host graph-submission gaps; excludes construction, compilation, capture/audit, input hashing, validation, test scoring, checkpoints and report IO",
+            "comparison_limit": "single-candidate compiled shape is benchmarked independently; not the joint-grid training/report throughput or a second accuracy estimate",
+            "startup_seconds": 0.21399972797371447,
+            "graph_parity_max_abs": 8.344650268554688e-07,
+            "capture_failed_candidates": [
+              false
+            ],
+            "startup_candidate_forward_evaluations": 132,
+            "startup_candidate_jacobian_evaluations": 66,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "samples": 65536,
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "capture_steps": 16,
+            "graph_replays": 4096,
+            "replay_seconds": 2.25540234375,
+            "samples_per_second": 29057.34321931889,
+            "forward_evaluations_per_step": 2,
+            "jacobian_evaluations_per_step": 1,
+            "candidate_forward_evaluations": 131072,
+            "candidate_jacobian_evaluations": 65536,
+            "mutable_tensor_bytes": 86057,
+            "source_and_data_equality_verified": true,
+            "benchmark_wall_seconds": 2.473417064989917,
+            "peak_allocated_bytes_including_capture": 174366208,
+            "peak_reserved_bytes_including_capture": 192937984
+          },
+          "selection_sha256": "32d7f508a539e5184b51e641d5fa8f16f91b39546690698bdc4eb2a94cff00ca",
+          "validation_by_phase": {
+            "0": {
+              "samples": 65536,
+              "mse": 0.13360348949208856
+            }
+          },
+          "test_by_phase": {
+            "0": {
+              "samples": 65536,
+              "mse": 0.13047605846077204
+            }
+          }
+        },
+        "tangent": {
+          "test_sustained_mse": 0.13047453667968512,
+          "test_mse": 0.0999484732747078,
+          "selected_learning_rate": 0.001,
+          "selected_beta1": 0.9998,
+          "edge_flags": {
+            "learning_rate": {
+              "lower": false,
+              "upper": false
+            },
+            "beta1": {
+              "lower": false,
+              "upper": false
+            }
+          },
+          "timing": {
+            "startup_seconds": 14.679448632989079,
+            "training_seconds": 4.52652085502632,
+            "training_scope": "full joint-grid graph replay, clean validation, diagnostics, CPU transfers, checkpoints, TensorBoard, JSON and progress reporting; excludes startup and held-out scoring",
+            "aggregate_candidate_samples_per_second": 3243123.0232152864,
+            "test_seconds": 0.07209302601404488
+          },
+          "resources": {
+            "candidate_count": 224,
+            "forward_evaluations_per_step": 1,
+            "jacobian_evaluations_per_step": 1,
+            "mutable_tensor_bytes": 19273200,
+            "startup_candidate_forward_evaluations": 14784,
+            "startup_candidate_jacobian_evaluations": 14784,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "candidate_samples": 14680064,
+            "candidate_forward_evaluations": 14680064,
+            "candidate_jacobian_evaluations": 14680064,
+            "candidate_validation_forward_evaluations": 7340032,
+            "peak_allocated_bytes": 247138304,
+            "peak_reserved_bytes": 413138944,
+            "selected_test_forward_evaluations": 131072
+          },
+          "fixed_selected_replay": {
+            "status": "completed",
+            "candidate_count": 1,
+            "chosen": {
+              "learning_rate": 0.001,
+              "beta1": 0.9998
+            },
+            "chosen_index": 151,
+            "selection_sha256": "dd6518bd6e65f957907bb8d1c1cf49cb23b393ce5220d49a1a0cf49ef3ead88d",
+            "data_hashes": {
+              "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+              "ys": "56f15e4d6a3a3f5b890772228aacacaca2661655c0c628581b0200f0f4fa314f",
+              "clean": "2a8742079fb85ebdca9c4a64b36acf9f0552742f15dd452761385fdbe13c14c3",
+              "noise_variance": "17faa485f5409354c6aed458c8cc8dfad1922c98532b3e0349c26f9349388261",
+              "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+              "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+              "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e"
+            },
+            "source_sha256": {
+              "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+              "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+              "cleanrl/plasticity/predictive_transport_eval_v2.py": "9c71a11c035a5c4c27ba61fd66629bd5017c4993e1dcb790b907bb1c23c0c356",
+              "cleanrl/plasticity/predictive_transport_stream_v2.py": "26a7845278239be8f42ce8572b56c88f90e897ef80180ca867ccf793e6d372fd",
+              "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+            },
+            "selection_policy": "performance only; choice is immutable and no score participates in reselection",
+            "scope": "CUDA-event elapsed full-stream graph replay from initial state, K=1; includes optimizer online telemetry and host graph-submission gaps; excludes construction, compilation, capture/audit, input hashing, validation, test scoring, checkpoints and report IO",
+            "comparison_limit": "single-candidate compiled shape is benchmarked independently; not the joint-grid training/report throughput or a second accuracy estimate",
+            "startup_seconds": 0.46360552997794,
+            "graph_parity_max_abs": 1.9073486328125e-06,
+            "capture_failed_candidates": [
+              false
+            ],
+            "startup_candidate_forward_evaluations": 66,
+            "startup_candidate_jacobian_evaluations": 66,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "samples": 65536,
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "capture_steps": 16,
+            "graph_replays": 4096,
+            "replay_seconds": 2.0765771484375,
+            "samples_per_second": 31559.62688374565,
+            "forward_evaluations_per_step": 1,
+            "jacobian_evaluations_per_step": 1,
+            "candidate_forward_evaluations": 65536,
+            "candidate_jacobian_evaluations": 65536,
+            "mutable_tensor_bytes": 86057,
+            "source_and_data_equality_verified": true,
+            "benchmark_wall_seconds": 2.5454438449814916,
+            "peak_allocated_bytes_including_capture": 207927808,
+            "peak_reserved_bytes_including_capture": 226492416
+          },
+          "selection_sha256": "dd6518bd6e65f957907bb8d1c1cf49cb23b393ce5220d49a1a0cf49ef3ead88d",
+          "validation_by_phase": {
+            "0": {
+              "samples": 65536,
+              "mse": 0.1336025930941105
+            }
+          },
+          "test_by_phase": {
+            "0": {
+              "samples": 65536,
+              "mse": 0.13047453667968512
+            }
+          }
+        },
+        "implicit": {
+          "test_sustained_mse": 0.13024687860161066,
+          "test_mse": 0.09949540346860886,
+          "selected_learning_rate": 0.001,
+          "selected_beta1": 0.9998,
+          "edge_flags": {
+            "learning_rate": {
+              "lower": false,
+              "upper": false
+            },
+            "beta1": {
+              "lower": false,
+              "upper": false
+            }
+          },
+          "timing": {
+            "startup_seconds": 16.253643102943897,
+            "training_seconds": 5.478505515959114,
+            "training_scope": "full joint-grid graph replay, clean validation, diagnostics, CPU transfers, checkpoints, TensorBoard, JSON and progress reporting; excludes startup and held-out scoring",
+            "aggregate_candidate_samples_per_second": 2679574.558652239,
+            "test_seconds": 0.08145342103671283
+          },
+          "resources": {
+            "candidate_count": 224,
+            "forward_evaluations_per_step": 2,
+            "jacobian_evaluations_per_step": 1,
+            "mutable_tensor_bytes": 19273200,
+            "startup_candidate_forward_evaluations": 29568,
+            "startup_candidate_jacobian_evaluations": 14784,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "candidate_samples": 14680064,
+            "candidate_forward_evaluations": 29360128,
+            "candidate_jacobian_evaluations": 14680064,
+            "candidate_validation_forward_evaluations": 7340032,
+            "peak_allocated_bytes": 232229376,
+            "peak_reserved_bytes": 411041792,
+            "selected_test_forward_evaluations": 131072
+          },
+          "fixed_selected_replay": {
+            "status": "completed",
+            "candidate_count": 1,
+            "chosen": {
+              "learning_rate": 0.001,
+              "beta1": 0.9998
+            },
+            "chosen_index": 151,
+            "selection_sha256": "fe82e2bef89f8f50f840de843b19e6092ac46d8732de25c69c5e218e6d22c22d",
+            "data_hashes": {
+              "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+              "ys": "56f15e4d6a3a3f5b890772228aacacaca2661655c0c628581b0200f0f4fa314f",
+              "clean": "2a8742079fb85ebdca9c4a64b36acf9f0552742f15dd452761385fdbe13c14c3",
+              "noise_variance": "17faa485f5409354c6aed458c8cc8dfad1922c98532b3e0349c26f9349388261",
+              "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+              "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+              "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e"
+            },
+            "source_sha256": {
+              "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+              "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+              "cleanrl/plasticity/predictive_transport_eval_v2.py": "9c71a11c035a5c4c27ba61fd66629bd5017c4993e1dcb790b907bb1c23c0c356",
+              "cleanrl/plasticity/predictive_transport_stream_v2.py": "26a7845278239be8f42ce8572b56c88f90e897ef80180ca867ccf793e6d372fd",
+              "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+            },
+            "selection_policy": "performance only; choice is immutable and no score participates in reselection",
+            "scope": "CUDA-event elapsed full-stream graph replay from initial state, K=1; includes optimizer online telemetry and host graph-submission gaps; excludes construction, compilation, capture/audit, input hashing, validation, test scoring, checkpoints and report IO",
+            "comparison_limit": "single-candidate compiled shape is benchmarked independently; not the joint-grid training/report throughput or a second accuracy estimate",
+            "startup_seconds": 0.2579499080311507,
+            "graph_parity_max_abs": 1.9073486328125e-06,
+            "capture_failed_candidates": [
+              false
+            ],
+            "startup_candidate_forward_evaluations": 132,
+            "startup_candidate_jacobian_evaluations": 66,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "samples": 65536,
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "capture_steps": 16,
+            "graph_replays": 4096,
+            "replay_seconds": 2.580144775390625,
+            "samples_per_second": 25400.12507246927,
+            "forward_evaluations_per_step": 2,
+            "jacobian_evaluations_per_step": 1,
+            "candidate_forward_evaluations": 131072,
+            "candidate_jacobian_evaluations": 65536,
+            "mutable_tensor_bytes": 86057,
+            "source_and_data_equality_verified": true,
+            "benchmark_wall_seconds": 2.843227552017197,
+            "peak_allocated_bytes_including_capture": 241448448,
+            "peak_reserved_bytes_including_capture": 260046848
+          },
+          "selection_sha256": "fe82e2bef89f8f50f840de843b19e6092ac46d8732de25c69c5e218e6d22c22d",
+          "validation_by_phase": {
+            "0": {
+              "samples": 65536,
+              "mse": 0.13322205608710647
+            }
+          },
+          "test_by_phase": {
+            "0": {
+              "samples": 65536,
+              "mse": 0.13024687860161066
+            }
+          }
+        },
+        "robust": {
+          "test_sustained_mse": 0.1354441181756556,
+          "test_mse": 0.09949108213186264,
+          "selected_learning_rate": 0.001,
+          "selected_beta1": 0.9999,
+          "edge_flags": {
+            "learning_rate": {
+              "lower": false,
+              "upper": false
+            },
+            "beta1": {
+              "lower": false,
+              "upper": false
+            }
+          },
+          "timing": {
+            "startup_seconds": 11.93441209406592,
+            "training_seconds": 5.131834652042016,
+            "training_scope": "full joint-grid graph replay, clean validation, diagnostics, CPU transfers, checkpoints, TensorBoard, JSON and progress reporting; excludes startup and held-out scoring",
+            "aggregate_candidate_samples_per_second": 2860587.8784809704,
+            "test_seconds": 0.06326443201396614
+          },
+          "resources": {
+            "candidate_count": 224,
+            "forward_evaluations_per_step": 2,
+            "jacobian_evaluations_per_step": 1,
+            "mutable_tensor_bytes": 19273200,
+            "startup_candidate_forward_evaluations": 29568,
+            "startup_candidate_jacobian_evaluations": 14784,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "candidate_samples": 14680064,
+            "candidate_forward_evaluations": 29360128,
+            "candidate_jacobian_evaluations": 14680064,
+            "candidate_validation_forward_evaluations": 7340032,
+            "peak_allocated_bytes": 234987520,
+            "peak_reserved_bytes": 411041792,
+            "selected_test_forward_evaluations": 131072
+          },
+          "fixed_selected_replay": {
+            "status": "completed",
+            "candidate_count": 1,
+            "chosen": {
+              "learning_rate": 0.001,
+              "beta1": 0.9999
+            },
+            "chosen_index": 152,
+            "selection_sha256": "7d42478d267f6310772fdca3074399dea34f04136ea4766034cdefb8bfb5a720",
+            "data_hashes": {
+              "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+              "ys": "56f15e4d6a3a3f5b890772228aacacaca2661655c0c628581b0200f0f4fa314f",
+              "clean": "2a8742079fb85ebdca9c4a64b36acf9f0552742f15dd452761385fdbe13c14c3",
+              "noise_variance": "17faa485f5409354c6aed458c8cc8dfad1922c98532b3e0349c26f9349388261",
+              "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+              "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+              "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e"
+            },
+            "source_sha256": {
+              "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+              "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+              "cleanrl/plasticity/predictive_transport_eval_v2.py": "9c71a11c035a5c4c27ba61fd66629bd5017c4993e1dcb790b907bb1c23c0c356",
+              "cleanrl/plasticity/predictive_transport_stream_v2.py": "26a7845278239be8f42ce8572b56c88f90e897ef80180ca867ccf793e6d372fd",
+              "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+            },
+            "selection_policy": "performance only; choice is immutable and no score participates in reselection",
+            "scope": "CUDA-event elapsed full-stream graph replay from initial state, K=1; includes optimizer online telemetry and host graph-submission gaps; excludes construction, compilation, capture/audit, input hashing, validation, test scoring, checkpoints and report IO",
+            "comparison_limit": "single-candidate compiled shape is benchmarked independently; not the joint-grid training/report throughput or a second accuracy estimate",
+            "startup_seconds": 0.22922334098257124,
+            "graph_parity_max_abs": 1.9073486328125e-06,
+            "capture_failed_candidates": [
+              false
+            ],
+            "startup_candidate_forward_evaluations": 132,
+            "startup_candidate_jacobian_evaluations": 66,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "samples": 65536,
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "capture_steps": 16,
+            "graph_replays": 4096,
+            "replay_seconds": 2.120138916015625,
+            "samples_per_second": 30911.182047996055,
+            "forward_evaluations_per_step": 2,
+            "jacobian_evaluations_per_step": 1,
+            "candidate_forward_evaluations": 131072,
+            "candidate_jacobian_evaluations": 65536,
+            "mutable_tensor_bytes": 86057,
+            "source_and_data_equality_verified": true,
+            "benchmark_wall_seconds": 2.35435704595875,
+            "peak_allocated_bytes_including_capture": 274979328,
+            "peak_reserved_bytes_including_capture": 293601280
+          },
+          "selection_sha256": "7d42478d267f6310772fdca3074399dea34f04136ea4766034cdefb8bfb5a720",
+          "validation_by_phase": {
+            "0": {
+              "samples": 65536,
+              "mse": 0.1365096983499825
+            }
+          },
+          "test_by_phase": {
+            "0": {
+              "samples": 65536,
+              "mse": 0.1354441181756556
+            }
+          }
+        }
+      }
+    },
+    "stress": {
+      "run_dir": "runs/DenseStream__predictive_transport_v2_stress_refined__1__20260909",
+      "status": "completed",
+      "source_sha256": {
+        "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+        "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+        "cleanrl/plasticity/predictive_transport_eval_v2.py": "9c71a11c035a5c4c27ba61fd66629bd5017c4993e1dcb790b907bb1c23c0c356",
+        "cleanrl/plasticity/predictive_transport_stream_v2.py": "26a7845278239be8f42ce8572b56c88f90e897ef80180ca867ccf793e6d372fd",
+        "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+      },
+      "data_hashes": {
+        "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+        "ys": "b2ff812786d96275ba9c162c8de85fa679b56dbd919598bdcd94e0a85568d70c",
+        "clean": "8b198e72f6cab8ff13260a14b93fde10e60c20815528825f447b23d3774d882d",
+        "noise_variance": "3ad748ebe4d7d341e791717d061c5bd1c7a4b21bd0e02b6f1aeccbcbe229d4bc",
+        "noise_direction": "3cb6c53ea43ded0ca87f50722c0a7977ac0ddbd28f86187750fb4c60f79fd93d",
+        "validation_x": "45575ef5d08e87405c167beea804cdeaa70ffcd207c1f30141c1f77de3e270f7",
+        "test_x": "60d635fdbe976bb2de85ba67bb2a02bca51c50e93c01373c5b3c4110136f2318",
+        "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+        "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+        "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e",
+        "teacher_0_0": "77a29d674824f73993b17438efbe53439006c81ec755220b5dd45a69b5366df4",
+        "teacher_0_1": "637bd45fcbcdd69a64448dd86000c2bcbf3abafa8876de1fc5491ac465cecfe3",
+        "teacher_0_2": "7b6213b7ab8438b0b5178df6f1dbc32d57e9bd236a1c309cfec37d87ff7e22d2",
+        "teacher_1_0": "745fc605560effcc43d9965eeb4a2ed280ac608a4bcbe6d30fe60184d57679d1",
+        "teacher_1_1": "998c477a9398495a3a50855a65d9ae68a1cbaaca700835a48190fdde0a803836",
+        "teacher_1_2": "e5dfe353f9f0edb0c5b2c2e5730fd8ba11380e99c9ef96162d34f347a0507bb3",
+        "validation_y_0": "08258471e4c07a7f998a53acfcb13d48894637a48bcb34d138b8e668283b10d4",
+        "validation_y_1": "b316c201f3590f2fa84ac8ef6b06518ae70d52efc9e3d711cec3dc35184a0bec",
+        "test_y_0": "79caae3ddbf15c3380df7f56983174e8db8dc1d187e5a530ef37631f5e9109ac",
+        "test_y_1": "63db8aa007130537dda4503220375b4dd6fa87bdfb24f4d3bd3461822e122996"
+      },
+      "timing": {
+        "generation_and_hashing_seconds": 0.9528937409631908,
+        "generation_training_selection_test_seconds": 29.917968005989678,
+        "total_seconds": 43.79855183104519
+      },
+      "selection_barrier": {
+        "adam": {
+          "status": "selected",
+          "sha256": "da9a91a4a8da833ebb88aa781e698485d7ea78711648043dc1b8e97e10a21630"
+        },
+        "predictive": {
+          "status": "selected",
+          "sha256": "28720c9bd7fa87eb3c1d5d3fb4026c4383c84432753a0fca17a88300118cb6fc"
+        },
+        "tangent": {
+          "status": "selected",
+          "sha256": "cae53742f155d49f40a8e10a0bf5868e6172165d71c6210f538f214ac6913e72"
+        },
+        "implicit": {
+          "status": "selected",
+          "sha256": "616ad8b0f95113ca07512d2157c02a6171bf8d5f657470a301760d7447f09646"
+        },
+        "robust": {
+          "status": "selected",
+          "sha256": "2deb680f43a74afbf2cb3d381d5553d49174f3c2d7c0650a0a49710916e28c35"
+        }
+      },
+      "selection_barrier_sha256": "61505999111653b969f7d9e78a198abe1779163befbb5e5a2bbd535bd4723705",
+      "job": 5809,
+      "max_parallel_runs": 1,
+      "methods": {
+        "adam": {
+          "test_sustained_mse": 0.2907725451514125,
+          "test_mse": 0.293457955121994,
+          "selected_learning_rate": 0.0003,
+          "selected_beta1": 0.7,
+          "edge_flags": {
+            "learning_rate": {
+              "lower": false,
+              "upper": false
+            },
+            "beta1": {
+              "lower": false,
+              "upper": false
+            }
+          },
+          "timing": {
+            "startup_seconds": 2.509718123008497,
+            "training_seconds": 3.1169265719363466,
+            "training_scope": "full joint-grid graph replay, clean validation, diagnostics, CPU transfers, checkpoints, TensorBoard, JSON and progress reporting; excludes startup and held-out scoring",
+            "aggregate_candidate_samples_per_second": 4709788.203602185,
+            "test_seconds": 0.11470327991992235
+          },
+          "resources": {
+            "candidate_count": 224,
+            "forward_evaluations_per_step": 1,
+            "jacobian_evaluations_per_step": 1,
+            "mutable_tensor_bytes": 14455408,
+            "startup_candidate_forward_evaluations": 14784,
+            "startup_candidate_jacobian_evaluations": 14784,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "candidate_samples": 14680064,
+            "candidate_forward_evaluations": 14680064,
+            "candidate_jacobian_evaluations": 14680064,
+            "candidate_validation_forward_evaluations": 7340032,
+            "peak_allocated_bytes": 142599680,
+            "peak_reserved_bytes": 243269632,
+            "selected_test_forward_evaluations": 131072
+          },
+          "fixed_selected_replay": {
+            "status": "completed",
+            "candidate_count": 1,
+            "chosen": {
+              "learning_rate": 0.0003,
+              "beta1": 0.7
+            },
+            "chosen_index": 102,
+            "selection_sha256": "da9a91a4a8da833ebb88aa781e698485d7ea78711648043dc1b8e97e10a21630",
+            "data_hashes": {
+              "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+              "ys": "b2ff812786d96275ba9c162c8de85fa679b56dbd919598bdcd94e0a85568d70c",
+              "clean": "8b198e72f6cab8ff13260a14b93fde10e60c20815528825f447b23d3774d882d",
+              "noise_variance": "3ad748ebe4d7d341e791717d061c5bd1c7a4b21bd0e02b6f1aeccbcbe229d4bc",
+              "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+              "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+              "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e"
+            },
+            "source_sha256": {
+              "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+              "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+              "cleanrl/plasticity/predictive_transport_eval_v2.py": "9c71a11c035a5c4c27ba61fd66629bd5017c4993e1dcb790b907bb1c23c0c356",
+              "cleanrl/plasticity/predictive_transport_stream_v2.py": "26a7845278239be8f42ce8572b56c88f90e897ef80180ca867ccf793e6d372fd",
+              "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+            },
+            "selection_policy": "performance only; choice is immutable and no score participates in reselection",
+            "scope": "CUDA-event elapsed full-stream graph replay from initial state, K=1; includes optimizer online telemetry and host graph-submission gaps; excludes construction, compilation, capture/audit, input hashing, validation, test scoring, checkpoints and report IO",
+            "comparison_limit": "single-candidate compiled shape is benchmarked independently; not the joint-grid training/report throughput or a second accuracy estimate",
+            "startup_seconds": 0.5085078130941838,
+            "graph_parity_max_abs": 1.9073486328125e-06,
+            "capture_failed_candidates": [
+              false
+            ],
+            "startup_candidate_forward_evaluations": 66,
+            "startup_candidate_jacobian_evaluations": 66,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "samples": 65536,
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "capture_steps": 16,
+            "graph_replays": 4096,
+            "replay_seconds": 1.5183115234375,
+            "samples_per_second": 43163.73747307447,
+            "forward_evaluations_per_step": 1,
+            "jacobian_evaluations_per_step": 1,
+            "candidate_forward_evaluations": 65536,
+            "candidate_jacobian_evaluations": 65536,
+            "mutable_tensor_bytes": 64549,
+            "source_and_data_equality_verified": true,
+            "benchmark_wall_seconds": 2.0394562610890716,
+            "peak_allocated_bytes_including_capture": 107095040,
+            "peak_reserved_bytes_including_capture": 125829120
+          },
+          "selection_sha256": "da9a91a4a8da833ebb88aa781e698485d7ea78711648043dc1b8e97e10a21630",
+          "validation_by_phase": {
+            "0": {
+              "samples": 32768,
+              "mse": 0.22041263990104198
+            },
+            "1": {
+              "samples": 32768,
+              "mse": 0.36373255029320717
+            }
+          },
+          "test_by_phase": {
+            "0": {
+              "samples": 32768,
+              "mse": 0.21709214709699154
+            },
+            "1": {
+              "samples": 32768,
+              "mse": 0.36445294320583344
+            }
+          }
+        },
+        "predictive": {
+          "test_sustained_mse": 0.2488106908276677,
+          "test_mse": 0.25042736530303955,
+          "selected_learning_rate": 0.001,
+          "selected_beta1": 0.999,
+          "edge_flags": {
+            "learning_rate": {
+              "lower": false,
+              "upper": false
+            },
+            "beta1": {
+              "lower": false,
+              "upper": false
+            }
+          },
+          "timing": {
+            "startup_seconds": 0.23327117506414652,
+            "training_seconds": 4.61631385597866,
+            "training_scope": "full joint-grid graph replay, clean validation, diagnostics, CPU transfers, checkpoints, TensorBoard, JSON and progress reporting; excludes startup and held-out scoring",
+            "aggregate_candidate_samples_per_second": 3180040.278454555,
+            "test_seconds": 0.13734523195307702
+          },
+          "resources": {
+            "candidate_count": 224,
+            "forward_evaluations_per_step": 2,
+            "jacobian_evaluations_per_step": 1,
+            "mutable_tensor_bytes": 19273200,
+            "startup_candidate_forward_evaluations": 29568,
+            "startup_candidate_jacobian_evaluations": 14784,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "candidate_samples": 14680064,
+            "candidate_forward_evaluations": 29360128,
+            "candidate_jacobian_evaluations": 14680064,
+            "candidate_validation_forward_evaluations": 7340032,
+            "peak_allocated_bytes": 154871808,
+            "peak_reserved_bytes": 281018368,
+            "selected_test_forward_evaluations": 131072
+          },
+          "fixed_selected_replay": {
+            "status": "completed",
+            "candidate_count": 1,
+            "chosen": {
+              "learning_rate": 0.001,
+              "beta1": 0.999
+            },
+            "chosen_index": 149,
+            "selection_sha256": "28720c9bd7fa87eb3c1d5d3fb4026c4383c84432753a0fca17a88300118cb6fc",
+            "data_hashes": {
+              "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+              "ys": "b2ff812786d96275ba9c162c8de85fa679b56dbd919598bdcd94e0a85568d70c",
+              "clean": "8b198e72f6cab8ff13260a14b93fde10e60c20815528825f447b23d3774d882d",
+              "noise_variance": "3ad748ebe4d7d341e791717d061c5bd1c7a4b21bd0e02b6f1aeccbcbe229d4bc",
+              "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+              "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+              "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e"
+            },
+            "source_sha256": {
+              "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+              "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+              "cleanrl/plasticity/predictive_transport_eval_v2.py": "9c71a11c035a5c4c27ba61fd66629bd5017c4993e1dcb790b907bb1c23c0c356",
+              "cleanrl/plasticity/predictive_transport_stream_v2.py": "26a7845278239be8f42ce8572b56c88f90e897ef80180ca867ccf793e6d372fd",
+              "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+            },
+            "selection_policy": "performance only; choice is immutable and no score participates in reselection",
+            "scope": "CUDA-event elapsed full-stream graph replay from initial state, K=1; includes optimizer online telemetry and host graph-submission gaps; excludes construction, compilation, capture/audit, input hashing, validation, test scoring, checkpoints and report IO",
+            "comparison_limit": "single-candidate compiled shape is benchmarked independently; not the joint-grid training/report throughput or a second accuracy estimate",
+            "startup_seconds": 0.42898938001599163,
+            "graph_parity_max_abs": 1.9073486328125e-06,
+            "capture_failed_candidates": [
+              false
+            ],
+            "startup_candidate_forward_evaluations": 132,
+            "startup_candidate_jacobian_evaluations": 66,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "samples": 65536,
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "capture_steps": 16,
+            "graph_replays": 4096,
+            "replay_seconds": 2.247202880859375,
+            "samples_per_second": 29163.36595961364,
+            "forward_evaluations_per_step": 2,
+            "jacobian_evaluations_per_step": 1,
+            "candidate_forward_evaluations": 131072,
+            "candidate_jacobian_evaluations": 65536,
+            "mutable_tensor_bytes": 86057,
+            "source_and_data_equality_verified": true,
+            "benchmark_wall_seconds": 2.6956136430380866,
+            "peak_allocated_bytes_including_capture": 140811776,
+            "peak_reserved_bytes_including_capture": 159383552
+          },
+          "selection_sha256": "28720c9bd7fa87eb3c1d5d3fb4026c4383c84432753a0fca17a88300118cb6fc",
+          "validation_by_phase": {
+            "0": {
+              "samples": 32768,
+              "mse": 0.19426985271275043
+            },
+            "1": {
+              "samples": 32768,
+              "mse": 0.3003523387014866
+            }
+          },
+          "test_by_phase": {
+            "0": {
+              "samples": 32768,
+              "mse": 0.18888639844954014
+            },
+            "1": {
+              "samples": 32768,
+              "mse": 0.3087349832057953
+            }
+          }
+        },
+        "tangent": {
+          "test_sustained_mse": 0.2488137548789382,
+          "test_mse": 0.2504250109195709,
+          "selected_learning_rate": 0.001,
+          "selected_beta1": 0.999,
+          "edge_flags": {
+            "learning_rate": {
+              "lower": false,
+              "upper": false
+            },
+            "beta1": {
+              "lower": false,
+              "upper": false
+            }
+          },
+          "timing": {
+            "startup_seconds": 0.2691082520177588,
+            "training_seconds": 4.805026040994562,
+            "training_scope": "full joint-grid graph replay, clean validation, diagnostics, CPU transfers, checkpoints, TensorBoard, JSON and progress reporting; excludes startup and held-out scoring",
+            "aggregate_candidate_samples_per_second": 3055147.6463926644,
+            "test_seconds": 0.08667534589767456
+          },
+          "resources": {
+            "candidate_count": 224,
+            "forward_evaluations_per_step": 1,
+            "jacobian_evaluations_per_step": 1,
+            "mutable_tensor_bytes": 19273200,
+            "startup_candidate_forward_evaluations": 14784,
+            "startup_candidate_jacobian_evaluations": 14784,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "candidate_samples": 14680064,
+            "candidate_forward_evaluations": 14680064,
+            "candidate_jacobian_evaluations": 14680064,
+            "candidate_validation_forward_evaluations": 7340032,
+            "peak_allocated_bytes": 155835392,
+            "peak_reserved_bytes": 281018368,
+            "selected_test_forward_evaluations": 131072
+          },
+          "fixed_selected_replay": {
+            "status": "completed",
+            "candidate_count": 1,
+            "chosen": {
+              "learning_rate": 0.001,
+              "beta1": 0.999
+            },
+            "chosen_index": 149,
+            "selection_sha256": "cae53742f155d49f40a8e10a0bf5868e6172165d71c6210f538f214ac6913e72",
+            "data_hashes": {
+              "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+              "ys": "b2ff812786d96275ba9c162c8de85fa679b56dbd919598bdcd94e0a85568d70c",
+              "clean": "8b198e72f6cab8ff13260a14b93fde10e60c20815528825f447b23d3774d882d",
+              "noise_variance": "3ad748ebe4d7d341e791717d061c5bd1c7a4b21bd0e02b6f1aeccbcbe229d4bc",
+              "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+              "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+              "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e"
+            },
+            "source_sha256": {
+              "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+              "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+              "cleanrl/plasticity/predictive_transport_eval_v2.py": "9c71a11c035a5c4c27ba61fd66629bd5017c4993e1dcb790b907bb1c23c0c356",
+              "cleanrl/plasticity/predictive_transport_stream_v2.py": "26a7845278239be8f42ce8572b56c88f90e897ef80180ca867ccf793e6d372fd",
+              "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+            },
+            "selection_policy": "performance only; choice is immutable and no score participates in reselection",
+            "scope": "CUDA-event elapsed full-stream graph replay from initial state, K=1; includes optimizer online telemetry and host graph-submission gaps; excludes construction, compilation, capture/audit, input hashing, validation, test scoring, checkpoints and report IO",
+            "comparison_limit": "single-candidate compiled shape is benchmarked independently; not the joint-grid training/report throughput or a second accuracy estimate",
+            "startup_seconds": 0.5892128549749032,
+            "graph_parity_max_abs": 9.5367431640625e-07,
+            "capture_failed_candidates": [
+              false
+            ],
+            "startup_candidate_forward_evaluations": 66,
+            "startup_candidate_jacobian_evaluations": 66,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "samples": 65536,
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "capture_steps": 16,
+            "graph_replays": 4096,
+            "replay_seconds": 2.0790234375,
+            "samples_per_second": 31522.492155646993,
+            "forward_evaluations_per_step": 1,
+            "jacobian_evaluations_per_step": 1,
+            "candidate_forward_evaluations": 65536,
+            "candidate_jacobian_evaluations": 65536,
+            "mutable_tensor_bytes": 86057,
+            "source_and_data_equality_verified": true,
+            "benchmark_wall_seconds": 2.7870592609979212,
+            "peak_allocated_bytes_including_capture": 174373376,
+            "peak_reserved_bytes_including_capture": 192937984
+          },
+          "selection_sha256": "cae53742f155d49f40a8e10a0bf5868e6172165d71c6210f538f214ac6913e72",
+          "validation_by_phase": {
+            "0": {
+              "samples": 32768,
+              "mse": 0.19427061639726162
+            },
+            "1": {
+              "samples": 32768,
+              "mse": 0.3003601599484682
+            }
+          },
+          "test_by_phase": {
+            "0": {
+              "samples": 32768,
+              "mse": 0.18888680823147297
+            },
+            "1": {
+              "samples": 32768,
+              "mse": 0.3087407015264034
+            }
+          }
+        },
+        "implicit": {
+          "test_sustained_mse": 0.24807267542928457,
+          "test_mse": 0.24879978597164154,
+          "selected_learning_rate": 0.001,
+          "selected_beta1": 0.999,
+          "edge_flags": {
+            "learning_rate": {
+              "lower": false,
+              "upper": false
+            },
+            "beta1": {
+              "lower": false,
+              "upper": false
+            }
+          },
+          "timing": {
+            "startup_seconds": 0.3974103449145332,
+            "training_seconds": 5.2389268960105255,
+            "training_scope": "full joint-grid graph replay, clean validation, diagnostics, CPU transfers, checkpoints, TensorBoard, JSON and progress reporting; excludes startup and held-out scoring",
+            "aggregate_candidate_samples_per_second": 2802112.7783208727,
+            "test_seconds": 0.11271437292452902
+          },
+          "resources": {
+            "candidate_count": 224,
+            "forward_evaluations_per_step": 2,
+            "jacobian_evaluations_per_step": 1,
+            "mutable_tensor_bytes": 19273200,
+            "startup_candidate_forward_evaluations": 29568,
+            "startup_candidate_jacobian_evaluations": 14784,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "candidate_samples": 14680064,
+            "candidate_forward_evaluations": 29360128,
+            "candidate_jacobian_evaluations": 14680064,
+            "candidate_validation_forward_evaluations": 7340032,
+            "peak_allocated_bytes": 152732672,
+            "peak_reserved_bytes": 278921216,
+            "selected_test_forward_evaluations": 131072
+          },
+          "fixed_selected_replay": {
+            "status": "completed",
+            "candidate_count": 1,
+            "chosen": {
+              "learning_rate": 0.001,
+              "beta1": 0.999
+            },
+            "chosen_index": 149,
+            "selection_sha256": "616ad8b0f95113ca07512d2157c02a6171bf8d5f657470a301760d7447f09646",
+            "data_hashes": {
+              "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+              "ys": "b2ff812786d96275ba9c162c8de85fa679b56dbd919598bdcd94e0a85568d70c",
+              "clean": "8b198e72f6cab8ff13260a14b93fde10e60c20815528825f447b23d3774d882d",
+              "noise_variance": "3ad748ebe4d7d341e791717d061c5bd1c7a4b21bd0e02b6f1aeccbcbe229d4bc",
+              "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+              "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+              "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e"
+            },
+            "source_sha256": {
+              "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+              "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+              "cleanrl/plasticity/predictive_transport_eval_v2.py": "9c71a11c035a5c4c27ba61fd66629bd5017c4993e1dcb790b907bb1c23c0c356",
+              "cleanrl/plasticity/predictive_transport_stream_v2.py": "26a7845278239be8f42ce8572b56c88f90e897ef80180ca867ccf793e6d372fd",
+              "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+            },
+            "selection_policy": "performance only; choice is immutable and no score participates in reselection",
+            "scope": "CUDA-event elapsed full-stream graph replay from initial state, K=1; includes optimizer online telemetry and host graph-submission gaps; excludes construction, compilation, capture/audit, input hashing, validation, test scoring, checkpoints and report IO",
+            "comparison_limit": "single-candidate compiled shape is benchmarked independently; not the joint-grid training/report throughput or a second accuracy estimate",
+            "startup_seconds": 0.5093276350526139,
+            "graph_parity_max_abs": 1.9073486328125e-06,
+            "capture_failed_candidates": [
+              false
+            ],
+            "startup_candidate_forward_evaluations": 132,
+            "startup_candidate_jacobian_evaluations": 66,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "samples": 65536,
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "capture_steps": 16,
+            "graph_replays": 4096,
+            "replay_seconds": 2.554572998046875,
+            "samples_per_second": 25654.38531218572,
+            "forward_evaluations_per_step": 2,
+            "jacobian_evaluations_per_step": 1,
+            "candidate_forward_evaluations": 131072,
+            "candidate_jacobian_evaluations": 65536,
+            "mutable_tensor_bytes": 86057,
+            "source_and_data_equality_verified": true,
+            "benchmark_wall_seconds": 3.0822259680135176,
+            "peak_allocated_bytes_including_capture": 207894016,
+            "peak_reserved_bytes_including_capture": 226492416
+          },
+          "selection_sha256": "616ad8b0f95113ca07512d2157c02a6171bf8d5f657470a301760d7447f09646",
+          "validation_by_phase": {
+            "0": {
+              "samples": 32768,
+              "mse": 0.19419859535992146
+            },
+            "1": {
+              "samples": 32768,
+              "mse": 0.29818514361977577
+            }
+          },
+          "test_by_phase": {
+            "0": {
+              "samples": 32768,
+              "mse": 0.1887689307332039
+            },
+            "1": {
+              "samples": 32768,
+              "mse": 0.30737642012536526
+            }
+          }
+        },
+        "robust": {
+          "test_sustained_mse": 0.23376278299838305,
+          "test_mse": 0.22807088494300842,
+          "selected_learning_rate": 0.0007,
+          "selected_beta1": 0.999,
+          "edge_flags": {
+            "learning_rate": {
+              "lower": false,
+              "upper": false
+            },
+            "beta1": {
+              "lower": false,
+              "upper": false
+            }
+          },
+          "timing": {
+            "startup_seconds": 0.30073213996365666,
+            "training_seconds": 4.821499089943245,
+            "training_scope": "full joint-grid graph replay, clean validation, diagnostics, CPU transfers, checkpoints, TensorBoard, JSON and progress reporting; excludes startup and held-out scoring",
+            "aggregate_candidate_samples_per_second": 3044709.4827042273,
+            "test_seconds": 0.20609208301175386
+          },
+          "resources": {
+            "candidate_count": 224,
+            "forward_evaluations_per_step": 2,
+            "jacobian_evaluations_per_step": 1,
+            "mutable_tensor_bytes": 19273200,
+            "startup_candidate_forward_evaluations": 29568,
+            "startup_candidate_jacobian_evaluations": 14784,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "candidate_samples": 14680064,
+            "candidate_forward_evaluations": 29360128,
+            "candidate_jacobian_evaluations": 14680064,
+            "candidate_validation_forward_evaluations": 7340032,
+            "peak_allocated_bytes": 151701504,
+            "peak_reserved_bytes": 278921216,
+            "selected_test_forward_evaluations": 131072
+          },
+          "fixed_selected_replay": {
+            "status": "completed",
+            "candidate_count": 1,
+            "chosen": {
+              "learning_rate": 0.0007,
+              "beta1": 0.999
+            },
+            "chosen_index": 135,
+            "selection_sha256": "2deb680f43a74afbf2cb3d381d5553d49174f3c2d7c0650a0a49710916e28c35",
+            "data_hashes": {
+              "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+              "ys": "b2ff812786d96275ba9c162c8de85fa679b56dbd919598bdcd94e0a85568d70c",
+              "clean": "8b198e72f6cab8ff13260a14b93fde10e60c20815528825f447b23d3774d882d",
+              "noise_variance": "3ad748ebe4d7d341e791717d061c5bd1c7a4b21bd0e02b6f1aeccbcbe229d4bc",
+              "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+              "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+              "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e"
+            },
+            "source_sha256": {
+              "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+              "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+              "cleanrl/plasticity/predictive_transport_eval_v2.py": "9c71a11c035a5c4c27ba61fd66629bd5017c4993e1dcb790b907bb1c23c0c356",
+              "cleanrl/plasticity/predictive_transport_stream_v2.py": "26a7845278239be8f42ce8572b56c88f90e897ef80180ca867ccf793e6d372fd",
+              "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+            },
+            "selection_policy": "performance only; choice is immutable and no score participates in reselection",
+            "scope": "CUDA-event elapsed full-stream graph replay from initial state, K=1; includes optimizer online telemetry and host graph-submission gaps; excludes construction, compilation, capture/audit, input hashing, validation, test scoring, checkpoints and report IO",
+            "comparison_limit": "single-candidate compiled shape is benchmarked independently; not the joint-grid training/report throughput or a second accuracy estimate",
+            "startup_seconds": 0.32733467197977006,
+            "graph_parity_max_abs": 1.9073486328125e-06,
+            "capture_failed_candidates": [
+              false
+            ],
+            "startup_candidate_forward_evaluations": 132,
+            "startup_candidate_jacobian_evaluations": 66,
+            "startup_compute_scope": "explicit eager parity audit, compiled warmup, capture and replay; excludes compiler/autotuner internals",
+            "samples": 65536,
+            "consumed_samples": 65536,
+            "learner_steps": 65536.0,
+            "capture_steps": 16,
+            "graph_replays": 4096,
+            "replay_seconds": 2.110948974609375,
+            "samples_per_second": 31045.752781460407,
+            "forward_evaluations_per_step": 2,
+            "jacobian_evaluations_per_step": 1,
+            "candidate_forward_evaluations": 131072,
+            "candidate_jacobian_evaluations": 65536,
+            "mutable_tensor_bytes": 86057,
+            "source_and_data_equality_verified": true,
+            "benchmark_wall_seconds": 2.445727537968196,
+            "peak_allocated_bytes_including_capture": 241424896,
+            "peak_reserved_bytes_including_capture": 260046848
+          },
+          "selection_sha256": "2deb680f43a74afbf2cb3d381d5553d49174f3c2d7c0650a0a49710916e28c35",
+          "validation_by_phase": {
+            "0": {
+              "samples": 32768,
+              "mse": 0.1737931240350008
+            },
+            "1": {
+              "samples": 32768,
+              "mse": 0.2935523334890604
+            }
+          },
+          "test_by_phase": {
+            "0": {
+              "samples": 32768,
+              "mse": 0.16998196952044964
+            },
+            "1": {
+              "samples": 32768,
+              "mse": 0.29754359647631645
+            }
+          }
+        }
+      }
+    }
+  },
+  "coarse_jobs": {
+    "stationary": 5804,
+    "stress": 5803
+  },
+  "reviews": {
+    "math": "One inherited capture-validity masking bug found and fixed; both injected failure cases fail pre-fix and pass post-fix. No algorithm defect found.",
+    "protocol": "No actionable finding; K1 timing is not K224 trajectory equality, scores are checkpoint estimates."
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "objective": "Demonstrate optimizer/model superiority on the same learnable nonlinear panel, not improve inputs or redefine a target.",
+  "hypothesis": "Scalar squared-error backprop couples representation updates to heavy-tailed residual amplitude. A categorical conditional-distribution head with mean-preserving labels can learn the identical conditional mean through bounded probability residuals. This changes representation learning rather than weighting samples by estimated noise.",
+  "algebra": "For barycentric labels q(y) on fixed raw support c, sum_j c_j q_j(y)=y. Population cross entropy is minimized by p_j(x)=E[q_j(Y)|x], hence its decoded mean equals E[Y|x]. This is a consistency statement, not finite-capacity or finite-compute optimality. Logit gradient p-q is bounded; whole-network gradients need not be bounded because activations and weights contribute.",
+  "data": {
+    "source": "Unchanged cleanrl.plasticity.panel_hd.Bank and its frozen panel_stream construction/cache",
+    "task": "200-stock next-bar squared standardized return, existing clip25 and fit-prefix centering, identical masks,257 lag features, ordering and labels for all arms",
+    "forbidden": "No fresher input, new channels, target clipping changes, normalizer changes, sample reweighting, or test-selected predictions.",
+    "normalization_limitation": "Existing Bank.mu uses first60% labels. It is shared preprocessing and does not read final40%, but validation40..60% is not independent of this common normalization. Do not describe prefix replay as strictly online-normalized.",
+    "seed": 1
+  },
+  "arms": [
+    {"name":"scalar_adam","mechanism":"Existing tanh257-256-256-1 network and vanilla Adam; same seed1 initialization."},
+    {"name":"scalar_js","mechanism":"Same network and Adam with prior-step cumulative parameter evidence gate, kappa1; recorded strong matched baseline."},
+    {"name":"categorical_ce","mechanism":"Same tanh trunk,33-output head, uniform raw support0..25 shifted by existingmu; shared DreamerTwoHotSupport barycentric labels; cross entropy; primary."},
+    {"name":"categorical_mse","mechanism":"Exactly the same categorical architecture and initialization, trained on squared error of its decoded mean. Isolates categorical loss/representation-gradient effect from output parameterization."},
+    {"name":"categorical_ce_js","mechanism":"Same categorical cross entropy with the identical cumulative evidence gate. Tests complementarity, not a second primary chosen after results."}
+  ],
+  "selection": {
+    "lr_grid":[0.00003,0.0001,0.0003,0.001,0.003,0.01],
+    "window":"Prequential valid-sample MSE on [floor(.4T),floor(.6T)); freeze one LR per arm before label at floor(.6T).",
+    "test":"Continue without resets; all consumed bars from floor(.6T) through T-2. Save every candidate, but primary is prefix-selected categorical_ce only.",
+    "endpoint_winners":"Explicitly flag; a boundary baseline is not evidence of properly bracketed superiority.",
+    "null":"Optional full time-permuted target+valid-mask view using same frozen Bank permutation, fresh learners, inherited real locks. It is not a pointwise independent-sign conditional-mean null."
+  },
+  "success": {
+    "primary":"CategoricalCE must materially beat both separately tuned scalarAdam and scalarJS on identical forward observations. Beat categoricalMSE to support loss-gradient mechanism.",
+    "report":"RelativeMSE, absolute paired loss differences, chronological8blocks, every candidate and selectedLR, parameter counts, wall/replay/compile time. Same-width is not identical-parameter-count; categorical adds a small output head. Shared padded execution cannot establish each architecture's standalone throughput superiority.",
+    "failure":"Do not relabel a winning secondary as primary success. No claims of optimality, per-neuron gating, general optimizer superiority, PPO gains or profitability from this experiment alone."
+  },
+  "execution": {
+    "queue":"mlq", "max_parallel_runs":1, "max_attempts":1, "priority":0,
+    "contracts_time_limit":"15m", "experiment_time_limit":"45m",
+    "precision":"CUDA FP32 with TF32 disabled for matched baseline algebra; compiled batched GEMMs/manualbackward and CUDAgraph blocks. No eager runtime fallback.",
+    "autocull":"Selectedprimary only, suffixlocal bar-count units, error_ratio min_delta.001, default16384warmup/8192half-life/median3/patience3. Persist raw consumed metrics and full checkpoint before exit75. Numerical failures remain failures."
+  },
+  "verification":"Independent autograd and torch.optim.Adam trajectory contracts; shared twohot mean preservation; mask invariance; current-label independence of reported forecasts; compiled capture state restore; exact selection barrier and observed-only metrics; actual full-stream queued comparison.",
+  "decision_rule":"If the categorical loss fails, use the measured gradient/architecture controls to reject the hypothesis rather than move features, change scoring or declare a normalization win."
+}

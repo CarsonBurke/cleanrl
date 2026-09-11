@@ -1,0 +1,92 @@
+{
+  "reason": "6162 omitted rank400 cache and was cancelled before start; no learning or confirmation labels consumed.6168 supplies authenticated /tmp/panel_frontier_rank400.npz. Model, search, locks, and scoring unchanged.",
+  "jobs": [
+    {
+      "id": 6162,
+      "name": "return-refinement-v6-confirmation",
+      "state": "cancelled",
+      "stateReason": "cancelled before start",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.panel_return_refinement_eval_v6",
+        "--stage",
+        "confirmation",
+        "--rank-offset",
+        "400",
+        "--reference-result",
+        "runs/panel_return_refinement_v6_development/results.json",
+        "--historical-result",
+        "benchmarks/plasticity/panel_frontier_v3_evidence.json",
+        "--output-dir",
+        "runs/panel_return_refinement_v6_confirmation"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 14400000,
+      "readySequence": 5871,
+      "attemptCount": 0,
+      "createdAt": 1789095121345,
+      "updatedAt": 1789098441045,
+      "finishedAt": 1789098441045,
+      "dependencies": [
+        {
+          "parent": 6154,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789097691597
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6168,
+      "name": "return-refinement-v6-confirmation-rank400",
+      "state": "queued",
+      "eligibility": "backfill_window_open: job 6167",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.panel_return_refinement_eval_v6",
+        "--stage",
+        "confirmation",
+        "--rank-offset",
+        "400",
+        "--cache",
+        "/tmp/panel_frontier_rank400.npz",
+        "--reference-result",
+        "runs/panel_return_refinement_v6_development/results.json",
+        "--historical-result",
+        "benchmarks/plasticity/panel_frontier_v3_evidence.json",
+        "--output-dir",
+        "runs/panel_return_refinement_v6_confirmation"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 14400000,
+      "readySequence": 5874,
+      "attemptCount": 0,
+      "createdAt": 1789098457990,
+      "updatedAt": 1789098457990,
+      "dependencies": [
+        {
+          "parent": 6154,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789098457990
+        }
+      ],
+      "attempts": []
+    }
+  ]
+}

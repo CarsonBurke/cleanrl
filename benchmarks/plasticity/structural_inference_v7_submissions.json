@@ -1,0 +1,228 @@
+{
+  "contracts": 6174,
+  "resources": "CUDA seed1 maxParallelRuns1 priority0 one attempt; no culling or shortened learning. Sparse log_every5000 reduces full-prefix trace-checkpoint I/O, while every-step raw predictions and traces remain preserved.",
+  "jobs": [
+    {
+      "id": 6177,
+      "name": "structure-v7-development-stationary",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6174]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "development",
+        "--view",
+        "stationary",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "attemptCount": 0,
+      "createdAt": 1789100614280,
+      "updatedAt": 1789100614280,
+      "dependencies": [
+        {
+          "parent": 6174,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6178,
+      "name": "structure-v7-development-change",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6174]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "development",
+        "--view",
+        "change",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "attemptCount": 0,
+      "createdAt": 1789100614389,
+      "updatedAt": 1789100614389,
+      "dependencies": [
+        {
+          "parent": 6174,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6179,
+      "name": "structure-v7-development-null",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6174]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "development",
+        "--view",
+        "null",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "attemptCount": 0,
+      "createdAt": 1789100614404,
+      "updatedAt": 1789100614404,
+      "dependencies": [
+        {
+          "parent": 6174,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6180,
+      "name": "structure-v7-development-recurrent",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6174]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "development",
+        "--view",
+        "recurrent",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "attemptCount": 0,
+      "createdAt": 1789100614417,
+      "updatedAt": 1789100614417,
+      "dependencies": [
+        {
+          "parent": 6174,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6181,
+      "name": "structure-v7-development-two_support",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6174]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "development",
+        "--view",
+        "two_support",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "attemptCount": 0,
+      "createdAt": 1789100614431,
+      "updatedAt": 1789100614431,
+      "dependencies": [
+        {
+          "parent": 6174,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6182,
+      "name": "return-hierarchy-v7-development",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6174]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.panel_return_hierarchy_eval_v7",
+        "--output-dir",
+        "runs/panel_return_hierarchy_v7_development",
+        "--cache",
+        "/tmp/panel_cache.npz"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 14400000,
+      "attemptCount": 0,
+      "createdAt": 1789100614444,
+      "updatedAt": 1789100614444,
+      "dependencies": [
+        {
+          "parent": 6174,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    }
+  ]
+}

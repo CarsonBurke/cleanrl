@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="27" time="57.116" timestamp="2026-09-08T15:28:09.106821" hostname="cachyos-x8664-desktop"><testcase classname="tests.test_panel_frontier_model" name="test_capacity_width_is_minimal_integer_and_matches_production_budget" time="0.000" /><testcase classname="tests.test_panel_frontier_model" name="test_reported_capacity_matches_active_and_allocated_tensors" time="0.468" /><testcase classname="tests.test_panel_frontier_model" name="test_categorical_loss_ablation_has_identical_initialization_and_gate" time="0.408" /><testcase classname="tests.test_panel_frontier_model" name="test_categorical_mse_js_matches_independent_autograd_adam_trajectory[0.0]" time="2.433" /><testcase classname="tests.test_panel_frontier_model" name="test_categorical_mse_js_matches_independent_autograd_adam_trajectory[1.0]" time="2.245" /><testcase classname="tests.test_panel_frontier_model" name="test_categorical_mse_js_matches_independent_autograd_adam_trajectory[2.0]" time="2.258" /><testcase classname="tests.test_panel_frontier_model" name="test_interleaved_frozen_baselines_keep_exact_trajectories" time="3.522" /><testcase classname="tests.test_panel_frontier_model" name="test_labels_are_causal_and_eventually_affect_all_closed_gate_forecasts" time="0.366" /><testcase classname="tests.test_panel_frontier_model" name="test_new_mse_gate_observes_prior_evidence_without_gating_moments" time="0.067" /><testcase classname="tests.test_panel_frontier_model" name="test_candidate_health_maps_interleaved_group_state_and_owned_output" time="0.169" /><testcase classname="tests.test_panel_frontier_model" name="test_compiled_graph_restores_every_group_and_replays_bitwise" time="14.347" /><testcase classname="tests.test_panel_frontier_model" name="test_invalid_labels_do_not_change_any_group_update" time="2.840" /><testcase classname="tests.test_panel_frontier_eval" name="test_confirmation_rejects_wrong_rank_grid_and_reference_overwrite" time="0.003" /><testcase classname="tests.test_panel_frontier_eval" name="test_cohort_identity_authenticates_both_actual_symbol_sets" time="0.008" /><testcase classname="tests.test_panel_frontier_eval" name="test_cohort_rejects_actual_overlap_despite_rank_metadata[0]" time="0.002" /><testcase classname="tests.test_panel_frontier_eval" name="test_cohort_rejects_actual_overlap_despite_rank_metadata[1]" time="0.002" /><testcase classname="tests.test_panel_frontier_eval" name="test_cohort_fails_closed_on_missing_reference_and_duplicate_symbols" time="0.002" /><testcase classname="tests.test_panel_frontier_eval" name="test_primary_pairing_includes_loss_and_capacity_controls" time="0.002" /><testcase classname="tests.test_panel_frontier_eval" name="test_prefix_locks_are_independent_and_cannot_consult_forward_rows" time="0.000" /><testcase classname="tests.test_panel_frontier_eval" name="test_selection_uses_sample_weighted_mse_and_first_lr_ties" time="0.000" /><testcase classname="tests.test_panel_frontier_eval" name="test_nonfinite_candidates_remain_raw_and_cannot_win" time="0.014" /><testcase classname="tests.test_panel_frontier_eval" name="test_time_blocks_count_only_consumed_masked_samples" time="0.001" /><testcase classname="tests.test_panel_frontier_eval" name="test_null_inherits_real_prefix_locks_and_rejects_mismatched_provenance" time="0.005" /><testcase classname="tests.test_panel_frontier_eval" name="test_artifacts_preserve_failed_values_and_consumed_checkpoint" time="0.015" /><testcase classname="tests.test_panel_frontier_eval" name="test_failed_checkpoint_recovers_all_group_clocks_not_stale_host_rows" time="0.001" /><testcase classname="tests.test_panel_frontier_eval" name="test_prefix_proof_rejects_late_rows_and_cannot_be_rewritten" time="0.001" /><testcase classname="tests.test_panel_frontier_eval" name="test_graph_labels_change_future_not_current_forecasts_and_capture_restores" time="27.645"><failure message="AssertionError: assert False&#10; +  where False = &lt;built-in method equal of type object at 0x7f2871af6b20&gt;(tensor([[ 0.3983,  0.3600,  0.3816,     nan],\n        [-0.1263, -0.2034, -0.1872,     nan],\n        [-0.9879, -0.9879, -0.9879,     nan],\n        [-0.9879, -0.9879, -0.9879,     nan]], device='cuda:0'), tensor([[ 0.3983,  0.3600,  0.3816,     nan],\n        [-0.1263, -0.2034, -0.1872,     nan],\n        [-0.9879, -0.9879, -0.9879,     nan],\n        [-0.9879, -0.9879, -0.9879,     nan]], device='cuda:0'))&#10; +    where &lt;built-in method equal of type object at 0x7f2871af6b20&gt; = torch.equal&#10; +    and   tensor([[ 0.3983,  0.3600,  0.3816,     nan],\n        [-0.1263, -0.2034, -0.1872,     nan],\n        [-0.9879, -0.9879, -0.9879,     nan],\n        [-0.9879, -0.9879, -0.9879,     nan]], device='cuda:0') = &lt;cleanrl.plasticity.panel_frontier_model_v3.Learner object at 0x7f261a4f2380&gt;.prediction">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7f261a4f3d60&gt;
+
+    @pytest.mark.cuda
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required; queue with mlq")
+    @torch.no_grad()
+    def test_graph_labels_change_future_not_current_forecasts_and_capture_restores(monkeypatch):
+        runtime.configure_runtime(matmul_precision="highest", allow_tf32=False)
+        bank = TinyBank()
+        configs = tuple(Config(family, 0.01) for family in FAMILIES)
+        target = torch.full((bank.T, bank.N), -1.0, device=bank.dev)
+        valid = torch.ones_like(target, dtype=torch.bool)
+        valid[:, -1] = False
+        target[:, -1] = float("nan")  # Must not enter squared-error sums or gradients.
+        bank.x[-1] = float("nan")
+        model = Learner(bank.F, 8, 1.0, configs, bank.dev, bins=5, num_samples=bank.N)
+        # Parameter budgets are scientific controls, not dense-width assumptions.
+        report = panel.capacity_report(model)
+        counts = dict(zip(FAMILIES, report["parameter_count_effective_by_config"]))
+        assert counts == {"scalar_js": 113, "scalar_budget_js": 161,
+                          "categorical_mse_js": 149, "categorical_ce_js": 149}
+        assert dict(zip(FAMILIES, report["widths_by_config"])) == {
+            "scalar_js": 8, "scalar_budget_js": 10, "categorical_mse_js": 8, "categorical_ce_js": 8}
+        assert report["parameter_count_allocated"] == sum(t.numel() for t in model.parameters)
+        runner = panel.Runner(bank, model, target, valid)
+        initial = [tensor.clone() for tensor in runner.mutable]
+        graphs = runner.capture()
+        for actual, expected in zip(runner.mutable, initial):
+            assert torch.equal(actual.reshape(-1).view(torch.uint8), expected.reshape(-1).view(torch.uint8))
+        graphs[1].replay()
+        torch.cuda.synchronize()
+        first = model.prediction.clone()
+        p = first[:, :3].double()
+        expected = torch.stack(((p + 1).square().sum(1), p.square().sum(1), -p.sum(1),
+                                torch.full_like(p[:, 0], 3), torch.full_like(p[:, 0], 3)), dim=1)
+        torch.testing.assert_close(runner.raw[0], expected, rtol=0, atol=0)
+        assert torch.equal(runner.raw[0, :, 4], torch.full((len(FAMILIES),), 3.0, dtype=torch.float64, device=bank.dev))
+        # Evidence gates intentionally begin closed. Check downstream learning after
+        # repeated observations, not an immediate update that the algorithm forbids.
+        graphs[8].replay()
+        torch.cuda.synchronize()
+        next_original = model.prediction.clone()
+        for actual, expected in zip(runner.mutable, initial):
+            actual.copy_(expected)
+        target[runner.start, :3] = 4.0
+        graphs[1].replay()
+        torch.cuda.synchronize()
+&gt;       assert torch.equal(model.prediction, first)
+E       AssertionError: assert False
+E        +  where False = &lt;built-in method equal of type object at 0x7f2871af6b20&gt;(tensor([[ 0.3983,  0.3600,  0.3816,     nan],\n        [-0.1263, -0.2034, -0.1872,     nan],\n        [-0.9879, -0.9879, -0.9879,     nan],\n        [-0.9879, -0.9879, -0.9879,     nan]], device='cuda:0'), tensor([[ 0.3983,  0.3600,  0.3816,     nan],\n        [-0.1263, -0.2034, -0.1872,     nan],\n        [-0.9879, -0.9879, -0.9879,     nan],\n        [-0.9879, -0.9879, -0.9879,     nan]], device='cuda:0'))
+E        +    where &lt;built-in method equal of type object at 0x7f2871af6b20&gt; = torch.equal
+E        +    and   tensor([[ 0.3983,  0.3600,  0.3816,     nan],\n        [-0.1263, -0.2034, -0.1872,     nan],\n        [-0.9879, -0.9879, -0.9879,     nan],\n        [-0.9879, -0.9879, -0.9879,     nan]], device='cuda:0') = &lt;cleanrl.plasticity.panel_frontier_model_v3.Learner object at 0x7f261a4f2380&gt;.prediction
+
+tests/test_panel_frontier_eval.py:343: AssertionError</failure></testcase></testsuite></testsuites>

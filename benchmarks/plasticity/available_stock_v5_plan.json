@@ -1,0 +1,44 @@
+{
+  "question": "Is an omitted already-available bar the material information bottleneck, and does including it improve forecasts against both matched model and Adam controls?",
+  "previous_iteration": "conditional_stock_v4",
+  "observed_failure": "State-conditioned composition0.999338 on40960 forward real observations versus static0.999337. It beat raw linearAdam0.999541, but did not materially improve its static anchor. Conditional combination of weak old forecasts alone did not add signal.",
+  "information_contract": {
+    "forecast_time": "After bar t+32, before return ending at bar t+33, as already required by original target scaling/centering.",
+    "old_features": "Original32-bar window channels[t:t+32], newest bar t+31.",
+    "latest_features": "Same32-bar depth and seven channels, window channels[t+1:t+33], newest already-available bar t+32.",
+    "target": "EXACT SAME original target: ret[t+33], centred with trailing mean through t+32, divided by trailing volatility through t+32 and clipped as original. No target shift, label relabeling, discarded final sample, fabricated extra bar, new target scale or intercept.",
+    "full_horizon": "Original468021 rows retained for unchanged source file, including final target.",
+    "provenance": "Require reference prior real result and validate original features and targets byte hashes against it before training. New helper computes both windows from one unchanged channel normalization pass; frozen stock_stream not edited.",
+    "causality_proof": "Frozen-helper original feature/target byte equivalence, explicit first/final row indexing, changing target/future bars leaves corresponding pretarget feature rows unchanged, changing intervening available bar affects new but not old feature row.",
+    "attribution": "This deliberately enlarges the available feature information at the same forecast time. Any resulting gain is an information-alignment improvement unless new-vs-new optimizer controls separately establish an optimizer effect."
+  },
+  "models": {
+    "implementation": "cleanrl/plasticity/predictive_available_state_v8.py",
+    "primary": "latest_dense_bayes_mixture: frozenCorrelatedNIG full-covariance static Bayesian model on latest frame",
+    "matched_control": "original_dense_bayes_mixture: identical priors, initialization and inference on original frame",
+    "priors": [1e-7,1e-6,1e-5,1e-4,1e-3],
+    "mixture": "Existing static Student-t predictive evidence over5 dense models and zero; no prior/H/mixture-row selection.",
+    "optimizer_controls": "Four independently trained originalAdam banks: old-frame linear/MLP and latest-frame linear/MLP, same full11 LR grid each and sameseed1 initializer where applicable. Same target and predict-before-update order across all68 forecasts.",
+    "normalization_diagnostic": "Also report a deterministic pretarget raw-return-zero forecast in target units: clip(-drift[t+32]/vol[t+32],-10,10). It may expose predictability introduced by subtracting a known trailing mean. This is not the exact conditional expectation of the clipped target. Same causal value on real and random-sign streams; never multiply by the current random sign.",
+    "excluded": "No new meta learner, drift, support reset, posterior repair, target preprocessing changes, suffix-selected combination or hyperparameter changes."
+  },
+  "evaluation": {
+    "evaluator": "cleanrl/plasticity/predictive_available_stock_eval_v5.py",
+    "seed":1,
+    "selection_interval": [2000,335872],
+    "selection_end_exclusive":335872,
+    "forward_window":"[335872,468021),132149 possible observations beyond latest preceding real experiment consumption. Older aggregate market benchmarks covered file, not pristine never-seen data.",
+    "selection":"Only fourAdam learning rates selected by respective real-prefix prequential squared error, exact locked barrier beforelabel335872; allmodel algorithms fixed before run. Null inherits allfour real locks and source/old/latest/target hashes.",
+    "views":["real","random_sign"],
+    "null":"Seed1 independent signs times original targets, unchanged both input frames and original label magnitudes; all learners fresh.",
+    "primary_comparisons":["original dense Bayesian mixture","latest-frame linearAdam","latest-frame MLPAdam","original-frame linearAdam","original-frame MLPAdam","zero","causal raw-return-zero forecast transformed into target units"],
+    "progress_goal":"Substantially lower primary real error than old information model and old Adam, ideally at least25% greater observed reduction from zero; additionally beat matched latest-frame Adam to support Bayesian learner value. A simple normalization diagnostic winning rejects any market-skill claim. Report gains from information separately from optimizer gains.",
+    "metrics":"Paired noisy relativeMSE, target-prediction cross term, prediction energy,8192-observation blocks, all68 learned prelabel outputs plus the appended deterministic baseline (69 saved columns). Equal consumed horizons for all within-view comparisons; align real/null at common horizon if independently pruned.",
+    "limitations":"One symbol/seed, adaptive pruning and sequential historical research; no market-significance/profitability/global-optimum claim. A failed information hypothesis will be reported without changing labels or hiding matched controls."
+  },
+  "resources":{
+    "queue":"mlq","max_parallel_runs":1,"max_attempts":1,"priority":0,
+    "contracts_time_limit":"12m","experiment_time_limit":"15m per view","reference_time_limit":"10m",
+    "autocull":"Default-on suffix-local onlylatestdenseBayes protects run. Errorratio1e-4, nullalso predictionenergy1e-4; median3,8192half-life,16384warmup,patience3. Preserve observedrawarrays andcompletecheapstate beforeexit75; no unpruned rerun."
+  }
+}

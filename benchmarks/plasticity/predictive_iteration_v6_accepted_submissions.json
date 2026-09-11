@@ -1,0 +1,229 @@
+{
+  "contracts": 6148,
+  "supersedes_skipped_jobs": [
+    6141,
+    6142,
+    6143,
+    6144,
+    6145,
+    6146
+  ],
+  "jobs": [
+    {
+      "id": 6149,
+      "name": "hazard-v6-dev-stationary-accepted",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6148]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "development",
+        "--view",
+        "stationary",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--output",
+        "runs"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789094130879,
+      "updatedAt": 1789094130879,
+      "dependencies": [
+        {
+          "parent": 6148,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6150,
+      "name": "hazard-v6-dev-change-accepted",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6148]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "development",
+        "--view",
+        "change",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--output",
+        "runs"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789094130894,
+      "updatedAt": 1789094130894,
+      "dependencies": [
+        {
+          "parent": 6148,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6151,
+      "name": "hazard-v6-dev-null-accepted",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6148]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "development",
+        "--view",
+        "null",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--output",
+        "runs"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789094130907,
+      "updatedAt": 1789094130907,
+      "dependencies": [
+        {
+          "parent": 6148,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6152,
+      "name": "hazard-v6-dev-recurrent-accepted",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6148]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "development",
+        "--view",
+        "recurrent",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--output",
+        "runs"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789094130922,
+      "updatedAt": 1789094130922,
+      "dependencies": [
+        {
+          "parent": 6148,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6153,
+      "name": "hazard-v6-dev-two_support-accepted",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6148]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "development",
+        "--view",
+        "two_support",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--output",
+        "runs"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789094130937,
+      "updatedAt": 1789094130937,
+      "dependencies": [
+        {
+          "parent": 6148,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6154,
+      "name": "return-refinement-v6-development-accepted",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6148]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.panel_return_refinement_eval_v6",
+        "--output-dir",
+        "runs/panel_return_refinement_v6_development",
+        "--cache",
+        "/tmp/panel_cache.npz",
+        "--stage",
+        "development",
+        "--view",
+        "real"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 14400000,
+      "attemptCount": 0,
+      "createdAt": 1789094130951,
+      "updatedAt": 1789094130951,
+      "dependencies": [
+        {
+          "parent": 6148,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="11" time="8.444" timestamp="2026-09-09T14:03:29.847880" hostname="cachyos-x8664-desktop"><testcase classname="tests.test_optimizer_proxy_v4" name="test_manual_vjp_matches_independent_three_layer_autograd" time="0.222" /><testcase classname="tests.test_optimizer_proxy_v4" name="test_gaussian_signed_clipping_scores_follow_frozen_branch_changes" time="0.088" /><testcase classname="tests.test_optimizer_proxy_v4" name="test_predictive_full_decomposition_includes_omitted_jacobian_term[regression]" time="0.020" /><testcase classname="tests.test_optimizer_proxy_v4" name="test_predictive_full_decomposition_includes_omitted_jacobian_term[ppo]" time="0.009" /><testcase classname="tests.test_optimizer_proxy_v4" name="test_zero_correction_matches_adamw_with_bias_decay_excluded" time="0.036" /><testcase classname="tests.test_optimizer_proxy_v4" name="test_gamma_one_tracks_corrected_gradient_variance_not_raw_gradient" time="0.008" /><testcase classname="tests.test_optimizer_proxy_v4" name="test_compiled_fp32_multistep_startup_mass_and_previous_commit_ownership[adamw]" time="2.734" /><testcase classname="tests.test_optimizer_proxy_v4" name="test_compiled_fp32_multistep_startup_mass_and_previous_commit_ownership[predictive]" time="1.301"><failure message="AssertionError: Tensor-likes are not close!&#10;&#10;Mismatched elements: 1 / 15 (6.7%)&#10;Greatest absolute difference: 1.241802153263867e-07 at index (2, 0, 2) (up to 2e-08 allowed)&#10;Greatest relative difference: 0.0014278488875712435 at index (2, 0, 2) (up to 0.0003 allowed)">method = 'predictive'
+
+    @pytest.mark.parametrize("method", proxy.METHODS)
+    def test_compiled_fp32_multistep_startup_mass_and_previous_commit_ownership(method):
+        weights, x, target = problem(3, torch.float32)
+        # Deliberately unequal at startup: correction must have zero first-step mass.
+        previous = [w * 0.9 - 0.07 for w in weights]
+        m, v = [torch.zeros_like(w) for w in weights], [torch.zeros_like(w) for w in weights]
+        step = torch.zeros((), device="cuda", dtype=torch.int64)
+        hyper = [weights[0].new_tensor(values).view(3, 1, 1) for values in
+                 ([0.005, 0.008, 0.012], [0.0, 0.9, 0.999], [0.95, 0.999, 0.95], [0.0, 0.03, 0.13])]
+        objective = "ppo" if method in ("predictive", "full") else "regression"
+        batch = frozen_batch(previous, x, target, objective)
+        oracle_w, oracle_previous = [w.double() for w in weights], [w.double() for w in previous]
+        oracle_m, oracle_v = [w.double() for w in m], [w.double() for w in v]
+        oracle_hyper = [value.double() for value in hyper]
+        oracle_batch = tuple(value.double() if isinstance(value, torch.Tensor) else value for value in batch)
+    
+        def update(weights, previous, m, v, step, x, target, actions, old_logprob, advantages, lr, b1, b2, decay):
+            g, correction = proxy.gradients(weights, previous, x, target, actions, old_logprob, advantages,
+                                            objective, method)
+            return proxy.transition(weights, previous, m, v, step, g, correction, lr, b1, b2, decay, method)
+    
+        compiled = torch.compile(update, fullgraph=True)
+        for iteration in range(6):
+            current_x = x + iteration * 0.025
+            g, predictive, full, _ = oracle_parts(oracle_w, oracle_previous, current_x.double(), oracle_batch)
+            correction = ([torch.zeros_like(w) for w in oracle_w] if method == "adamw"
+                          else predictive if method == "predictive" else full)
+            expected = oracle_transition(oracle_w, oracle_m, oracle_v, iteration, g, correction, oracle_hyper, method)
+            inputs = weights + previous + m + v + [step]
+            snapshots = [value.clone() for value in inputs]
+            next_weights, next_m, next_v, next_step = compiled(
+                weights, previous, m, v, step, current_x, *batch[:-1], *hyper)
+            # A pure transition must not silently commit current or previous state.
+            assert_tensors(inputs, snapshots, rtol=0, atol=0)
+            assert_tensors(next_weights, expected[0], rtol=3e-4, atol=3e-6)
+&gt;           assert_tensors(next_m + next_v, expected[1] + expected[2], rtol=3e-4, atol=2e-8)
+
+tests/test_optimizer_proxy_v4.py:261: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+actual = [tensor([[[-2.3830e-02,  9.5528e-04,  5.8238e-03, -2.9648e-02],
+         [-1.5190e-01, -2.8243e-02, -7.6554e-03, -1.35...    [[0.0000, 0.0000, 0.0000, 0.0000, 0.0000]],
+
+        [[0.0027, 0.0041, 0.0036, 0.0145, 0.2122]]], device='cuda:0')]
+expected = [tensor([[[-2.3830e-02,  9.5527e-04,  5.8238e-03, -2.9648e-02],
+         [-1.5190e-01, -2.8243e-02, -7.6554e-03, -1.35..., 0.0000, 0.0000]],
+
+        [[0.0027, 0.0041, 0.0036, 0.0145, 0.2122]]], device='cuda:0',
+       dtype=torch.float64)]
+
+    def assert_tensors(actual, expected, *, rtol=1e-10, atol=1e-11):
+        assert len(actual) == len(expected)
+        for observed, wanted in zip(actual, expected):
+&gt;           torch.testing.assert_close(observed.double(), wanted.double(), rtol=rtol, atol=atol)
+E           AssertionError: Tensor-likes are not close!
+E           
+E           Mismatched elements: 1 / 15 (6.7%)
+E           Greatest absolute difference: 1.241802153263867e-07 at index (2, 0, 2) (up to 2e-08 allowed)
+E           Greatest relative difference: 0.0014278488875712435 at index (2, 0, 2) (up to 0.0003 allowed)
+
+tests/test_optimizer_proxy_v4.py:85: AssertionError</failure></testcase><testcase classname="tests.test_optimizer_proxy_v4" name="test_compiled_fp32_multistep_startup_mass_and_previous_commit_ownership[full]" time="1.508"><failure message="AssertionError: Tensor-likes are not close!&#10;&#10;Mismatched elements: 1 / 60 (1.7%)&#10;Greatest absolute difference: 1.8542034166543157e-07 at index (2, 4, 2) (up to 2e-08 allowed)&#10;Greatest relative difference: 0.0003671209415731899 at index (2, 4, 2) (up to 0.0003 allowed)">method = 'full'
+
+    @pytest.mark.parametrize("method", proxy.METHODS)
+    def test_compiled_fp32_multistep_startup_mass_and_previous_commit_ownership(method):
+        weights, x, target = problem(3, torch.float32)
+        # Deliberately unequal at startup: correction must have zero first-step mass.
+        previous = [w * 0.9 - 0.07 for w in weights]
+        m, v = [torch.zeros_like(w) for w in weights], [torch.zeros_like(w) for w in weights]
+        step = torch.zeros((), device="cuda", dtype=torch.int64)
+        hyper = [weights[0].new_tensor(values).view(3, 1, 1) for values in
+                 ([0.005, 0.008, 0.012], [0.0, 0.9, 0.999], [0.95, 0.999, 0.95], [0.0, 0.03, 0.13])]
+        objective = "ppo" if method in ("predictive", "full") else "regression"
+        batch = frozen_batch(previous, x, target, objective)
+        oracle_w, oracle_previous = [w.double() for w in weights], [w.double() for w in previous]
+        oracle_m, oracle_v = [w.double() for w in m], [w.double() for w in v]
+        oracle_hyper = [value.double() for value in hyper]
+        oracle_batch = tuple(value.double() if isinstance(value, torch.Tensor) else value for value in batch)
+    
+        def update(weights, previous, m, v, step, x, target, actions, old_logprob, advantages, lr, b1, b2, decay):
+            g, correction = proxy.gradients(weights, previous, x, target, actions, old_logprob, advantages,
+                                            objective, method)
+            return proxy.transition(weights, previous, m, v, step, g, correction, lr, b1, b2, decay, method)
+    
+        compiled = torch.compile(update, fullgraph=True)
+        for iteration in range(6):
+            current_x = x + iteration * 0.025
+            g, predictive, full, _ = oracle_parts(oracle_w, oracle_previous, current_x.double(), oracle_batch)
+            correction = ([torch.zeros_like(w) for w in oracle_w] if method == "adamw"
+                          else predictive if method == "predictive" else full)
+            expected = oracle_transition(oracle_w, oracle_m, oracle_v, iteration, g, correction, oracle_hyper, method)
+            inputs = weights + previous + m + v + [step]
+            snapshots = [value.clone() for value in inputs]
+            next_weights, next_m, next_v, next_step = compiled(
+                weights, previous, m, v, step, current_x, *batch[:-1], *hyper)
+            # A pure transition must not silently commit current or previous state.
+            assert_tensors(inputs, snapshots, rtol=0, atol=0)
+            assert_tensors(next_weights, expected[0], rtol=3e-4, atol=3e-6)
+&gt;           assert_tensors(next_m + next_v, expected[1] + expected[2], rtol=3e-4, atol=2e-8)
+
+tests/test_optimizer_proxy_v4.py:261: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+actual = [tensor([[[-3.0429e-02, -1.0974e-04,  5.8037e-03, -3.6131e-02],
+         [-1.5221e-01, -3.0380e-02, -1.0008e-02, -1.34...    [[0.0000, 0.0000, 0.0000, 0.0000, 0.0000]],
+
+        [[0.0023, 0.0089, 0.0044, 0.0110, 0.1696]]], device='cuda:0')]
+expected = [tensor([[[-3.0429e-02, -1.0974e-04,  5.8037e-03, -3.6131e-02],
+         [-1.5221e-01, -3.0380e-02, -1.0008e-02, -1.34..., 0.0000, 0.0000]],
+
+        [[0.0023, 0.0089, 0.0044, 0.0110, 0.1696]]], device='cuda:0',
+       dtype=torch.float64)]
+
+    def assert_tensors(actual, expected, *, rtol=1e-10, atol=1e-11):
+        assert len(actual) == len(expected)
+        for observed, wanted in zip(actual, expected):
+&gt;           torch.testing.assert_close(observed.double(), wanted.double(), rtol=rtol, atol=atol)
+E           AssertionError: Tensor-likes are not close!
+E           
+E           Mismatched elements: 1 / 60 (1.7%)
+E           Greatest absolute difference: 1.8542034166543157e-07 at index (2, 4, 2) (up to 2e-08 allowed)
+E           Greatest relative difference: 0.0003671209415731899 at index (2, 4, 2) (up to 0.0003 allowed)
+
+tests/test_optimizer_proxy_v4.py:85: AssertionError</failure></testcase><testcase classname="tests.test_optimizer_proxy_v4" name="test_compiled_fp32_multistep_startup_mass_and_previous_commit_ownership[mars_01]" time="1.100" /><testcase classname="tests.test_optimizer_proxy_v4" name="test_compiled_fp32_multistep_startup_mass_and_previous_commit_ownership[mars_1]" time="1.261" /></testsuite></testsuites>

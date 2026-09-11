@@ -1,0 +1,982 @@
+{
+  "decision": "reject_dynamic_primary_retain_static_evidence_model_as_promising_control_not_global_winner",
+  "plan": "benchmarks/plasticity/dynamic_stock_v3_plan.json",
+  "previous_iteration": "benchmarks/plasticity/correlated_stock_v2_evidence.json",
+  "primary": "adaptive_mixture",
+  "control": "static_mixture",
+  "secondary": "dynamic_mixture",
+  "jobs": {
+    "combined_contracts": 5550,
+    "real": 5551,
+    "random_sign": 5552,
+    "full_prefix_weighted_batch_reference": 5553
+  },
+  "resources": {
+    "max_parallel_runs": 1,
+    "max_attempts": 1,
+    "priority": 0,
+    "experiment_time_limit": "15m per view",
+    "autocull": true
+  },
+  "verification": {
+    "combined_contracts_passed": 93,
+    "contract_artifact": "benchmarks/plasticity/dynamic_stock_v3_contracts.xml",
+    "independent_reviews": {
+      "DynamicMathReview": "No findings; conditional model, mixture causality and state handling",
+      "DynamicEvidenceReview": "No findings; locked Adam provenance, primary-only pruning and partial paired evidence"
+    },
+    "root_tensorboard_checks": {
+      "real": {
+        "last_step": 294912,
+        "events": 37,
+        "matches_consumed": true
+      },
+      "random_sign": {
+        "last_step": 278528,
+        "events": 35,
+        "matches_consumed": true
+      }
+    },
+    "all_saved_predictions_and_targets_finite": true,
+    "real_null_data_hashes_match": true,
+    "original_stock_hashes_match": true,
+    "real_null_source_hashes_match": true,
+    "transferred_adam_locks_equal": true,
+    "transferred_lock_artifact_hash_match": true,
+    "complete_graph_state_replay": {
+      "real": true,
+      "random_sign": true
+    },
+    "all_checkpoint_covariances_positive_definite": true,
+    "frozen_static_v5_prediction_overlap": {
+      "real": {
+        "observations": 237568,
+        "max_absolute_prediction_difference": 2.980232238769531e-07,
+        "rms_prediction_difference": 6.849300176936958e-09
+      },
+      "random_sign": {
+        "observations": 237568,
+        "max_absolute_prediction_difference": 2.384185791015625e-07,
+        "rms_prediction_difference": 4.999528075207691e-09
+      }
+    },
+    "full_prefix_weighted_reference": "benchmarks/plasticity/dynamic_stock_v3_batch_reference.json",
+    "reference_scope": "Every consumed observation contributes to independent FP64 CUDA weighted normal equations. Final means and conditional covariances checked; full-path beta/density correctness relies on independent deterministic CUDA unit recurrences, not this batch formula.",
+    "reference_error_maxima": {
+      "real": {
+        "coefficient_max_absolute_error": 0.0001463246298046804,
+        "checkpoint_forecast_rms_difference_on_consumed_features": 0.0009805277935220017,
+        "covariance_frobenius_relative_error": 0.0013037568224750697
+      },
+      "random_sign": {
+        "coefficient_max_absolute_error": 0.00015035098023140868,
+        "checkpoint_forecast_rms_difference_on_consumed_features": 0.001302079860750736,
+        "covariance_frobenius_relative_error": 0.0011858070904081361
+      }
+    },
+    "dominant_real_prior_numeric_checks": [
+      {
+        "prior": 1e-06,
+        "halflife": 0,
+        "coefficient_max_absolute_error": 5.327682386125103e-07,
+        "checkpoint_forecast_rms_difference_on_consumed_features": 5.9760570498458986e-06,
+        "covariance_frobenius_relative_error": 0.0007059906746085285,
+        "covariance_cholesky_info": 0,
+        "covariance_max_asymmetry": 0.0
+      },
+      {
+        "prior": 1e-06,
+        "halflife": 65536,
+        "coefficient_max_absolute_error": 3.109837961014217e-06,
+        "checkpoint_forecast_rms_difference_on_consumed_features": 1.4528124068157719e-05,
+        "covariance_frobenius_relative_error": 0.0003652018026538229,
+        "covariance_cholesky_info": 0,
+        "covariance_max_asymmetry": 0.0
+      },
+      {
+        "prior": 1e-06,
+        "halflife": 262144,
+        "coefficient_max_absolute_error": 2.3367683653567183e-06,
+        "checkpoint_forecast_rms_difference_on_consumed_features": 1.0918611933759244e-05,
+        "covariance_frobenius_relative_error": 0.00039159359823018206,
+        "covariance_cholesky_info": 0,
+        "covariance_max_asymmetry": 0.0
+      }
+    ],
+    "numerical_limit": "FP32 long-path drift is quantified, not zero; direct checkpoint errors do not bound every earlier forecast. No covariance jitter, clipping, repair, fallback, or shortened learning run used."
+  },
+  "views": {
+    "real": {
+      "artifact": "runs/SPY__dynamic_stock_v3_real__1__20260908/results.json",
+      "status": "pruned",
+      "observations": 294912,
+      "suffix_start": 237568,
+      "suffix_count": 57344,
+      "maximum_observations": 468021,
+      "full_horizon": false,
+      "selected_adam_lrs": {
+        "linear": 3e-06,
+        "mlp": 0.0003
+      },
+      "models": {
+        "adaptive_mixture": {
+          "name": "adaptive_mixture",
+          "error_ratio": 0.9994581585019456,
+          "prediction_energy_ratio": 0.0012401754821915487,
+          "signed_cross_term_ratio": -0.001782016980247161
+        },
+        "static_mixture": {
+          "name": "static_mixture",
+          "error_ratio": 0.9992489974792023,
+          "prediction_energy_ratio": 0.00053676817247194,
+          "signed_cross_term_ratio": -0.0012877706932669637
+        },
+        "dynamic_mixture": {
+          "name": "dynamic_mixture",
+          "error_ratio": 0.999458503120199,
+          "prediction_energy_ratio": 0.0012428949853151615,
+          "signed_cross_term_ratio": -0.001784391865113984
+        },
+        "zero": {
+          "name": "zero",
+          "error_ratio": 1.0000000000000406,
+          "prediction_energy_ratio": 0.0,
+          "signed_cross_term_ratio": -0.0
+        },
+        "adam_linear": {
+          "name": "adam_linear_3e-06",
+          "error_ratio": 0.9994500354778039,
+          "prediction_energy_ratio": 0.0010939303486887425,
+          "signed_cross_term_ratio": -0.001643894870882593
+        },
+        "adam_mlp": {
+          "name": "adam_mlp_0.0003",
+          "error_ratio": 1.0043412375386114,
+          "prediction_energy_ratio": 0.005583494953883963,
+          "signed_cross_term_ratio": -0.0012422574152825604
+        }
+      },
+      "blocks8192": [
+        {
+          "start": 237568,
+          "end": 245760,
+          "count": 8192,
+          "adaptive_minus_static_mixture": 0.0007349914974819886,
+          "adaptive_minus_dynamic_mixture": -1.3445104827935946e-06,
+          "adaptive_minus_zero": -8.78613376404171e-05,
+          "adaptive_minus_adam_linear": 0.0006199929365137393,
+          "adaptive_minus_adam_mlp": -0.004316781716134952
+        },
+        {
+          "start": 245760,
+          "end": 253952,
+          "count": 8192,
+          "adaptive_minus_static_mixture": -2.950647560422438e-05,
+          "adaptive_minus_dynamic_mixture": 1.2502498358079222e-07,
+          "adaptive_minus_zero": -0.001030534316845251,
+          "adaptive_minus_adam_linear": -0.00031417590222974955,
+          "adaptive_minus_adam_mlp": -0.00426424388278257
+        },
+        {
+          "start": 253952,
+          "end": 262144,
+          "count": 8192,
+          "adaptive_minus_static_mixture": -0.0004910227670778274,
+          "adaptive_minus_dynamic_mixture": 6.89594118227547e-07,
+          "adaptive_minus_zero": -0.001932994177294432,
+          "adaptive_minus_adam_linear": -0.00026791206645000916,
+          "adaptive_minus_adam_mlp": -0.005321103472459623
+        },
+        {
+          "start": 262144,
+          "end": 270336,
+          "count": 8192,
+          "adaptive_minus_static_mixture": 0.0003923011350485152,
+          "adaptive_minus_dynamic_mixture": -1.5287622699186224e-07,
+          "adaptive_minus_zero": -0.0005909003145824419,
+          "adaptive_minus_adam_linear": 0.000414938630103066,
+          "adaptive_minus_adam_mlp": -0.0050236465828192856
+        },
+        {
+          "start": 270336,
+          "end": 278528,
+          "count": 8192,
+          "adaptive_minus_static_mixture": 0.00031458865317561736,
+          "adaptive_minus_dynamic_mixture": -4.702812821213456e-07,
+          "adaptive_minus_zero": 6.081887727975685e-05,
+          "adaptive_minus_adam_linear": 0.00015877631294499713,
+          "adaptive_minus_adam_mlp": -0.002893625339197867
+        },
+        {
+          "start": 278528,
+          "end": 286720,
+          "count": 8192,
+          "adaptive_minus_static_mixture": 0.00012714228058732866,
+          "adaptive_minus_dynamic_mixture": -7.389653801525092e-08,
+          "adaptive_minus_zero": -8.68756413088155e-05,
+          "adaptive_minus_adam_linear": -0.0005901158834176936,
+          "adaptive_minus_adam_mlp": -0.006419220572127586
+        },
+        {
+          "start": 286720,
+          "end": 294912,
+          "count": 8192,
+          "adaptive_minus_static_mixture": 0.0003981935011945498,
+          "adaptive_minus_dynamic_mixture": -1.161147145657679e-06,
+          "adaptive_minus_zero": -0.00013956563124337834,
+          "adaptive_minus_adam_linear": 3.2636491113252154e-05,
+          "adaptive_minus_adam_mlp": -0.00586234841691715
+        }
+      ],
+      "family_probabilities": [
+        {
+          "step": 2000,
+          "static_probability": 0.28297275653904896,
+          "dynamic_probability": 0.28357268334837504,
+          "null_probability": 0.43345456011257605
+        },
+        {
+          "step": 8192,
+          "static_probability": 0.3359453571866405,
+          "dynamic_probability": 0.3243174691474879,
+          "null_probability": 0.33973717366587164
+        },
+        {
+          "step": 16384,
+          "static_probability": 0.12846428606071061,
+          "dynamic_probability": 0.12718076440457496,
+          "null_probability": 0.7443549495347144
+        },
+        {
+          "step": 24576,
+          "static_probability": 0.19079357915881562,
+          "dynamic_probability": 0.1840872090180527,
+          "null_probability": 0.6251192118231316
+        },
+        {
+          "step": 32768,
+          "static_probability": 0.26480272691890416,
+          "dynamic_probability": 0.25608951293474896,
+          "null_probability": 0.4791077601463467
+        },
+        {
+          "step": 40960,
+          "static_probability": 0.3809512133395251,
+          "dynamic_probability": 0.39005085982589593,
+          "null_probability": 0.22899792683457912
+        },
+        {
+          "step": 49152,
+          "static_probability": 0.42424802061842865,
+          "dynamic_probability": 0.41808511712770763,
+          "null_probability": 0.15766686225386367
+        },
+        {
+          "step": 57344,
+          "static_probability": 0.3488588379887961,
+          "dynamic_probability": 0.6488841777440728,
+          "null_probability": 0.0022569842671312005
+        },
+        {
+          "step": 65536,
+          "static_probability": 0.3563610215546721,
+          "dynamic_probability": 0.6429655111823747,
+          "null_probability": 0.0006734672629530616
+        },
+        {
+          "step": 73728,
+          "static_probability": 0.33713850446645677,
+          "dynamic_probability": 0.6626994665453045,
+          "null_probability": 0.00016202898823876858
+        },
+        {
+          "step": 81920,
+          "static_probability": 0.3033585189802725,
+          "dynamic_probability": 0.6966183403619887,
+          "null_probability": 2.314065773887849e-05
+        },
+        {
+          "step": 90112,
+          "static_probability": 0.2463906109016618,
+          "dynamic_probability": 0.7536068740665547,
+          "null_probability": 2.515031783355367e-06
+        },
+        {
+          "step": 98304,
+          "static_probability": 0.2697469738059496,
+          "dynamic_probability": 0.730252319165992,
+          "null_probability": 7.070280583878229e-07
+        },
+        {
+          "step": 106496,
+          "static_probability": 0.11936259626388573,
+          "dynamic_probability": 0.8806373945010164,
+          "null_probability": 9.235098131106853e-09
+        },
+        {
+          "step": 114688,
+          "static_probability": 0.0766597068744962,
+          "dynamic_probability": 0.9233402928266488,
+          "null_probability": 2.988549759772474e-10
+        },
+        {
+          "step": 122880,
+          "static_probability": 0.017128608489384384,
+          "dynamic_probability": 0.9828713915100377,
+          "null_probability": 5.78120853131273e-13
+        },
+        {
+          "step": 131072,
+          "static_probability": 0.007932510253080099,
+          "dynamic_probability": 0.992067489746912,
+          "null_probability": 8.142548971681194e-15
+        },
+        {
+          "step": 139264,
+          "static_probability": 0.00684469908573921,
+          "dynamic_probability": 0.9931553009142575,
+          "null_probability": 3.174095635507875e-15
+        },
+        {
+          "step": 147456,
+          "static_probability": 0.0025307095775398596,
+          "dynamic_probability": 0.9974692904224602,
+          "null_probability": 1.3695517444435826e-17
+        },
+        {
+          "step": 155648,
+          "static_probability": 0.001484014213887968,
+          "dynamic_probability": 0.9985159857861118,
+          "null_probability": 1.0828499968249544e-18
+        },
+        {
+          "step": 163840,
+          "static_probability": 0.0016055839275894426,
+          "dynamic_probability": 0.9983944160724106,
+          "null_probability": 3.612672441990053e-20
+        },
+        {
+          "step": 172032,
+          "static_probability": 0.0027396376048325166,
+          "dynamic_probability": 0.9972603623951676,
+          "null_probability": 2.3292430208525783e-20
+        },
+        {
+          "step": 180224,
+          "static_probability": 0.001446809734146322,
+          "dynamic_probability": 0.9985531902658539,
+          "null_probability": 1.8982939712884667e-22
+        },
+        {
+          "step": 188416,
+          "static_probability": 0.0009202381203622576,
+          "dynamic_probability": 0.9990797618796375,
+          "null_probability": 5.391392586480965e-24
+        },
+        {
+          "step": 196608,
+          "static_probability": 0.0006515520917660798,
+          "dynamic_probability": 0.9993484479082341,
+          "null_probability": 7.533702078363933e-27
+        },
+        {
+          "step": 204800,
+          "static_probability": 0.00084568205778486,
+          "dynamic_probability": 0.9991543179422152,
+          "null_probability": 7.615584797440693e-28
+        },
+        {
+          "step": 212992,
+          "static_probability": 0.0017025904206917693,
+          "dynamic_probability": 0.998297409579308,
+          "null_probability": 9.00378743142287e-30
+        },
+        {
+          "step": 221184,
+          "static_probability": 0.0031483137467573225,
+          "dynamic_probability": 0.9968516862532426,
+          "null_probability": 6.511731560461694e-31
+        },
+        {
+          "step": 229376,
+          "static_probability": 0.0007262852641290585,
+          "dynamic_probability": 0.9992737147358711,
+          "null_probability": 8.092030230548369e-34
+        },
+        {
+          "step": 237568,
+          "static_probability": 0.0004274141614539954,
+          "dynamic_probability": 0.9995725858385461,
+          "null_probability": 5.035411243797421e-36
+        },
+        {
+          "step": 245760,
+          "static_probability": 0.0059200575555087885,
+          "dynamic_probability": 0.994079942444491,
+          "null_probability": 2.1462433572449115e-36
+        },
+        {
+          "step": 253952,
+          "static_probability": 0.0030497250074027977,
+          "dynamic_probability": 0.9969502749925974,
+          "null_probability": 1.5586373419348786e-38
+        },
+        {
+          "step": 262144,
+          "static_probability": 0.0003763360029022619,
+          "dynamic_probability": 0.9996236639970976,
+          "null_probability": 5.372872532001773e-42
+        },
+        {
+          "step": 270336,
+          "static_probability": 0.001140908443250863,
+          "dynamic_probability": 0.998859091556749,
+          "null_probability": 2.519006785426595e-43
+        },
+        {
+          "step": 278528,
+          "static_probability": 0.0021634283999015643,
+          "dynamic_probability": 0.9978365716000983,
+          "null_probability": 1.352316267268829e-43
+        },
+        {
+          "step": 286720,
+          "static_probability": 0.0021551383130977296,
+          "dynamic_probability": 0.9978448616869022,
+          "null_probability": 5.060971252579079e-44
+        },
+        {
+          "step": 294912,
+          "static_probability": 0.004461811385151096,
+          "dynamic_probability": 0.9955381886148489,
+          "null_probability": 9.684342999881319e-45
+        }
+      ],
+      "all_output_error_ratios": {
+        "adaptive_mixture": 0.9994581585019456,
+        "static_mixture": 0.9992489974792023,
+        "dynamic_mixture": 0.999458503120199,
+        "zero": 1.0000000000000406,
+        "static_1e-07": 0.9996676065667055,
+        "static_1e-06": 0.9992489848077547,
+        "static_1e-05": 0.9994095487963849,
+        "static_0.0001": 0.9995667316148125,
+        "static_0.001": 0.9996932371247406,
+        "discount_65536_1e-07": 0.9993208339444496,
+        "discount_65536_1e-06": 0.9994742248073988,
+        "discount_65536_1e-05": 0.999796679836556,
+        "discount_65536_0.0001": 1.0001081255995616,
+        "discount_65536_0.001": 1.0002477148704263,
+        "discount_262144_1e-07": 0.999578871302105,
+        "discount_262144_1e-06": 0.999253216158626,
+        "discount_262144_1e-05": 0.9994492352740597,
+        "discount_262144_0.0001": 0.9996108144743014,
+        "discount_262144_0.001": 0.99973498567463,
+        "adam_linear_1e-07": 0.9998308065644503,
+        "adam_linear_3e-07": 0.9996004656380076,
+        "adam_linear_1e-06": 0.9993168466979476,
+        "adam_linear_3e-06": 0.9994500354778039,
+        "adam_linear_1e-05": 1.0001439011608475,
+        "adam_linear_3e-05": 1.0017508855859634,
+        "adam_linear_0.0001": 1.0082133856287456,
+        "adam_linear_0.0003": 1.0295241573899583,
+        "adam_linear_0.001": 1.1250337992987798,
+        "adam_linear_0.003": 1.6527617399341052,
+        "adam_linear_0.01": 8.72753514578161,
+        "adam_mlp_1e-07": 1.109850731444046,
+        "adam_mlp_3e-07": 1.0798517877071268,
+        "adam_mlp_1e-06": 1.045645318272428,
+        "adam_mlp_3e-06": 1.023653559885584,
+        "adam_mlp_1e-05": 1.0107815245553649,
+        "adam_mlp_3e-05": 1.0058958779421638,
+        "adam_mlp_0.0001": 1.0021559873117583,
+        "adam_mlp_0.0003": 1.0043412375386114,
+        "adam_mlp_0.001": 1.0202727610717837,
+        "adam_mlp_0.003": 1.0732777992697153,
+        "adam_mlp_0.01": 1.3098440208610078
+      },
+      "adaptive_relative_error_reduction": {
+        "static_mixture": -0.00020931822125525024,
+        "dynamic_mixture": 3.448049641363582e-07,
+        "zero": 0.000541841498094997,
+        "adam_linear": -8.127493975162992e-06,
+        "adam_mlp": 0.004861972061042663
+      },
+      "timing_seconds": {
+        "capture_seconds": 18.06312650896143,
+        "replay_seconds": 23.6268080357695,
+        "wall_seconds": 50.09114426502492
+      },
+      "pruning": {
+        "step": 294912,
+        "reason": "all proxy candidates plateaued after warmup and full patience",
+        "phase": "suffix",
+        "exit_code": 75
+      }
+    },
+    "random_sign": {
+      "artifact": "runs/SPY__dynamic_stock_v3_random_sign__1__20260908/results.json",
+      "status": "pruned",
+      "observations": 278528,
+      "suffix_start": 237568,
+      "suffix_count": 40960,
+      "maximum_observations": 468021,
+      "full_horizon": false,
+      "selected_adam_lrs": {
+        "linear": 3e-06,
+        "mlp": 0.0003
+      },
+      "models": {
+        "adaptive_mixture": {
+          "name": "adaptive_mixture",
+          "error_ratio": 1.000003689642073,
+          "prediction_energy_ratio": 1.3064681426615307e-05,
+          "signed_cross_term_ratio": -9.375039349289471e-06
+        },
+        "static_mixture": {
+          "name": "static_mixture",
+          "error_ratio": 1.0000083430318663,
+          "prediction_energy_ratio": 1.5290400550453417e-06,
+          "signed_cross_term_ratio": 6.8139918208091205e-06
+        },
+        "dynamic_mixture": {
+          "name": "dynamic_mixture",
+          "error_ratio": 0.9999921436079862,
+          "prediction_energy_ratio": 2.354634820128108e-05,
+          "signed_cross_term_ratio": -3.140274021169577e-05
+        },
+        "zero": {
+          "name": "zero",
+          "error_ratio": 1.0000000000000295,
+          "prediction_energy_ratio": 0.0,
+          "signed_cross_term_ratio": -0.0
+        },
+        "adam_linear": {
+          "name": "adam_linear_3e-06",
+          "error_ratio": 0.9998883581051659,
+          "prediction_energy_ratio": 0.0003703752880962836,
+          "signed_cross_term_ratio": -0.00048201718293534694
+        },
+        "adam_mlp": {
+          "name": "adam_mlp_0.0003",
+          "error_ratio": 1.0043844529813777,
+          "prediction_energy_ratio": 0.004970512637079773,
+          "signed_cross_term_ratio": -0.0005860596557077209
+        }
+      },
+      "blocks8192": [
+        {
+          "start": 237568,
+          "end": 245760,
+          "count": 8192,
+          "adaptive_minus_static_mixture": -2.650462803528095e-05,
+          "adaptive_minus_dynamic_mixture": 2.9157805375922727e-05,
+          "adaptive_minus_zero": 3.2849278700271214e-07,
+          "adaptive_minus_adam_linear": 0.0008925850849092539,
+          "adaptive_minus_adam_mlp": -0.004646693540545729
+        },
+        {
+          "start": 245760,
+          "end": 253952,
+          "count": 8192,
+          "adaptive_minus_static_mixture": -1.1398390998297716e-05,
+          "adaptive_minus_dynamic_mixture": 1.0758257006620583e-05,
+          "adaptive_minus_zero": 3.937611541409765e-06,
+          "adaptive_minus_adam_linear": 6.449404097528269e-05,
+          "adaptive_minus_adam_mlp": -0.004615707068954649
+        },
+        {
+          "start": 253952,
+          "end": 262144,
+          "count": 8192,
+          "adaptive_minus_static_mixture": -4.633127650534892e-05,
+          "adaptive_minus_dynamic_mixture": 3.1710108125063454e-05,
+          "adaptive_minus_zero": -4.0021255816117396e-05,
+          "adaptive_minus_adam_linear": -0.00012500457296113281,
+          "adaptive_minus_adam_mlp": -0.003959891438506375
+        },
+        {
+          "start": 262144,
+          "end": 270336,
+          "count": 8192,
+          "adaptive_minus_static_mixture": -3.6999302518417085e-05,
+          "adaptive_minus_dynamic_mixture": 2.3839634344904492e-05,
+          "adaptive_minus_zero": -6.996141323487337e-05,
+          "adaptive_minus_adam_linear": -2.71040188260529e-05,
+          "adaptive_minus_adam_mlp": -0.0031094656234784187
+        },
+        {
+          "start": 270336,
+          "end": 278528,
+          "count": 8192,
+          "adaptive_minus_static_mixture": 0.00010156665224157764,
+          "adaptive_minus_dynamic_mixture": -3.933221579148655e-05,
+          "adaptive_minus_zero": 0.00012916458584354314,
+          "adaptive_minus_adam_linear": -0.00024423397401489804,
+          "adaptive_minus_adam_mlp": -0.00562982683276862
+        }
+      ],
+      "family_probabilities": [
+        {
+          "step": 2000,
+          "static_probability": 0.4979816766619438,
+          "dynamic_probability": 0.4913480135270736,
+          "null_probability": 0.01067030981098263
+        },
+        {
+          "step": 8192,
+          "static_probability": 0.5114546459924864,
+          "dynamic_probability": 0.48708639578290364,
+          "null_probability": 0.0014589582246101556
+        },
+        {
+          "step": 16384,
+          "static_probability": 0.39784947176146274,
+          "dynamic_probability": 0.3915452645675322,
+          "null_probability": 0.210605263671005
+        },
+        {
+          "step": 24576,
+          "static_probability": 0.33254069118499796,
+          "dynamic_probability": 0.3223131655300128,
+          "null_probability": 0.34514614328498916
+        },
+        {
+          "step": 32768,
+          "static_probability": 0.4544008801659515,
+          "dynamic_probability": 0.4748244315057472,
+          "null_probability": 0.07077468832830125
+        },
+        {
+          "step": 40960,
+          "static_probability": 0.44944984802835025,
+          "dynamic_probability": 0.5346058295630998,
+          "null_probability": 0.01594432240854998
+        },
+        {
+          "step": 49152,
+          "static_probability": 0.41518623289154893,
+          "dynamic_probability": 0.5394240755455748,
+          "null_probability": 0.045389691562876304
+        },
+        {
+          "step": 57344,
+          "static_probability": 0.2945393687345713,
+          "dynamic_probability": 0.40476819784016815,
+          "null_probability": 0.30069243342526064
+        },
+        {
+          "step": 65536,
+          "static_probability": 0.16783734066675485,
+          "dynamic_probability": 0.21424774286665668,
+          "null_probability": 0.6179149164665884
+        },
+        {
+          "step": 73728,
+          "static_probability": 0.24084659549124587,
+          "dynamic_probability": 0.2946268380262164,
+          "null_probability": 0.46452656648253765
+        },
+        {
+          "step": 81920,
+          "static_probability": 0.23842630847499915,
+          "dynamic_probability": 0.23493585308601486,
+          "null_probability": 0.5266378384389857
+        },
+        {
+          "step": 90112,
+          "static_probability": 0.25684685522629824,
+          "dynamic_probability": 0.2109907293148477,
+          "null_probability": 0.5321624154588539
+        },
+        {
+          "step": 98304,
+          "static_probability": 0.32054426442943545,
+          "dynamic_probability": 0.2927226210318896,
+          "null_probability": 0.38673311453867487
+        },
+        {
+          "step": 106496,
+          "static_probability": 0.3028028194536971,
+          "dynamic_probability": 0.30445343432101246,
+          "null_probability": 0.3927437462252905
+        },
+        {
+          "step": 114688,
+          "static_probability": 0.29824654504770076,
+          "dynamic_probability": 0.22360329540767213,
+          "null_probability": 0.47815015954462714
+        },
+        {
+          "step": 122880,
+          "static_probability": 0.3849494008993522,
+          "dynamic_probability": 0.2468248292643267,
+          "null_probability": 0.368225769836321
+        },
+        {
+          "step": 131072,
+          "static_probability": 0.2898020801000239,
+          "dynamic_probability": 0.2044015426422967,
+          "null_probability": 0.5057963772576795
+        },
+        {
+          "step": 139264,
+          "static_probability": 0.2473291789567012,
+          "dynamic_probability": 0.1940805738605783,
+          "null_probability": 0.5585902471827204
+        },
+        {
+          "step": 147456,
+          "static_probability": 0.29402296475584777,
+          "dynamic_probability": 0.22344209373596657,
+          "null_probability": 0.48253494150818543
+        },
+        {
+          "step": 155648,
+          "static_probability": 0.3256268998536296,
+          "dynamic_probability": 0.26383223860717947,
+          "null_probability": 0.41054086153919117
+        },
+        {
+          "step": 163840,
+          "static_probability": 0.2963731958639993,
+          "dynamic_probability": 0.28834470870843026,
+          "null_probability": 0.4152820954275706
+        },
+        {
+          "step": 172032,
+          "static_probability": 0.2310255496587242,
+          "dynamic_probability": 0.21885676438527368,
+          "null_probability": 0.5501176859560022
+        },
+        {
+          "step": 180224,
+          "static_probability": 0.2531286193631828,
+          "dynamic_probability": 0.2186383728089253,
+          "null_probability": 0.5282330078278918
+        },
+        {
+          "step": 188416,
+          "static_probability": 0.22934619721603317,
+          "dynamic_probability": 0.1814598065420814,
+          "null_probability": 0.5891939962418854
+        },
+        {
+          "step": 196608,
+          "static_probability": 0.23204837572588588,
+          "dynamic_probability": 0.17502725226415736,
+          "null_probability": 0.592924372009957
+        },
+        {
+          "step": 204800,
+          "static_probability": 0.2511387383107528,
+          "dynamic_probability": 0.20020699809679812,
+          "null_probability": 0.5486542635924492
+        },
+        {
+          "step": 212992,
+          "static_probability": 0.28803716212651964,
+          "dynamic_probability": 0.2926229666323651,
+          "null_probability": 0.4193398712411153
+        },
+        {
+          "step": 221184,
+          "static_probability": 0.25906229628447663,
+          "dynamic_probability": 0.20762408975563798,
+          "null_probability": 0.5333136139598853
+        },
+        {
+          "step": 229376,
+          "static_probability": 0.2473189275241854,
+          "dynamic_probability": 0.14674598743085931,
+          "null_probability": 0.6059350850449553
+        },
+        {
+          "step": 237568,
+          "static_probability": 0.24928801485413105,
+          "dynamic_probability": 0.1412982639835161,
+          "null_probability": 0.6094137211623529
+        },
+        {
+          "step": 245760,
+          "static_probability": 0.19226515773194647,
+          "dynamic_probability": 0.2127145493960717,
+          "null_probability": 0.5950202928719819
+        },
+        {
+          "step": 253952,
+          "static_probability": 0.16086978084366338,
+          "dynamic_probability": 0.27237783798943016,
+          "null_probability": 0.5667523811669066
+        },
+        {
+          "step": 262144,
+          "static_probability": 0.1259277544874083,
+          "dynamic_probability": 0.40355369216803344,
+          "null_probability": 0.4705185533445581
+        },
+        {
+          "step": 270336,
+          "static_probability": 0.1153339890240011,
+          "dynamic_probability": 0.5898211614930993,
+          "null_probability": 0.2948448494828997
+        },
+        {
+          "step": 278528,
+          "static_probability": 0.12869350282677702,
+          "dynamic_probability": 0.45996025326141277,
+          "null_probability": 0.41134624391181024
+        }
+      ],
+      "all_output_error_ratios": {
+        "adaptive_mixture": 1.000003689642073,
+        "static_mixture": 1.0000083430318663,
+        "dynamic_mixture": 0.9999921436079862,
+        "zero": 1.0000000000000295,
+        "static_1e-07": 1.0000191185480962,
+        "static_1e-06": 0.999951446877725,
+        "static_1e-05": 0.9999706369634199,
+        "static_0.0001": 1.0001703674877276,
+        "static_0.001": 1.000458003643296,
+        "discount_65536_1e-07": 0.9999175188920087,
+        "discount_65536_1e-06": 0.9999739595011344,
+        "discount_65536_1e-05": 1.0002862835347162,
+        "discount_65536_0.0001": 1.0007269179087563,
+        "discount_65536_0.001": 1.000911792418071,
+        "discount_262144_1e-07": 0.9999988855672042,
+        "discount_262144_1e-06": 0.999915900676531,
+        "discount_262144_1e-05": 0.9999593762942274,
+        "discount_262144_0.0001": 1.000194971753653,
+        "discount_262144_0.001": 1.0004591243960568,
+        "adam_linear_1e-07": 1.0000135017167173,
+        "adam_linear_3e-07": 0.9999744477355774,
+        "adam_linear_1e-06": 0.9999017806084362,
+        "adam_linear_3e-06": 0.9998883581051659,
+        "adam_linear_1e-05": 1.0002930759149464,
+        "adam_linear_3e-05": 1.0022291012430309,
+        "adam_linear_0.0001": 1.0099172377282668,
+        "adam_linear_0.0003": 1.0326066278237593,
+        "adam_linear_0.001": 1.1193814646879279,
+        "adam_linear_0.003": 1.5024288439647797,
+        "adam_linear_0.01": 8.007209501037615,
+        "adam_mlp_1e-07": 1.1056434898911123,
+        "adam_mlp_3e-07": 1.0760203541900997,
+        "adam_mlp_1e-06": 1.0440169334281548,
+        "adam_mlp_3e-06": 1.0235333932829136,
+        "adam_mlp_1e-05": 1.0116870061201577,
+        "adam_mlp_3e-05": 1.0061725446988496,
+        "adam_mlp_0.0001": 1.0025310811719936,
+        "adam_mlp_0.0003": 1.0043844529813777,
+        "adam_mlp_0.001": 1.0200065358295878,
+        "adam_mlp_0.003": 1.064881067716345,
+        "adam_mlp_0.01": 1.2775764173198727
+      },
+      "adaptive_relative_error_reduction": {
+        "static_mixture": 4.653350970218462e-06,
+        "dynamic_mixture": -1.1546124797590096e-05,
+        "zero": -3.68964204344735e-06,
+        "adam_linear": -0.00011534441417615504,
+        "adam_mlp": 0.004361639934091999
+      },
+      "timing_seconds": {
+        "capture_seconds": 2.0059098210185766,
+        "replay_seconds": 21.440607867087238,
+        "wall_seconds": 29.238248993991874
+      },
+      "pruning": {
+        "step": 278528,
+        "reason": "all proxy candidates plateaued after warmup and full patience",
+        "phase": "suffix",
+        "exit_code": 75
+      }
+    }
+  },
+  "matched_cross_view_window": {
+    "start": 237568,
+    "end": 278528,
+    "observations": 40960,
+    "error_ratios": {
+      "real": {
+        "adaptive_mixture": 0.9992838950591612,
+        "static_mixture": 0.9990968269613999,
+        "dynamic_mixture": 0.9992841273560386,
+        "zero": 1.0,
+        "adam_linear": 0.9991598597261753,
+        "adam_mlp": 1.0036561223799485
+      },
+      "random_sign": {
+        "adaptive_mixture": 1.0000036896420772,
+        "static_mixture": 1.000008343031876,
+        "dynamic_mixture": 0.9999921436079894,
+        "zero": 1.0,
+        "adam_linear": 0.9998883581051607,
+        "adam_mlp": 1.004384452981372
+      }
+    },
+    "reason": "Null independently pruned earlier; never compare unequal real/null windows as paired evidence."
+  },
+  "descriptive_extended_common_window": {
+    "start": 163840,
+    "end": 278528,
+    "observations": 114688,
+    "error_ratios": {
+      "real": {
+        "adaptive_mixture": 0.9991627957244444,
+        "static_mixture": 0.9990776446128292,
+        "dynamic_mixture": 0.999162867230141,
+        "zero": 1.0,
+        "adam_linear": 0.999076248204867,
+        "adam_mlp": 1.0044202039166001
+      },
+      "random_sign": {
+        "adaptive_mixture": 1.0000121766522372,
+        "static_mixture": 1.0000103832943414,
+        "dynamic_mixture": 1.0000118494511734,
+        "zero": 1.0,
+        "adam_linear": 1.0002392098013335,
+        "adam_mlp": 1.004821207777447
+      }
+    },
+    "qualification": "Post-hoc descriptive aggregation across earlier and new forward segments, not a new prospective primary test. On this longer common window static mixture0.99907764 and Adam0.99907625 are effectively tied; do not extrapolate a clear global win from latest segment."
+  },
+  "static_control_latest_real_segment": {
+    "start": 237568,
+    "end": 294912,
+    "observations": 57344,
+    "relative_error_reduction_vs_linear_adam": 0.00020114862320808058,
+    "paired_block_error_differences_vs_linear_adam": [
+      -0.00011499856096824938,
+      -0.00028466942662552514,
+      0.00022311070062781826,
+      2.263749505455088e-05,
+      -0.00015581234023062014,
+      -0.0007172581640050222,
+      -0.00036555701008129753
+    ],
+    "block_wins": 5,
+    "block_count": 7,
+    "qualification": "Predeclared control result, not successful primary dynamic hypothesis. Gain is0.0201% total noisy MSE, not a large synthetic-style factor."
+  },
+  "mechanism": {
+    "observed": "Adaptive mixture assigned >99.95% to dynamic experts at start of forward segment and >99.55% at end; forward static/dynamic log Bayes factor is positive2.3496 but insufficient to overcome accumulated prior-history preference.",
+    "static_vs_dynamic_forward_log_bayes_factor": 2.3496009158792903,
+    "adaptive_prediction_energy_divided_by_static": 2.310448990446392,
+    "interpretation": "Mean-preserving drift is mathematically sound but its persistent uncertainty raises prediction energy; cumulative expert evidence responds too slowly to changed relative performance. This identifies selection-memory misspecification, not a proof that all drift is bad."
+  },
+  "conclusions": [
+    "Neither v5 covariance-alone primary nor v6 adaptive-drift primary passed its predefined against-Adam gate.",
+    "Dense static conjugate evidence is a real advance over prior stock near-abstention: it retains weak signal with much lower prediction energy than Adam and suppresses randomized-label fitting.",
+    "Static control beats Adam on the latest real forward segment in5/7 blocks but not consistently across the extended common history. Treat it as a stronger research baseline, not demonstrated universally superior optimizer.",
+    "Reject blanket uncertainty inflation/reset as next default. Preserve shared conditional evidence and test a data-driven model of regime/selection changes before introducing another arbitrary forgetting rate.",
+    "Future improvements must be assessed on new chronological segments or additional symbols rather than tuning on these already consumed labels."
+  ],
+  "limitations": [
+    "OneSPYhistoricalpath, seed1, serial research decisions and adaptive pruning; no market significance, profitability or global optimum claim.",
+    "Global unknown variance and linear feature basis remain modeling assumptions, not identified market truths.",
+    "Real and null stop at different horizons; primary comparisons within each view are paired, cross-view table additionally restricts to common consumed horizon.",
+    "No claim of a general per-neuron neural-network optimizer or MuJoCo improvement. These are explicit streaming predictive models."
+  ],
+  "cleanup": {
+    "temporary_reference_scripts": "removed after successful queued jobs5534 and5553; durable JSON references and mlq logs retained"
+  }
+}

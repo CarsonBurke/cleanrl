@@ -1,0 +1,790 @@
+{
+  "hypothesis": "Fixed-prior iterated EKF improves nonlinear observation assimilation without counting an observation more than once.",
+  "primary": "iterated4",
+  "decision": "Rejected: primary has17.4507%higher sustained clean MSE than full EKF, worse in both phases; do not substitute its9.8825%gain overAdam for a new accuracy improvement.",
+  "jobs": {
+    "contracts": 5677,
+    "stress": 5680,
+    "final_combined_contracts": 5697
+  },
+  "execution": {
+    "max_parallel_runs": 1,
+    "max_attempts": 1,
+    "priority": 0,
+    "contracts_limit": "20m",
+    "experiment_limit": "45m",
+    "autocull": "No performance cull: all4arms consumed full65536observations. Planned conditionalstationaryconfirmation nottriggered because stressprimaryfailed.",
+    "final_combined_contracts": "5697 cancelled before start: redundant with completed55- and69-test suites plus allfullstream runtime validations; no code changes after those verifications."
+  },
+  "root": "runs/DenseStream__iterated_bayes_v4_hetero_switch__1__20260909",
+  "results_sha256": "e0e108d25c51d3e50a6a5fa7fb3e59148d88b8998f63fda1c9b6c90b47f337cb",
+  "data_hashes": {
+    "xs": "7136d61187f977b96e8c7afbb8f620bc2c7787a6f5fd4f950112524dba8f814e",
+    "ys": "b2ff812786d96275ba9c162c8de85fa679b56dbd919598bdcd94e0a85568d70c",
+    "clean": "8b198e72f6cab8ff13260a14b93fde10e60c20815528825f447b23d3774d882d",
+    "noise_variance": "3ad748ebe4d7d341e791717d061c5bd1c7a4b21bd0e02b6f1aeccbcbe229d4bc",
+    "noise_direction": "3cb6c53ea43ded0ca87f50722c0a7977ac0ddbd28f86187750fb4c60f79fd93d",
+    "validation_x": "45575ef5d08e87405c167beea804cdeaa70ffcd207c1f30141c1f77de3e270f7",
+    "test_x": "60d635fdbe976bb2de85ba67bb2a02bca51c50e93c01373c5b3c4110136f2318",
+    "initial_0": "cc91b329791bc8b40f05561ea12ad6f28d19125a7c9f3039365e1749027a9232",
+    "initial_1": "ab12498cd4dc45a7744f205c3db98443a3f6bd640648f4ae695c74d931c97477",
+    "initial_2": "7eb033d1f63a1f5180a550520fc9649a8b8cfcc6d4b452595104636187c3ab9e",
+    "teacher_0_0": "77a29d674824f73993b17438efbe53439006c81ec755220b5dd45a69b5366df4",
+    "teacher_0_1": "637bd45fcbcdd69a64448dd86000c2bcbf3abafa8876de1fc5491ac465cecfe3",
+    "teacher_0_2": "7b6213b7ab8438b0b5178df6f1dbc32d57e9bd236a1c309cfec37d87ff7e22d2",
+    "teacher_1_0": "745fc605560effcc43d9965eeb4a2ed280ac608a4bcbe6d30fe60184d57679d1",
+    "teacher_1_1": "998c477a9398495a3a50855a65d9ae68a1cbaaca700835a48190fdde0a803836",
+    "teacher_1_2": "e5dfe353f9f0edb0c5b2c2e5730fd8ba11380e99c9ef96162d34f347a0507bb3",
+    "validation_y_0": "08258471e4c07a7f998a53acfcb13d48894637a48bcb34d138b8e668283b10d4",
+    "validation_y_1": "b316c201f3590f2fa84ac8ef6b06518ae70d52efc9e3d711cec3dc35184a0bec",
+    "test_y_0": "79caae3ddbf15c3380df7f56983174e8db8dc1d187e5a530ef37631f5e9109ac",
+    "test_y_1": "63db8aa007130537dda4503220375b4dd6fa87bdfb24f4d3bd3461822e122996"
+  },
+  "source_sha256": {
+    "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+    "cleanrl/plasticity/iterated_bayes_stream_v4.py": "4726e3d4944256315d95a29f5e618bc8412eb2263e7f816c916ba106a215140c",
+    "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+    "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae",
+    "cleanrl/plasticity/iterated_bayes_eval_v4.py": "357b285efc6ee1ec156f22b6fd34321d786dba09d4224add56b5c38e66cead85"
+  },
+  "rows": {
+    "adam": {
+      "sustained_clean_test_mse": 0.29139319714158773,
+      "endpoint_clean_test_mse": 0.29391589760780334,
+      "chosen": 0.0003,
+      "edge": false,
+      "validation_sustained_grid": [
+        0.7097339695319533,
+        0.37821176182478666,
+        0.31216547824442387,
+        0.29254124127328396,
+        0.3226110516116023,
+        0.48140682466328144,
+        0.9334273189306259
+      ],
+      "grid": [
+        1e-05,
+        3e-05,
+        0.0001,
+        0.0003,
+        0.001,
+        0.003,
+        0.01
+      ],
+      "phase_mse": {
+        "0": 0.21748902462422848,
+        "1": 0.365297369658947
+      },
+      "test_curve": [
+        {
+          "step": 4096,
+          "teacher_phase": 0,
+          "mse": 0.23675230145454407,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.1741840127354626
+        },
+        {
+          "step": 8192,
+          "teacher_phase": 0,
+          "mse": 0.2573205828666687,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.18931656168820832
+        },
+        {
+          "step": 12288,
+          "teacher_phase": 0,
+          "mse": 0.22598008811473846,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.1662586522044687
+        },
+        {
+          "step": 16384,
+          "teacher_phase": 0,
+          "mse": 0.20894823968410492,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.1537279368292708
+        },
+        {
+          "step": 20480,
+          "teacher_phase": 0,
+          "mse": 0.25028717517852783,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.1841419248766627
+        },
+        {
+          "step": 24576,
+          "teacher_phase": 0,
+          "mse": 0.1963493376970291,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.14445864022397042
+        },
+        {
+          "step": 28672,
+          "teacher_phase": 0,
+          "mse": 0.18991528451442719,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.1397249620522541
+        },
+        {
+          "step": 32768,
+          "teacher_phase": 0,
+          "mse": 0.17435918748378754,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.12827999029632262
+        },
+        {
+          "step": 36864,
+          "teacher_phase": 1,
+          "mse": 0.42558708786964417,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.14646384823187386
+        },
+        {
+          "step": 40960,
+          "teacher_phase": 1,
+          "mse": 0.4141030013561249,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.14251165242485964
+        },
+        {
+          "step": 45056,
+          "teacher_phase": 1,
+          "mse": 0.39771318435668945,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.13687117192633294
+        },
+        {
+          "step": 49152,
+          "teacher_phase": 1,
+          "mse": 0.4059797525405884,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.13971607352789625
+        },
+        {
+          "step": 53248,
+          "teacher_phase": 1,
+          "mse": 0.35761067271232605,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.12307007610691267
+        },
+        {
+          "step": 57344,
+          "teacher_phase": 1,
+          "mse": 0.32453781366348267,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.11168820305110312
+        },
+        {
+          "step": 61440,
+          "teacher_phase": 1,
+          "mse": 0.302931547164917,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.10425250533493409
+        },
+        {
+          "step": 65536,
+          "teacher_phase": 1,
+          "mse": 0.29391589760780334,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.10114981080758201
+        }
+      ],
+      "timing": {
+        "startup_seconds": 3.2755660800030455,
+        "training_seconds": 1.3190404591150582,
+        "aggregate_samples_per_second": 347792.21276334155,
+        "selection_seconds": 8.691195398569107e-05,
+        "test_seconds": 0.08070081600453705
+      },
+      "resources": {
+        "grid_candidates": 7,
+        "mutable_tensor_bytes": 451796,
+        "consumed_samples": 65536,
+        "learner_steps": 65536.0,
+        "candidate_sample_updates": 458752,
+        "peak_allocated_bytes": 142336000,
+        "peak_reserved_bytes": 161480704
+      },
+      "selection_sha256": "5bba3cfc1f44083a11b28760f660f11d47be850fbc1fa00b7bab567ad475ae88",
+      "checkpoint_sha256": {
+        "checkpoints/adam/4096.pt": "dd965caa46464bbf223b2bdd52712971e14bda36eaa8db9741cbe0d52fb52122",
+        "checkpoints/adam/8192.pt": "7c659ce035baca1937811dfb57915700bf0095242eaf8854ea0b9e0209aa8589",
+        "checkpoints/adam/12288.pt": "e9fe84adb50510bcd2fbfbf326d1344bd4c25bbf718ef6ffc542ffe415c270a2",
+        "checkpoints/adam/16384.pt": "c0700284a42c55c053d09c2637e39d874ae9aa065207eca73f9ab1648b2e0db9",
+        "checkpoints/adam/20480.pt": "ebe04f7a7f61aa97e2b517d2a683e6402ba84d525e317790c989af033d26ed79",
+        "checkpoints/adam/24576.pt": "bf3c6bb82c27d8ed732bfb0b5b719c2b10bcff29eb676a62be403384fc24e5ee",
+        "checkpoints/adam/28672.pt": "deda191005400f0ea8cfecf17bcde359350a911a00d366ba0ea155cec9c6a395",
+        "checkpoints/adam/32768.pt": "0664c8c57c974ce26e3f7aec20d0c2222060f56cbd885bc4d0049da26008e40e",
+        "checkpoints/adam/36864.pt": "cd5c59bc321ae085ef75efa78ea46e4e5c740b31dfa5e9e89701c612b126e6c5",
+        "checkpoints/adam/40960.pt": "568595aa5f868c9755c123762574f27676d3aee77c9eede06f68a535b8470751",
+        "checkpoints/adam/45056.pt": "0b088cdccf744fb533724a7bcc824b6b4d94dd45c57c577c1c08d88c1830c995",
+        "checkpoints/adam/49152.pt": "cf951f569d178f67e0d1c9824321659c082d6d84ee20dce2da9d201928ace926",
+        "checkpoints/adam/53248.pt": "eeeea24311d97d5a43e6827bbcebdcebda3cb1b53d467f0975138764a361c1f9",
+        "checkpoints/adam/57344.pt": "f03044d6a7db2574d389940499240e20dd97033be99115af59c3839754dd41f0",
+        "checkpoints/adam/61440.pt": "d173f9da5fe9ef836e1f28d65181795bebd452ea2db70113b7270c8f8afd983e",
+        "checkpoints/adam/65536.pt": "3b53c824fb645e05a062158af1992728eb12f02f1f50ccc7de7659f78e12df55"
+      }
+    },
+    "network": {
+      "sustained_clean_test_mse": 0.2235798528417945,
+      "endpoint_clean_test_mse": 0.202325239777565,
+      "chosen": 1.0,
+      "edge": false,
+      "validation_sustained_grid": [
+        1.6555767580866814,
+        0.9131563613191247,
+        0.2738637337461114,
+        0.22424327582120895,
+        0.30289603397250175
+      ],
+      "grid": [
+        0.001,
+        0.01,
+        0.1,
+        1.0,
+        10.0
+      ],
+      "phase_mse": {
+        "0": 0.16616143845021725,
+        "1": 0.28099826723337173
+      },
+      "test_curve": [
+        {
+          "step": 4096,
+          "teacher_phase": 0,
+          "mse": 0.2014346867799759,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.14820004634330372
+        },
+        {
+          "step": 8192,
+          "teacher_phase": 0,
+          "mse": 0.19640810787677765,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.14450187877191648
+        },
+        {
+          "step": 12288,
+          "teacher_phase": 0,
+          "mse": 0.18309643864631653,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.1347081832153219
+        },
+        {
+          "step": 16384,
+          "teacher_phase": 0,
+          "mse": 0.1672017127275467,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.12301407454202878
+        },
+        {
+          "step": 20480,
+          "teacher_phase": 0,
+          "mse": 0.16456614434719086,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.12107502738806808
+        },
+        {
+          "step": 24576,
+          "teacher_phase": 0,
+          "mse": 0.14554624259471893,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.10708165630476353
+        },
+        {
+          "step": 28672,
+          "teacher_phase": 0,
+          "mse": 0.13797593116760254,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.10151200729214165
+        },
+        {
+          "step": 32768,
+          "teacher_phase": 0,
+          "mse": 0.1330622434616089,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.09789689632299564
+        },
+        {
+          "step": 36864,
+          "teacher_phase": 1,
+          "mse": 0.4127872586250305,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.14205884558656048
+        },
+        {
+          "step": 40960,
+          "teacher_phase": 1,
+          "mse": 0.3551379442214966,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.1222190979153224
+        },
+        {
+          "step": 45056,
+          "teacher_phase": 1,
+          "mse": 0.3087490200996399,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.10625456201684468
+        },
+        {
+          "step": 49152,
+          "teacher_phase": 1,
+          "mse": 0.27264007925987244,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.09382783530987909
+        },
+        {
+          "step": 53248,
+          "teacher_phase": 1,
+          "mse": 0.24559113383293152,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.08451906455352295
+        },
+        {
+          "step": 57344,
+          "teacher_phase": 1,
+          "mse": 0.2324666827917099,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.08000234480281257
+        },
+        {
+          "step": 61440,
+          "teacher_phase": 1,
+          "mse": 0.21828877925872803,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.07512308419907722
+        },
+        {
+          "step": 65536,
+          "teacher_phase": 1,
+          "mse": 0.202325239777565,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.06962930515724518
+        }
+      ],
+      "timing": {
+        "startup_seconds": 0.3667932020034641,
+        "training_seconds": 105.22340051899664,
+        "aggregate_samples_per_second": 3114.136193886282,
+        "selection_seconds": 0.006229220074601471,
+        "test_seconds": 0.02462377492338419
+      },
+      "resources": {
+        "grid_candidates": 5,
+        "mutable_tensor_bytes": 578350216,
+        "consumed_samples": 65536,
+        "learner_steps": 65536.0,
+        "candidate_sample_updates": 327680,
+        "peak_allocated_bytes": 4091739648,
+        "peak_reserved_bytes": 4112515072
+      },
+      "selection_sha256": "926fec1058cffbb38872cc7b5fc404ba2dd4b4f74fefe2da24f317802931ed05",
+      "checkpoint_sha256": {
+        "checkpoints/network/4096.pt": "37396f4d62f69e21e3523ee49fd45382da2f319e687be5c2d4703e6c3f7aabc0",
+        "checkpoints/network/8192.pt": "a904f762c9b9874d1c581d43d57d70a1b26094c6b02dbd137dccda59eb2c47e2",
+        "checkpoints/network/12288.pt": "ab01c8aa0dea147fe37575c530f41db3934d317f25903df523777782f1a8cf5a",
+        "checkpoints/network/16384.pt": "e3ccb3a7c9817b2ff8df3b5a6a0b6ba98f06d44ae86645dca96e7ff19680f173",
+        "checkpoints/network/20480.pt": "0af7835da7564148c9db9121fe99821ba189e0168675298acba67f74f1acec55",
+        "checkpoints/network/24576.pt": "33f23f8e7121c0359a7ed9afc01305fce132f9e3439388d73a0325c4b98ec321",
+        "checkpoints/network/28672.pt": "1a4d778a5d58c126cd3de2622dc2bd2e6e2e26dbdd43c6dcf78e3409c0535040",
+        "checkpoints/network/32768.pt": "c521c00bd52f867f6300b548b066b7b9e190f0ad9cda8f2df16525a7d1ae288c",
+        "checkpoints/network/36864.pt": "60bedc8cd4d56d6bedb854277e96c32b02aa681d36c13d20b4b337701f03ae40",
+        "checkpoints/network/40960.pt": "978795f6202a608d02e2bd19e5c628707d48ecf647439286b1d439310a52f079",
+        "checkpoints/network/45056.pt": "8c611a549bc0b7de4c2a459cb5e67a0a5c7679b4546d855c15544b57d5990937",
+        "checkpoints/network/49152.pt": "ce0dd0199e0bd5e94d9e363555176c9139a6283b8d9cea8a3f0c28d702918f74",
+        "checkpoints/network/53248.pt": "b1391b10e1fb1ca4aa8424f8340e80e90f1719f67140fe974baba90343483ac6",
+        "checkpoints/network/57344.pt": "bb406d3dd9b5450b2f983ba050544f16fb7e3957597de42ff1b6e9d2ab82da8c",
+        "checkpoints/network/61440.pt": "7a1dacf1db5f2e5e2601ee3ab7ce22c5d626167b226aa659ae452c6f9db6c84b",
+        "checkpoints/network/65536.pt": "3c83013cf49d03a96d21263085bea76829026d2a9f8742e491ca12cc42a69a0a"
+      }
+    },
+    "iterated2": {
+      "sustained_clean_test_mse": 0.26261286810040474,
+      "endpoint_clean_test_mse": 0.23793825507164001,
+      "chosen": 0.1,
+      "edge": false,
+      "validation_sustained_grid": [
+        1.655489407479763,
+        0.9069740083068609,
+        0.2620504265651107,
+        1.1110264286398888,
+        3.3636475950479507
+      ],
+      "grid": [
+        0.001,
+        0.01,
+        0.1,
+        1.0,
+        10.0
+      ],
+      "phase_mse": {
+        "0": 0.1923852562904358,
+        "1": 0.3328404799103737
+      },
+      "test_curve": [
+        {
+          "step": 4096,
+          "teacher_phase": 0,
+          "mse": 0.22762717306613922,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.16747044978526754
+        },
+        {
+          "step": 8192,
+          "teacher_phase": 0,
+          "mse": 0.2154797911643982,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.15853334669957006
+        },
+        {
+          "step": 12288,
+          "teacher_phase": 0,
+          "mse": 0.20631566643714905,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.15179109326256596
+        },
+        {
+          "step": 16384,
+          "teacher_phase": 0,
+          "mse": 0.19650767743587494,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.14457513434427338
+        },
+        {
+          "step": 20480,
+          "teacher_phase": 0,
+          "mse": 0.18626408278942108,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.13703869051925988
+        },
+        {
+          "step": 24576,
+          "teacher_phase": 0,
+          "mse": 0.17826390266418457,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.1311527774013773
+        },
+        {
+          "step": 28672,
+          "teacher_phase": 0,
+          "mse": 0.16799277067184448,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.12359607372935458
+        },
+        {
+          "step": 32768,
+          "teacher_phase": 0,
+          "mse": 0.1606309860944748,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.11817984262747237
+        },
+        {
+          "step": 36864,
+          "teacher_phase": 1,
+          "mse": 0.48084139823913574,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.1654793662275534
+        },
+        {
+          "step": 40960,
+          "teacher_phase": 1,
+          "mse": 0.4059824049472809,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.1397169863415185
+        },
+        {
+          "step": 45056,
+          "teacher_phase": 1,
+          "mse": 0.36368414759635925,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.12516023468786944
+        },
+        {
+          "step": 49152,
+          "teacher_phase": 1,
+          "mse": 0.33484703302383423,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.11523607370512567
+        },
+        {
+          "step": 53248,
+          "teacher_phase": 1,
+          "mse": 0.30566197633743286,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.10519217003654208
+        },
+        {
+          "step": 57344,
+          "teacher_phase": 1,
+          "mse": 0.27894264459609985,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.09599683432133271
+        },
+        {
+          "step": 61440,
+          "teacher_phase": 1,
+          "mse": 0.25482597947120667,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.08769719440887093
+        },
+        {
+          "step": 65536,
+          "teacher_phase": 1,
+          "mse": 0.23793825507164001,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.08188536135768247
+        }
+      ],
+      "timing": {
+        "startup_seconds": 19.806682195980102,
+        "training_seconds": 142.30119448597543,
+        "aggregate_samples_per_second": 2302.7213593227757,
+        "selection_seconds": 0.008063012966886163,
+        "test_seconds": 0.023689595982432365
+      },
+      "resources": {
+        "grid_candidates": 5,
+        "mutable_tensor_bytes": 578350216,
+        "consumed_samples": 65536,
+        "learner_steps": 65536.0,
+        "candidate_sample_updates": 327680,
+        "peak_allocated_bytes": 4091739648,
+        "peak_reserved_bytes": 4112515072
+      },
+      "selection_sha256": "7d6b6518d46b9db3b5882f5f6639c48271e680369a54b80ac6e08efd7fb29e97",
+      "checkpoint_sha256": {
+        "checkpoints/iterated2/4096.pt": "c263b6cb067820e86e6219e5018c88e4cae0369c647898e505f85a6b945cefc3",
+        "checkpoints/iterated2/8192.pt": "b6e02bd2e6c25d02486a059a83a04759b16e56cbaf3e4e03cb6adc772262eb50",
+        "checkpoints/iterated2/12288.pt": "5e6a6e8ca4483a480e55232a82bb1bd42330118f881c55b333375fb8538eae1b",
+        "checkpoints/iterated2/16384.pt": "027b9cff90a6e1609f545bac089d3f6f370848fd153616bef8831fd1458547e5",
+        "checkpoints/iterated2/20480.pt": "d763aad42c9a8d9ff6ff0d85a5ab8810f7f8ea185031081a20edc456f80a32a2",
+        "checkpoints/iterated2/24576.pt": "ccbf06e33ff90b8add58669d1bc421a13f8396ecac3825e74ed0dbe93e7a8012",
+        "checkpoints/iterated2/28672.pt": "5007530d474792bdd013460d68b2a5bfdfcf33f0b415d12fa3b8657b6ac244dc",
+        "checkpoints/iterated2/32768.pt": "1dd6987110fa2349b768005edffbda703164483fda191607d1442902c7dddf7d",
+        "checkpoints/iterated2/36864.pt": "4244ade879e5f219391d5fcc74157de34719d3ae5f33dc850bf9255340094fbd",
+        "checkpoints/iterated2/40960.pt": "a5122ae822e77bb934d10dead148047310a44cbe7ecb7e950c7bb85d0475275b",
+        "checkpoints/iterated2/45056.pt": "45b10f0eb62d17b942bde88a223c6f85cedb88381902c2266496dcc59a5d304f",
+        "checkpoints/iterated2/49152.pt": "c9a34be96f477c299b89ffc0aff8ab5ba834382670468ac81979f701077e5421",
+        "checkpoints/iterated2/53248.pt": "5e11a1883ef741e6a5f0b8c4ac7ef2c0edac3c3e362c7d679954058138a8b941",
+        "checkpoints/iterated2/57344.pt": "e3ca70065df177d22370772f444726d5987e2f93fcf81540f8e87264a47608d3",
+        "checkpoints/iterated2/61440.pt": "b33ef72641dac2a3e477aabd0faa6cb2b4b4ac53c05a3a30ca3054de6532c235",
+        "checkpoints/iterated2/65536.pt": "593d1c179034b613fefb59969887373e874f558ad12b966ae444c0312e7a5f82"
+      }
+    },
+    "iterated4": {
+      "sustained_clean_test_mse": 0.2625961257144809,
+      "endpoint_clean_test_mse": 0.2379218488931656,
+      "chosen": 0.1,
+      "edge": false,
+      "validation_sustained_grid": [
+        1.6554893963038921,
+        0.9069726569578052,
+        0.262016368098557,
+        1.085615511983633,
+        3.3709192872047424
+      ],
+      "grid": [
+        0.001,
+        0.01,
+        0.1,
+        1.0,
+        10.0
+      ],
+      "phase_mse": {
+        "0": 0.19238313660025597,
+        "1": 0.3328091148287058
+      },
+      "test_curve": [
+        {
+          "step": 4096,
+          "teacher_phase": 0,
+          "mse": 0.2276303619146347,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.16747279589309222
+        },
+        {
+          "step": 8192,
+          "teacher_phase": 0,
+          "mse": 0.21548190712928772,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.15853490346270604
+        },
+        {
+          "step": 12288,
+          "teacher_phase": 0,
+          "mse": 0.20631618797779083,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.1517914769717896
+        },
+        {
+          "step": 16384,
+          "teacher_phase": 0,
+          "mse": 0.19650687277317047,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.1445745423357569
+        },
+        {
+          "step": 20480,
+          "teacher_phase": 0,
+          "mse": 0.18625468015670776,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.13703177279011333
+        },
+        {
+          "step": 24576,
+          "teacher_phase": 0,
+          "mse": 0.17825433611869812,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.13114573907790333
+        },
+        {
+          "step": 28672,
+          "teacher_phase": 0,
+          "mse": 0.16798588633537292,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.12359100876760228
+        },
+        {
+          "step": 32768,
+          "teacher_phase": 0,
+          "mse": 0.1606348603963852,
+          "zero_mse": 1.3592079877853394,
+          "over_zero": 0.11818269303884812
+        },
+        {
+          "step": 36864,
+          "teacher_phase": 1,
+          "mse": 0.48070284724235535,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.165431684536207
+        },
+        {
+          "step": 40960,
+          "teacher_phase": 1,
+          "mse": 0.40592771768569946,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.13969816597076765
+        },
+        {
+          "step": 45056,
+          "teacher_phase": 1,
+          "mse": 0.3636493980884552,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.1251482758037847
+        },
+        {
+          "step": 49152,
+          "teacher_phase": 1,
+          "mse": 0.33483436703681946,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.11523171476367111
+        },
+        {
+          "step": 53248,
+          "teacher_phase": 1,
+          "mse": 0.30566084384918213,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.10519178029589438
+        },
+        {
+          "step": 57344,
+          "teacher_phase": 1,
+          "mse": 0.2789463400840759,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.09599810610660416
+        },
+        {
+          "step": 61440,
+          "teacher_phase": 1,
+          "mse": 0.2548295557498932,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.08769842516881103
+        },
+        {
+          "step": 65536,
+          "teacher_phase": 1,
+          "mse": 0.2379218488931656,
+          "zero_mse": 2.9057483673095703,
+          "over_zero": 0.08187971524645722
+        }
+      ],
+      "timing": {
+        "startup_seconds": 17.03634135099128,
+        "training_seconds": 171.71450065402314,
+        "aggregate_samples_per_second": 1908.2838010298387,
+        "selection_seconds": 0.0037260070675984025,
+        "test_seconds": 0.02441421092953533
+      },
+      "resources": {
+        "grid_candidates": 5,
+        "mutable_tensor_bytes": 578350216,
+        "consumed_samples": 65536,
+        "learner_steps": 65536.0,
+        "candidate_sample_updates": 327680,
+        "peak_allocated_bytes": 4091739648,
+        "peak_reserved_bytes": 4112515072
+      },
+      "selection_sha256": "8b05516941a13adba9d88f094c7d9408371570712e25c67a4e16a8ff06c52de7",
+      "checkpoint_sha256": {
+        "checkpoints/iterated4/4096.pt": "1a00d3d392857c236ed05e02094ee3907b9b16124eb01acbcc59138ea50c358d",
+        "checkpoints/iterated4/8192.pt": "d2c1dff37ca9dd80163a934d8b3a448c92df8298ae7db6e61c186dd95b310b95",
+        "checkpoints/iterated4/12288.pt": "41c15b789d322e8bdc9418bb12f493dea4ccb4d7ec4c076b863e48bd24824259",
+        "checkpoints/iterated4/16384.pt": "2bcad86c3574b30e586ad37b7dca553b5ddd8e7d3e10e3a387be3ed33829b8c0",
+        "checkpoints/iterated4/20480.pt": "19912a295846dc4ab1aa87e22c89c9c032c491504aabd3dddb1fbe68233cd2fc",
+        "checkpoints/iterated4/24576.pt": "1c3575ea92b536ad9bf364a2fa59369f90631e5e17591bbd5739cbaa0a124620",
+        "checkpoints/iterated4/28672.pt": "20a313fbcb1928a2e795a08317a4c769330bd9a769822af6e57c4f4450b773cd",
+        "checkpoints/iterated4/32768.pt": "ced7f2e7b8a0c487a5fa4ff1dbbd70f6c7a76342294d4b37b59116b20e88b391",
+        "checkpoints/iterated4/36864.pt": "df2ad9fc8f6d4d928d8eaed01c6d63824e67585877dd276ad5fbc638981366be",
+        "checkpoints/iterated4/40960.pt": "a3fa0b99b012b2aeea2490128f7932ed1ed6b3382ea2e7efda8232ce33692326",
+        "checkpoints/iterated4/45056.pt": "cbbc05c68164b1c1c7e95c5dc3621b037fbe78932f86a34fc20ea6255e714bf2",
+        "checkpoints/iterated4/49152.pt": "57d6d7c481d556c783b8e85fe5d1206861e966a964b45cb017d6b38bd96c7fec",
+        "checkpoints/iterated4/53248.pt": "c1b81732a5757613c15c65b372eb687efbba023fd4a50188941e47dc585e8a23",
+        "checkpoints/iterated4/57344.pt": "0ef06ca53a7e869452ae67acd1d00b1d845ccbd04910da424b4493463d13bb82",
+        "checkpoints/iterated4/61440.pt": "996ed6e62ae71d2825428528fb6ee70949d53d10133c794ba0913ef0595703c8",
+        "checkpoints/iterated4/65536.pt": "9302029c2862c26cefc15084b3a531081dd77ac55b08605f48dc389f45df8d61"
+      }
+    }
+  },
+  "verification": {
+    "tests": 69,
+    "independent_reviews": [
+      "IteratedMathReview",
+      "IteratedProtocolReview"
+    ],
+    "selections_and_duration_weights_recomputed": true,
+    "source_hashes_match": true,
+    "data_hashes_match_v3": true,
+    "control_test_curve_max_abs_drift_from_v3": {
+      "adam": 5.960464477539063e-08,
+      "network": 0.0
+    },
+    "all_choices_interior": true,
+    "tensorboard_final_samples": {
+      "test/adam/clean_mse": 65536,
+      "test/network/clean_mse": 65536,
+      "test/iterated2/clean_mse": 65536,
+      "test/iterated4/clean_mse": 65536
+    },
+    "distinct_passed_contracts_across_v3_v4_suites": 93
+  },
+  "limits": [
+    "One pairedtask seed1; no crossseed or PPO claim.",
+    "IteratedEKF is established, not claimednovel. Fixedprior nonlinearassimilation is still localapproximation, not exact nonlinearBayesianinference or globaloptimum.",
+    "Jointposterior coordination is not autonomous scalarperneuron gating.",
+    "Iterationcount changes compute; no equalcompute claim.",
+    "Two/four selectedrisks nearlyequal is not proof allinneriterations converged or that noisefitting causally explains the loss."
+  ],
+  "primary_comparison": {
+    "adam": {
+      "status": "completed",
+      "sustained_mse_difference": -0.028797071427106857,
+      "relative_reduction": 0.09882547605637604
+    },
+    "network": {
+      "status": "completed",
+      "sustained_mse_difference": 0.039016272872686386,
+      "relative_reduction": -0.17450710507576184
+    }
+  },
+  "two_to_four_relative_risk_reduction": 6.375310564543657e-05
+}

@@ -1,0 +1,19 @@
+{
+  "reason": "Every v5 return family selected its lowest LR3e-5; both auxiliary families also selected their lowest auxiliary weight. Do not treat that truncated search as a settled optimizer comparison.",
+  "development_source": "runs/panel_return_representation_v5_development/results.json",
+  "observed_v5_suffix_raw_ratios": {"memory_adam": 0.9998165304112582, "memory_aux": 1.0012104179885224, "memory_aux_permuted": 1.0012067956976811, "zero": 1.0},
+  "evaluator": "cleanrl/plasticity/panel_return_refinement_eval_v6.py",
+  "unchanged_learner": "cleanrl/plasticity/panel_return_representation_v5.py",
+  "learning_rates": [0.0000003,0.000001,0.000003,0.00001,0.00003,0.0001,0.0003,0.001,0.003,0.01],
+  "baseline_beta2": [0.5,0.9,0.95,0.99,0.999,0.9999],
+  "numerical_exclusion_before_learning": {"job": 6140, "parameter": "beta2=0", "observation": "Independent FP32 manual/autograd trajectories differed by1.5497e-4 in parameters at a tested update; strict numerical contract failed. No learning run used this grid.", "decision": "Exclude uncertified beta2=0 and include beta2=.95 instead, retaining60 candidates per family and all v5 points. Do not loosen trajectory tolerance or claim the excluded point passed.", "probe": "benchmarks/plasticity/return_beta2_zero_v6_probe.py", "failed_contracts": "benchmarks/plasticity/predictive_iteration_v6_contracts.xml", "interpretation": "This failure does not establish an optimizer formula bug; instantaneous second-moment normalization may amplify FP32 gradient differences. No global beta2 optimum claim."},
+  "auxiliary_beta2": 0.999,
+  "auxiliary_weights": [0,0.01,0.03,0.1,1,10],
+  "budget": "60 configurations per family,300 total; every original v5 candidate retained. Zero auxiliary weight is an explicit no-auxiliary ablation, not a failed-model fallback.",
+  "selection": "Same chronological40–60% normalized-MSE prefix; raw-return MSE and suffix never select configurations. Source/config-version6 locks before suffix; confirmation receives those locks before any rank400 training.",
+  "confirmation": "Same authenticated rank400 historical stream, score[90145,T-1), not globally pristine market data. No v5 return confirmation has been run; v6 refines only rank0 development.",
+  "null": "Independent signed-label Rademacher namespace declared by v6, auxiliary volatility unchanged; inherit real-prefix locks.",
+  "promotion": "Unchanged v5 target: >=1% lower raw confirmation MSE than both zero and matched memory Adam, and beat ridge. Do not credit auxiliary learning if selected weight0 or mispaired auxiliary performs equivalently.",
+  "resources": {"queue": "mlq", "max_parallel_runs": 1, "priority": 0, "max_attempts": 1, "learning_time_limit_minutes": 240, "seed": 1, "full_stream": true},
+  "limitations": ["Adaptive development refinement, not an independent new algorithm", "Extra auxiliary parameters/compute remain", "Millions of stock-bars do not imply iid observations", "Normalization and universe/gap limitations inherited from v5", "No profitability or global optimum claim"]
+}

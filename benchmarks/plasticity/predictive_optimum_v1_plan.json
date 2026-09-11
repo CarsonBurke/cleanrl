@@ -1,0 +1,44 @@
+{
+  "goal": "Improve causal noisy-signal and financial conditional-mean prediction, not merely a favorable optimizer proxy.",
+  "abstract_optimum": {
+    "squared_loss_target": "f*(x_t,H_t)=E[y_t|x_t,H_t], where H_t contains only observations available before the forecast.",
+    "resource_constraint": "Compare prediction risk with actual learner state, update cost, and available history disclosed. Observation-matched gains do not imply equal-compute gains.",
+    "irreducible_uncertainty": "For independent mean-zero observation noise, noisy MSE equals clean conditional-mean error plus noise variance in expectation. Weak-signal improvements can be large in excess risk and tiny in total MSE.",
+    "brain_analogy": "Generate competing hypotheses about persistent memory, latent context, and prediction errors. Biological plausibility is not evidence of algorithmic correctness or performance.",
+    "epistemic_limits": "Exact inference under a model is not optimal prediction under a misspecified data-generating process. No finite search certifies a global optimum. Zero may remain the best useful return forecast."
+  },
+  "diagnosis": {
+    "sparse": "v3 sometimes keeps a good conditional coefficient while inclusion collapses. v4 periodic cohorts reduce sampled relapse but impose delayed replacement selection; birth-only post-change risk was 42.9% worse than v3-static.",
+    "finance": "Panel explicit features omit the latest available bar. Simple persistence references are missing. SPY normalized-return gains lose to transformed raw-return zero. Prior gating, routing, and wider networks do not establish the missing mechanism.",
+    "audits": ["agent://SparseMemoryAudit", "agent://FinancialSignalAudit"]
+  },
+  "sparse_experiment": {
+    "model": "predictive_segment_posterior_v5",
+    "primary": "Nine-state causal global-segment posterior with persistent null state and top-posterior-mass compression.",
+    "hypothesis": "Joint change-versus-continuation evidence can adopt a useful replacement without periodic erasure of established support.",
+    "mechanism_controls": ["global hazard zero", "expanded 32-state budget", "frozen v3 likelihood-static", "frozen v4 birth-only and continual aggregation"],
+    "adamw_grid": {"learning_rate": [0.000001,0.000003,0.00001,0.00003,0.0001,0.0003], "beta1": [0,0.9,0.99], "beta2": [0.9,0.999], "weight_decay": [0,0.01]},
+    "protocol": {"seed": 1, "observations": 60000, "input_dim": 4096, "feature_probability": 0.01, "noise_sigma": 1, "development_namespace": 0, "confirmation_namespace": 100, "views": ["stationary","change","null"]},
+    "selection": "Noisy-prefix-only AdamW configuration selection; all fresh-confirmation configurations locked from development before fresh observations. Clean targets/support are scoring-only.",
+    "metrics": ["full-stream prequential clean MSE", "post-change clean MSE", "noisy-label MSE", "null prediction energy", "coefficient/support/segment diagnostics", "discarded posterior mass", "state bytes", "runtime"],
+    "promotion": "Require at least 20% lower change risk than frozen v3-static on fresh draws, without more than 5% stationary risk regression. Null safety is absolute excess risk <=1e-5 rather than a misleading ratio to nearly zero. Also compare tuned AdamW and publish every named arm, including failures.",
+    "limitations": ["factorized within-segment support", "Gaussian likelihood using causal scale estimate", "global changes may not represent asynchronous drift", "top-mass truncation is approximate", "strong sparse prior is model information, not an optimizer advantage", "one seed with fresh namespaces, not independent seed-level significance"]
+  },
+  "finance_experiment": {
+    "model": "panel_predictive_memory_v4",
+    "task": "Same clipped next-retained-bar squared normalized return target as the frozen panel. Not raw-return direction or profitability.",
+    "frames": {"old": "t-1..t-32", "latest": "t..t-31", "memory": "latest plus eight-channel causal EWMA summaries with half-lives64,256,1024"},
+    "hypotheses": ["The omitted current bar limits prediction.", "Long-lived causal summary states expose useful persistence beyond32 bars.", "QLIKE supplies a better gradient for the same conditional mean than positive-head MSE."],
+    "controls": ["Scalar Adam on all three frames", "Categorical CE+JS on all three frames", "Identical positive exponential head with MSE versus QLIKE on memory", "Prefix mean", "Own-stock and cross-sectional persistence with prefix-selected half-life16,128,1024", "Pooled affine ridge readout of six own/common persistence states, prefix-fitted and frozen for suffix; fixed ridge1 or explicit prefix-only ridge selection recorded in implementation before execution"],
+    "learning_rates": [0.00003,0.0001,0.0003,0.001,0.003,0.01],
+    "width": 256,
+    "selection": "Same40–60% chronological prefix for independent LR/reference locks. Development rank0. Confirmation configurations frozen from development before rank400 training; confirmation score only [90145,T-1), beyond prior rank400 v3 consumption. No new choice after reading that score.",
+    "null": "Time-permuted labels with authenticated real-prefix locks; noise-fitting diagnostic, not independent unseen-market evidence.",
+    "metrics": ["sample-weighted relative MSE", "paired chronological blocks", "incremental gain above strongest persistence and neural controls", "candidate failures", "state and elapsed-time cost"],
+    "promotion": "Substantial means >=10% lower confirmation MSE than matched latest CE+JS and improvement above strongest causal persistence reference. Smaller gains are reported as such, not renamed a breakthrough.",
+    "limitations": ["Long memory enlarges available history; not optimizer-only or same-window attribution", "QLIKE targets nonnegative clipped normalized energy, not centered labels and not a full Gamma data model", "Prefix normalization uses first60%, including selection interval", "Survivor-selected stocks and contemporaneous ranking not established", "Retained bars can bridge gaps/sessions", "Cohorts share market dates; suffix is new relative to the cited run, not a globally untouched market dataset", "No raw-return forecasting claim"]
+  },
+  "market_horizon_check": {"source": "/home/marvin/Documents/repositories/trading_bot_0/long_data/bars/SPY.300.bars", "magic": "TBBARS01", "records": 468054, "first_utc": "2016-08-22T08:05:00Z", "last_utc": "2026-08-19T23:55:00Z", "bytes": 16850008, "interpretation": "Header inspection confirms no newly appended prospective dates in this source. Financial confirmation must not be described as untouched future market data."},
+  "resources": {"queue": "mlq", "max_parallel_runs": 1, "priority": 0, "max_attempts": 1, "cuda_required": true, "automatic_retry": false, "sparse_culling": "No plateau culling; complete full60000 streams", "finance_culling": "Only genuine numerical failure or time-limit; preserve completed observations and mark partial results"},
+  "execution": "Contracts and source/data verification before interpretation. Main submits jobs after implementation. Queue jobs6110/6111 belong to other work and will not be cancelled or reprioritized. No job IDs yet for this experiment."
+}

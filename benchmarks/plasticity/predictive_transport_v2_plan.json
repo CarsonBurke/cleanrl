@@ -1,0 +1,44 @@
+{
+  "objective": "Improve accuracy and runtime with FP32 optimizer-native prediction transport; no covariance or sketches. Existing v1 remains frozen.",
+  "precision_hypothesis": "The rejected near-zero Jacobian-ratio gate caused FP32 parity sensitivity, not predictive transport itself. Remove that ineffective gate and its unused backward pass, use CUDA FP32 throughout learning, retain strict transition/replay audits.",
+  "accuracy_hypotheses": {
+    "tangent": "Replace two-weight prediction differences with J_current dot actual previous parameter displacement. One forward/Jacobian, first-order drift approximation; may save time without degrading accuracy.",
+    "implicit": "Solve a frozen-current-J local quadratic with the Adam metric to prevent explicit-step prediction overshoot. Uses only vector products, no covariance memory. May allow larger learning rates and lower clean error.",
+    "robust": "Pseudo-Huber residual influence reduces noisy-label outlier impact in heteroscedastic stream. Changes loss objective; finite-capacity clean-mean accuracy is empirical, not guaranteed. Prediction transport uses the same noisy label at both weights."
+  },
+  "primary": "implicit",
+  "arms": {
+    "adam": "FP32 Adam, independently LR/beta tuned. One current forward/Jacobian.",
+    "predictive": "FP32 squared-loss predictive transport, one current forward/Jacobian plus previous forward only; no q or previous Jacobian.",
+    "tangent": "C=(J dot (theta-theta_previous))*J; single current forward/Jacobian.",
+    "implicit": "Predictive transport m/v. D=1/(sqrt(vhat)+eps), u=-lr*D*mhat, h=J dot u, ell=J dot D J. delta=u-lr*D*J*h/(1+lr*ell). Minimizes mhat dot delta + .5*(J dot delta)^2 + delta dot D^-1 delta/(2lr).",
+    "robust": "psi(e)=e/sqrt(1+e^2), g=psi(f-y)*J, C=(psi(f-y)-psi(fprevious-y))*J. No extra tuned scale; scale1 is predeclared, not calibrated uncertainty."
+  },
+  "moment": "m=beta*m+(1-beta)*g+beta*(1-beta^(t-1))*C, stable expm1 masses. v=.999*v+.001*g^2 uses each arm's observed raw objective gradient. Adam eps1e-8. No annealing, oracle noise, clipping, retries or hidden fallback.",
+  "experiments": {
+    "stationary": {"seed":1,"samples":65536,"noise":1,"hetero":0,"switch_at":0,"input_dim":17,"hidden":64},
+    "stress": {"seed":1,"samples":65536,"noise":1,"hetero":1,"switch_at":0.5,"input_dim":17,"hidden":64}
+  },
+  "selection": {
+    "learning_rates": [0.000001,0.000003,0.00001,0.00003,0.0001,0.0003,0.001,0.003,0.01,0.03],
+    "beta1": [0,0.1,0.3,0.5,0.9,0.99,0.999,0.9999,0.99999],
+    "refinement_after_5803_5804": {
+      "reason": "All coarse winners interior but LR spacing3x and momentum horizons10x can hide accuracy differences. Refine around selected LR .0003/.001 and both Adam/transport beta regions, identically for all5arms and both tasks, retaining all90 originals. No algorithm changes based on held-out scores. This is adaptive research on the same seed, not an untouched confirmation.",
+      "learning_rates": [0.000001,0.000003,0.00001,0.00003,0.0001,0.00015,0.0002,0.0003,0.0005,0.0007,0.001,0.0014,0.002,0.003,0.01,0.03],
+      "beta1": [0,0.1,0.3,0.5,0.7,0.9,0.95,0.99,0.995,0.999,0.9995,0.9998,0.9999,0.99999],
+      "candidates_per_arm": 224,
+      "audit_fix": "Before refined runs, reject eager/compiled and compiled/replay finite-mask disagreements before masking shared nonfinite candidates. Independent review found inherited audit gap; two fault-injection regressions fail before fix. Coarse runs had zero failed candidates, so were not affected by the gap."
+    },
+    "criterion": "Fullstream duration-weighted clean validation per arm; same90config grid each arm. Persist exclusive choice locks for all arms before global held-out test scoring. No test-based rescue.",
+    "boundary": "If an arm selects a boundary (except physical beta0), extend that axis retaining all original candidates for every arm in both tasks. Further refinement decisions use validation only and are labelled adaptive research, not untouched final confirmation.",
+    "failure": "Nonfinite state/validation disqualifies candidate permanently and visibly; finite poor candidates always retained. Compiler parity failure invalidates run rather than silently dropping a finite candidate."
+  },
+  "execution": {
+    "queue":"mlq","max_parallel_runs":1,"max_attempts":1,"priority":0,"contract_limit":"20m","experiment_limit":"30m",
+    "training":"CUDA FP32 compiled CUDA graphs,16steps/capture; exact replay and rtol3e-3/atol3e-5 local eager/compiled audit. Data generation unchanged.",
+    "autocull":"None for fixed65536-observation comparative streams; full teacher-switch/recovery horizon necessary. No short runs or additional seeds.",
+    "timing":"Report full grid/report timing and separate selected-candidate CUDA-event complete-stream replay excluding capture/validation/checkpoint IO. Forward and Jacobian counts separate. Not equal-compute algorithms."
+  },
+  "verification":"Independent CUDA FP64 autograd reference trajectories for each objective/update; direct dense solve only in test for implicit formula; FP32 storage, startup/mass, clean/noise/future information isolation, previous-weight ownership, candidate failure isolation, capture restoration and deterministic replay. Tests are contracts, not learning evidence.",
+  "limits":"Single paired seed and existing synthetic dense stream. No global optimum, PPO improvement, calibrated uncertainty or novelty claim. Historical v1 differs in arithmetic and telemetry; separate matched FP32 controls from historical timing."
+}

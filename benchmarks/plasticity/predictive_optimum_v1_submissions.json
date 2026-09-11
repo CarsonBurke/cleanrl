@@ -1,0 +1,14 @@
+{
+  "queue": "mlq",
+  "resources": {"max_parallel_runs": 1, "priority": 0, "max_attempts": 1},
+  "jobs": [
+    {"id": 6116, "name": "segment-v5-contracts", "time_limit_minutes": 20, "state": "failed", "result": "7 passed; new trace-alignment regression failed before fix", "junit": "benchmarks/plasticity/predictive_segment_v5_contracts.xml"},
+    {"id": 6117, "name": "segment-v5-dev-stationary", "time_limit_minutes": 30, "after_success": 6116, "state": "skipped", "reason": "failed numerical prerequisite; never trained"},
+    {"id": 6118, "name": "panel-memory-v4-contracts", "time_limit_minutes": 45, "state": "failed", "result": "12 passed; two new historical-preprocessing rejection cases failed before fix", "junit": "benchmarks/plasticity/panel_predictive_memory_v4_contracts.xml"},
+    {"id": 6119, "name": "panel-memory-v4-development", "time_limit_minutes": 240, "after_success": 6118, "state": "skipped", "reason": "failed numerical prerequisite; never trained"},
+    {"id": 6125, "name": "predictive-optimum-corrected-contracts", "time_limit_minutes": 45, "purpose": "Verify corrected sparse trace, historical stream authentication, and durable metric checkpoints", "junit": "benchmarks/plasticity/predictive_optimum_v1_contracts.xml"},
+    {"id": 6128, "name": "panel-memory-v4-development-verified", "time_limit_minutes": 240, "after_success": 6125, "purpose": "Full financial development with prefix locks", "autocull": false},
+    {"id": 6129, "name": "segment-v5-dev-stationary-verified", "time_limit_minutes": 30, "after_success": 6125, "purpose": "Full sparse stationary development and noisy-prefix AdamW lock", "autocull": false}
+  ],
+  "status_at_submission": "queued; not execution evidence"
+}

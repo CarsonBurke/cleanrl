@@ -1,0 +1,23 @@
+{
+  "objective":"Test optimizer-native FP32 predictive transport on PPO, not infer RL success from dense regression. No covariance, Fisher state, loss substitution or uncertainty-gate claim.",
+  "base":"Newest ppo_continuous_action_prerms_adamh_v22.py architecture/execution with its ordinary Adam option; frozen source unchanged. Pre-RMS SiTU-GLU residual actor/critic, native Beta actions, scalar clipped critic MSE, raw GAE, one32768sample minibatch and10epochs.",
+  "derivation":{
+    "outputs":"z(theta,x)=(raw Beta actor logits, scalar critic value). Let s(z;D)=d PPO_loss(z;D)/dz, including signed clipped surrogate, entropy coefficient, value clipping and vf_coef.",
+    "correction":"C=J_z(theta,x)^T [s(z(theta,x);D)-s(z(theta_previous,x);D)], same current minibatchD and frozen rollout advantages/returns/oldlogprobs/oldvalues at both parameter states. Detach output scores before the current-J pullback.",
+    "regression_limit":"For unclipped scalar .5(v-y)^2 this is (v-v_previous)*J_v timesvf_coef/batchsize, exactly the earlier predictive correction. PPO actor is not MSE; use its real output score rather than a positive Fisher or squared-loss Hessian.",
+    "moment":"m=beta*m+(1-beta)*g+beta*(1-beta^(t-1))*C with stableexpm1 masses. v=.999v+.001g^2 uses ordinary raw current PPO gradients. Biascorrect both, eps1e-5 matching PPOAdam.",
+    "limits":"Omits output-Jacobian drift, not an exact full parameter-gradient difference. Corrects model drift on currentdata, not changes in rollout distribution or bootstrap targets. Do not reset momentum at rollout boundaries. Actor clipped branch changes are handled by finite output-score differences, not a smooth-branch approximation. No calibrated uncertainty claim."
+  },
+  "arms":[
+    {"mode":"adam","beta1":0.9},{"mode":"critic","beta1":0.9},{"mode":"both","beta1":0.9},
+    {"mode":"adam","beta1":0.99},{"mode":"critic","beta1":0.99},{"mode":"both","beta1":0.99}
+  ],
+  "controls":"All modes share the same customAdamimplementation, original learningrate.0096, beta2.999, eps1e-5 and linearannealing; beta0/zeroC identity testedagainsttorchAdam. Critic mode zeros onlyactorC; sharedbeta1 remains matched forbothnetworks. NoAdamH projection or architecture change.",
+  "run":{"env_id":"HalfCheetah-v4","total_timesteps":8000000,"seed":1,"num_envs":16,"num_steps":2048,"num_minibatches":1,"update_epochs":10,"env_threads":2,"compile":true,"compile_mode":"reduce-overhead","cuda":true,"norm_adv":false,"grad_clip":false,"max_grad_norm":0.5,"clip_vloss":true,"ent_coef":0,"vf_coef":0.5,"track":false},
+  "gradient_clipping":"Preserve v22 baseline grad_clipFalse and max_grad_norm.5 in everyarm. If optionalclippingenabled, current network's clipfactor scales bothg andC with factorheldfixed; no derivative-of-norm correction claim.",
+  "execution":{"queue":"mlq","initial_max_parallel_runs":1,"reason":"Novel functional-gradient path; characterize full run before raising limit. Standard16env trainerscanuse6 onlyafterthispath footprint/aggregatecostisunderstood.","contracts_time_limit":"20m","training_time_limit":"45m","max_attempts":1,"priority":0,"environment":{"OMP_NUM_THREADS":"1","MKL_NUM_THREADS":"1","CLEANRL_ENV_SPIN":"5000"},"host":"make_host_mirror plusmake_beta_sampler with same-step staging of overwrittenbuffers; alllearningCUDAFP32TF32off"},
+  "monitoring":"Use mlq for jobstate and shared score_runs.py/watch_run.py for TensorBoard. Report matched1M/2M/4M/8Mreturn windows, final100episodes, KLclipfrac, explainedvariance, actor/criticcorrection-to-gradientnorm and phaseupdate/runtime. No earlywinnerclaim or extrapolation beyondavailablemetrics.",
+  "culling":"Immediate nonfinite/stallhealth failures remain failed; no retries. At or after3M consider cancellation only for persistent severeunderperformance versus completedmatchedcontrol with no improving returntrend; nevercull an exploration candidate fromoneearlywindow. Recordcancellationsandactualsteps; do notpresentascompleted8M.",
+  "verification":"Independent frozenv22loss/autograd equality, current/previous PPO clippingbranch andentropyhead scores, currenttarget reuse, critic-only actorzeroC, ordinaryAdamzeroC andlongbeta mass, ownedpreupdate snapshots acrosscompiledmutation, functionalgradient compile parity onactualresidualarchitecture and fullHalfCheetahtraining.",
+  "selection":"Predeclaredsixarms, no environment/seed fishing. Retainallresults; beta sweep is explicitandmatched. Report same-beta comparisons beforebest-observedreturn. Single-seed outcomes are pilot evidence, not statisticalsignificance orstateoftheartproof."
+}

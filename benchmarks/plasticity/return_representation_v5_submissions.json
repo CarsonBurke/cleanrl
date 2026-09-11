@@ -1,0 +1,9 @@
+{
+  "queue": "mlq",
+  "resources": {"max_parallel_runs": 1, "priority": 0, "max_attempts": 1},
+  "jobs": [
+    {"id": 6137, "name": "return-representation-v5-contracts", "time_limit_minutes": 45, "purpose": "Shared-gradient, causal raw-target and reporting contracts", "junit": "benchmarks/plasticity/return_representation_v5_contracts.xml"},
+    {"id": 6138, "name": "return-representation-v5-development", "time_limit_minutes": 240, "after_success": 6137, "purpose": "Full rank0 direct-return development; normalized-prefix-only locks; raw-zero and ridge controls", "autocull": false}
+  ],
+  "state_at_submission": "queued; no verification or prediction-gain claim"
+}

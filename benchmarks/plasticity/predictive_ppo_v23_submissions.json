@@ -1,0 +1,80 @@
+[
+  {
+    "mode": "adam",
+    "beta1": 0.9,
+    "label": "ppo_predictive_v23_adam_b090_8M",
+    "command": "mlq submit --name ppo_predictive_v23_adam_b090_8M --max-parallel-runs 1 --max-attempts 1 --time-limit 45m --after-success 5831 --cwd /home/marvin/Documents/repositories/cleanrl --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 --env CLEANRL_ENV_SPIN=5000 -- .venv/bin/python -u cleanrl/ppo_continuous_action_predictive_transport_v23.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name ppo_predictive_v23_adam_b090_8M --total-timesteps 8000000 --seed 1 --env-threads 2 --compile --compile-mode reduce-overhead --transport-mode adam --beta1 0.9 --save-model",
+    "submission": {
+      "text": "submitted job 5832 [ppo_predictive_v23_adam_b090_8M] maxParallelRuns=1 priority=0\n\n\nWall time: 0.14 seconds",
+      "details": {
+        "timeoutSeconds": 300,
+        "wallTimeMs": 139.99139600992203
+      }
+    }
+  },
+  {
+    "mode": "critic",
+    "beta1": 0.9,
+    "label": "ppo_predictive_v23_critic_b090_8M",
+    "command": "mlq submit --name ppo_predictive_v23_critic_b090_8M --max-parallel-runs 1 --max-attempts 1 --time-limit 45m --after-success 5831 --cwd /home/marvin/Documents/repositories/cleanrl --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 --env CLEANRL_ENV_SPIN=5000 -- .venv/bin/python -u cleanrl/ppo_continuous_action_predictive_transport_v23.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name ppo_predictive_v23_critic_b090_8M --total-timesteps 8000000 --seed 1 --env-threads 2 --compile --compile-mode reduce-overhead --transport-mode critic --beta1 0.9 --save-model",
+    "submission": {
+      "text": "submitted job 5833 [ppo_predictive_v23_critic_b090_8M] maxParallelRuns=1 priority=0\n\n\nWall time: 0.21 seconds",
+      "details": {
+        "timeoutSeconds": 300,
+        "wallTimeMs": 208.82469400763512
+      }
+    }
+  },
+  {
+    "mode": "both",
+    "beta1": 0.9,
+    "label": "ppo_predictive_v23_both_b090_8M",
+    "command": "mlq submit --name ppo_predictive_v23_both_b090_8M --max-parallel-runs 1 --max-attempts 1 --time-limit 45m --after-success 5831 --cwd /home/marvin/Documents/repositories/cleanrl --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 --env CLEANRL_ENV_SPIN=5000 -- .venv/bin/python -u cleanrl/ppo_continuous_action_predictive_transport_v23.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name ppo_predictive_v23_both_b090_8M --total-timesteps 8000000 --seed 1 --env-threads 2 --compile --compile-mode reduce-overhead --transport-mode both --beta1 0.9 --save-model",
+    "submission": {
+      "text": "submitted job 5834 [ppo_predictive_v23_both_b090_8M] maxParallelRuns=1 priority=0\n\n\nWall time: 0.10 seconds",
+      "details": {
+        "timeoutSeconds": 300,
+        "wallTimeMs": 101.37336300313473
+      }
+    }
+  },
+  {
+    "mode": "adam",
+    "beta1": 0.99,
+    "label": "ppo_predictive_v23_adam_b099_8M",
+    "command": "mlq submit --name ppo_predictive_v23_adam_b099_8M --max-parallel-runs 1 --max-attempts 1 --time-limit 45m --after-success 5831 --cwd /home/marvin/Documents/repositories/cleanrl --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 --env CLEANRL_ENV_SPIN=5000 -- .venv/bin/python -u cleanrl/ppo_continuous_action_predictive_transport_v23.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name ppo_predictive_v23_adam_b099_8M --total-timesteps 8000000 --seed 1 --env-threads 2 --compile --compile-mode reduce-overhead --transport-mode adam --beta1 0.99 --save-model",
+    "submission": {
+      "text": "submitted job 5835 [ppo_predictive_v23_adam_b099_8M] maxParallelRuns=1 priority=0\n\n\nWall time: 0.06 seconds",
+      "details": {
+        "timeoutSeconds": 300,
+        "wallTimeMs": 64.68092399835587
+      }
+    }
+  },
+  {
+    "mode": "critic",
+    "beta1": 0.99,
+    "label": "ppo_predictive_v23_critic_b099_8M",
+    "command": "mlq submit --name ppo_predictive_v23_critic_b099_8M --max-parallel-runs 1 --max-attempts 1 --time-limit 45m --after-success 5831 --cwd /home/marvin/Documents/repositories/cleanrl --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 --env CLEANRL_ENV_SPIN=5000 -- .venv/bin/python -u cleanrl/ppo_continuous_action_predictive_transport_v23.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name ppo_predictive_v23_critic_b099_8M --total-timesteps 8000000 --seed 1 --env-threads 2 --compile --compile-mode reduce-overhead --transport-mode critic --beta1 0.99 --save-model",
+    "submission": {
+      "text": "submitted job 5836 [ppo_predictive_v23_critic_b099_8M] maxParallelRuns=1 priority=0\n\n\nWall time: 0.06 seconds",
+      "details": {
+        "timeoutSeconds": 300,
+        "wallTimeMs": 58.50923499464989
+      }
+    }
+  },
+  {
+    "mode": "both",
+    "beta1": 0.99,
+    "label": "ppo_predictive_v23_both_b099_8M",
+    "command": "mlq submit --name ppo_predictive_v23_both_b099_8M --max-parallel-runs 1 --max-attempts 1 --time-limit 45m --after-success 5831 --cwd /home/marvin/Documents/repositories/cleanrl --env OMP_NUM_THREADS=1 --env MKL_NUM_THREADS=1 --env CLEANRL_ENV_SPIN=5000 -- .venv/bin/python -u cleanrl/ppo_continuous_action_predictive_transport_v23.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name ppo_predictive_v23_both_b099_8M --total-timesteps 8000000 --seed 1 --env-threads 2 --compile --compile-mode reduce-overhead --transport-mode both --beta1 0.99 --save-model",
+    "submission": {
+      "text": "submitted job 5837 [ppo_predictive_v23_both_b099_8M] maxParallelRuns=1 priority=0\n\n\nWall time: 0.05 seconds",
+      "details": {
+        "timeoutSeconds": 300,
+        "wallTimeMs": 49.83189100027084
+      }
+    }
+  }
+]

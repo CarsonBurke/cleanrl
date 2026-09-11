@@ -4,9 +4,11 @@ All arms and their LR candidates consume identical data in one compiled update,
 replayed in CUDA-graph chunks. This is NOT a per-perceptron optimizer: each sample
 has one weight shared across the network. ``agree`` is a heuristic, not a precision
 estimator: a nonlinear network's gradient noise is neither isotropic nor independent
-of its residual. ``oracle`` knows the injected noise scale and is a reference, NOT a
-mathematical bound on finite-horizon Adam performance. Homoscedasticity makes this
-reference equal to Adam, but does not require every other heuristic to be null.
+of its residual. In this scalar-output model, squared gradient cosine even cancels
+the current residual magnitude. ``oracle`` knows the injected noise scale and is a
+reference, NOT a mathematical bound on finite-horizon Adam performance. Constant
+noise scale makes its raw weight constant, but EMA startup can still change its
+trajectory; homoscedasticity does not require every heuristic to be null.
 
 Normalization and clipping do not guarantee matched realized mean update size;
 reported weight moments diagnose this, and every arm tunes its own LR. Selection
@@ -34,6 +36,8 @@ import traceback
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
+
+from cleanrl.shared.runtime import configure_runtime
 
 METHODS = ("adam", "oracle", "agree", "agree_shuffle", "huber",
            "hetvar", "hetvar_r2", "hetvar_t", "hetvar_ta", "hetvar_shuffle")
@@ -279,6 +283,47 @@ def tensors(states):
             for tensor in (value if isinstance(value, list) else [value])]
 
 
+@torch.no_grad()
+def capture_updates(args, graph_steps):
+    """Return (compiled, single_graph, chunk_graph, reset, setup_seconds).
+
+    ``args`` is the positional argument tuple for ``update``. ``reset`` restores
+    every mutable optimizer/metric tensor AND the input counter to their values
+    at entry, permitting identical-state eager/compiled/replay comparisons.
+    Capture consumes at most graph_steps inputs before restoring that snapshot.
+    """
+    states, counter = args[:2]
+    mutable = tensors(states) + [counter]
+    initial = [t.clone() for t in mutable]
+
+    def reset():
+        for dst, src in zip(mutable, initial):
+            dst.copy_(src)
+
+    compiled = torch.compile(update, fullgraph=True, dynamic=False, options={"triton.cudagraphs": False})
+    setup_start = time.perf_counter()
+    stream = torch.cuda.Stream()
+    stream.wait_stream(torch.cuda.current_stream())
+    with torch.cuda.stream(stream):
+        for _ in range(3):
+            reset()
+            compiled(*args)
+    torch.cuda.current_stream().wait_stream(stream)
+    torch.cuda.synchronize()
+    reset()
+    single = torch.cuda.CUDAGraph()
+    with torch.cuda.graph(single):
+        compiled(*args)
+    reset()
+    chunk = torch.cuda.CUDAGraph()
+    with torch.cuda.graph(chunk):
+        for _ in range(graph_steps):
+            compiled(*args)
+    reset()
+    torch.cuda.synchronize()
+    return compiled, single, chunk, reset, time.perf_counter() - setup_start
+
+
 def save_json(path, value):
     """Strict JSON, including failed LR candidates as null rather than NaN."""
     def finite(item):
@@ -299,7 +344,7 @@ def run(a, writer, evidence, path):
     if not torch.cuda.is_available():
         raise RuntimeError("This compiled CUDA proxy requires a CUDA GPU; no CPU fallback")
     dev = torch.device("cuda")
-    torch.set_float32_matmul_precision("highest")
+    configure_runtime(matmul_precision="highest", allow_tf32=False)
     torch.manual_seed(a.seed)
     S, G, B = a.seeds, len(a.lr_grid), a.batch
     steps = a.samples // B
@@ -342,37 +387,9 @@ def run(a, writer, evidence, path):
     states = [make_state(method, P0, len(bounds) - 1, B) for method in a.methods]
     counter = torch.zeros(1, dtype=torch.long, device=dev)
     lr = torch.tensor(a.lr_grid, device=dev).view(1, G, 1, 1)
-    mutable = tensors(states)
-    initial = [t.clone() for t in mutable]
-
-    def reset():
-        counter.zero_()
-        for dst, src in zip(mutable, initial):
-            dst.copy_(src)
-
-    compiled = torch.compile(update, fullgraph=True, dynamic=False, options={"triton.cudagraphs": False})
     args = (states, counter, xs, ys, clean, sigma, permutations, lr, a, switch)
-    setup_start = time.perf_counter()
-    stream = torch.cuda.Stream()
-    stream.wait_stream(torch.cuda.current_stream())
-    with torch.cuda.stream(stream):
-        for _ in range(3):
-            reset()
-            compiled(*args)
-    torch.cuda.current_stream().wait_stream(stream)
-    torch.cuda.synchronize()
-    reset()
-    single = torch.cuda.CUDAGraph()
-    with torch.cuda.graph(single):
-        compiled(*args)
-    reset()
-    chunk = torch.cuda.CUDAGraph()
-    with torch.cuda.graph(chunk):
-        for _ in range(a.graph_steps):
-            compiled(*args)
-    reset()
-    torch.cuda.synchronize()
-    evidence["setup_seconds"] = time.perf_counter() - setup_start
+    compiled, single, chunk, reset, setup_seconds = capture_updates(args, a.graph_steps)
+    evidence["setup_seconds"] = setup_seconds
     evidence["device"] = torch.cuda.get_device_name(dev)
     evidence["cuda_version"] = torch.version.cuda
     evidence["dtype"] = "float32; highest matmul precision (TF32 disabled)"
@@ -438,6 +455,9 @@ def run(a, writer, evidence, path):
             writer.add_scalar(f"test/{method}/clean_mse", mse.mean().item(), stop * B)
         test_curve.append(torch.stack(row))
     test_curve = torch.stack(test_curve)
+    if not torch.isfinite(test_curve).all():
+        evidence["test_curve"] = test_curve.tolist()
+        raise RuntimeError("Selected model produced nonfinite untouched-test predictions")
     sustained = (test_curve.double() * weights[:, None, None]).sum(0) / steps
     evidence["test_curve"] = test_curve.tolist()
     evidence["zero_predictor_test_mse_by_segment"] = [y.square().mean((-1, -2)).cpu().tolist() for y in test_targets]
@@ -490,7 +510,7 @@ def run(a, writer, evidence, path):
 
 def main():
     a = parse()
-    directory = Path(a.output_dir) / f"sample_stream_{time.time_ns()}_seed{a.seed}"
+    directory = Path(a.output_dir) / f"DenseStream__sample_stream__{a.seed}__{time.time_ns()}"
     directory.mkdir(parents=True, exist_ok=False)
     path = directory / "results.json"
     evidence = {"schema_version": 2, "status": "starting", "config": vars(a),

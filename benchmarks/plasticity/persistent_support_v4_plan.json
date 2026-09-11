@@ -1,0 +1,16 @@
+{
+  "hypothesis": "Static sparse support posteriors inside overlapping restarted cohorts can adapt without erasing established support after a few noisy observations.",
+  "primary": "v4_likelihood_birth_only",
+  "comparators": ["matched single persistent cohort with the same null prior", "v3_likelihood_static"],
+  "secondary_ablation": "v4 continual fixed-share versus v4 birth-only rejuvenation; same cohort states",
+  "cohorts": {"persistent": true, "periods": [8192, 16384, 32768, 65536], "offsets": "0 and period/2", "coordinate_hazard": 0, "slab_variance": 1, "inclusion": "1/input_dim"},
+  "stream": {"observations": 60000, "input_dim": 4096, "feature_probability": 0.01, "noise_sigma": 1, "seed": 1, "views": ["stationary", "change", "null"]},
+  "evaluation": {
+    "primary_scores": ["full-stream prequential clean MSE", "post-change prequential clean MSE"],
+    "safety_controls": ["stationary full-stream error", "null prediction energy"],
+    "additional_evidence": ["effective coefficient relapse", "posterior support probability", "conditional coefficient mean", "cohort birth boundaries"],
+    "promotion": "Require lower change error than both matched single-cohort and v3-static controls, with no stationary/null regression against v3-static on this seed. Treat this as an engineering screen, not statistical significance. Publish all named outputs and censored horizons."
+  },
+  "resources": {"queue": "mlq", "max_parallel_runs": 1, "max_attempts": 1, "automatic_pruning": true, "full_horizon_unless_pruned": true},
+  "limitations": ["Deterministic geometric restarts are not inferred changepoints", "Specialist probabilities are aggregation weights, not exact joint Bayesian posteriors", "No stock, neural-network, or MuJoCo transfer claim"]
+}

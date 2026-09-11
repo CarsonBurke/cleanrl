@@ -1,0 +1,1274 @@
+{
+  "hypothesis": "Overlapping static-support cohorts reduce support relapse while preserving stationary/null quality and improving adaptation.",
+  "plan": "benchmarks/plasticity/persistent_support_v4_plan.json",
+  "decision": "do_not_promote",
+  "jobs": {
+    "initial_contracts": 5488,
+    "skipped_stationary": 5491,
+    "corrected_contracts": 5492,
+    "stationary": 5493,
+    "null": 5494,
+    "change": 5495
+  },
+  "resources": {
+    "max_parallel_runs": 1,
+    "max_attempts": 1,
+    "priority": 0,
+    "contracts_time_limit_minutes": 6,
+    "experiment_time_limit_minutes": 8,
+    "autocull": true
+  },
+  "verification": {
+    "cuda_and_reporting_tests_passed": 12,
+    "test_artifact": "benchmarks/plasticity/persistent_support_v4_contracts.xml",
+    "independent_read_only_reviews": {
+      "model": "no concrete findings",
+      "evaluator": "no concrete findings"
+    },
+    "feature_hashes_match": true,
+    "stationary_prefix_adam_locks_match": true,
+    "source_hashes_match": true,
+    "fidelity": {
+      "stationary": {
+        "prediction_shape": [
+          60000,
+          30
+        ],
+        "raw_persistent_cohort_max_abs_difference": 0.0
+      },
+      "change": {
+        "prediction_shape": [
+          60000,
+          20
+        ],
+        "raw_persistent_cohort_max_abs_difference": 4.76837158203125e-07
+      },
+      "null": {
+        "prediction_shape": [
+          36864,
+          20
+        ],
+        "raw_persistent_cohort_max_abs_difference": 1.4901161193847656e-07
+      }
+    },
+    "fidelity_tolerance": {
+      "rtol": 3e-05,
+      "atol": 3e-07
+    },
+    "initial_test_failure": {
+      "difference": 1.862645149230957e-09,
+      "problem": "Bitwise equality was asserted across separately compiled model instances.",
+      "correction": "Causality is now verified by identical-state replay of the same compiled callable and input storage; current-label forecasts remain bitwise equal while future predictions change."
+    }
+  },
+  "views": {
+    "stationary": {
+      "artifact": "runs/SparseStream__persistent_support_v4_stationary__1__1788856568927380152/results.json",
+      "status": "completed",
+      "observations": 60000,
+      "maximum_observations": 60000,
+      "full_horizon": true,
+      "metrics_over_observed_horizon": {
+        "v4_likelihood_birth_only": {
+          "final_clean_risk": 4.091066427959072e-06,
+          "after_30000_clean_mse": 3.041490504920158e-05,
+          "observed_horizon_clean_mse": 0.0002743420707648126
+        },
+        "v4_likelihood_switching": {
+          "final_clean_risk": 1.5087070501558042e-05,
+          "after_30000_clean_mse": 0.00023406521392952244,
+          "observed_horizon_clean_mse": 0.0003613954701683223
+        },
+        "single_likelihood": {
+          "final_clean_risk": 4.0933112095956545e-06,
+          "after_30000_clean_mse": 3.0423198504508163e-05,
+          "observed_horizon_clean_mse": 0.0002743547950220946
+        },
+        "v3_likelihood_static": {
+          "final_clean_risk": 4.0915401096837e-06,
+          "after_30000_clean_mse": 3.0515365518768324e-05,
+          "observed_horizon_clean_mse": 0.0002987429809856388
+        },
+        "v3_likelihood_switching": {
+          "final_clean_risk": 4.535836712225078e-05,
+          "after_30000_clean_mse": 0.00026091377988920225,
+          "observed_horizon_clean_mse": 0.0004038565604497088
+        }
+      },
+      "ratios_over_observed_horizon": {
+        "birth_only_vs_v3_static": 0.9183213940614751
+      },
+      "capture_seconds": 27.02668986900244,
+      "replay_and_reporting_seconds": 3.913074185955338,
+      "all_outputs": [
+        "v4_likelihood_birth_only",
+        "v4_likelihood_switching",
+        "v4_prior_mixture",
+        "v4_null",
+        "v4_cohort_0",
+        "v4_cohort_1",
+        "v4_cohort_2",
+        "v4_cohort_3",
+        "v4_cohort_4",
+        "v4_cohort_5",
+        "v4_cohort_6",
+        "v4_cohort_7",
+        "v4_cohort_8",
+        "single_likelihood",
+        "single_cohort",
+        "v3_likelihood_static",
+        "v3_likelihood_switching",
+        "v3_sparse_static",
+        "v3_sparse_reset",
+        "adam_1e-07",
+        "adam_3e-07",
+        "adam_1e-06",
+        "adam_3e-06",
+        "adam_1e-05",
+        "adam_3e-05",
+        "adam_0.0001",
+        "adam_0.0003",
+        "adam_0.001",
+        "adam_0.003",
+        "adam_0.01"
+      ],
+      "pruning": null
+    },
+    "change": {
+      "artifact": "runs/SparseStream__persistent_support_v4_change__1__1788856657417247444/results.json",
+      "status": "completed",
+      "observations": 60000,
+      "maximum_observations": 60000,
+      "full_horizon": true,
+      "metrics_over_observed_horizon": {
+        "v4_likelihood_birth_only": {
+          "postchange_clean_mse": 0.0031402494432752,
+          "final_clean_risk": 8.61385983481612e-07,
+          "observed_horizon_clean_mse": 0.0018292593398778116
+        },
+        "v4_likelihood_switching": {
+          "postchange_clean_mse": 0.0022159472290377183,
+          "final_clean_risk": 1.2456189841723877e-06,
+          "observed_horizon_clean_mse": 0.00135233647772242
+        },
+        "single_likelihood": {
+          "postchange_clean_mse": 0.012333356834555215,
+          "final_clean_risk": 0.005466216700439116,
+          "observed_horizon_clean_mse": 0.006425821506603646
+        },
+        "v3_likelihood_static": {
+          "postchange_clean_mse": 0.0021977032841364614,
+          "final_clean_risk": 1.3916646549185658e-06,
+          "observed_horizon_clean_mse": 0.0013823369402829117
+        },
+        "v3_likelihood_switching": {
+          "postchange_clean_mse": 0.002401611401825658,
+          "final_clean_risk": 3.999775116258048e-06,
+          "observed_horizon_clean_mse": 0.0014742053701067852
+        }
+      },
+      "ratios_over_observed_horizon": {
+        "birth_only_vs_v3_static": 1.3233093080066514,
+        "birth_only_postchange_vs_v3_static": 1.428877804361607
+      },
+      "capture_seconds": 1.9234544349601492,
+      "replay_and_reporting_seconds": 3.4540420760167763,
+      "all_outputs": [
+        "v4_likelihood_birth_only",
+        "v4_likelihood_switching",
+        "v4_prior_mixture",
+        "v4_null",
+        "v4_cohort_0",
+        "v4_cohort_1",
+        "v4_cohort_2",
+        "v4_cohort_3",
+        "v4_cohort_4",
+        "v4_cohort_5",
+        "v4_cohort_6",
+        "v4_cohort_7",
+        "v4_cohort_8",
+        "single_likelihood",
+        "single_cohort",
+        "v3_likelihood_static",
+        "v3_likelihood_switching",
+        "v3_sparse_static",
+        "v3_sparse_reset",
+        "adam_1e-05"
+      ],
+      "pruning": null
+    },
+    "null": {
+      "artifact": "runs/SparseStream__persistent_support_v4_null__1__1788856632991255715/results.json",
+      "status": "pruned",
+      "observations": 36864,
+      "maximum_observations": 60000,
+      "full_horizon": false,
+      "metrics_over_observed_horizon": {
+        "v4_likelihood_birth_only": {
+          "final_clean_risk": 1.239939876919429e-09,
+          "after_30000_clean_mse": 5.354354411728826e-09,
+          "observed_horizon_clean_mse": 4.100601398036979e-06
+        },
+        "v4_likelihood_switching": {
+          "final_clean_risk": 1.3516777871243793e-07,
+          "after_30000_clean_mse": 9.931234807250617e-08,
+          "observed_horizon_clean_mse": 4.2974123916996554e-06
+        },
+        "single_likelihood": {
+          "final_clean_risk": 1.3114368940842279e-08,
+          "after_30000_clean_mse": 2.56416527996431e-08,
+          "observed_horizon_clean_mse": 4.290660581467576e-06
+        },
+        "v3_likelihood_static": {
+          "final_clean_risk": 6.961473996420728e-09,
+          "after_30000_clean_mse": 2.945787458881427e-08,
+          "observed_horizon_clean_mse": 6.047798077517829e-07
+        },
+        "v3_likelihood_switching": {
+          "final_clean_risk": 1.0271875649172815e-06,
+          "after_30000_clean_mse": 6.979248403831982e-06,
+          "observed_horizon_clean_mse": 5.175119335704609e-06
+        }
+      },
+      "ratios_over_observed_horizon": {
+        "birth_only_vs_v3_static": 6.780321276400768
+      },
+      "capture_seconds": 17.786777079920284,
+      "replay_and_reporting_seconds": 2.492063802899793,
+      "all_outputs": [
+        "v4_likelihood_birth_only",
+        "v4_likelihood_switching",
+        "v4_prior_mixture",
+        "v4_null",
+        "v4_cohort_0",
+        "v4_cohort_1",
+        "v4_cohort_2",
+        "v4_cohort_3",
+        "v4_cohort_4",
+        "v4_cohort_5",
+        "v4_cohort_6",
+        "v4_cohort_7",
+        "v4_cohort_8",
+        "single_likelihood",
+        "single_cohort",
+        "v3_likelihood_static",
+        "v3_likelihood_switching",
+        "v3_sparse_static",
+        "v3_sparse_reset",
+        "adam_1e-05"
+      ],
+      "pruning": {
+        "status": "pruned",
+        "reason": "all proxy candidates plateaued after warmup and full patience",
+        "step": 36864,
+        "phase": "null",
+        "decisions": [
+          {
+            "should_cull": true,
+            "evaluations": 4,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          },
+          {
+            "should_cull": true,
+            "evaluations": 4,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          },
+          {
+            "should_cull": true,
+            "evaluations": 4,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          },
+          {
+            "should_cull": true,
+            "evaluations": 4,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          },
+          {
+            "should_cull": true,
+            "evaluations": 6,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          },
+          {
+            "should_cull": true,
+            "evaluations": 6,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          },
+          {
+            "should_cull": true,
+            "evaluations": 6,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          },
+          {
+            "should_cull": true,
+            "evaluations": 6,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          },
+          {
+            "should_cull": true,
+            "evaluations": 6,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          },
+          {
+            "should_cull": true,
+            "evaluations": 6,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          },
+          {
+            "should_cull": true,
+            "evaluations": 6,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          },
+          {
+            "should_cull": true,
+            "evaluations": 6,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          },
+          {
+            "should_cull": true,
+            "evaluations": 6,
+            "stale_evaluations": 3,
+            "improved_metrics": [],
+            "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+          }
+        ],
+        "policy_state": {
+          "version": 1,
+          "metrics": {
+            "error_ratio": {
+              "mode": "min",
+              "min_delta": 0.0001
+            },
+            "clean_mse": {
+              "mode": "min",
+              "min_delta": 0.0001
+            }
+          },
+          "candidates": 13,
+          "phase": "null",
+          "phase_start": 0,
+          "last_step": 36864,
+          "last_evaluation": 36864,
+          "smoothed": [
+            {
+              "error_ratio": 1.000019310680809,
+              "clean_mse": 5.573180007303967e-07
+            },
+            {
+              "error_ratio": 1.0000242996831772,
+              "clean_mse": 7.608466123647818e-07
+            },
+            {
+              "error_ratio": 1.0000334874402081,
+              "clean_mse": 7.864508325829332e-07
+            },
+            {
+              "error_ratio": 1.0000000000000027,
+              "clean_mse": 0.0
+            },
+            {
+              "error_ratio": 1.000043315039691,
+              "clean_mse": 5.062490993278315e-06
+            },
+            {
+              "error_ratio": 1.000105527391207,
+              "clean_mse": 3.7501270160037876e-06
+            },
+            {
+              "error_ratio": 1.0001967637728213,
+              "clean_mse": 1.9948837415157083e-06
+            },
+            {
+              "error_ratio": 1.0000821444633816,
+              "clean_mse": 6.450811156036431e-06
+            },
+            {
+              "error_ratio": 1.0000938322635724,
+              "clean_mse": 5.747190058763725e-06
+            },
+            {
+              "error_ratio": 1.000044674149622,
+              "clean_mse": 5.06146706699441e-06
+            },
+            {
+              "error_ratio": 1.000057489616208,
+              "clean_mse": 4.592716638593838e-06
+            },
+            {
+              "error_ratio": 1.000043315039691,
+              "clean_mse": 5.062490993278315e-06
+            },
+            {
+              "error_ratio": 1.000044674149622,
+              "clean_mse": 5.06146706699441e-06
+            }
+          ],
+          "invalid": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "recent": [
+            {
+              "error_ratio": [
+                1.000002841486351,
+                0.9999995487375477,
+                1.0000010419630572
+              ],
+              "clean_mse": [
+                6.959915265593357e-09,
+                2.5441752287751894e-09,
+                1.239939876919429e-09
+              ]
+            },
+            {
+              "error_ratio": [
+                1.0000022069107817,
+                1.0000103611029305,
+                1.0000104227711537
+              ],
+              "clean_mse": [
+                6.91052805657522e-08,
+                2.6919987502605652e-08,
+                1.3516777871243793e-07
+              ]
+            },
+            {
+              "error_ratio": [
+                1.000007900245491,
+                1.0000198231440642,
+                1.000061415481439
+              ],
+              "clean_mse": [
+                3.193131339692417e-07,
+                6.763366067099304e-08,
+                1.288279914938896e-06
+              ]
+            },
+            {
+              "error_ratio": [
+                0.9999999999999987,
+                1.0000000000000016,
+                1.0000000000000056
+              ],
+              "clean_mse": [
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            {
+              "error_ratio": [
+                1.0000141276272183,
+                0.9999977497339483,
+                1.0000094873356586
+              ],
+              "clean_mse": [
+                1.7409936840060282e-07,
+                2.056623622021622e-07,
+                1.0340157974159631e-07
+              ]
+            },
+            {
+              "error_ratio": [
+                1.0000592544787685,
+                1.0000053812042349,
+                1.000287998740414
+              ],
+              "clean_mse": [
+                4.831027083171109e-06,
+                0.0,
+                2.45781172423455e-05
+              ]
+            },
+            {
+              "error_ratio": [
+                1.0001793586433447,
+                1.0002086952892244,
+                1.0000183757683139
+              ],
+              "clean_mse": [
+                5.33910548812569e-05,
+                2.907773983312445e-06,
+                0.0
+              ]
+            },
+            {
+              "error_ratio": [
+                0.9999539097220775,
+                1.000103600611562,
+                1.000287998740414
+              ],
+              "clean_mse": [
+                6.6996707957048725e-06,
+                0.0,
+                2.45781172423455e-05
+              ]
+            },
+            {
+              "error_ratio": [
+                1.0000592544787685,
+                1.0000053812042349,
+                1.0000197917508376
+              ],
+              "clean_mse": [
+                4.831027083171109e-06,
+                1.1280694178020691e-05,
+                2.0501982114154293e-05
+              ]
+            },
+            {
+              "error_ratio": [
+                1.0000141276272183,
+                0.9999977497339483,
+                1.000287998740414
+              ],
+              "clean_mse": [
+                1.7409936840060282e-07,
+                0.0,
+                2.45781172423455e-05
+              ]
+            },
+            {
+              "error_ratio": [
+                0.9999539097220775,
+                1.000103600611562,
+                1.0000194236979636
+              ],
+              "clean_mse": [
+                6.6996707957048725e-06,
+                3.5573929408127817e-07,
+                7.415902908352896e-08
+              ]
+            },
+            {
+              "error_ratio": [
+                1.0000141276272183,
+                0.9999977497339483,
+                1.0000094873356586
+              ],
+              "clean_mse": [
+                1.7409936840060282e-07,
+                2.056623622021622e-07,
+                1.0340157974159631e-07
+              ]
+            },
+            {
+              "error_ratio": [
+                1.0000141276272183,
+                0.9999977497339483,
+                1.000287998740414
+              ],
+              "clean_mse": [
+                1.7409936840060282e-07,
+                0.0,
+                2.45781172423455e-05
+              ]
+            }
+          ],
+          "median_window_intervals": 3,
+          "smoothing_halflife_observations": 8192,
+          "warmup_observations": 16384,
+          "evaluation_stride_observations": 4096,
+          "patience_evaluations": 3,
+          "hooks": [
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 4,
+              "best": {
+                "error_ratio": 1.0001135262686134,
+                "clean_mse": 1.8996363331378368e-06
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            },
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 4,
+              "best": {
+                "error_ratio": 1.0001164665452498,
+                "clean_mse": 2.2211946983720144e-06
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            },
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 4,
+              "best": {
+                "error_ratio": 1.0001234488512987,
+                "clean_mse": 2.194393520311227e-06
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            },
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 4,
+              "best": {
+                "error_ratio": 1.0000000000000038,
+                "clean_mse": 0.0
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            },
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 6,
+              "best": {
+                "error_ratio": 1.000114813506986,
+                "clean_mse": 1.5232932893682247e-05
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            },
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 6,
+              "best": {
+                "error_ratio": 1.0001819646901615,
+                "clean_mse": 5.738944580923344e-06
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            },
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 6,
+              "best": {
+                "error_ratio": 1.0002574308372054,
+                "clean_mse": 8.77318025286192e-07
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            },
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 6,
+              "best": {
+                "error_ratio": 1.0001096008369856,
+                "clean_mse": 1.1975218630904596e-05
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            },
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 6,
+              "best": {
+                "error_ratio": 1.0001858629647042,
+                "clean_mse": 5.958611465065868e-06
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            },
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 6,
+              "best": {
+                "error_ratio": 1.000114813506986,
+                "clean_mse": 1.5232932893682247e-05
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            },
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 6,
+              "best": {
+                "error_ratio": 1.0001096008369856,
+                "clean_mse": 1.1975218630904596e-05
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            },
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 6,
+              "best": {
+                "error_ratio": 1.000114813506986,
+                "clean_mse": 1.5232932893682247e-05
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            },
+            {
+              "version": 1,
+              "signature": {
+                "metrics": {
+                  "error_ratio": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  },
+                  "clean_mse": {
+                    "mode": "min",
+                    "min_delta": 0.0001
+                  }
+                },
+                "warmup_evaluations": 1,
+                "patience_evaluations": 3
+              },
+              "evaluations": 6,
+              "best": {
+                "error_ratio": 1.000114813506986,
+                "clean_mse": 1.5232932893682247e-05
+              },
+              "stale_evaluations": 3,
+              "culled": true
+            }
+          ]
+        },
+        "exit_code": 75,
+        "queue_contract": "submit with --max-attempts 1; mlq records exit75 as failed, artifact status is pruned; after-success children must not run"
+      }
+    }
+  },
+  "conclusion": {
+    "primary_fails_full_change_gate": true,
+    "primary_fails_postchange_gate": true,
+    "null_full_horizon_unmeasured": true,
+    "null_observed_prefix_regression": true,
+    "stationary_gain_not_restart_evidence": "Matched single cohort is essentially tied with birth-only v4; the v3 comparison changes prior configuration as well as restart strategy.",
+    "mechanism": "Birth-only v4 suppresses sampled support relapse but delays selecting learned replacement cohorts. Continuous sharing speeds selection but does not improve postchange error over v3-static.",
+    "next_hypothesis": "Joint causal segment/support inference instead of periodic retirement and fixed mixture-prior injection; preserve stable support without accumulating prohibitive selection debt.",
+    "limitations": [
+      "Single seed, synthetic sparse linear stream only.",
+      "No full-horizon null claim: intentionally pruned at 36864.",
+      "No stock, neural optimizer, MuJoCo, statistical significance, or global-optimum claim.",
+      "Checkpoint relapse diagnostics do not observe every intermediate exact risk."
+    ]
+  },
+  "change_checkpoints": [
+    {
+      "step": 30000,
+      "outputs": {
+        "v4_likelihood_birth_only": {
+          "clean_risk": 0.02104967898032118,
+          "new_coefficient": -1.0754513368738117e-06
+        },
+        "v4_likelihood_switching": {
+          "clean_risk": 0.020236890750373483,
+          "new_coefficient": -8.290270443467307e-07
+        },
+        "v3_likelihood_static": {
+          "clean_risk": 0.021028025135500273,
+          "new_coefficient": -9.909986147249583e-07
+        }
+      }
+    },
+    {
+      "step": 32768,
+      "outputs": {
+        "v4_likelihood_birth_only": {
+          "clean_risk": 0.0102960389949834,
+          "new_coefficient": 5.493689513969002e-06
+        },
+        "v4_likelihood_switching": {
+          "clean_risk": 0.009997324291766922,
+          "new_coefficient": 7.731139339739457e-05
+        },
+        "v3_likelihood_static": {
+          "clean_risk": 0.009975681131918417,
+          "new_coefficient": 0.0021896837279200554
+        }
+      }
+    },
+    {
+      "step": 36864,
+      "outputs": {
+        "v4_likelihood_birth_only": {
+          "clean_risk": 0.009999407111537292,
+          "new_coefficient": 2.9296175853232853e-05
+        },
+        "v4_likelihood_switching": {
+          "clean_risk": 0.007998057894493635,
+          "new_coefficient": 0.10576766729354858
+        },
+        "v3_likelihood_static": {
+          "clean_risk": 0.0003600116553704678,
+          "new_coefficient": 0.8131159543991089
+        }
+      }
+    },
+    {
+      "step": 40960,
+      "outputs": {
+        "v4_likelihood_birth_only": {
+          "clean_risk": 0.00010373252106857624,
+          "new_coefficient": 0.9011044502258301
+        },
+        "v4_likelihood_switching": {
+          "clean_risk": 0.005662053057929725,
+          "new_coefficient": 0.2476011961698532
+        },
+        "v3_likelihood_static": {
+          "clean_risk": 0.007466345972264766,
+          "new_coefficient": 0.13594399392604828
+        }
+      }
+    },
+    {
+      "step": 45056,
+      "outputs": {
+        "v4_likelihood_birth_only": {
+          "clean_risk": 3.0613813564981476e-05,
+          "new_coefficient": 0.9504029750823975
+        },
+        "v4_likelihood_switching": {
+          "clean_risk": 8.506456074479715e-05,
+          "new_coefficient": 0.9116933345794678
+        },
+        "v3_likelihood_static": {
+          "clean_risk": 0.0001226086270315798,
+          "new_coefficient": 0.9037712216377258
+        }
+      }
+    },
+    {
+      "step": 49152,
+      "outputs": {
+        "v4_likelihood_birth_only": {
+          "clean_risk": 1.3602448160555934e-05,
+          "new_coefficient": 1.0193896293640137
+        },
+        "v4_likelihood_switching": {
+          "clean_risk": 1.1825421034190403e-05,
+          "new_coefficient": 1.0189781188964844
+        },
+        "v3_likelihood_static": {
+          "clean_risk": 4.965022839328957e-06,
+          "new_coefficient": 1.0096514225006104
+        }
+      }
+    },
+    {
+      "step": 53248,
+      "outputs": {
+        "v4_likelihood_birth_only": {
+          "clean_risk": 5.472272837841108e-06,
+          "new_coefficient": 0.9782127141952515
+        },
+        "v4_likelihood_switching": {
+          "clean_risk": 0.0006236056732275885,
+          "new_coefficient": 0.7505079507827759
+        },
+        "v3_likelihood_static": {
+          "clean_risk": 0.00226662348150671,
+          "new_coefficient": 0.607339084148407
+        }
+      }
+    },
+    {
+      "step": 57344,
+      "outputs": {
+        "v4_likelihood_birth_only": {
+          "clean_risk": 2.6218674992216065e-07,
+          "new_coefficient": 0.997573733329773
+        },
+        "v4_likelihood_switching": {
+          "clean_risk": 1.7568853480333567e-06,
+          "new_coefficient": 0.9876227378845215
+        },
+        "v3_likelihood_static": {
+          "clean_risk": 2.354212879303263e-06,
+          "new_coefficient": 0.987687349319458
+        }
+      }
+    },
+    {
+      "step": 60000,
+      "outputs": {
+        "v4_likelihood_birth_only": {
+          "clean_risk": 8.61385983481612e-07,
+          "new_coefficient": 0.9994392991065979
+        },
+        "v4_likelihood_switching": {
+          "clean_risk": 1.2456189841723877e-06,
+          "new_coefficient": 0.9933441281318665
+        },
+        "v3_likelihood_static": {
+          "clean_risk": 1.3916646549185658e-06,
+          "new_coefficient": 0.994327187538147
+        }
+      }
+    }
+  ],
+  "selection_latency_at_36864": {
+    "observations": 36864,
+    "cohort_ages": [
+      36864,
+      4096,
+      0,
+      4096,
+      12288,
+      4096,
+      20480,
+      36864,
+      4096
+    ],
+    "next_restart": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "inclusion": [
+      [
+        1.0,
+        3.494641714496538e-05
+      ],
+      [
+        5.786574547528289e-05,
+        0.6761977672576904
+      ],
+      [
+        0.000244140625,
+        0.000244140625
+      ],
+      [
+        5.786574547528289e-05,
+        0.6761977672576904
+      ],
+      [
+        0.9474032521247864,
+        0.6847258806228638
+      ],
+      [
+        5.786574547528289e-05,
+        0.6761977672576904
+      ],
+      [
+        1.0,
+        0.0012360928812995553
+      ],
+      [
+        1.0,
+        3.494641714496538e-05
+      ],
+      [
+        5.786574547528289e-05,
+        0.6761977672576904
+      ]
+    ],
+    "slab_mean": [
+      [
+        0.8504758477210999,
+        0.07412375509738922
+      ],
+      [
+        0.14368504285812378,
+        0.7998815774917603
+      ],
+      [
+        0.0,
+        0.0
+      ],
+      [
+        0.14368504285812378,
+        0.7998815774917603
+      ],
+      [
+        0.4637264013290405,
+        0.44669291377067566
+      ],
+      [
+        0.14368504285812378,
+        0.7998815774917603
+      ],
+      [
+        0.6723302006721497,
+        0.21482741832733154
+      ],
+      [
+        0.8504758477210999,
+        0.07412375509738922
+      ],
+      [
+        0.14368504285812378,
+        0.7998815774917603
+      ]
+    ],
+    "effective_weights": [
+      [
+        0.8504758477210999,
+        2.590359599707881e-06
+      ],
+      [
+        8.314442311530001e-06,
+        0.5408781170845032
+      ],
+      [
+        0.0,
+        0.0
+      ],
+      [
+        8.314442311530001e-06,
+        0.5408781170845032
+      ],
+      [
+        0.4393359124660492,
+        0.3058621883392334
+      ],
+      [
+        8.314442311530001e-06,
+        0.5408781170845032
+      ],
+      [
+        0.6723302006721497,
+        0.0002655466378200799
+      ],
+      [
+        0.8504758477210999,
+        2.590359599707881e-06
+      ],
+      [
+        8.314442311530001e-06,
+        0.5408781170845032
+      ]
+    ],
+    "aggregation_weights": [
+      [
+        0.9999027252197266,
+        5.8974087551177945e-06,
+        6.947513611521572e-06,
+        5.555557436309755e-06,
+        6.947513611521572e-06,
+        4.663417348638177e-05,
+        6.947513611521572e-06,
+        5.58396413907758e-06,
+        5.8974087551177945e-06,
+        6.947513611521572e-06
+      ],
+      [
+        0.786760687828064,
+        0.0017685387283563614,
+        0.0453902892768383,
+        5.555557436309755e-06,
+        0.0453902892768383,
+        0.024731053039431572,
+        0.0453902892768383,
+        0.0034045306965708733,
+        0.0017685387283563614,
+        0.0453902892768383
+      ],
+      [
+        0.5,
+        0.0555555559694767,
+        0.0555555559694767,
+        0.0555555559694767,
+        0.0555555559694767,
+        0.0555555559694767,
+        0.0555555559694767,
+        0.0555555559694767,
+        0.0555555559694767,
+        0.0555555559694767
+      ]
+    ]
+  }
+}

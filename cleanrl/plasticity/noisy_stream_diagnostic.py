@@ -20,6 +20,8 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 import tyro
+import triton
+import triton.language as tl
 from torch.utils.tensorboard import SummaryWriter
 
 from cleanrl.shared.runtime import configure_runtime
@@ -34,18 +36,18 @@ class Args:
     task: str = "linear"
     """linear | regime | hidden"""
     method: str = "all"
-    """one of sgd/adam/energy/snr/statewiener/oracle, or `all`"""
+    """comma-separated method names from METHODS, or `all`"""
     input_dim: int = 4096
     signal_inputs: int = 1
-    hidden_dim: int = 256
     regime_index: int = 1
     feature_prob: float = 0.01
     target_noise_std: float = math.sqrt(5.0)
+    """Gaussian standard deviation; default variance is 5, not standard deviation 5"""
     quiet_std: float = 0.5
     noisy_std: float = 5.0
     spike_prob: float = 0.01
     steps: int = 20_000
-    seeds: int = 4
+    seeds: int = 1
     """batched replicas; spread is descriptive, not a confidence interval"""
     lr: float = 1e-3
     weight_decay: float = 0.01
@@ -54,7 +56,7 @@ class Args:
     plot: str = ""
     """if set, write a prediction figure to this path"""
     plot_window: int = 400
-    """steps of prediction trace to draw"""
+    """held-out frozen-model observations to draw, from the first replica"""
     eval_steps: int = 8192
     """independent frozen-model CLEAN-target evaluation samples"""
     gate_lr: float = 3e-2
@@ -80,11 +82,11 @@ class Args:
     gate_every: int = 50
     """refresh cadence for the mirror level (the ensemble sort is amortized)"""
     switch_back: float = 0.0
-    """fraction of training after which the signal RETURNS to its first home.
+    """return after exactly int(steps * switch_back) training observations.
     Tests whether retained evidence on a once-predictive coordinate is a
     liability or a prior that buys instant re-adaptation."""
     switch_at: float = 0.0
-    """fraction of training after which the signal MOVES to `switch_to`"""
+    """move to switch_to after exactly int(steps * switch_at) training observations"""
     switch_to: int = 2
     bayes_prior: float = 1.0
     """`bayes`: prior variance per connection."""
@@ -93,7 +95,7 @@ class Args:
     bayes_logit0: float = -8.3
     """`bayes`: prior inclusion log-odds."""
     bayes_logit_cap: float = 12.0
-    """`bayes`: log-odds clamp; keeps inclusion reversible."""
+    """`bayes`: numerical range of inclusion log-odds."""
     level_floor: float = 0.01
     """floor in the global factor of `softhinge_amp`; caps amplification at 1/floor."""
     hinge_sharpness: float = 24.0
@@ -101,32 +103,23 @@ class Args:
     sufficiently weak evidence; smooth in real arithmetic does not imply a
     nonzero numerical floor or guaranteed recovery after a switch."""
     gate_power: float = 4.0
-    """`smoothgate`: steepness exponent. The gate is (t^2/(t^2+z^2))^p, which is
-    differentiable EVERYWHERE -- no threshold, no hinge, no floor -- while still
-    suppressing far below the level a hard zero achieves in effect. That matters
-    because what the task requires is not an exact zero but a MAGNITUDE: with D
-    distractors the output noise a learner absorbs scales with the rms gate level
-    over them, so anything much below 1/sqrt(D) is indistinguishable from zero in
-    consequence. At p=1 a null coordinate (t^2 ~ 1, z^2 = 25) still holds 0.04,
-    which is above 1/sqrt(4095) = 0.016 and shows up as a residual noise floor.
-    At p=4 it holds 2e-6. Same family of curve, differentiable, and it can be
-    made state-conditional and meta-learned, which a hinge cannot."""
+    """`smoothgate`: exponent p in (t^2/(t^2+z^2))^p.
+    Gate magnitudes alone do not determine prediction leakage; accumulated
+    weights, feature activity, target noise and optimizer history also matter."""
     veto_z: float = 4.0
     """fixed self-normalized evidence threshold; not an exact Gaussian z-score"""
-    veto_floor: float = 0.0
-    """level granted to a NON-admitted coordinate (0 = full veto)"""
     debias: bool = True
-    """subtract the estimator's own variance floor via a sign-randomized twin"""
+    """subtract a sign-randomized twin's squared mean; a heuristic null correction"""
     weight_suppress: float = 8.0
     weight_inflate: float = 2.0
     seed: int = 1
     cuda: bool = True
     chunk_steps: int = 100
-    """sequential observations per CUDA graph replay; must divide by gate_every"""
+    """sequential observations per CUDA replay; must be a multiple of gate_every"""
     eval_batch_size: int = 256
     """evaluation samples per vectorized forward pass"""
     output_dir: str = ""
-    """optional run directory; default uses the repository runs/ convention"""
+    """artifact root (default runs/); contains an env__variant__seed__timestamp run leaf"""
 
 
 class Stream:
@@ -149,9 +142,9 @@ class Stream:
         args = self.args
         moved = torch.zeros_like(steps, dtype=torch.bool)
         if args.switch_at:
-            moved = steps >= int(args.steps * args.switch_at)
+            moved = steps > int(args.steps * args.switch_at)
         if args.switch_back:
-            moved = moved & (steps < int(args.steps * args.switch_back))
+            moved = moved & (steps <= int(args.steps * args.switch_back))
         return torch.where(moved.unsqueeze(1), self.moved, self.initial)
 
     def draw(self, count, start, *, frozen=False):
@@ -283,6 +276,50 @@ class Gate:
         ]))
 
 
+def bernoulli_power(coefficients, probabilities):
+    """Exact E[(a.x)^2] for independent, uncentered Bernoulli coordinates."""
+    a, p = coefficients.double(), probabilities.double()
+    return (a.square() * p * (1 - p)).sum(-1) + (a * p).sum(-1).square()
+
+
+def clean_risk(weight, support, probabilities):
+    """Clean-target risk and its signed signal/distractor decomposition."""
+    p = probabilities.double()
+    signal_error = (weight - 1) * support
+    junk_weight = weight * (1 - support)
+    return {
+        "exact_mse": bernoulli_power(weight - support, p),
+        "exact_trivial": bernoulli_power(support, p).expand(weight.shape[0]),
+        "exact_mean_predictor_mse": (support.double() * p * (1 - p)).sum().expand(weight.shape[0]),
+        "signal_reconstruction_mse": bernoulli_power(signal_error, p),
+        "distractor_leakage_mse": bernoulli_power(junk_weight, p),
+        "signal_distractor_cross": 2 * (signal_error.double() * p).sum(-1) * (junk_weight.double() * p).sum(-1),
+    }
+
+
+@triton.jit
+def _evidence_ratio_kernel(total, twin, square, observed, null, count: tl.constexpr,
+                           BLOCK: tl.constexpr):
+    index = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
+    valid = index < count
+    s = tl.load(total + index, valid, 0)
+    r = tl.load(twin + index, valid, 0)
+    q = tl.maximum(tl.load(square + index, valid, 0), 1e-30)
+    # Approximate reciprocal multiplication breaks exact s²/q == 1 ties
+    # after one observation, changing rank counts and hence whole updates.
+    tl.store(observed + index, tl.div_rn(s * s, q), valid)
+    tl.store(null + index, tl.div_rn(r * r, q), valid)
+
+
+def evidence_ratios(total, twin, square):
+    """Correctly rounded FP32 squared ratios for tie-sensitive empirical ranks."""
+    observed, null = torch.empty_like(total), torch.empty_like(twin)
+    _evidence_ratio_kernel[(triton.cdiv(total.numel(), 256),)](
+        total, twin, square, observed, null, total.numel(), BLOCK=256,
+        enable_fp_fusion=False)
+    return observed, null
+
+
 def adam_ratio(m, v, t):
     return (m / (1.0 - 0.9 ** t)) / ((v / (1.0 - 0.999 ** t)).sqrt() + 1e-5)
 
@@ -354,13 +391,12 @@ def run(args, method, device):
         elif evidence_method:
             # Predict the gate from PAST evidence; ingest this residual only
             # after selecting its level. In particular GLS cannot see delta^2.
-            denominator = running_sq.clamp_min(1e-30)
-            t_sq = running_sum.square() / denominator
-            twin_sq = mirror_sum.square() / denominator
+            # Continuous rules tolerate ordinary arithmetic; empirical ranks
+            # require correctly rounded division at exact evidence ties.
             if method == "mirror":
                 if refresh:
-                    observed = t_sq.sqrt()
-                    null_sorted = twin_sq.sqrt().sort(dim=1).values
+                    observed, null = evidence_ratios(running_sum, mirror_sum, running_sq)
+                    null_sorted = null.sort(dim=1).values
                     obs_sorted = observed.sort(dim=1).values
                     false_ge = args.input_dim - torch.searchsorted(null_sorted, observed)
                     total_ge = (args.input_dim - torch.searchsorted(
@@ -369,6 +405,9 @@ def run(args, method, device):
                     # residuals preclude a formal FDP-control interpretation.
                     level_buf.copy_((1 - false_ge.float() / total_ge).clamp(0, 1))
             else:
+                denominator = running_sq.clamp_min(1e-30)
+                t_sq = running_sum.square() / denominator
+                twin_sq = mirror_sum.square() / denominator
                 z_sq = row_quantile(twin_sq, args.adaptive_q).clamp_min(1.0) \
                     if args.adaptive_z else args.veto_z ** 2
                 if method in {"softveto", "smoothgate"}:
@@ -469,35 +508,20 @@ def run(args, method, device):
     probabilities = torch.full((args.input_dim,), args.feature_prob, device=device)
     if args.task == "regime":
         probabilities[args.regime_index] = 0.5
-    # Independent Bernoulli features: E[(a.x)^2] = Var(a.x) + E[a.x]^2.
-    # FP64 here only, for stable small-risk and cancellation diagnostics.
-    p = probabilities.double()
-
-    def power(coefficients):
-        a = coefficients.double()
-        return (a.square() * p * (1 - p)).sum(-1) + (a * p).sum(-1).square()
-
+    # FP64 only for stable small-risk and cancellation diagnostics.
+    risk = clean_risk(weight, support, probabilities)
     signal_error = (weight - 1) * support
     junk_weight = weight * distractor
-    signal_reconstruction = power(signal_error)
-    distractor_leakage = power(junk_weight)
-    cross = 2 * (signal_error.double() * p).sum(-1) * (junk_weight.double() * p).sum(-1)
-    exact_mse = power(weight - support)
-    zero_mse = power(support).expand(args.seeds)
-    mean_mse = (support.double() * p * (1 - p)).sum().expand(args.seeds)
     signal = (weight * support).sum(1) / args.signal_inputs
     distract = junk_weight.square().sum(1).div(
         max(args.input_dim - args.signal_inputs, 1)).sqrt()
     out = {
         "signal": signal, "distract": distract,
-        "ratio": signal / distract.clamp_min(1e-30),
-        "exact_mse": exact_mse, "exact_trivial": zero_mse,
-        "exact_mean_predictor_mse": mean_mse,
-        "signal_reconstruction_mse": signal_reconstruction,
-        "distractor_leakage_mse": distractor_leakage,
-        "signal_distractor_cross": cross,
+        "ratio": signal.double() / distract.double(),
+        **risk,
         "signal_coefficient_rmse": signal_error.square().sum(1).div(args.signal_inputs).sqrt(),
         "prequential_clean_mse": train_error / args.steps,
+        "optimizer_steps": step_count.clone(), "finite_weights": torch.isfinite(weight).all(1),
         "compile_seconds": compile_seconds, "train_seconds": train_seconds,
         "samples_per_second": args.steps * args.seeds / train_seconds,
     }
@@ -506,7 +530,7 @@ def run(args, method, device):
     pruned = weight * (1 - stale)
     if args.switch_at:
         out["stale"] = (weight.abs() * stale).sum(1) / stale.sum().clamp_min(1)
-        out["exact_ablated_mse"] = power(pruned - support)
+        out["exact_ablated_mse"] = bernoulli_power(pruned - support, probabilities)
 
     # Fresh, common frozen-model samples; never select an LR/method on this
     # stream. CLI runs fixed hyperparameters only; any external sweep is
@@ -559,26 +583,29 @@ def report(args, method, out):
     signal = out["signal"].mean().item()
     distract = out["distract"].mean().item()
     ratio = out["ratio"]
-    spread = ratio.std().item() if args.seeds > 1 else 0.0
+    finite_ratio = bool(torch.isfinite(ratio).all())
+    spread = ratio.std().item() if args.seeds > 1 and finite_ratio else 0.0
     line = (f"  {method:>12s}  signal={signal:>8.4f}  distractor={distract:>9.5f}  "
             f"selectivity={ratio.mean().item():>7.2f} +-{spread:>5.2f}")
-    # The trivial predictor (always zero) has mse = E[clean^2]. Reporting the
-    # ratio to it is the honest scale: the blog's whole point is that SGD-family
-    # learners end up WORSE than useless on an unfiltered stream.
-    trivial = max(out["trivial"].mean().item(), 1e-12)
-    mse = out["test_mse"].mean().item()
-    line += (f"\n{'':16s}TEST vs clean target: mse={mse:.5f}  "
-             f"= {mse / trivial:>6.2f}x the zero-predictor "
-             f"({'BEATS' if mse < trivial else 'WORSE THAN'} predicting nothing)")
+    trivial = out["exact_trivial"].mean().item()
+    mse = out["exact_mse"].mean().item()
+    line += (f"\n{'':16s}EXACT clean risk: mse={mse:.6f}  "
+             f"= {mse / trivial:.3f}x zero-predictor; "
+             f"constant-mean predictor={out['exact_mean_predictor_mse'].mean().item():.6f}"
+             f"\n{'':16s}signal reconstruction={out['signal_reconstruction_mse'].mean().item():.6f}  "
+             f"distractor leakage={out['distractor_leakage_mse'].mean().item():.6f}  "
+             f"mean cross term={out['signal_distractor_cross'].mean().item():+.6f}"
+             f"\n{'':16s}held-out sample MSE={out['test_mse'].mean().item():.6f}  "
+             f"signal-active MSE={out['signal_active_mse'].mean().item():.6f}  "
+             f"signal-inactive MSE={out['signal_inactive_mse'].mean().item():.6f}")
     if "stale" in out:
-        abl = out["ablated_mse"].mean().item()
+        abl = out["exact_ablated_mse"].mean().item()
         line += (f"\n{'':16s}signal MOVED: current coord w={signal:.4f}  "
                  f"stale coord |w|={out['stale'].mean().item():.4f}"
-                 f"\n{'':16s}stale-pruned mse={abl:.5f} "
-                 f"(retaining it costs {mse - abl:+.5f}, "
-                 f"{100.0 * (mse - abl) / mse:+.1f}% of error)")
+                 f"\n{'':16s}exact stale-pruned mse={abl:.6f} "
+                 f"(retaining it costs {mse - abl:+.6f})")
     if "lvl_sig" in out:
-        line += (f"\n{'':16s}mirror level: signal={out['lvl_sig'].mean().item():.4f}  "
+        line += (f"\n{'':16s}final applied level: signal={out['lvl_sig'].mean().item():.4f}  "
                  f"distractor rms={out['lvl_dis'].mean().item():.4f}")
     if "acc" in out:
         a = out["acc"].tolist()
@@ -598,26 +625,23 @@ def report(args, method, out):
             line += (f"\n{'':16s}by REGIME (signal-coord level): "
                      f"quiet={quiet:.3f} noisy={loud:.3f}"
                      f"  separation={quiet / max(loud, 1e-30):.2f}x")
+    if not bool(out["finite_weights"].all()):
+        line += f"\n{'':16s}FAILED: nonfinite learned weights; not a valid recovery result"
+    line += (f"\n{'':16s}training={out['train_seconds']:.2f}s  "
+             f"compile/capture={out['compile_seconds']:.2f}s  "
+             f"samples/s={out['samples_per_second']:.0f}")
     print(line, flush=True)
 
 
-LABELS = {"veto": "admission\nveto", "softveto": "graded\nplasticity",
-          "gradedveto": "graded\ncertainty\n(hinge)",
-          "smoothgate": "graded\ncertainty\n(smooth)",
-          "sgd": "SGD", "adam": "Adam", "adamw": "AdamW", "energy": "energy gate\n(v8/v9 rule)",
-          "snr": "state\nplasticity", "statewiener": "state\nplasticity\n(conditioned)",
-          "oracle": "Oracle"}
+LABELS = {"softveto": "graded\nplasticity", "smoothgate": "graded\ncertainty",
+          "sgd": "SGD", "adam": "Adam", "adamw": "AdamW",
+          "energy": "energy gate", "snr": "temporal SNR",
+          "statewiener": "regime-conditioned\nSNR",
+          "oracle": "Support-informed\nAdam"}
 
 
 def draw_figure(args, traces):
-    """Prediction traces in the style of the Oak blog's figures.
-
-    One panel per learner, predictions only, on a fixed +-1.5 axis. The
-    learnable target is drawn once at the top for reference: it is zero except
-    for isolated spikes to 1.0, so a learner that has absorbed noise shows
-    visible activity everywhere and a learner that has not is flat between
-    spikes.
-    """
+    """Common held-out inputs, frozen final learners; first replica only."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -627,10 +651,13 @@ def draw_figure(args, traces):
     rows = len(order) + 1
     figure, axes = plt.subplots(rows, 1, sharex=True, figsize=(9.5, 1.35 * rows))
     steps = range(width)
+    finite = [float(value) for trace in traces.values() for row in trace[:2]
+              for value in row if math.isfinite(float(value))]
+    low, high = min([0.0, *finite]), max([1.0, *finite])
+    margin = 0.05 * (high - low)
 
     def style(axis, label, color):
-        axis.set_ylim(-1.5, 1.5)
-        axis.set_yticks([-1.5, 0.0, 1.5])
+        axis.set_ylim(low - margin, high + margin)
         axis.tick_params(labelsize=8)
         for side in ("top", "right"):
             axis.spines[side].set_visible(False)
@@ -642,12 +669,17 @@ def draw_figure(args, traces):
     for axis, method in zip(axes[1:], order):
         style(axis, f"Predictions\nlearned by\n{LABELS.get(method, method)}", None)
         axis.plot(steps, traces[method][0], color="#F4511E", linewidth=0.8)
+        if not all(math.isfinite(float(value)) for value in traces[method][0]):
+            axis.text(0.5, 0.5, "FAILED: nonfinite predictions",
+                      transform=axis.transAxes, ha="center", color="red")
 
     axes[-1].set_xticks([0, width // 2, width])
     axes[-1].set_xticklabels(["t", f"t+{width // 2}", f"t+{width}"])
-    axes[-1].set_xlabel("Time", fontsize=9)
+    axes[-1].set_xlabel("Held-out observation (frozen final model)", fontsize=9)
     figure.tight_layout()
+    Path(args.plot).parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(args.plot, dpi=150, facecolor="white")
+    plt.close(figure)
     print(f"  figure written to {args.plot}")
 
 
@@ -657,29 +689,110 @@ def main():
         raise ValueError("task must be linear, regime or hidden")
     if args.task == "hidden":
         raise NotImplementedError("hidden stream is served by the dense variant")
-    if args.regime_index < args.signal_inputs:
-        raise ValueError("the regime flag must not overlap the signal inputs")
+    if min(args.steps, args.seeds, args.eval_steps, args.eval_batch_size,
+           args.chunk_steps, args.gate_every) < 1:
+        raise ValueError("steps, replica counts, evaluation and graph sizes must be positive")
+    if args.chunk_steps % args.gate_every:
+        raise ValueError("chunk_steps must be a multiple of gate_every")
+    if not 1 <= args.signal_inputs <= args.input_dim:
+        raise ValueError("signal_inputs must be in [1, input_dim]")
+    if not 0 < args.feature_prob < 1:
+        raise ValueError("feature_prob must be in (0, 1)")
+    if not 0 <= args.spike_prob <= 1 or min(
+            args.target_noise_std, args.quiet_std, args.noisy_std) < 0:
+        raise ValueError("spike probability and noise standard deviations are invalid")
+    if not 0 <= args.switch_at < 1 or not 0 <= args.switch_back < 1:
+        raise ValueError("switch fractions must be in [0, 1)")
+    if args.switch_at and int(args.steps * args.switch_at) < 1:
+        raise ValueError("switch_at must correspond to a positive training step")
+    if args.switch_back and (not args.switch_at or
+                            int(args.steps * args.switch_back) <= int(args.steps * args.switch_at)):
+        raise ValueError("switch_back must follow switch_at by at least one observation")
+    if args.switch_at and not 0 <= args.switch_to <= args.input_dim - args.signal_inputs:
+        raise ValueError("the moved signal block must fit inside input_dim")
+    if args.task == "regime":
+        support = set(range(args.signal_inputs))
+        if args.switch_at:
+            support.update(range(args.switch_to, args.switch_to + args.signal_inputs))
+        if not 0 <= args.regime_index < args.input_dim or args.regime_index in support:
+            raise ValueError("the regime flag must be in bounds and outside all signal supports")
+    if args.anchor not in {"mean", "geomean", "quantile"}:
+        raise ValueError("anchor must be mean, geomean or quantile")
+    if not 0 <= args.anchor_q <= 1 or not 0 <= args.adaptive_q <= 1:
+        raise ValueError("quantiles must be in [0, 1]")
+    if not 0 <= args.evidence_decay < 1 or not 0 <= args.stat_beta < 1:
+        raise ValueError("evidence_decay and stat_beta must be in [0, 1)")
+    if min(args.lr, args.veto_z, args.hinge_sharpness, args.level_floor,
+           args.weight_suppress, args.weight_inflate, args.bayes_prior) <= 0:
+        raise ValueError("learning rate, scales and prior variance must be positive")
+    if args.plot and args.plot_window < 1:
+        raise ValueError("plot_window must be positive when plotting")
     chosen = METHODS if args.method == "all" else tuple(args.method.split(","))
-    for name in chosen:
-        if name not in METHODS:
-            raise ValueError(f"method must be `all` or a comma-separated subset of {METHODS}")
+    if len(set(chosen)) != len(chosen) or any(name not in METHODS for name in chosen):
+        raise ValueError(f"method must be `all` or a unique comma-separated subset of {METHODS}")
     configure_runtime(cudnn_deterministic=True, matmul_precision="highest",
                       allow_tf32=False)
-    if args.cuda and not torch.cuda.is_available():
-        raise RuntimeError("CUDA is required")
-    device = torch.device("cuda" if args.cuda else "cpu")
-
-    print(f"task={args.task} steps={args.steps} seeds={args.seeds} "
+    if not args.cuda or not torch.cuda.is_available():
+        raise RuntimeError("CUDA is required; no CPU/eager fallback")
+    device = torch.device("cuda")
+    directory = Path(args.output_dir or "runs") / (
+        f"noisy_stream_{args.task}__diagnostic__{args.seed}__{time.time():.6f}")
+    directory.mkdir(parents=True, exist_ok=True)
+    protocol = (
+        "Fixed-hyperparameter sparse-feature diagnostic; no LR or method selection. "
+        "Gates calibrate on past training evidence only. Exact final Bernoulli risk "
+        "and independent sampled evaluation are both reported. Selecting on these "
+        "results makes them exploratory; final claims require configurations fixed "
+        "on separate training realizations. Replica spread is not a confidence interval. "
+        "Support-informed Adam is not a bound. No per-neuron premise is tested. "
+        "Features and target are uncentered and the learner has no bias; null "
+        "coordinates need not have zero mean residual-gradient during learning, "
+        "so twin calibration is not exact null or false-discovery control.")
+    print(f"task={args.task} steps={args.steps} seed={args.seed} replicas={args.seeds} "
           f"input_dim={args.input_dim} anchor={args.anchor}")
-    print("selectivity = w[signal] / rms w[distractors]; +- is the spread over seeds")
-    traces = {}
-    for method in chosen:
-        out = run(args, method, device)
-        report(args, method, out)
-        if "trace" in out:
-            traces[method] = out["trace"].cpu().numpy()
-    if args.plot and traces:
-        draw_figure(args, traces)
+    print(protocol)
+    print(f"artifacts={directory}", flush=True)
+    traces, results = {}, {}
+
+    def json_finite(value):
+        if isinstance(value, list):
+            return [json_finite(item) for item in value]
+        if isinstance(value, float) and not math.isfinite(value):
+            return None
+        return value
+
+    with SummaryWriter(str(directory)) as writer:
+        writer.add_text("hyperparameters", "|param|value|\n|-|-|\n" + "\n".join(
+            f"|{key}|{value}|" for key, value in vars(args).items()))
+        writer.add_text("protocol", protocol)
+        for method in chosen:
+            # Each arm closes over different mutable state. Discard guards from
+            # prior arms rather than exhausting Dynamo's per-code recompile cap.
+            torch.compiler.reset()
+            out = run(args, method, device)
+            out = {key: value.cpu() if isinstance(value, torch.Tensor) else value
+                   for key, value in out.items()}
+            report(args, method, out)
+            results[method] = {}
+            for key, value in out.items():
+                if key == "trace":
+                    traces[method] = value.numpy()
+                    continue
+                results[method][key] = json_finite(
+                    value.tolist() if isinstance(value, torch.Tensor) else value)
+                if key != "acc":
+                    scalar = value.double().mean().item() if isinstance(value, torch.Tensor) else value
+                    if math.isfinite(scalar):
+                        writer.add_scalar(f"diagnostics/{method}/{key}", scalar, args.steps)
+            relative = (out["exact_mse"] / out["exact_trivial"]).mean().item()
+            if math.isfinite(relative):
+                writer.add_scalar(f"eval/{method}/clean_mse_over_zero", relative, args.steps)
+            writer.flush()
+            (directory / "results.json").write_text(json.dumps({
+                "args": vars(args), "protocol": protocol, "methods": results,
+            }, indent=2, allow_nan=False) + "\n")
+        if args.plot and traces:
+            draw_figure(args, traces)
 
 
 if __name__ == "__main__":

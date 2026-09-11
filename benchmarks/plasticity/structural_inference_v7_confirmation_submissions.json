@@ -1,0 +1,375 @@
+{
+  "decision": "All five development views completed with finite forecasts and preserved mass. Priors/model/search unchanged; run the already declared namespace300 confirmation including unfavorable/null views. Development recurrence misses20% target; no selective omission or retuning.",
+  "jobs": [
+    {
+      "id": 6199,
+      "name": "structure-v7-confirmation-stationary",
+      "state": "queued",
+      "eligibility": "backfill_window_open: job 6193",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "confirmation",
+        "--view",
+        "stationary",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "readySequence": 5899,
+      "attemptCount": 0,
+      "createdAt": 1789105217157,
+      "updatedAt": 1789105217157,
+      "dependencies": [
+        {
+          "parent": 6184,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217157
+        },
+        {
+          "parent": 6185,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217157
+        },
+        {
+          "parent": 6186,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217157
+        },
+        {
+          "parent": 6187,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217157
+        },
+        {
+          "parent": 6188,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217157
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6200,
+      "name": "structure-v7-confirmation-change",
+      "state": "queued",
+      "eligibility": "backfill_window_open: job 6193",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "confirmation",
+        "--view",
+        "change",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "readySequence": 5900,
+      "attemptCount": 0,
+      "createdAt": 1789105217398,
+      "updatedAt": 1789105217398,
+      "dependencies": [
+        {
+          "parent": 6184,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217398
+        },
+        {
+          "parent": 6185,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217398
+        },
+        {
+          "parent": 6186,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217398
+        },
+        {
+          "parent": 6187,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217398
+        },
+        {
+          "parent": 6188,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217398
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6201,
+      "name": "structure-v7-confirmation-null",
+      "state": "queued",
+      "eligibility": "backfill_window_open: job 6193",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "confirmation",
+        "--view",
+        "null",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "readySequence": 5901,
+      "attemptCount": 0,
+      "createdAt": 1789105217526,
+      "updatedAt": 1789105217526,
+      "dependencies": [
+        {
+          "parent": 6184,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217526
+        },
+        {
+          "parent": 6185,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217526
+        },
+        {
+          "parent": 6186,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217526
+        },
+        {
+          "parent": 6187,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217526
+        },
+        {
+          "parent": 6188,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217526
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6202,
+      "name": "structure-v7-confirmation-recurrent",
+      "state": "queued",
+      "eligibility": "backfill_window_open: job 6193",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "confirmation",
+        "--view",
+        "recurrent",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "readySequence": 5902,
+      "attemptCount": 0,
+      "createdAt": 1789105217658,
+      "updatedAt": 1789105217658,
+      "dependencies": [
+        {
+          "parent": 6184,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217658
+        },
+        {
+          "parent": 6185,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217658
+        },
+        {
+          "parent": 6186,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217658
+        },
+        {
+          "parent": 6187,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217658
+        },
+        {
+          "parent": 6188,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217658
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6203,
+      "name": "structure-v7-confirmation-two_support",
+      "state": "queued",
+      "eligibility": "backfill_window_open: job 6193",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_structure_eval_v7",
+        "--phase",
+        "confirmation",
+        "--view",
+        "two_support",
+        "--seed",
+        "1",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--log-every",
+        "5000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 3600000,
+      "readySequence": 5903,
+      "attemptCount": 0,
+      "createdAt": 1789105217772,
+      "updatedAt": 1789105217772,
+      "dependencies": [
+        {
+          "parent": 6184,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217772
+        },
+        {
+          "parent": 6185,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217772
+        },
+        {
+          "parent": 6186,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217772
+        },
+        {
+          "parent": 6187,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217772
+        },
+        {
+          "parent": 6188,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1789105217772
+        }
+      ],
+      "attempts": []
+    }
+  ]
+}

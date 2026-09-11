@@ -1,0 +1,221 @@
+{
+  "contracts": 6140,
+  "jobs": [
+    {
+      "id": 6141,
+      "name": "hazard-v6-dev-stationary",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6140]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "development",
+        "--view",
+        "stationary",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--output",
+        "runs"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789093764333,
+      "updatedAt": 1789093764333,
+      "dependencies": [
+        {
+          "parent": 6140,
+          "condition": "succeeded",
+          "parentState": "running"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6142,
+      "name": "hazard-v6-dev-change",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6140]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "development",
+        "--view",
+        "change",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--output",
+        "runs"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789093764347,
+      "updatedAt": 1789093764347,
+      "dependencies": [
+        {
+          "parent": 6140,
+          "condition": "succeeded",
+          "parentState": "running"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6143,
+      "name": "hazard-v6-dev-null",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6140]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "development",
+        "--view",
+        "null",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--output",
+        "runs"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789093764359,
+      "updatedAt": 1789093764359,
+      "dependencies": [
+        {
+          "parent": 6140,
+          "condition": "succeeded",
+          "parentState": "running"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6144,
+      "name": "hazard-v6-dev-recurrent",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6140]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "development",
+        "--view",
+        "recurrent",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--output",
+        "runs"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789093764372,
+      "updatedAt": 1789093764372,
+      "dependencies": [
+        {
+          "parent": 6140,
+          "condition": "succeeded",
+          "parentState": "running"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6145,
+      "name": "hazard-v6-dev-two_support",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6140]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "development",
+        "--view",
+        "two_support",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+        "--output",
+        "runs"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789093764384,
+      "updatedAt": 1789093764384,
+      "dependencies": [
+        {
+          "parent": 6140,
+          "condition": "succeeded",
+          "parentState": "running"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6146,
+      "name": "return-refinement-v6-development",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6140]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.panel_return_refinement_eval_v6",
+        "--output-dir",
+        "runs/panel_return_refinement_v6_development",
+        "--cache",
+        "/tmp/panel_cache.npz",
+        "--stage",
+        "development",
+        "--view",
+        "real"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 14400000,
+      "attemptCount": 0,
+      "createdAt": 1789093764397,
+      "updatedAt": 1789093764397,
+      "dependencies": [
+        {
+          "parent": 6140,
+          "condition": "succeeded",
+          "parentState": "running"
+        }
+      ],
+      "attempts": []
+    }
+  ]
+}

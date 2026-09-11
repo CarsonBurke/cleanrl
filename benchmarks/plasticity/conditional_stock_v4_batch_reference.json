@@ -1,0 +1,209 @@
+{
+  "reference": "Independent FP64 direct normal equations over all consumed predictable residual designs. Designs reconstructed in FP32 from recorded prelabel base forecasts and original input features, without calling model feature/update functions.",
+  "views": {
+    "real": {
+      "artifact": "runs/SPY__conditional_stock_v4_real__1__20260909/results.json",
+      "observations": 335872,
+      "rows": [
+        {
+          "family": "calibration",
+          "prior": 0.01,
+          "active_dimensions": 1,
+          "coefficient_max_absolute_error": 3.5683625848437206e-05,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 1.1127555373986814e-06,
+          "active_covariance_frobenius_relative_error": 0.00016557578225167367,
+          "beta_relative_error": 8.748944992505077e-09,
+          "covariance_cholesky_info": 0,
+          "inactive_coefficients_exactly_zero": true
+        },
+        {
+          "family": "calibration",
+          "prior": 0.1,
+          "active_dimensions": 1,
+          "coefficient_max_absolute_error": 4.198032131519369e-05,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 1.3091112210309072e-06,
+          "active_covariance_frobenius_relative_error": 0.00012060727474028622,
+          "beta_relative_error": 1.8085745683903317e-08,
+          "covariance_cholesky_info": 0,
+          "inactive_coefficients_exactly_zero": true
+        },
+        {
+          "family": "calibration",
+          "prior": 1.0,
+          "active_dimensions": 1,
+          "coefficient_max_absolute_error": 4.049967525404652e-05,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 1.2629388642623695e-06,
+          "active_covariance_frobenius_relative_error": 0.00010914461474496676,
+          "beta_relative_error": 2.049924263588535e-08,
+          "covariance_cholesky_info": 0,
+          "inactive_coefficients_exactly_zero": true
+        },
+        {
+          "family": "stacking",
+          "prior": 0.01,
+          "active_dimensions": 16,
+          "coefficient_max_absolute_error": 9.989776234173298e-05,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 5.787176626742572e-06,
+          "active_covariance_frobenius_relative_error": 0.0016786682100717765,
+          "beta_relative_error": 1.262279583323188e-08,
+          "covariance_cholesky_info": 0,
+          "inactive_coefficients_exactly_zero": true
+        },
+        {
+          "family": "stacking",
+          "prior": 0.1,
+          "active_dimensions": 16,
+          "coefficient_max_absolute_error": 0.00024967122021340993,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 6.853191410301356e-06,
+          "active_covariance_frobenius_relative_error": 0.0011549962180231752,
+          "beta_relative_error": 1.6908283900871016e-08,
+          "covariance_cholesky_info": 0,
+          "inactive_coefficients_exactly_zero": true
+        },
+        {
+          "family": "stacking",
+          "prior": 1.0,
+          "active_dimensions": 16,
+          "coefficient_max_absolute_error": 0.0011230463161215898,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 2.2132335889940605e-05,
+          "active_covariance_frobenius_relative_error": 0.0008332210536060098,
+          "beta_relative_error": 4.467638348040842e-08,
+          "covariance_cholesky_info": 0,
+          "inactive_coefficients_exactly_zero": true
+        },
+        {
+          "family": "context",
+          "prior": 0.01,
+          "active_dimensions": 128,
+          "coefficient_max_absolute_error": 0.00010129772685724125,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 7.1119207162538725e-06,
+          "active_covariance_frobenius_relative_error": 0.0014250948701989943,
+          "beta_relative_error": 1.9902461263406683e-08,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "family": "context",
+          "prior": 0.1,
+          "active_dimensions": 128,
+          "coefficient_max_absolute_error": 0.0002875484888373858,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 1.1667219603922973e-05,
+          "active_covariance_frobenius_relative_error": 0.001239347475361532,
+          "beta_relative_error": 4.356823973850609e-08,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "family": "context",
+          "prior": 1.0,
+          "active_dimensions": 128,
+          "coefficient_max_absolute_error": 0.0014564801980906372,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 4.794379539052973e-05,
+          "active_covariance_frobenius_relative_error": 0.0009748092440744911,
+          "beta_relative_error": 1.4982042444339708e-07,
+          "covariance_cholesky_info": 0
+        }
+      ]
+    },
+    "random_sign": {
+      "artifact": "runs/SPY__conditional_stock_v4_random_sign__1__20260909/results.json",
+      "observations": 335872,
+      "rows": [
+        {
+          "family": "calibration",
+          "prior": 0.01,
+          "active_dimensions": 1,
+          "coefficient_max_absolute_error": 1.573148927402901e-05,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 3.386939310502003e-07,
+          "active_covariance_frobenius_relative_error": 0.002058129089066565,
+          "beta_relative_error": 1.2780574121796123e-10,
+          "covariance_cholesky_info": 0,
+          "inactive_coefficients_exactly_zero": true
+        },
+        {
+          "family": "calibration",
+          "prior": 0.1,
+          "active_dimensions": 1,
+          "coefficient_max_absolute_error": 1.049673374886595e-05,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 2.2599131936350953e-07,
+          "active_covariance_frobenius_relative_error": 0.0011315766163358543,
+          "beta_relative_error": 9.513537733564802e-11,
+          "covariance_cholesky_info": 0,
+          "inactive_coefficients_exactly_zero": true
+        },
+        {
+          "family": "calibration",
+          "prior": 1.0,
+          "active_dimensions": 1,
+          "coefficient_max_absolute_error": 4.278023171044865e-06,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 9.210447019260108e-08,
+          "active_covariance_frobenius_relative_error": 0.0010475841978771856,
+          "beta_relative_error": 1.5565914609431663e-11,
+          "covariance_cholesky_info": 0,
+          "inactive_coefficients_exactly_zero": true
+        },
+        {
+          "family": "stacking",
+          "prior": 0.01,
+          "active_dimensions": 16,
+          "coefficient_max_absolute_error": 0.00013352759001123435,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 8.415219326774302e-06,
+          "active_covariance_frobenius_relative_error": 0.0015223141547951629,
+          "beta_relative_error": 9.17431951765104e-09,
+          "covariance_cholesky_info": 0,
+          "inactive_coefficients_exactly_zero": true
+        },
+        {
+          "family": "stacking",
+          "prior": 0.1,
+          "active_dimensions": 16,
+          "coefficient_max_absolute_error": 0.0011042609466623832,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 5.286365460076608e-05,
+          "active_covariance_frobenius_relative_error": 0.0009853841898803195,
+          "beta_relative_error": 5.418170013980662e-08,
+          "covariance_cholesky_info": 0,
+          "inactive_coefficients_exactly_zero": true
+        },
+        {
+          "family": "stacking",
+          "prior": 1.0,
+          "active_dimensions": 16,
+          "coefficient_max_absolute_error": 0.007522534798311775,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 0.00025696375243387164,
+          "active_covariance_frobenius_relative_error": 0.0007093637648700067,
+          "beta_relative_error": 2.2911011428196203e-07,
+          "covariance_cholesky_info": 0,
+          "inactive_coefficients_exactly_zero": true
+        },
+        {
+          "family": "context",
+          "prior": 0.01,
+          "active_dimensions": 128,
+          "coefficient_max_absolute_error": 0.00015355405180092051,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 9.967609247213097e-06,
+          "active_covariance_frobenius_relative_error": 0.0013924198637547448,
+          "beta_relative_error": 1.3404959534399424e-08,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "family": "context",
+          "prior": 0.1,
+          "active_dimensions": 128,
+          "coefficient_max_absolute_error": 0.0010648581315296987,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 5.822260105037388e-05,
+          "active_covariance_frobenius_relative_error": 0.001237017328268006,
+          "beta_relative_error": 7.150900414769904e-08,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "family": "context",
+          "prior": 1.0,
+          "active_dimensions": 128,
+          "coefficient_max_absolute_error": 0.007715113888501546,
+          "checkpoint_correction_rms_difference_on_consumed_designs": 0.0002873823734509734,
+          "active_covariance_frobenius_relative_error": 0.0009306309726950764,
+          "beta_relative_error": 3.2429800809954616e-07,
+          "covariance_cholesky_info": 0
+        }
+      ]
+    }
+  }
+}

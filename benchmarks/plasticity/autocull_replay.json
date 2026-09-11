@@ -1,0 +1,100 @@
+{
+  "source": "runs/SPY__covariance_stock_v1__1__1788841149258770610",
+  "arm": "covariance_original_random_sign",
+  "observed_horizon": 468021,
+  "first_prune": {
+    "status": "pruned",
+    "reason": "all proxy candidates plateaued after warmup and full patience",
+    "step": 155648,
+    "phase": "stationary",
+    "decisions": [
+      {
+        "should_cull": true,
+        "evaluations": 18,
+        "stale_evaluations": 3,
+        "improved_metrics": [],
+        "reason": "no configured metric materially improved for 3 evaluation(s) after 1 warmup evaluation(s)"
+      }
+    ],
+    "policy_state": {
+      "version": 1,
+      "metrics": {
+        "error_ratio": {
+          "mode": "min",
+          "min_delta": 0.0001
+        },
+        "prediction_energy_ratio": {
+          "mode": "min",
+          "min_delta": 0.0001
+        }
+      },
+      "candidates": 1,
+      "phase": "stationary",
+      "phase_start": 0,
+      "last_step": 155648,
+      "last_evaluation": 155648,
+      "smoothed": [
+        {
+          "error_ratio": 1.0051100314278385,
+          "prediction_energy_ratio": 0.005085230054919201
+        }
+      ],
+      "invalid": [
+        false
+      ],
+      "recent": [
+        {
+          "error_ratio": [
+            1.005081057548523,
+            1.006305456161499,
+            1.0034635066986084
+          ],
+          "prediction_energy_ratio": [
+            0.005113938357681036,
+            0.005434677470475435,
+            0.005387852434068918
+          ]
+        }
+      ],
+      "median_window_intervals": 3,
+      "smoothing_halflife_observations": 8192,
+      "warmup_observations": 16384,
+      "evaluation_stride_observations": 4096,
+      "patience_evaluations": 3,
+      "hooks": [
+        {
+          "version": 1,
+          "signature": {
+            "metrics": {
+              "error_ratio": {
+                "mode": "min",
+                "min_delta": 0.0001
+              },
+              "prediction_energy_ratio": {
+                "mode": "min",
+                "min_delta": 0.0001
+              }
+            },
+            "warmup_evaluations": 1,
+            "patience_evaluations": 3
+          },
+          "evaluations": 18,
+          "best": {
+            "error_ratio": 1.0050806362658333,
+            "prediction_energy_ratio": 0.004453254916731739
+          },
+          "stale_evaluations": 3,
+          "culled": true
+        }
+      ]
+    },
+    "exit_code": 75,
+    "queue_contract": "submit with --max-attempts 1; mlq records exit75 as failed, artifact status is pruned; after-success children must not run"
+  },
+  "observations_avoided": 312373,
+  "interpretation": "retrospective replay of default policy; no new training and not a statistical superiority test",
+  "replay_seconds_to_prune": 410.7942945183893,
+  "full_replay_seconds": 1278.2067204210784,
+  "replay_seconds_avoided": 867.4124259026892,
+  "avoided_fraction": 0.6674337262644198
+}

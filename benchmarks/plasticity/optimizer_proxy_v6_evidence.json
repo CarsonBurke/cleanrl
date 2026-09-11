@@ -1,0 +1,416 @@
+{
+  "status": "iid_and_bandit_completed_drift_failed",
+  "contracts": {
+    "job": 5870,
+    "passed": 23,
+    "xml": "benchmarks/plasticity/optimizer_proxy_v6_contracts.xml"
+  },
+  "runs": [
+    {
+      "job": 5873,
+      "path": "runs/OptimizerProxy__v6_iid_online__1__1788990477419087442/results.json",
+      "summary": {
+        "scenario": "iid_online",
+        "status": "completed",
+        "candidates": 1396,
+        "arms": [
+          {
+            "method": "adamw",
+            "risk": 0.24027787148952484,
+            "endpoint": 0.19009703397750854,
+            "relative_to_adamw_pct": 0.0,
+            "config": {
+              "lr": 0.0003,
+              "beta1": 0.995,
+              "beta2": 0.9,
+              "weight_decay": 0
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "adam",
+            "risk": 0.24027787148952484,
+            "endpoint": 0.19009703397750854,
+            "relative_to_adamw_pct": 0.0,
+            "config": {
+              "lr": 0.0003,
+              "beta1": 0.995,
+              "beta2": 0.9,
+              "weight_decay": 0
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "predictive",
+            "risk": 0.1670334986411035,
+            "endpoint": 0.12083236128091812,
+            "relative_to_adamw_pct": -30.48319530815159,
+            "config": {
+              "lr": 0.0014,
+              "beta1": 0.9999,
+              "beta2": 0.99999,
+              "weight_decay": 0.01
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": true,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "full",
+            "risk": 0.16132824728265405,
+            "endpoint": 0.11225384473800659,
+            "relative_to_adamw_pct": -32.8576342538113,
+            "config": {
+              "lr": 0.0007,
+              "beta1": 0.9999,
+              "beta2": 0.99,
+              "weight_decay": 0.01
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "mars_01",
+            "risk": 0.19894363172352314,
+            "endpoint": 0.14880965650081635,
+            "relative_to_adamw_pct": -17.202682673091562,
+            "config": {
+              "lr": 0.001,
+              "beta1": 0.9999,
+              "beta2": 0.99999,
+              "weight_decay": 0.01
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": true,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "mars_1",
+            "risk": 0.1584589220583439,
+            "endpoint": 0.11355121433734894,
+            "relative_to_adamw_pct": -34.051803823619245,
+            "config": {
+              "lr": 0.001,
+              "beta1": 0.9999,
+              "beta2": 0.95,
+              "weight_decay": 0.01
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "matrix_rms",
+            "risk": 0.25159609597176313,
+            "endpoint": 0.20786850154399872,
+            "relative_to_adamw_pct": 4.710473091872602,
+            "config": {
+              "lr": 0.0001,
+              "beta1": 0.99,
+              "beta2": 0.95,
+              "weight_decay": 0
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "polar",
+            "risk": 0.1888629188761115,
+            "endpoint": 0.15341651439666748,
+            "relative_to_adamw_pct": -21.39812222186046,
+            "config": {
+              "lr": 0.0003,
+              "beta1": 0.95,
+              "beta2": 0.95,
+              "weight_decay": 0
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          }
+        ]
+      },
+      "source_sha256": {
+        "cleanrl/plasticity/optimizer_proxy_eval_v6.py": "989386571af4f98841e86c0c8d95832f2977c66d27bc082c66fbd76f043f23fa",
+        "cleanrl/plasticity/optimizer_proxy_model_v4.py": "585cbd6dd6a10dd38bbe64e6c485a4b0db83b050f6fd6e1021fd784b977ec63a",
+        "cleanrl/plasticity/optimizer_proxy_model_v5.py": "0eb209d09717516c2fe6f3cc2faf0055288d343bf8bc6845cf5db7c7f9fc9b5b",
+        "cleanrl/plasticity/optimizer_proxy_model_v6.py": "fcc2daaba31b4d1a1cb7705533bc9efc82490727fee62244e09b7d6541fb9eb9",
+        "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+        "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+        "benchmarks/plasticity/optimizer_proxy_v6_plan.json": "a6ff7b830da156f0ca42b7b8b7da97aae3654920787c3364a04d22fe19e52447",
+        "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+      },
+      "timing": {
+        "adamw": {
+          "startup_seconds": 3.027238213999226,
+          "training_seconds": 30.742866911999954
+        },
+        "predictive": {
+          "startup_seconds": 1.8711308950005332,
+          "training_seconds": 34.42540649299917
+        },
+        "full": {
+          "startup_seconds": 2.3245187039992743,
+          "training_seconds": 34.67553088100067
+        },
+        "mars_01": {
+          "startup_seconds": 1.839001840000492,
+          "training_seconds": 35.50132462399961
+        },
+        "mars_1": {
+          "startup_seconds": 1.8238036960010504,
+          "training_seconds": 36.1184037510011
+        },
+        "matrix_rms": {
+          "startup_seconds": 2.982462869000301,
+          "training_seconds": 39.937644949999594
+        },
+        "polar": {
+          "startup_seconds": 5.087532624000232,
+          "training_seconds": 99.60024440199959
+        }
+      }
+    },
+    {
+      "job": 5872,
+      "path": "runs/OptimizerProxy__v6_clipped_bandit__1__1788990275221167489/results.json",
+      "summary": {
+        "scenario": "clipped_bandit",
+        "status": "completed",
+        "candidates": 1396,
+        "arms": [
+          {
+            "method": "adamw",
+            "risk": 0.24398388154804707,
+            "endpoint": 0.38615337014198303,
+            "relative_to_adamw_pct": 0.0,
+            "config": {
+              "lr": 0.002,
+              "beta1": 0.5,
+              "beta2": 0.99,
+              "weight_decay": 0.1
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "adam",
+            "risk": 0.2508529033511877,
+            "endpoint": 0.3722909688949585,
+            "relative_to_adamw_pct": 2.815358850575511,
+            "config": {
+              "lr": 0.0014,
+              "beta1": 0.7,
+              "beta2": 0.9999,
+              "weight_decay": 0
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "predictive",
+            "risk": 0.2608504565432668,
+            "endpoint": 0.37678515911102295,
+            "relative_to_adamw_pct": 6.9129874023658555,
+            "config": {
+              "lr": 0.001,
+              "beta1": 0.1,
+              "beta2": 0.99,
+              "weight_decay": 0.01
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "full",
+            "risk": 0.2621063031256199,
+            "endpoint": 0.38228458166122437,
+            "relative_to_adamw_pct": 7.427712626993355,
+            "config": {
+              "lr": 0.001,
+              "beta1": 0.1,
+              "beta2": 0.99,
+              "weight_decay": 0.01
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "mars_01",
+            "risk": 0.24154785182327032,
+            "endpoint": 0.37257471680641174,
+            "relative_to_adamw_pct": -0.9984387941205153,
+            "config": {
+              "lr": 0.002,
+              "beta1": 0.9,
+              "beta2": 0.999,
+              "weight_decay": 0.01
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "mars_1",
+            "risk": 0.26089852023869753,
+            "endpoint": 0.36788851022720337,
+            "relative_to_adamw_pct": 6.9326869395343715,
+            "config": {
+              "lr": 0.002,
+              "beta1": 0.3,
+              "beta2": 0.95,
+              "weight_decay": 0.01
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "matrix_rms",
+            "risk": 0.24670342169702053,
+            "endpoint": 0.35977160930633545,
+            "relative_to_adamw_pct": 1.1146392670361438,
+            "config": {
+              "lr": 0.002,
+              "beta1": 0.9,
+              "beta2": 0.9999,
+              "weight_decay": 0.01
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          },
+          {
+            "method": "polar",
+            "risk": 0.22314471937716007,
+            "endpoint": 0.3235750198364258,
+            "relative_to_adamw_pct": -8.541204459354091,
+            "config": {
+              "lr": 0.003,
+              "beta1": 0.9,
+              "beta2": 0.95,
+              "weight_decay": 0.1
+            },
+            "edges": {
+              "lr": false,
+              "beta1": false,
+              "beta2": false,
+              "weight_decay": false
+            }
+          }
+        ]
+      },
+      "source_sha256": {
+        "cleanrl/plasticity/optimizer_proxy_eval_v6.py": "989386571af4f98841e86c0c8d95832f2977c66d27bc082c66fbd76f043f23fa",
+        "cleanrl/plasticity/optimizer_proxy_model_v4.py": "585cbd6dd6a10dd38bbe64e6c485a4b0db83b050f6fd6e1021fd784b977ec63a",
+        "cleanrl/plasticity/optimizer_proxy_model_v5.py": "0eb209d09717516c2fe6f3cc2faf0055288d343bf8bc6845cf5db7c7f9fc9b5b",
+        "cleanrl/plasticity/optimizer_proxy_model_v6.py": "fcc2daaba31b4d1a1cb7705533bc9efc82490727fee62244e09b7d6541fb9eb9",
+        "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+        "cleanrl/plasticity/covariance_sketch_eval_v3.py": "a2b187bf5e6022af87a308fe9835720a4680f9997eff331ab850edfacce06859",
+        "benchmarks/plasticity/optimizer_proxy_v6_plan.json": "a6ff7b830da156f0ca42b7b8b7da97aae3654920787c3364a04d22fe19e52447",
+        "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+      },
+      "timing": {
+        "adamw": {
+          "startup_seconds": 4.922794203999729,
+          "training_seconds": 14.142929768999238
+        },
+        "predictive": {
+          "startup_seconds": 3.0803565559999697,
+          "training_seconds": 24.697408486999848
+        },
+        "full": {
+          "startup_seconds": 2.284934887000418,
+          "training_seconds": 26.954045673999644
+        },
+        "mars_01": {
+          "startup_seconds": 1.7217192979987885,
+          "training_seconds": 27.481009402999916
+        },
+        "mars_1": {
+          "startup_seconds": 1.8787019199990027,
+          "training_seconds": 28.258879218999937
+        },
+        "matrix_rms": {
+          "startup_seconds": 4.872786754000117,
+          "training_seconds": 18.647221241999432
+        },
+        "polar": {
+          "startup_seconds": 5.774555998001233,
+          "training_seconds": 27.3170110079991
+        }
+      }
+    }
+  ],
+  "decision": "First cross-regime candidate: polar improves IID21.40%andbandit8.54%, unlike sameRMScontrol. RefineNSstrengthandheadLRfairness; donotclaimMuJoCogain.",
+  "drift_failure": {
+    "job": 5871,
+    "phase": "round_full capture afterearlierfamiliescompleted",
+    "conditioned_audit_max_ratio": 1.2744137,
+    "status": "No heldoutselection/testcompletion; no driftwinnerclaim"
+  },
+  "arithmetic_probe": {
+    "job": 5877,
+    "passed": false,
+    "conditioned_audit_max_ratio": 1.12659669,
+    "probe": "benchmarks/plasticity/optimizer_proxy_v7_capture_probe.py",
+    "xml": "benchmarks/plasticity/optimizer_proxy_v7_capture.xml",
+    "decision": "Division/libdevice fidelity didnotresolve round_full capture. Retire entireunpromisingreusefamily; do not maskfinitecandidatefailure orweakenbounds."
+  },
+  "limits": "Singlepairedseed, adaptive development. ExcessriskisnotMuJoCoreturn. Bandit expectednegative reward includesconstant.25policyvariance; riskcomparisons excludeit."
+}

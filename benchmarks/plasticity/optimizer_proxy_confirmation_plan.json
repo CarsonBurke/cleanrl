@@ -1,0 +1,226 @@
+{
+  "namespace": 100,
+  "seed": 1,
+  "primary_candidate": "polar",
+  "protocol": "Lock configurations by minimum noisy development validation across originalandheadrefinement results, BEFORE drawing freshnamespace100tasks. No retuning, no checkpoint selection, no test-based rescue. 5-iterationpolar primary fixed;3-iteration/RMScontrols diagnostic.",
+  "fairness": "Samefreshinit/teachers/exogenousnoise within eachcase; seed1withnewRNGnamespace,newtaskrealization\u2014notaseed-levelconfidenceclaim. AdamW fully tuned; preservepreviousAdamWconfiguration asadditionalfixedcontrolwhereheadrefinementchangesit.",
+  "measurement": "Fulloriginalhorizons,16equalright-endpointheldoutmeans. Cleanexcessriskreportingonly, never learning. Report actualK1trainingwalltime excludingcapture startup; not aggregate throughput.",
+  "cases": [
+    {
+      "scenario": {
+        "name": "iid_online",
+        "objective": "regression",
+        "samples": 65536,
+        "batch_size": 1,
+        "epochs": 1,
+        "drift": false
+      },
+      "locked": {
+        "adamw": {
+          "method": "adamw",
+          "config": {
+            "lr": 0.0003,
+            "beta1": 0.995,
+            "beta2": 0.9,
+            "weight_decay": 0,
+            "head_lr_scale": 1.0
+          },
+          "selection_source": "runs/OptimizerProxy__v8_iid_online__1__1788992418893389653/results.json",
+          "development_validation": 1.2321486473083496
+        },
+        "polar": {
+          "method": "polar",
+          "config": {
+            "lr": 0.0001,
+            "beta1": 0.995,
+            "beta2": 0.95,
+            "weight_decay": 0,
+            "head_lr_scale": 8.0
+          },
+          "selection_source": "runs/OptimizerProxy__v8_iid_online__1__1788993399222009491/results.json",
+          "development_validation": 1.1760990619659424
+        },
+        "polar_3": {
+          "method": "polar_3",
+          "config": {
+            "lr": 0.0001,
+            "beta1": 0.995,
+            "beta2": 0.95,
+            "weight_decay": 0.01,
+            "head_lr_scale": 8.0
+          },
+          "selection_source": "runs/OptimizerProxy__v8_iid_online__1__1788993399222009491/results.json",
+          "development_validation": 1.178213357925415
+        },
+        "matrix_rms": {
+          "method": "matrix_rms",
+          "config": {
+            "lr": 0.0001,
+            "beta1": 0.995,
+            "beta2": 0.95,
+            "weight_decay": 0,
+            "head_lr_scale": 4.0
+          },
+          "selection_source": "runs/OptimizerProxy__v8_iid_online__1__1788992418893389653/results.json",
+          "development_validation": 1.2374978065490723
+        },
+        "adam_rms": {
+          "method": "adam_rms",
+          "config": {
+            "lr": 0.0001,
+            "beta1": 0.995,
+            "beta2": 0.95,
+            "weight_decay": 0,
+            "head_lr_scale": 2.0
+          },
+          "selection_source": "runs/OptimizerProxy__v8_iid_online__1__1788993399222009491/results.json",
+          "development_validation": 1.2261288166046143
+        }
+      }
+    },
+    {
+      "scenario": {
+        "name": "drifting_reuse",
+        "objective": "regression",
+        "samples": 65536,
+        "batch_size": 64,
+        "epochs": 8,
+        "drift": true
+      },
+      "locked": {
+        "adamw": {
+          "method": "adamw",
+          "config": {
+            "lr": 0.0003,
+            "beta1": 0.95,
+            "beta2": 0.99,
+            "weight_decay": 0.1,
+            "head_lr_scale": 1.0
+          },
+          "selection_source": "runs/OptimizerProxy__v8_drifting_reuse__1__1788991701588906454/results.json",
+          "development_validation": 1.2961875200271606
+        },
+        "polar": {
+          "method": "polar",
+          "config": {
+            "lr": 0.002,
+            "beta1": 0.9,
+            "beta2": 0.999,
+            "weight_decay": 0.1,
+            "head_lr_scale": 0.5
+          },
+          "selection_source": "runs/OptimizerProxy__v8_drifting_reuse__1__1788991701588906454/results.json",
+          "development_validation": 1.276665210723877
+        },
+        "polar_3": {
+          "method": "polar_3",
+          "config": {
+            "lr": 0.002,
+            "beta1": 0.9,
+            "beta2": 0.95,
+            "weight_decay": 0.1,
+            "head_lr_scale": 0.5
+          },
+          "selection_source": "runs/OptimizerProxy__v8_drifting_reuse__1__1788991701588906454/results.json",
+          "development_validation": 1.2763500213623047
+        },
+        "matrix_rms": {
+          "method": "matrix_rms",
+          "config": {
+            "lr": 0.0005,
+            "beta1": 0.95,
+            "beta2": 0.999,
+            "weight_decay": 0.01,
+            "head_lr_scale": 1.0
+          },
+          "selection_source": "runs/OptimizerProxy__v8_drifting_reuse__1__1788991701588906454/results.json",
+          "development_validation": 1.2999211549758911
+        },
+        "adam_rms": {
+          "method": "adam_rms",
+          "config": {
+            "lr": 0.0007,
+            "beta1": 0.95,
+            "beta2": 0.999,
+            "weight_decay": 0.01,
+            "head_lr_scale": 0.5
+          },
+          "selection_source": "runs/OptimizerProxy__v8_drifting_reuse__1__1788991701588906454/results.json",
+          "development_validation": 1.2972503900527954
+        }
+      }
+    },
+    {
+      "scenario": {
+        "name": "clipped_bandit",
+        "objective": "ppo",
+        "samples": 262144,
+        "batch_size": 256,
+        "epochs": 8,
+        "drift": true
+      },
+      "locked": {
+        "adamw": {
+          "method": "adamw",
+          "config": {
+            "lr": 0.002,
+            "beta1": 0.5,
+            "beta2": 0.9,
+            "weight_decay": 0.1,
+            "head_lr_scale": 1.0
+          },
+          "selection_source": "runs/OptimizerProxy__v8_clipped_bandit__1__1788991978943482702/results.json",
+          "development_validation": 0.48743417859077454
+        },
+        "polar": {
+          "method": "polar",
+          "config": {
+            "lr": 0.003,
+            "beta1": 0.9,
+            "beta2": 0.95,
+            "weight_decay": 0.1,
+            "head_lr_scale": 0.5
+          },
+          "selection_source": "runs/OptimizerProxy__v8_clipped_bandit__1__1788993357990974234/results.json",
+          "development_validation": 0.46774712204933167
+        },
+        "polar_3": {
+          "method": "polar_3",
+          "config": {
+            "lr": 0.003,
+            "beta1": 0.9,
+            "beta2": 0.95,
+            "weight_decay": 0.1,
+            "head_lr_scale": 0.5
+          },
+          "selection_source": "runs/OptimizerProxy__v8_clipped_bandit__1__1788991978943482702/results.json",
+          "development_validation": 0.4681052565574646
+        },
+        "matrix_rms": {
+          "method": "matrix_rms",
+          "config": {
+            "lr": 0.002,
+            "beta1": 0.9,
+            "beta2": 0.9999,
+            "weight_decay": 0.01,
+            "head_lr_scale": 0.5
+          },
+          "selection_source": "runs/OptimizerProxy__v8_clipped_bandit__1__1788993357990974234/results.json",
+          "development_validation": 0.49140751361846924
+        },
+        "adam_rms": {
+          "method": "adam_rms",
+          "config": {
+            "lr": 0.003,
+            "beta1": 0.5,
+            "beta2": 0.999,
+            "weight_decay": 0.01,
+            "head_lr_scale": 1.0
+          },
+          "selection_source": "runs/OptimizerProxy__v8_clipped_bandit__1__1788991978943482702/results.json",
+          "development_validation": 0.488533079624176
+        }
+      }
+    }
+  ]
+}

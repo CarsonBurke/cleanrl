@@ -1,0 +1,33 @@
+{
+  "objective":"Confirm model/learning-rule superiority without a parameter-budget or missing same-head gated-control explanation.",
+  "prior_evidence":"CE+JS has0.993%lowerMSE than scalarJS on cohort0 and1.4295%lowerMSE on verifieddisjointcohort200. StandaloneCE and stateMoE hypotheses failed. These are motivation only; thirdcohort outcomes are not observed at planwriting.",
+  "primary":"categorical_ce_js",
+  "data":{
+    "cohort":"rank_offset400,200stocks,cache/tmp/panel_frontier_rank400.npz; verify actual stocksets disjoint with BOTH original/tmp/panel_cache.npz and second/tmp/panel_distributional_rank200.npz. SharedSPYmarketfeature allowed; no instrument-disjoint market-independence claim.",
+    "within_run":"Everyarm identicalfrozenBank257features,targetvol+clip25+mu,masks,dataorder,seed1. Noinput/targetimprovements.",
+    "normalization":"Existingmu first60% oflabels shared byall, includesvalidationwindow; not fullyonline-normalizedprefix. No testlast40% labels used inmean.",
+    "comparisons":"Only withinnewcohort scores identify superiority; do not numericallycompare MSEacrosscohorts."
+  },
+  "arms":[
+    {"name":"scalar_js","architecture":"257-256-256-1tanh,132097parameters","optimizer":"Frozenprior-historypostAdamJS,kappa1"},
+    {"name":"scalar_budget_js","architecture":"257-267-267-1tanh,140710parameters; minimalintegerwidth meeting/exceeding categorical140321budget","optimizer":"SamefrozenJS,kappa1"},
+    {"name":"categorical_mse_js","architecture":"Same257-256-256-33tanh+uniformsupport0..25-mu andinitialweights ascategoricalCEJS,140321parameters","optimizer":"ExistingAdamJS,kappa1; squared-error ofdecodedmean"},
+    {"name":"categorical_ce_js","architecture":"Identicalcategoricalhead/support/initialization/140321parameters","optimizer":"ExistingAdamJS,kappa1; sharedmean-preserving twohotcrossentropy; fixedprimary"}
+  ],
+  "mechanism":"Forbarycentric q(y),sum c*q=y; crossentropy population optimum decodedmean E[Y|x]. Model/parameter/losscontrols determine finitecapacityvalue, not algebraalone. Wholetrunkgradientnotbounded althoughlogitresidualp-qisbounded. Same-headMSEJS hasidenticalJS but differentteachinggradient; capacitymatchedscalar hasatleastasmanyparameters.",
+  "selection":{
+    "lrs":[0.00003,0.0001,0.0003,0.001,0.003,0.01],
+    "window":"Independent4family LRlocks onprequential sample-weightedMSE [floor(.4T),floor(.6T)), frozenbeforelabelcut. Entirestreamcontinuous, noresets. Endpointsflagged.",
+    "forward":"Allconsumedbars last40% throughT-2, primary fixedCEJS. All24gridcandidates retained; no suffixselectedLR orfamily.",
+    "null":"If primarysuperiority survives, samecohortfulltime-permutationcontrol usingfrozenBank permutation andrealLRlockinheritance, freshlearners. Notanindependent-sign null."
+  },
+  "success":"Primarybeats BOTH scalar_budget_js andcategorical_mse_js withstabletemporalpairedlossimprovement; compareoriginalscalarJS too. IfsameheadMSEJS matches/wins, retain head+gate architecturelead butrejectspecificCEmechanism. Ifcapacityscalarwins, no superior frontier established.",
+  "execution":{
+    "queue":"mlq","max_parallel_runs":1,"max_attempts":1,"priority":0,
+    "contracts_time_limit":"15m","experiment_time_limit":"45m",
+    "precision":"CUDAFP32 noTF32, compiledmanualbatchedoptimizer andCUDAgraphs;FP64metrics. NoCPU/eagerfallback.",
+    "autocull":"SelectedCEJSprimary,suffixonly barunits, min_delta.001, warmup16384,8192half-life,median3,patience3; persistconsumedmetrics/checkpoint beforeintentionalexit75. No unprunedcontinuations."
+  },
+  "verification":"Independentautograd+torchAdamJS newcategoricalMSEJS trajectories, frozenbaselineparity, sameheadinitialization, minimalbudgetwidthandactualcounts, completegroupstate/capture, presentlabelcausalityandfuturelearning aftergatesopen, exactcohort/prefix/rawlockprovenance.",
+  "limits":"Singleinitseed1 andcorrelatedmarketperiod; disjointstocks notindependentmarketdraws. Threecohorts withsequentialhypothesisdecisions, no global-optimality/PPO/profitabilityclaim. Sharedbatchedtrainingtime isnotstandaloneperarchitecturecostproof."
+}

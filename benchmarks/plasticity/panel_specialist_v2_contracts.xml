@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="35" time="89.799" timestamp="2026-09-08T14:54:44.854267" hostname="cachyos-x8664-desktop"><testcase classname="tests.test_panel_distributional_model" name="test_initialization_matches_frozen_scalar_and_shared_trunks" time="0.877" /><testcase classname="tests.test_panel_distributional_model" name="test_manual_trajectories_match_autograd_adam_and_prior_history_js" time="14.522" /><testcase classname="tests.test_panel_distributional_model" name="test_projection_preserves_probability_and_target_expectation" time="0.104" /><testcase classname="tests.test_panel_distributional_model" name="test_invalid_samples_do_not_affect_updates_and_empty_bar_skips_optimizer" time="0.589" /><testcase classname="tests.test_panel_distributional_model" name="test_current_label_cannot_affect_current_forecast_but_changes_future" time="0.151" /><testcase classname="tests.test_panel_distributional_model" name="test_js_uses_previous_evidence_and_does_not_gate_adam_moments" time="0.098" /><testcase classname="tests.test_panel_distributional_model" name="test_fullgraph_capture_restores_all_state_and_replays_bitwise" time="2.010" /><testcase classname="tests.test_panel_distributional_eval" name="test_prefix_locks_are_independent_and_cannot_consult_forward_rows" time="0.001" /><testcase classname="tests.test_panel_distributional_eval" name="test_selection_uses_sample_weighted_mse_and_first_lr_ties" time="0.000" /><testcase classname="tests.test_panel_distributional_eval" name="test_nonfinite_candidates_remain_raw_and_cannot_win" time="0.010" /><testcase classname="tests.test_panel_distributional_eval" name="test_time_blocks_count_only_consumed_masked_samples" time="0.001" /><testcase classname="tests.test_panel_distributional_eval" name="test_null_inherits_real_prefix_locks_and_rejects_mismatched_provenance" time="0.006" /><testcase classname="tests.test_panel_distributional_eval" name="test_artifacts_preserve_failed_values_and_consumed_checkpoint" time="0.016" /><testcase classname="tests.test_panel_distributional_eval" name="test_failed_checkpoint_recovers_device_boundary_not_stale_host_rows" time="0.001" /><testcase classname="tests.test_panel_distributional_eval" name="test_graph_current_label_changes_next_not_current_forecast_and_capture_restores" time="1.253" /><testcase classname="tests.test_panel_specialist_model" name="test_manual_moe_trajectories_match_independent_autograd_adam_and_js" time="13.944" /><testcase classname="tests.test_panel_specialist_model" name="test_dense_controls_preserve_frozen_trajectories_and_arbitrary_output_order" time="1.597" /><testcase classname="tests.test_panel_specialist_model" name="test_initial_mixture_matches_independent_experts_and_truthful_capacity" time="0.393" /><testcase classname="tests.test_panel_specialist_model" name="test_router_credit_sign_increases_weight_of_experts_toward_target" time="0.078" /><testcase classname="tests.test_panel_specialist_model" name="test_uniform_constant_and_state_controls_separate_conditional_routing" time="0.125" /><testcase classname="tests.test_panel_specialist_model" name="test_mask_sanitization_and_empty_bar_leave_optimizer_state_unchanged" time="1.500" /><testcase classname="tests.test_panel_specialist_model" name="test_current_label_causality_and_future_response_in_all_families" time="0.262" /><testcase classname="tests.test_panel_specialist_model" name="test_candidate_health_contains_failure_to_own_configuration" time="0.112" /><testcase classname="tests.test_panel_specialist_model" name="test_fullgraph_capture_restores_complete_state_and_replays_exactly" time="12.588" /><testcase classname="tests.test_panel_specialist_eval" name="test_confirmation_protocol_and_secondary_panel_guard" time="0.001" /><testcase classname="tests.test_panel_specialist_eval" name="test_cohort_identity_fingerprints_membership_and_all_seven_families" time="0.006" /><testcase classname="tests.test_panel_specialist_eval" name="test_primary_pairing_includes_uniform_and_learned_constant_controls" time="0.002" /><testcase classname="tests.test_panel_specialist_eval" name="test_prefix_locks_are_independent_and_cannot_consult_forward_rows" time="0.000" /><testcase classname="tests.test_panel_specialist_eval" name="test_selection_uses_sample_weighted_mse_and_first_lr_ties" time="0.000" /><testcase classname="tests.test_panel_specialist_eval" name="test_nonfinite_candidates_remain_raw_and_cannot_win" time="0.001" /><testcase classname="tests.test_panel_specialist_eval" name="test_time_blocks_count_only_consumed_masked_samples" time="0.002" /><testcase classname="tests.test_panel_specialist_eval" name="test_null_inherits_real_prefix_locks_and_rejects_mismatched_provenance" time="0.004" /><testcase classname="tests.test_panel_specialist_eval" name="test_artifacts_preserve_failed_values_and_consumed_checkpoint" time="0.013" /><testcase classname="tests.test_panel_specialist_eval" name="test_failed_checkpoint_recovers_device_boundary_not_stale_host_rows" time="0.001" /><testcase classname="tests.test_panel_specialist_eval" name="test_graph_current_label_changes_next_not_current_forecast_and_capture_restores" time="39.218"><failure message="AssertionError: assert tensor(False, device='cuda:0')&#10; +  where tensor(False, device='cuda:0') = &lt;built-in method all of Tensor object at 0x7faf0f415fd0&gt;()&#10; +    where &lt;built-in method all of Tensor object at 0x7faf0f415fd0&gt; = tensor([ True, False, False, False, False,  True, False], device='cuda:0').all&#10; +      where tensor([ True, False, False, False, False,  True, False], device='cuda:0') = &lt;built-in method any of Tensor object at 0x7faf0a637d80&gt;(1)&#10; +        where &lt;built-in method any of Tensor object at 0x7faf0a637d80&gt; = tensor([[ 0.4834,  0.4642,  0.4791],\n        [ 0.3982,  0.3600,  0.3816],\n        [-0.9879, -0.9879, -0.9879],\n       ... 0.0804,  0.0693,  0.0879],\n        [ 0.1095,  0.1056,  0.1203],\n        [ 0.0804,  0.0693,  0.0879]], device='cuda:0') != tensor([[ 0.3141,  0.2581,  0.2859],\n        [ 0.3982,  0.3600,  0.3816],\n        [-0.9879, -0.9879, -0.9879],\n       ... 0.0804,  0.0693,  0.0879],\n        [ 0.0514,  0.0330,  0.0555],\n        [ 0.0804,  0.0693,  0.0879]], device='cuda:0').any">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7faf1c0e9e70&gt;
+
+    @pytest.mark.cuda
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required; queue with mlq")
+    @torch.no_grad()
+    def test_graph_current_label_changes_next_not_current_forecast_and_capture_restores(monkeypatch):
+        runtime.configure_runtime(matmul_precision="highest", allow_tf32=False)
+        bank = TinyBank()
+        configs = tuple(Config(family, 0.01) for family in FAMILIES)
+        target = torch.full((bank.T, bank.N), -1.0, device=bank.dev)
+        valid = torch.ones_like(target, dtype=torch.bool)
+        valid[:, -1] = False
+        target[:, -1] = float("nan")  # Must not enter squared-error sums or gradients.
+        bank.x[-1] = float("nan")
+        model = Learner(bank.F, 8, 1.0, configs, bank.dev, bins=5, num_samples=bank.N)
+        # Parameter budgets are scientific controls, not dense-width assumptions.
+        counts = dict(zip(FAMILIES, model.effective_parameter_counts))
+        assert counts == {
+            "scalar_adam": 113, "scalar_js": 113, "categorical_ce_js": 149,
+            "uniform_moe_js": 68, "constant_moe_js": 72,
+            "state_moe_adam": 84, "state_moe_js": 84,
+        }
+        assert model.allocated_parameter_count == sum(t.numel() for t in model.parameters)
+        runner = panel.Runner(bank, model, target, valid)
+        initial = [tensor.clone() for tensor in runner.mutable]
+        graphs = runner.capture()
+        for actual, expected in zip(runner.mutable, initial):
+            assert torch.equal(actual.reshape(-1).view(torch.uint8), expected.reshape(-1).view(torch.uint8))
+        graphs[1].replay()
+        torch.cuda.synchronize()
+        first = model.prediction.clone()
+        p = first[:, :3].double()
+        expected = torch.stack(((p + 1).square().sum(1), p.square().sum(1), -p.sum(1),
+                                torch.full_like(p[:, 0], 3), torch.full_like(p[:, 0], 3)), dim=1)
+        torch.testing.assert_close(runner.raw[0], expected, rtol=0, atol=0)
+        assert torch.equal(runner.raw[0, :, 4], torch.full((len(FAMILIES),), 3.0, dtype=torch.float64, device=bank.dev))
+        graphs[1].replay()
+        torch.cuda.synchronize()
+        next_original = model.prediction.clone()
+        for actual, expected in zip(runner.mutable, initial):
+            actual.copy_(expected)
+        target[runner.start, :3] = 4.0
+        graphs[1].replay()
+        torch.cuda.synchronize()
+        assert torch.equal(model.prediction, first)
+        graphs[1].replay()
+        torch.cuda.synchronize()
+&gt;       assert (model.prediction[:, :3] != next_original[:, :3]).any(1).all()
+E       AssertionError: assert tensor(False, device='cuda:0')
+E        +  where tensor(False, device='cuda:0') = &lt;built-in method all of Tensor object at 0x7faf0f415fd0&gt;()
+E        +    where &lt;built-in method all of Tensor object at 0x7faf0f415fd0&gt; = tensor([ True, False, False, False, False,  True, False], device='cuda:0').all
+E        +      where tensor([ True, False, False, False, False,  True, False], device='cuda:0') = &lt;built-in method any of Tensor object at 0x7faf0a637d80&gt;(1)
+E        +        where &lt;built-in method any of Tensor object at 0x7faf0a637d80&gt; = tensor([[ 0.4834,  0.4642,  0.4791],\n        [ 0.3982,  0.3600,  0.3816],\n        [-0.9879, -0.9879, -0.9879],\n       ... 0.0804,  0.0693,  0.0879],\n        [ 0.1095,  0.1056,  0.1203],\n        [ 0.0804,  0.0693,  0.0879]], device='cuda:0') != tensor([[ 0.3141,  0.2581,  0.2859],\n        [ 0.3982,  0.3600,  0.3816],\n        [-0.9879, -0.9879, -0.9879],\n       ... 0.0804,  0.0693,  0.0879],\n        [ 0.0514,  0.0330,  0.0555],\n        [ 0.0804,  0.0693,  0.0879]], device='cuda:0').any
+
+tests/test_panel_specialist_eval.py:287: AssertionError</failure></testcase></testsuite></testsuites>

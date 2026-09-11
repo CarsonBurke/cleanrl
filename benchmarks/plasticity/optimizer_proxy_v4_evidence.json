@@ -1,0 +1,3270 @@
+{
+  "status": "development_iteration_complete_with_bandit_capture_failure",
+  "contracts": {
+    "initial_job": 5852,
+    "initial_result": "9 passed,2 failed: independently evolved FP32/FP64 moment coordinates exceeded tolerance",
+    "corrected_job": 5856,
+    "result": "11 passed; same-state local transition oracle, original tolerances unchanged"
+  },
+  "runs": [
+    {
+      "job": 5857,
+      "result_path": "runs/OptimizerProxy__v4_iid_online__1__1788987990216784603/results.json",
+      "scenario": {
+        "name": "iid_online",
+        "objective": "regression",
+        "samples": 65536,
+        "batch_size": 1,
+        "epochs": 1,
+        "drift": false
+      },
+      "source_sha256": {
+        "cleanrl/plasticity/optimizer_proxy_eval_v4.py": "ef630fd937b89960d5a68546d5688a0539c24564a29fd20d52f16db4c5d6d2eb",
+        "cleanrl/plasticity/optimizer_proxy_model_v4.py": "585cbd6dd6a10dd38bbe64e6c485a4b0db83b050f6fd6e1021fd784b977ec63a",
+        "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+        "benchmarks/plasticity/optimizer_proxy_v4_plan.json": "da5919c002efe79092f70563a55363ee9efd04bcf7110e6742eb71e90f3f7070",
+        "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+      },
+      "initial_sha256": [
+        "8a6c601f6f918a296573175dfc0ec166676f07ba9c88810810a7043a240f0500",
+        "a7e0a6720cdbbfb6387ba5c58d65c7ef2489c844e56767e51154874be323f36c",
+        "9c7bf3e1be1ecc446c04f5453a96083d9e0732799d2c4b4cc5756492e1164d67"
+      ],
+      "train_data_sha256": [
+        "165ebd27705d136879612fd9ba87f539f0d6abbc66e7de76a3cc295a3ed4be87",
+        "f88f32615e6f1996c57ca8c139af5ad64a5eb244934a0094e2d7b97b9e1776a7",
+        "1c454b3aaa5a7728bd7a019f50c750d1d560c87f92922f027c4e772f68bf0eea",
+        "28c39505e8a478f6d9b904bc51616cb051a5a5c5acf26d6ca2fd00abb04f5bc4"
+      ],
+      "selections": {
+        "adamw": {
+          "status": "selected",
+          "source_method": "adamw",
+          "index": 102,
+          "config": {
+            "lr": 0.0003,
+            "beta1": 0.99,
+            "beta2": 0.95,
+            "weight_decay": 0
+          },
+          "validation": 1.2332240343093872,
+          "edge_flags": {
+            "lr": false,
+            "beta1": false,
+            "beta2": true,
+            "weight_decay": false
+          },
+          "test_curve": [
+            {
+              "step": 4096,
+              "observed_loss": 1.3721239566802979,
+              "clean_excess_risk": 0.346749484539032,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2434.04150390625,
+                  "cosine": 0.27559560537338257
+                },
+                "moment": {
+                  "relative_squared_error": 6.755087375640869,
+                  "cosine": -0.11277828365564346
+                }
+              }
+            },
+            {
+              "step": 8192,
+              "observed_loss": 1.3390345573425293,
+              "clean_excess_risk": 0.33296263217926025,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 55.81476593017578,
+                  "cosine": 0.012551849707961082
+                },
+                "moment": {
+                  "relative_squared_error": 3.8468191623687744,
+                  "cosine": -0.00320283230394125
+                }
+              }
+            },
+            {
+              "step": 12288,
+              "observed_loss": 1.2798357009887695,
+              "clean_excess_risk": 0.313192754983902,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1267.4644775390625,
+                  "cosine": 0.0160357765853405
+                },
+                "moment": {
+                  "relative_squared_error": 3.2416391372680664,
+                  "cosine": -0.3168472647666931
+                }
+              }
+            },
+            {
+              "step": 16384,
+              "observed_loss": 1.2987343072891235,
+              "clean_excess_risk": 0.2795816659927368,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2406.36572265625,
+                  "cosine": 0.27903634309768677
+                },
+                "moment": {
+                  "relative_squared_error": 6.510444164276123,
+                  "cosine": -0.13890960812568665
+                }
+              }
+            },
+            {
+              "step": 20480,
+              "observed_loss": 1.2636831998825073,
+              "clean_excess_risk": 0.27456244826316833,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 133.41000366210938,
+                  "cosine": -0.1302717626094818
+                },
+                "moment": {
+                  "relative_squared_error": 7.779031276702881,
+                  "cosine": -0.39006173610687256
+                }
+              }
+            },
+            {
+              "step": 24576,
+              "observed_loss": 1.233421802520752,
+              "clean_excess_risk": 0.24681022763252258,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 951.1666259765625,
+                  "cosine": -0.28546667098999023
+                },
+                "moment": {
+                  "relative_squared_error": 6.745720386505127,
+                  "cosine": -0.42436590790748596
+                }
+              }
+            },
+            {
+              "step": 28672,
+              "observed_loss": 1.2355129718780518,
+              "clean_excess_risk": 0.216487318277359,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 37.9997444152832,
+                  "cosine": 0.10967669636011124
+                },
+                "moment": {
+                  "relative_squared_error": 8.137773513793945,
+                  "cosine": 0.04649288207292557
+                }
+              }
+            },
+            {
+              "step": 32768,
+              "observed_loss": 1.2195205688476562,
+              "clean_excess_risk": 0.23337189853191376,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 866.9812622070312,
+                  "cosine": -0.06768230348825455
+                },
+                "moment": {
+                  "relative_squared_error": 2.3826892375946045,
+                  "cosine": 0.43470707535743713
+                }
+              }
+            },
+            {
+              "step": 36864,
+              "observed_loss": 1.2196712493896484,
+              "clean_excess_risk": 0.2018231451511383,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 66.28800964355469,
+                  "cosine": 0.054664403200149536
+                },
+                "moment": {
+                  "relative_squared_error": 4.8245849609375,
+                  "cosine": -0.14828430116176605
+                }
+              }
+            },
+            {
+              "step": 40960,
+              "observed_loss": 1.2000575065612793,
+              "clean_excess_risk": 0.20814260840415955,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 223.41314697265625,
+                  "cosine": -0.026611771434545517
+                },
+                "moment": {
+                  "relative_squared_error": 6.353344917297363,
+                  "cosine": 0.08283451944589615
+                }
+              }
+            },
+            {
+              "step": 45056,
+              "observed_loss": 1.1842068433761597,
+              "clean_excess_risk": 0.19299304485321045,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 766.101318359375,
+                  "cosine": -0.1559278517961502
+                },
+                "moment": {
+                  "relative_squared_error": 3.1063430309295654,
+                  "cosine": 0.07214376330375671
+                }
+              }
+            },
+            {
+              "step": 49152,
+              "observed_loss": 1.213649034500122,
+              "clean_excess_risk": 0.2095072865486145,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 700.6704711914062,
+                  "cosine": 0.40662312507629395
+                },
+                "moment": {
+                  "relative_squared_error": 3.1327602863311768,
+                  "cosine": -0.06022798269987106
+                }
+              }
+            },
+            {
+              "step": 53248,
+              "observed_loss": 1.2163171768188477,
+              "clean_excess_risk": 0.21655750274658203,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 90.48169708251953,
+                  "cosine": 0.07433342188596725
+                },
+                "moment": {
+                  "relative_squared_error": 2.616880416870117,
+                  "cosine": -0.018078727647662163
+                }
+              }
+            },
+            {
+              "step": 57344,
+              "observed_loss": 1.2282524108886719,
+              "clean_excess_risk": 0.20303986966609955,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1138.5107421875,
+                  "cosine": -0.10350392758846283
+                },
+                "moment": {
+                  "relative_squared_error": 3.002284049987793,
+                  "cosine": -0.06388768553733826
+                }
+              }
+            },
+            {
+              "step": 61440,
+              "observed_loss": 1.1964315176010132,
+              "clean_excess_risk": 0.1870291829109192,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 179.5445556640625,
+                  "cosine": 0.05807388946413994
+                },
+                "moment": {
+                  "relative_squared_error": 1.8328888416290283,
+                  "cosine": 0.36416077613830566
+                }
+              }
+            },
+            {
+              "step": 65536,
+              "observed_loss": 1.187670350074768,
+              "clean_excess_risk": 0.18858575820922852,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 285.6806335449219,
+                  "cosine": -0.3611088693141937
+                },
+                "moment": {
+                  "relative_squared_error": 3.3005878925323486,
+                  "cosine": -0.13715198636054993
+                }
+              }
+            }
+          ],
+          "test_sustained_risk": 0.24071230180561543,
+          "test_endpoint_risk": 0.18858575820922852
+        },
+        "adam": {
+          "status": "selected",
+          "source_method": "adamw",
+          "index": 102,
+          "config": {
+            "lr": 0.0003,
+            "beta1": 0.99,
+            "beta2": 0.95,
+            "weight_decay": 0
+          },
+          "validation": 1.2332240343093872,
+          "edge_flags": {
+            "lr": false,
+            "beta1": false,
+            "beta2": true,
+            "weight_decay": false
+          },
+          "test_curve": [
+            {
+              "step": 4096,
+              "observed_loss": 1.3721239566802979,
+              "clean_excess_risk": 0.346749484539032,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2434.04150390625,
+                  "cosine": 0.27559560537338257
+                },
+                "moment": {
+                  "relative_squared_error": 6.755087375640869,
+                  "cosine": -0.11277828365564346
+                }
+              }
+            },
+            {
+              "step": 8192,
+              "observed_loss": 1.3390345573425293,
+              "clean_excess_risk": 0.33296263217926025,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 55.81476593017578,
+                  "cosine": 0.012551849707961082
+                },
+                "moment": {
+                  "relative_squared_error": 3.8468191623687744,
+                  "cosine": -0.00320283230394125
+                }
+              }
+            },
+            {
+              "step": 12288,
+              "observed_loss": 1.2798357009887695,
+              "clean_excess_risk": 0.313192754983902,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1267.4644775390625,
+                  "cosine": 0.0160357765853405
+                },
+                "moment": {
+                  "relative_squared_error": 3.2416391372680664,
+                  "cosine": -0.3168472647666931
+                }
+              }
+            },
+            {
+              "step": 16384,
+              "observed_loss": 1.2987343072891235,
+              "clean_excess_risk": 0.2795816659927368,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2406.36572265625,
+                  "cosine": 0.27903634309768677
+                },
+                "moment": {
+                  "relative_squared_error": 6.510444164276123,
+                  "cosine": -0.13890960812568665
+                }
+              }
+            },
+            {
+              "step": 20480,
+              "observed_loss": 1.2636831998825073,
+              "clean_excess_risk": 0.27456244826316833,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 133.41000366210938,
+                  "cosine": -0.1302717626094818
+                },
+                "moment": {
+                  "relative_squared_error": 7.779031276702881,
+                  "cosine": -0.39006173610687256
+                }
+              }
+            },
+            {
+              "step": 24576,
+              "observed_loss": 1.233421802520752,
+              "clean_excess_risk": 0.24681022763252258,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 951.1666259765625,
+                  "cosine": -0.28546667098999023
+                },
+                "moment": {
+                  "relative_squared_error": 6.745720386505127,
+                  "cosine": -0.42436590790748596
+                }
+              }
+            },
+            {
+              "step": 28672,
+              "observed_loss": 1.2355129718780518,
+              "clean_excess_risk": 0.216487318277359,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 37.9997444152832,
+                  "cosine": 0.10967669636011124
+                },
+                "moment": {
+                  "relative_squared_error": 8.137773513793945,
+                  "cosine": 0.04649288207292557
+                }
+              }
+            },
+            {
+              "step": 32768,
+              "observed_loss": 1.2195205688476562,
+              "clean_excess_risk": 0.23337189853191376,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 866.9812622070312,
+                  "cosine": -0.06768230348825455
+                },
+                "moment": {
+                  "relative_squared_error": 2.3826892375946045,
+                  "cosine": 0.43470707535743713
+                }
+              }
+            },
+            {
+              "step": 36864,
+              "observed_loss": 1.2196712493896484,
+              "clean_excess_risk": 0.2018231451511383,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 66.28800964355469,
+                  "cosine": 0.054664403200149536
+                },
+                "moment": {
+                  "relative_squared_error": 4.8245849609375,
+                  "cosine": -0.14828430116176605
+                }
+              }
+            },
+            {
+              "step": 40960,
+              "observed_loss": 1.2000575065612793,
+              "clean_excess_risk": 0.20814260840415955,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 223.41314697265625,
+                  "cosine": -0.026611771434545517
+                },
+                "moment": {
+                  "relative_squared_error": 6.353344917297363,
+                  "cosine": 0.08283451944589615
+                }
+              }
+            },
+            {
+              "step": 45056,
+              "observed_loss": 1.1842068433761597,
+              "clean_excess_risk": 0.19299304485321045,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 766.101318359375,
+                  "cosine": -0.1559278517961502
+                },
+                "moment": {
+                  "relative_squared_error": 3.1063430309295654,
+                  "cosine": 0.07214376330375671
+                }
+              }
+            },
+            {
+              "step": 49152,
+              "observed_loss": 1.213649034500122,
+              "clean_excess_risk": 0.2095072865486145,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 700.6704711914062,
+                  "cosine": 0.40662312507629395
+                },
+                "moment": {
+                  "relative_squared_error": 3.1327602863311768,
+                  "cosine": -0.06022798269987106
+                }
+              }
+            },
+            {
+              "step": 53248,
+              "observed_loss": 1.2163171768188477,
+              "clean_excess_risk": 0.21655750274658203,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 90.48169708251953,
+                  "cosine": 0.07433342188596725
+                },
+                "moment": {
+                  "relative_squared_error": 2.616880416870117,
+                  "cosine": -0.018078727647662163
+                }
+              }
+            },
+            {
+              "step": 57344,
+              "observed_loss": 1.2282524108886719,
+              "clean_excess_risk": 0.20303986966609955,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1138.5107421875,
+                  "cosine": -0.10350392758846283
+                },
+                "moment": {
+                  "relative_squared_error": 3.002284049987793,
+                  "cosine": -0.06388768553733826
+                }
+              }
+            },
+            {
+              "step": 61440,
+              "observed_loss": 1.1964315176010132,
+              "clean_excess_risk": 0.1870291829109192,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 179.5445556640625,
+                  "cosine": 0.05807388946413994
+                },
+                "moment": {
+                  "relative_squared_error": 1.8328888416290283,
+                  "cosine": 0.36416077613830566
+                }
+              }
+            },
+            {
+              "step": 65536,
+              "observed_loss": 1.187670350074768,
+              "clean_excess_risk": 0.18858575820922852,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 285.6806335449219,
+                  "cosine": -0.3611088693141937
+                },
+                "moment": {
+                  "relative_squared_error": 3.3005878925323486,
+                  "cosine": -0.13715198636054993
+                }
+              }
+            }
+          ],
+          "test_sustained_risk": 0.24071230180561543,
+          "test_endpoint_risk": 0.18858575820922852
+        },
+        "predictive": {
+          "status": "selected",
+          "source_method": "predictive",
+          "index": 160,
+          "config": {
+            "lr": 0.001,
+            "beta1": 0.9999,
+            "beta2": 0.999,
+            "weight_decay": 0.01
+          },
+          "validation": 1.1606357097625732,
+          "edge_flags": {
+            "lr": false,
+            "beta1": false,
+            "beta2": true,
+            "weight_decay": false
+          },
+          "test_curve": [
+            {
+              "step": 4096,
+              "observed_loss": 1.3449783325195312,
+              "clean_excess_risk": 0.3136737644672394,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 10004.716796875,
+                  "cosine": 0.022893022745847702
+                },
+                "moment": {
+                  "relative_squared_error": 1.1003395318984985,
+                  "cosine": 0.14973224699497223
+                }
+              }
+            },
+            {
+              "step": 8192,
+              "observed_loss": 1.2630410194396973,
+              "clean_excess_risk": 0.2619639039039612,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 819.6543579101562,
+                  "cosine": 0.15904536843299866
+                },
+                "moment": {
+                  "relative_squared_error": 0.8742786645889282,
+                  "cosine": 0.36292964220046997
+                }
+              }
+            },
+            {
+              "step": 12288,
+              "observed_loss": 1.2066609859466553,
+              "clean_excess_risk": 0.24068886041641235,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 5109.57958984375,
+                  "cosine": -0.006543740630149841
+                },
+                "moment": {
+                  "relative_squared_error": 0.8830065131187439,
+                  "cosine": 0.3778519928455353
+                }
+              }
+            },
+            {
+              "step": 16384,
+              "observed_loss": 1.2298240661621094,
+              "clean_excess_risk": 0.21123217046260834,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 18281.787109375,
+                  "cosine": -0.15969836711883545
+                },
+                "moment": {
+                  "relative_squared_error": 0.860427737236023,
+                  "cosine": 0.39013591408729553
+                }
+              }
+            },
+            {
+              "step": 20480,
+              "observed_loss": 1.1897823810577393,
+              "clean_excess_risk": 0.19532589614391327,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 11676.6826171875,
+                  "cosine": -0.08464495092630386
+                },
+                "moment": {
+                  "relative_squared_error": 0.9673524498939514,
+                  "cosine": 0.229689359664917
+                }
+              }
+            },
+            {
+              "step": 24576,
+              "observed_loss": 1.1623804569244385,
+              "clean_excess_risk": 0.18273434042930603,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 10952.576171875,
+                  "cosine": -0.044429827481508255
+                },
+                "moment": {
+                  "relative_squared_error": 0.9372597932815552,
+                  "cosine": 0.25762566924095154
+                }
+              }
+            },
+            {
+              "step": 28672,
+              "observed_loss": 1.1819844245910645,
+              "clean_excess_risk": 0.1620366871356964,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 213.3404083251953,
+                  "cosine": 0.031914278864860535
+                },
+                "moment": {
+                  "relative_squared_error": 0.994459867477417,
+                  "cosine": 0.189115509390831
+                }
+              }
+            },
+            {
+              "step": 32768,
+              "observed_loss": 1.152246356010437,
+              "clean_excess_risk": 0.16102063655853271,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 18368.865234375,
+                  "cosine": -0.09920908510684967
+                },
+                "moment": {
+                  "relative_squared_error": 0.9255540370941162,
+                  "cosine": 0.27284830808639526
+                }
+              }
+            },
+            {
+              "step": 36864,
+              "observed_loss": 1.1592345237731934,
+              "clean_excess_risk": 0.14655709266662598,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1.0644079446792603,
+                  "cosine": 0.06070384010672569
+                },
+                "moment": {
+                  "relative_squared_error": 0.9979067444801331,
+                  "cosine": 0.14395004510879517
+                }
+              }
+            },
+            {
+              "step": 40960,
+              "observed_loss": 1.1383169889450073,
+              "clean_excess_risk": 0.14316026866436005,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 837.8057250976562,
+                  "cosine": 0.11945488303899765
+                },
+                "moment": {
+                  "relative_squared_error": 0.9803147912025452,
+                  "cosine": 0.15950225293636322
+                }
+              }
+            },
+            {
+              "step": 45056,
+              "observed_loss": 1.1295783519744873,
+              "clean_excess_risk": 0.13648702204227448,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 13663.2001953125,
+                  "cosine": 0.1605016440153122
+                },
+                "moment": {
+                  "relative_squared_error": 0.9624878764152527,
+                  "cosine": 0.1958284229040146
+                }
+              }
+            },
+            {
+              "step": 49152,
+              "observed_loss": 1.1517384052276611,
+              "clean_excess_risk": 0.1395748257637024,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 5257.78173828125,
+                  "cosine": 0.3069748878479004
+                },
+                "moment": {
+                  "relative_squared_error": 1.0191593170166016,
+                  "cosine": 0.034010905772447586
+                }
+              }
+            },
+            {
+              "step": 53248,
+              "observed_loss": 1.1209055185317993,
+              "clean_excess_risk": 0.12860015034675598,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2887.31396484375,
+                  "cosine": -0.1912057250738144
+                },
+                "moment": {
+                  "relative_squared_error": 1.0444186925888062,
+                  "cosine": -0.004577624145895243
+                }
+              }
+            },
+            {
+              "step": 57344,
+              "observed_loss": 1.1357395648956299,
+              "clean_excess_risk": 0.12338477373123169,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 27928.58984375,
+                  "cosine": -0.058907393366098404
+                },
+                "moment": {
+                  "relative_squared_error": 0.9731277823448181,
+                  "cosine": 0.16852658987045288
+                }
+              }
+            },
+            {
+              "step": 61440,
+              "observed_loss": 1.1304138898849487,
+              "clean_excess_risk": 0.12009970843791962,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1130.2880859375,
+                  "cosine": -0.1315106451511383
+                },
+                "moment": {
+                  "relative_squared_error": 1.0223963260650635,
+                  "cosine": 0.06695018708705902
+                }
+              }
+            },
+            {
+              "step": 65536,
+              "observed_loss": 1.1120357513427734,
+              "clean_excess_risk": 0.12048564851284027,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 6026.3466796875,
+                  "cosine": -0.01173770148307085
+                },
+                "moment": {
+                  "relative_squared_error": 0.9805985689163208,
+                  "cosine": 0.15441134572029114
+                }
+              }
+            }
+          ],
+          "test_sustained_risk": 0.17418910935521126,
+          "test_endpoint_risk": 0.12048564851284027
+        },
+        "full": {
+          "status": "selected",
+          "source_method": "full",
+          "index": 160,
+          "config": {
+            "lr": 0.001,
+            "beta1": 0.9999,
+            "beta2": 0.999,
+            "weight_decay": 0.01
+          },
+          "validation": 1.1494030952453613,
+          "edge_flags": {
+            "lr": false,
+            "beta1": false,
+            "beta2": true,
+            "weight_decay": false
+          },
+          "test_curve": [
+            {
+              "step": 4096,
+              "observed_loss": 1.3238921165466309,
+              "clean_excess_risk": 0.2920092046260834,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 8960.4287109375,
+                  "cosine": 0.13524407148361206
+                },
+                "moment": {
+                  "relative_squared_error": 1.1513361930847168,
+                  "cosine": 0.12913426756858826
+                }
+              }
+            },
+            {
+              "step": 8192,
+              "observed_loss": 1.2458646297454834,
+              "clean_excess_risk": 0.23903028666973114,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 8.215853691101074,
+                  "cosine": -0.1008889451622963
+                },
+                "moment": {
+                  "relative_squared_error": 1.1240050792694092,
+                  "cosine": 0.186374694108963
+                }
+              }
+            },
+            {
+              "step": 12288,
+              "observed_loss": 1.1815096139907837,
+              "clean_excess_risk": 0.22003807127475739,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9775.3486328125,
+                  "cosine": -0.0814630463719368
+                },
+                "moment": {
+                  "relative_squared_error": 0.9404623508453369,
+                  "cosine": 0.26192548871040344
+                }
+              }
+            },
+            {
+              "step": 16384,
+              "observed_loss": 1.2035605907440186,
+              "clean_excess_risk": 0.19080787897109985,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 19179.302734375,
+                  "cosine": -0.020688725635409355
+                },
+                "moment": {
+                  "relative_squared_error": 1.0254660844802856,
+                  "cosine": 0.19380773603916168
+                }
+              }
+            },
+            {
+              "step": 20480,
+              "observed_loss": 1.1800295114517212,
+              "clean_excess_risk": 0.181634783744812,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 5111.04443359375,
+                  "cosine": -0.04767812415957451
+                },
+                "moment": {
+                  "relative_squared_error": 1.1044716835021973,
+                  "cosine": 0.13686136901378632
+                }
+              }
+            },
+            {
+              "step": 24576,
+              "observed_loss": 1.1593888998031616,
+              "clean_excess_risk": 0.16729703545570374,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 14719.3056640625,
+                  "cosine": -0.16986437141895294
+                },
+                "moment": {
+                  "relative_squared_error": 1.2034438848495483,
+                  "cosine": 0.07468049228191376
+                }
+              }
+            },
+            {
+              "step": 28672,
+              "observed_loss": 1.1706421375274658,
+              "clean_excess_risk": 0.1543698012828827,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1247.6072998046875,
+                  "cosine": -0.014401392079889774
+                },
+                "moment": {
+                  "relative_squared_error": 1.214678168296814,
+                  "cosine": 0.02021554671227932
+                }
+              }
+            },
+            {
+              "step": 32768,
+              "observed_loss": 1.1451923847198486,
+              "clean_excess_risk": 0.15019583702087402,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 12129.3427734375,
+                  "cosine": -0.023486843332648277
+                },
+                "moment": {
+                  "relative_squared_error": 1.0006163120269775,
+                  "cosine": 0.1963905394077301
+                }
+              }
+            },
+            {
+              "step": 36864,
+              "observed_loss": 1.1458556652069092,
+              "clean_excess_risk": 0.1407325118780136,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 449.9295349121094,
+                  "cosine": -0.050867822021245956
+                },
+                "moment": {
+                  "relative_squared_error": 1.1946051120758057,
+                  "cosine": 0.03187447786331177
+                }
+              }
+            },
+            {
+              "step": 40960,
+              "observed_loss": 1.1362667083740234,
+              "clean_excess_risk": 0.138796865940094,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1759.59912109375,
+                  "cosine": 0.10112284123897552
+                },
+                "moment": {
+                  "relative_squared_error": 1.1215554475784302,
+                  "cosine": 0.018564961850643158
+                }
+              }
+            },
+            {
+              "step": 45056,
+              "observed_loss": 1.1267201900482178,
+              "clean_excess_risk": 0.13096466660499573,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 12582.380859375,
+                  "cosine": 0.17072591185569763
+                },
+                "moment": {
+                  "relative_squared_error": 1.0746463537216187,
+                  "cosine": 0.013289564289152622
+                }
+              }
+            },
+            {
+              "step": 49152,
+              "observed_loss": 1.143749475479126,
+              "clean_excess_risk": 0.1348128318786621,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 7260.96435546875,
+                  "cosine": 0.26464229822158813
+                },
+                "moment": {
+                  "relative_squared_error": 1.0972298383712769,
+                  "cosine": -0.03197498992085457
+                }
+              }
+            },
+            {
+              "step": 53248,
+              "observed_loss": 1.133974313735962,
+              "clean_excess_risk": 0.1337553858757019,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9173.9072265625,
+                  "cosine": -0.2043251246213913
+                },
+                "moment": {
+                  "relative_squared_error": 1.1369388103485107,
+                  "cosine": -0.08163830637931824
+                }
+              }
+            },
+            {
+              "step": 57344,
+              "observed_loss": 1.1417855024337769,
+              "clean_excess_risk": 0.13007166981697083,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 24634.845703125,
+                  "cosine": -0.05423092842102051
+                },
+                "moment": {
+                  "relative_squared_error": 1.035876750946045,
+                  "cosine": 0.09323637932538986
+                }
+              }
+            },
+            {
+              "step": 61440,
+              "observed_loss": 1.129774570465088,
+              "clean_excess_risk": 0.1271219253540039,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 582.9407348632812,
+                  "cosine": -0.18591532111167908
+                },
+                "moment": {
+                  "relative_squared_error": 1.120101809501648,
+                  "cosine": -0.0032373443245887756
+                }
+              }
+            },
+            {
+              "step": 65536,
+              "observed_loss": 1.123185396194458,
+              "clean_excess_risk": 0.12718456983566284,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4039.609375,
+                  "cosine": 0.05984354019165039
+                },
+                "moment": {
+                  "relative_squared_error": 1.0472198724746704,
+                  "cosine": 0.08033747225999832
+                }
+              }
+            }
+          ],
+          "test_sustained_risk": 0.16617645788937807,
+          "test_endpoint_risk": 0.12718456983566284
+        },
+        "mars_01": {
+          "status": "selected",
+          "source_method": "mars_01",
+          "index": 160,
+          "config": {
+            "lr": 0.001,
+            "beta1": 0.9999,
+            "beta2": 0.999,
+            "weight_decay": 0.01
+          },
+          "validation": 1.1938196420669556,
+          "edge_flags": {
+            "lr": false,
+            "beta1": false,
+            "beta2": true,
+            "weight_decay": false
+          },
+          "test_curve": [
+            {
+              "step": 4096,
+              "observed_loss": 1.3871142864227295,
+              "clean_excess_risk": 0.3538580536842346,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2975.01611328125,
+                  "cosine": 0.01922406256198883
+                },
+                "moment": {
+                  "relative_squared_error": 1.0174427032470703,
+                  "cosine": 0.16992542147636414
+                }
+              }
+            },
+            {
+              "step": 8192,
+              "observed_loss": 1.292795181274414,
+              "clean_excess_risk": 0.2867167592048645,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 438.9249267578125,
+                  "cosine": 0.10134103149175644
+                },
+                "moment": {
+                  "relative_squared_error": 1.0089937448501587,
+                  "cosine": 0.16672612726688385
+                }
+              }
+            },
+            {
+              "step": 12288,
+              "observed_loss": 1.2284486293792725,
+              "clean_excess_risk": 0.2639082670211792,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2163.82958984375,
+                  "cosine": 0.09823966771364212
+                },
+                "moment": {
+                  "relative_squared_error": 0.8880603909492493,
+                  "cosine": 0.37733376026153564
+                }
+              }
+            },
+            {
+              "step": 16384,
+              "observed_loss": 1.2455778121948242,
+              "clean_excess_risk": 0.23566624522209167,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 5059.52490234375,
+                  "cosine": -0.21906647086143494
+                },
+                "moment": {
+                  "relative_squared_error": 1.0079660415649414,
+                  "cosine": 0.11539658159017563
+                }
+              }
+            },
+            {
+              "step": 20480,
+              "observed_loss": 1.215275764465332,
+              "clean_excess_risk": 0.2209937572479248,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1940.589599609375,
+                  "cosine": 0.1475403904914856
+                },
+                "moment": {
+                  "relative_squared_error": 1.093074917793274,
+                  "cosine": -0.17961761355400085
+                }
+              }
+            },
+            {
+              "step": 24576,
+              "observed_loss": 1.1953389644622803,
+              "clean_excess_risk": 0.21088752150535583,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 3089.05517578125,
+                  "cosine": -0.17649497091770172
+                },
+                "moment": {
+                  "relative_squared_error": 1.0155764818191528,
+                  "cosine": 0.05197872221469879
+                }
+              }
+            },
+            {
+              "step": 28672,
+              "observed_loss": 1.2121450901031494,
+              "clean_excess_risk": 0.1900731921195984,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 158.02459716796875,
+                  "cosine": 0.1434805989265442
+                },
+                "moment": {
+                  "relative_squared_error": 1.0617570877075195,
+                  "cosine": -0.03179740160703659
+                }
+              }
+            },
+            {
+              "step": 32768,
+              "observed_loss": 1.192445993423462,
+              "clean_excess_risk": 0.19460521638393402,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 5150.60498046875,
+                  "cosine": 0.1597076952457428
+                },
+                "moment": {
+                  "relative_squared_error": 0.9973179697990417,
+                  "cosine": 0.08161262422800064
+                }
+              }
+            },
+            {
+              "step": 36864,
+              "observed_loss": 1.1917178630828857,
+              "clean_excess_risk": 0.17568109929561615,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 25.894611358642578,
+                  "cosine": 0.1367105394601822
+                },
+                "moment": {
+                  "relative_squared_error": 0.9909538626670837,
+                  "cosine": 0.11776770651340485
+                }
+              }
+            },
+            {
+              "step": 40960,
+              "observed_loss": 1.1659599542617798,
+              "clean_excess_risk": 0.17367160320281982,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 826.0259399414062,
+                  "cosine": 0.20844309031963348
+                },
+                "moment": {
+                  "relative_squared_error": 1.0036903619766235,
+                  "cosine": 0.08479896932840347
+                }
+              }
+            },
+            {
+              "step": 45056,
+              "observed_loss": 1.1569738388061523,
+              "clean_excess_risk": 0.16863131523132324,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 5467.31591796875,
+                  "cosine": -0.1949608474969864
+                },
+                "moment": {
+                  "relative_squared_error": 0.9530012607574463,
+                  "cosine": 0.23451673984527588
+                }
+              }
+            },
+            {
+              "step": 49152,
+              "observed_loss": 1.1896259784698486,
+              "clean_excess_risk": 0.17359349131584167,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2037.7437744140625,
+                  "cosine": 0.028965990990400314
+                },
+                "moment": {
+                  "relative_squared_error": 1.0274133682250977,
+                  "cosine": -0.021118445321917534
+                }
+              }
+            },
+            {
+              "step": 53248,
+              "observed_loss": 1.1588126420974731,
+              "clean_excess_risk": 0.1607312560081482,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 197.5944366455078,
+                  "cosine": -0.08339051902294159
+                },
+                "moment": {
+                  "relative_squared_error": 1.0780913829803467,
+                  "cosine": -0.12864084541797638
+                }
+              }
+            },
+            {
+              "step": 57344,
+              "observed_loss": 1.1660901308059692,
+              "clean_excess_risk": 0.15954700112342834,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 5882.7998046875,
+                  "cosine": -0.0694161131978035
+                },
+                "moment": {
+                  "relative_squared_error": 1.0134869813919067,
+                  "cosine": 0.019412295892834663
+                }
+              }
+            },
+            {
+              "step": 61440,
+              "observed_loss": 1.1529130935668945,
+              "clean_excess_risk": 0.14564494788646698,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1281.82421875,
+                  "cosine": -0.08767280727624893
+                },
+                "moment": {
+                  "relative_squared_error": 0.9915688037872314,
+                  "cosine": 0.15500588715076447
+                }
+              }
+            },
+            {
+              "step": 65536,
+              "observed_loss": 1.1490269899368286,
+              "clean_excess_risk": 0.15258678793907166,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1233.678955078125,
+                  "cosine": -0.05598161369562149
+                },
+                "moment": {
+                  "relative_squared_error": 1.0313953161239624,
+                  "cosine": -0.037559278309345245
+                }
+              }
+            }
+          ],
+          "test_sustained_risk": 0.2041747821494937,
+          "test_endpoint_risk": 0.15258678793907166
+        },
+        "mars_1": {
+          "status": "selected",
+          "source_method": "mars_1",
+          "index": 157,
+          "config": {
+            "lr": 0.001,
+            "beta1": 0.9999,
+            "beta2": 0.95,
+            "weight_decay": 0.01
+          },
+          "validation": 1.1444158554077148,
+          "edge_flags": {
+            "lr": false,
+            "beta1": false,
+            "beta2": true,
+            "weight_decay": false
+          },
+          "test_curve": [
+            {
+              "step": 4096,
+              "observed_loss": 1.326286792755127,
+              "clean_excess_risk": 0.2925344705581665,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9684.056640625,
+                  "cosine": 0.12235701084136963
+                },
+                "moment": {
+                  "relative_squared_error": 1.1407601833343506,
+                  "cosine": 0.16584067046642303
+                }
+              }
+            },
+            {
+              "step": 8192,
+              "observed_loss": 1.2398772239685059,
+              "clean_excess_risk": 0.23963113129138947,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 5.532147407531738,
+                  "cosine": 0.15655472874641418
+                },
+                "moment": {
+                  "relative_squared_error": 1.0501497983932495,
+                  "cosine": 0.22477151453495026
+                }
+              }
+            },
+            {
+              "step": 12288,
+              "observed_loss": 1.1790231466293335,
+              "clean_excess_risk": 0.2213190495967865,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 10203.7705078125,
+                  "cosine": -0.1098255142569542
+                },
+                "moment": {
+                  "relative_squared_error": 0.9173445701599121,
+                  "cosine": 0.29186904430389404
+                }
+              }
+            },
+            {
+              "step": 16384,
+              "observed_loss": 1.202854871749878,
+              "clean_excess_risk": 0.1886029839515686,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 15922.1240234375,
+                  "cosine": -0.03799540922045708
+                },
+                "moment": {
+                  "relative_squared_error": 0.990509569644928,
+                  "cosine": 0.20779982209205627
+                }
+              }
+            },
+            {
+              "step": 20480,
+              "observed_loss": 1.1697158813476562,
+              "clean_excess_risk": 0.1754976212978363,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 7061.9208984375,
+                  "cosine": -0.025032084435224533
+                },
+                "moment": {
+                  "relative_squared_error": 1.1130199432373047,
+                  "cosine": 0.1298220008611679
+                }
+              }
+            },
+            {
+              "step": 24576,
+              "observed_loss": 1.1518540382385254,
+              "clean_excess_risk": 0.1629139631986618,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 17574.361328125,
+                  "cosine": -0.025277582928538322
+                },
+                "moment": {
+                  "relative_squared_error": 1.0607460737228394,
+                  "cosine": 0.16815461218357086
+                }
+              }
+            },
+            {
+              "step": 28672,
+              "observed_loss": 1.169140338897705,
+              "clean_excess_risk": 0.1460295468568802,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1311.158203125,
+                  "cosine": 0.050080422312021255
+                },
+                "moment": {
+                  "relative_squared_error": 1.183709740638733,
+                  "cosine": 0.06776398420333862
+                }
+              }
+            },
+            {
+              "step": 32768,
+              "observed_loss": 1.131265640258789,
+              "clean_excess_risk": 0.14031392335891724,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 14911.6552734375,
+                  "cosine": -0.07485100626945496
+                },
+                "moment": {
+                  "relative_squared_error": 0.9538683891296387,
+                  "cosine": 0.24748653173446655
+                }
+              }
+            },
+            {
+              "step": 36864,
+              "observed_loss": 1.1336488723754883,
+              "clean_excess_risk": 0.12916980683803558,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 225.70687866210938,
+                  "cosine": -0.1160174310207367
+                },
+                "moment": {
+                  "relative_squared_error": 1.1255725622177124,
+                  "cosine": 0.06675803661346436
+                }
+              }
+            },
+            {
+              "step": 40960,
+              "observed_loss": 1.1226096153259277,
+              "clean_excess_risk": 0.12515917420387268,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2694.51318359375,
+                  "cosine": 0.04704991355538368
+                },
+                "moment": {
+                  "relative_squared_error": 1.0697134733200073,
+                  "cosine": 0.10049622505903244
+                }
+              }
+            },
+            {
+              "step": 45056,
+              "observed_loss": 1.1180899143218994,
+              "clean_excess_risk": 0.12268736958503723,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 19989.15234375,
+                  "cosine": 0.24348634481430054
+                },
+                "moment": {
+                  "relative_squared_error": 1.0118916034698486,
+                  "cosine": 0.11505825072526932
+                }
+              }
+            },
+            {
+              "step": 49152,
+              "observed_loss": 1.1335780620574951,
+              "clean_excess_risk": 0.12518134713172913,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 6879.47998046875,
+                  "cosine": 0.2364678978919983
+                },
+                "moment": {
+                  "relative_squared_error": 1.0533281564712524,
+                  "cosine": 0.02350667305290699
+                }
+              }
+            },
+            {
+              "step": 53248,
+              "observed_loss": 1.117598056793213,
+              "clean_excess_risk": 0.12053178250789642,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 5274.2109375,
+                  "cosine": -0.2530287206172943
+                },
+                "moment": {
+                  "relative_squared_error": 1.0964853763580322,
+                  "cosine": -0.04109232872724533
+                }
+              }
+            },
+            {
+              "step": 57344,
+              "observed_loss": 1.1277334690093994,
+              "clean_excess_risk": 0.11797279119491577,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 23248.248046875,
+                  "cosine": -0.008144276216626167
+                },
+                "moment": {
+                  "relative_squared_error": 1.027019739151001,
+                  "cosine": 0.08213109523057938
+                }
+              }
+            },
+            {
+              "step": 61440,
+              "observed_loss": 1.1191890239715576,
+              "clean_excess_risk": 0.11424657702445984,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1049.5264892578125,
+                  "cosine": -0.059933096170425415
+                },
+                "moment": {
+                  "relative_squared_error": 1.0817492008209229,
+                  "cosine": 0.011429115198552608
+                }
+              }
+            },
+            {
+              "step": 65536,
+              "observed_loss": 1.1134889125823975,
+              "clean_excess_risk": 0.11355121433734894,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4572.40283203125,
+                  "cosine": -0.010468687862157822
+                },
+                "moment": {
+                  "relative_squared_error": 1.0332883596420288,
+                  "cosine": 0.07313363254070282
+                }
+              }
+            }
+          ],
+          "test_sustained_risk": 0.1584589220583439,
+          "test_endpoint_risk": 0.11355121433734894
+        }
+      },
+      "timing": {
+        "adamw": {
+          "startup_seconds": 2.7577736849998473,
+          "training_seconds": 9.315977102000033
+        },
+        "predictive": {
+          "startup_seconds": 1.6716481080002268,
+          "training_seconds": 10.306838950999918
+        },
+        "full": {
+          "startup_seconds": 2.536171247999846,
+          "training_seconds": 10.599478696000006
+        },
+        "mars_01": {
+          "startup_seconds": 2.30044082600034,
+          "training_seconds": 10.661821942000643
+        },
+        "mars_1": {
+          "startup_seconds": 1.6303014519999124,
+          "training_seconds": 10.67558109499987
+        }
+      }
+    },
+    {
+      "job": 5858,
+      "result_path": "runs/OptimizerProxy__v4_drifting_reuse__1__1788988056358849713/results.json",
+      "scenario": {
+        "name": "drifting_reuse",
+        "objective": "regression",
+        "samples": 65536,
+        "batch_size": 64,
+        "epochs": 8,
+        "drift": true
+      },
+      "source_sha256": {
+        "cleanrl/plasticity/optimizer_proxy_eval_v4.py": "ef630fd937b89960d5a68546d5688a0539c24564a29fd20d52f16db4c5d6d2eb",
+        "cleanrl/plasticity/optimizer_proxy_model_v4.py": "585cbd6dd6a10dd38bbe64e6c485a4b0db83b050f6fd6e1021fd784b977ec63a",
+        "cleanrl/plasticity/network_bayes_stream_v2.py": "74196b76a59b1e4b69bea7eedbbea6f3324af768ee931f5908e0afd56a1ebff8",
+        "benchmarks/plasticity/optimizer_proxy_v4_plan.json": "da5919c002efe79092f70563a55363ee9efd04bcf7110e6742eb71e90f3f7070",
+        "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+      },
+      "initial_sha256": [
+        "8a6c601f6f918a296573175dfc0ec166676f07ba9c88810810a7043a240f0500",
+        "a7e0a6720cdbbfb6387ba5c58d65c7ef2489c844e56767e51154874be323f36c",
+        "9c7bf3e1be1ecc446c04f5453a96083d9e0732799d2c4b4cc5756492e1164d67"
+      ],
+      "train_data_sha256": [
+        "922e90ef94154d12e7cf9229c3bb79bdbe5f6d66e9e035b9691217a1e814a035",
+        "31e71bda9a645c23195127dc0ee59db0222cc1a1489c35a2dee8ddb8ab2fdc61",
+        "1c454b3aaa5a7728bd7a019f50c750d1d560c87f92922f027c4e772f68bf0eea",
+        "28c39505e8a478f6d9b904bc51616cb051a5a5c5acf26d6ca2fd00abb04f5bc4"
+      ],
+      "selections": {
+        "adamw": {
+          "status": "selected",
+          "source_method": "adamw",
+          "index": 98,
+          "config": {
+            "lr": 0.0003,
+            "beta1": 0.9,
+            "beta2": 0.95,
+            "weight_decay": 0.1
+          },
+          "validation": 1.2989188432693481,
+          "edge_flags": {
+            "lr": false,
+            "beta1": false,
+            "beta2": true,
+            "weight_decay": true
+          },
+          "test_curve": [
+            {
+              "step": 4096,
+              "observed_loss": 1.237605094909668,
+              "clean_excess_risk": 0.2098597288131714,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 10.32159423828125,
+                  "cosine": 0.24052028357982635
+                },
+                "moment": {
+                  "relative_squared_error": 3.797299385070801,
+                  "cosine": 0.16714124381542206
+                }
+              }
+            },
+            {
+              "step": 8192,
+              "observed_loss": 1.3005452156066895,
+              "clean_excess_risk": 0.303356796503067,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 17.28512954711914,
+                  "cosine": -0.07693500816822052
+                },
+                "moment": {
+                  "relative_squared_error": 8.794591903686523,
+                  "cosine": 0.040210675448179245
+                }
+              }
+            },
+            {
+              "step": 12288,
+              "observed_loss": 1.1472285985946655,
+              "clean_excess_risk": 0.1810646653175354,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.545892715454102,
+                  "cosine": -0.1106940507888794
+                },
+                "moment": {
+                  "relative_squared_error": 4.4419450759887695,
+                  "cosine": 0.025175921618938446
+                }
+              }
+            },
+            {
+              "step": 16384,
+              "observed_loss": 1.3669383525848389,
+              "clean_excess_risk": 0.3580622375011444,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.47713565826416,
+                  "cosine": 0.06720243394374847
+                },
+                "moment": {
+                  "relative_squared_error": 4.504860877990723,
+                  "cosine": -0.09981384873390198
+                }
+              }
+            },
+            {
+              "step": 20480,
+              "observed_loss": 1.2054929733276367,
+              "clean_excess_risk": 0.19138044118881226,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 12.899869918823242,
+                  "cosine": -0.18186241388320923
+                },
+                "moment": {
+                  "relative_squared_error": 6.671666145324707,
+                  "cosine": -0.04231743887066841
+                }
+              }
+            },
+            {
+              "step": 24576,
+              "observed_loss": 1.332409143447876,
+              "clean_excess_risk": 0.35697805881500244,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.176560401916504,
+                  "cosine": 0.37555646896362305
+                },
+                "moment": {
+                  "relative_squared_error": 6.112548351287842,
+                  "cosine": 0.16374661028385162
+                }
+              }
+            },
+            {
+              "step": 28672,
+              "observed_loss": 1.2234950065612793,
+              "clean_excess_risk": 0.20910167694091797,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.173376560211182,
+                  "cosine": -0.17082631587982178
+                },
+                "moment": {
+                  "relative_squared_error": 2.477073907852173,
+                  "cosine": -0.19028162956237793
+                }
+              }
+            },
+            {
+              "step": 32768,
+              "observed_loss": 1.4020854234695435,
+              "clean_excess_risk": 0.39615491032600403,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2.7279534339904785,
+                  "cosine": 0.37520065903663635
+                },
+                "moment": {
+                  "relative_squared_error": 1.2621104717254639,
+                  "cosine": 0.46495258808135986
+                }
+              }
+            },
+            {
+              "step": 36864,
+              "observed_loss": 1.2667421102523804,
+              "clean_excess_risk": 0.2558255195617676,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2.3635826110839844,
+                  "cosine": 0.1676507294178009
+                },
+                "moment": {
+                  "relative_squared_error": 2.778151035308838,
+                  "cosine": -0.4290027320384979
+                }
+              }
+            },
+            {
+              "step": 40960,
+              "observed_loss": 1.4394179582595825,
+              "clean_excess_risk": 0.4397050440311432,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 8.484796524047852,
+                  "cosine": -0.12423170357942581
+                },
+                "moment": {
+                  "relative_squared_error": 6.4735541343688965,
+                  "cosine": -0.1087503507733345
+                }
+              }
+            },
+            {
+              "step": 45056,
+              "observed_loss": 1.2027614116668701,
+              "clean_excess_risk": 0.19670617580413818,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 24.261953353881836,
+                  "cosine": -0.12818345427513123
+                },
+                "moment": {
+                  "relative_squared_error": 10.237531661987305,
+                  "cosine": 0.013160091824829578
+                }
+              }
+            },
+            {
+              "step": 49152,
+              "observed_loss": 1.3507589101791382,
+              "clean_excess_risk": 0.3706604838371277,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.153739929199219,
+                  "cosine": -0.10154706984758377
+                },
+                "moment": {
+                  "relative_squared_error": 3.0710391998291016,
+                  "cosine": -0.3591790199279785
+                }
+              }
+            },
+            {
+              "step": 53248,
+              "observed_loss": 1.2368662357330322,
+              "clean_excess_risk": 0.25862184166908264,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 7.17055082321167,
+                  "cosine": -0.23148925602436066
+                },
+                "moment": {
+                  "relative_squared_error": 4.02685022354126,
+                  "cosine": -0.28262829780578613
+                }
+              }
+            },
+            {
+              "step": 57344,
+              "observed_loss": 1.4779324531555176,
+              "clean_excess_risk": 0.4691169261932373,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 3.716510057449341,
+                  "cosine": 0.1636010706424713
+                },
+                "moment": {
+                  "relative_squared_error": 2.790940523147583,
+                  "cosine": -0.07492725551128387
+                }
+              }
+            },
+            {
+              "step": 61440,
+              "observed_loss": 1.223287582397461,
+              "clean_excess_risk": 0.21244089305400848,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.838976860046387,
+                  "cosine": 0.08322098106145859
+                },
+                "moment": {
+                  "relative_squared_error": 3.8753867149353027,
+                  "cosine": 0.055383406579494476
+                }
+              }
+            },
+            {
+              "step": 65536,
+              "observed_loss": 1.4543278217315674,
+              "clean_excess_risk": 0.4726356863975525,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.99260139465332,
+                  "cosine": 0.09526962041854858
+                },
+                "moment": {
+                  "relative_squared_error": 2.1736576557159424,
+                  "cosine": 0.03157372400164604
+                }
+              }
+            }
+          ],
+          "test_sustained_risk": 0.30510444287210703,
+          "test_endpoint_risk": 0.4726356863975525
+        },
+        "adam": {
+          "status": "selected",
+          "source_method": "adamw",
+          "index": 96,
+          "config": {
+            "lr": 0.0003,
+            "beta1": 0.9,
+            "beta2": 0.95,
+            "weight_decay": 0
+          },
+          "validation": 1.2998946905136108,
+          "edge_flags": {
+            "lr": false,
+            "beta1": false,
+            "beta2": true,
+            "weight_decay": false
+          },
+          "test_curve": [
+            {
+              "step": 4096,
+              "observed_loss": 1.2389758825302124,
+              "clean_excess_risk": 0.21128329634666443,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 10.331498146057129,
+                  "cosine": 0.24424883723258972
+                },
+                "moment": {
+                  "relative_squared_error": 3.789120674133301,
+                  "cosine": 0.17602507770061493
+                }
+              }
+            },
+            {
+              "step": 8192,
+              "observed_loss": 1.3011870384216309,
+              "clean_excess_risk": 0.30407285690307617,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 17.64469337463379,
+                  "cosine": -0.08501368761062622
+                },
+                "moment": {
+                  "relative_squared_error": 8.899585723876953,
+                  "cosine": 0.029744107276201248
+                }
+              }
+            },
+            {
+              "step": 12288,
+              "observed_loss": 1.1478173732757568,
+              "clean_excess_risk": 0.18196044862270355,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.681768417358398,
+                  "cosine": -0.10921522229909897
+                },
+                "moment": {
+                  "relative_squared_error": 4.488795757293701,
+                  "cosine": 0.027849074453115463
+                }
+              }
+            },
+            {
+              "step": 16384,
+              "observed_loss": 1.3681704998016357,
+              "clean_excess_risk": 0.3586862087249756,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.758771896362305,
+                  "cosine": 0.07369589060544968
+                },
+                "moment": {
+                  "relative_squared_error": 4.625345230102539,
+                  "cosine": -0.09351029247045517
+                }
+              }
+            },
+            {
+              "step": 20480,
+              "observed_loss": 1.2052850723266602,
+              "clean_excess_risk": 0.19142082333564758,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 13.678943634033203,
+                  "cosine": -0.2316463142633438
+                },
+                "moment": {
+                  "relative_squared_error": 7.158952236175537,
+                  "cosine": -0.09070661664009094
+                }
+              }
+            },
+            {
+              "step": 24576,
+              "observed_loss": 1.3346630334854126,
+              "clean_excess_risk": 0.35810577869415283,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 10.766373634338379,
+                  "cosine": 0.34768441319465637
+                },
+                "moment": {
+                  "relative_squared_error": 7.0319390296936035,
+                  "cosine": 0.1509946882724762
+                }
+              }
+            },
+            {
+              "step": 28672,
+              "observed_loss": 1.224806547164917,
+              "clean_excess_risk": 0.2108025848865509,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.476940631866455,
+                  "cosine": -0.18936055898666382
+                },
+                "moment": {
+                  "relative_squared_error": 2.6097283363342285,
+                  "cosine": -0.19348573684692383
+                }
+              }
+            },
+            {
+              "step": 32768,
+              "observed_loss": 1.4030669927597046,
+              "clean_excess_risk": 0.3987792134284973,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2.9273648262023926,
+                  "cosine": 0.39184704422950745
+                },
+                "moment": {
+                  "relative_squared_error": 1.337652325630188,
+                  "cosine": 0.4669298529624939
+                }
+              }
+            },
+            {
+              "step": 36864,
+              "observed_loss": 1.2665481567382812,
+              "clean_excess_risk": 0.25604504346847534,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2.7278902530670166,
+                  "cosine": 0.12374293059110641
+                },
+                "moment": {
+                  "relative_squared_error": 3.047025203704834,
+                  "cosine": -0.4218822419643402
+                }
+              }
+            },
+            {
+              "step": 40960,
+              "observed_loss": 1.4353747367858887,
+              "clean_excess_risk": 0.4342423677444458,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.542424201965332,
+                  "cosine": -0.044474467635154724
+                },
+                "moment": {
+                  "relative_squared_error": 6.694876194000244,
+                  "cosine": -0.01168916281312704
+                }
+              }
+            },
+            {
+              "step": 45056,
+              "observed_loss": 1.2028344869613647,
+              "clean_excess_risk": 0.1974714696407318,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 27.594894409179688,
+                  "cosine": -0.1515955775976181
+                },
+                "moment": {
+                  "relative_squared_error": 11.619208335876465,
+                  "cosine": -0.025614436715841293
+                }
+              }
+            },
+            {
+              "step": 49152,
+              "observed_loss": 1.3535174131393433,
+              "clean_excess_risk": 0.374252051115036,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.56852912902832,
+                  "cosine": -0.05239860713481903
+                },
+                "moment": {
+                  "relative_squared_error": 3.20768666267395,
+                  "cosine": -0.32459336519241333
+                }
+              }
+            },
+            {
+              "step": 53248,
+              "observed_loss": 1.240342617034912,
+              "clean_excess_risk": 0.26157134771347046,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 8.010149955749512,
+                  "cosine": -0.24060477316379547
+                },
+                "moment": {
+                  "relative_squared_error": 4.3761515617370605,
+                  "cosine": -0.2804831862449646
+                }
+              }
+            },
+            {
+              "step": 57344,
+              "observed_loss": 1.4752798080444336,
+              "clean_excess_risk": 0.4679092764854431,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 3.9510838985443115,
+                  "cosine": 0.17327409982681274
+                },
+                "moment": {
+                  "relative_squared_error": 2.856290102005005,
+                  "cosine": -0.03593415766954422
+                }
+              }
+            },
+            {
+              "step": 61440,
+              "observed_loss": 1.2252339124679565,
+              "clean_excess_risk": 0.21340303122997284,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.097532272338867,
+                  "cosine": 0.10693604499101639
+                },
+                "moment": {
+                  "relative_squared_error": 3.649399518966675,
+                  "cosine": 0.08223200589418411
+                }
+              }
+            },
+            {
+              "step": 65536,
+              "observed_loss": 1.4581992626190186,
+              "clean_excess_risk": 0.4772492051124573,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.895636081695557,
+                  "cosine": 0.13598228991031647
+                },
+                "moment": {
+                  "relative_squared_error": 2.0856173038482666,
+                  "cosine": 0.08703912794589996
+                }
+              }
+            }
+          ],
+          "test_sustained_risk": 0.3060784377157688,
+          "test_endpoint_risk": 0.4772492051124573
+        },
+        "predictive": {
+          "status": "selected",
+          "source_method": "predictive",
+          "index": 140,
+          "config": {
+            "lr": 0.001,
+            "beta1": 0.9,
+            "beta2": 0.95,
+            "weight_decay": 0.1
+          },
+          "validation": 1.2942103147506714,
+          "edge_flags": {
+            "lr": false,
+            "beta1": false,
+            "beta2": true,
+            "weight_decay": true
+          },
+          "test_curve": [
+            {
+              "step": 4096,
+              "observed_loss": 1.2342064380645752,
+              "clean_excess_risk": 0.20267853140830994,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 7.476316452026367,
+                  "cosine": -0.04872709512710571
+                },
+                "moment": {
+                  "relative_squared_error": 2.413585662841797,
+                  "cosine": -0.09621383249759674
+                }
+              }
+            },
+            {
+              "step": 8192,
+              "observed_loss": 1.2881968021392822,
+              "clean_excess_risk": 0.29230737686157227,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 13.674641609191895,
+                  "cosine": -0.3345167934894562
+                },
+                "moment": {
+                  "relative_squared_error": 4.999406814575195,
+                  "cosine": -0.38788342475891113
+                }
+              }
+            },
+            {
+              "step": 12288,
+              "observed_loss": 1.154512882232666,
+              "clean_excess_risk": 0.18123513460159302,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 7.576625823974609,
+                  "cosine": -0.23445551097393036
+                },
+                "moment": {
+                  "relative_squared_error": 3.1054749488830566,
+                  "cosine": -0.22275835275650024
+                }
+              }
+            },
+            {
+              "step": 16384,
+              "observed_loss": 1.356550931930542,
+              "clean_excess_risk": 0.3450472950935364,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 6.1295857429504395,
+                  "cosine": 0.010186281986534595
+                },
+                "moment": {
+                  "relative_squared_error": 2.347111463546753,
+                  "cosine": 9.686896373750642e-05
+                }
+              }
+            },
+            {
+              "step": 20480,
+              "observed_loss": 1.2000963687896729,
+              "clean_excess_risk": 0.18823042511940002,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 10.625837326049805,
+                  "cosine": -0.4610072672367096
+                },
+                "moment": {
+                  "relative_squared_error": 4.312613487243652,
+                  "cosine": -0.5346720814704895
+                }
+              }
+            },
+            {
+              "step": 24576,
+              "observed_loss": 1.3449921607971191,
+              "clean_excess_risk": 0.37052077054977417,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.028889179229736,
+                  "cosine": 0.18176203966140747
+                },
+                "moment": {
+                  "relative_squared_error": 2.082808256149292,
+                  "cosine": -0.050837643444538116
+                }
+              }
+            },
+            {
+              "step": 28672,
+              "observed_loss": 1.2111250162124634,
+              "clean_excess_risk": 0.19298934936523438,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.655476093292236,
+                  "cosine": -0.3228807747364044
+                },
+                "moment": {
+                  "relative_squared_error": 1.849267601966858,
+                  "cosine": -0.15581919252872467
+                }
+              }
+            },
+            {
+              "step": 32768,
+              "observed_loss": 1.409348487854004,
+              "clean_excess_risk": 0.40445101261138916,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2.3930673599243164,
+                  "cosine": 0.3290271759033203
+                },
+                "moment": {
+                  "relative_squared_error": 1.4735134840011597,
+                  "cosine": 0.09025775641202927
+                }
+              }
+            },
+            {
+              "step": 36864,
+              "observed_loss": 1.259920358657837,
+              "clean_excess_risk": 0.24768269062042236,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 1.498649001121521,
+                  "cosine": 0.4753091633319855
+                },
+                "moment": {
+                  "relative_squared_error": 0.8796992897987366,
+                  "cosine": 0.38226577639579773
+                }
+              }
+            },
+            {
+              "step": 40960,
+              "observed_loss": 1.4185237884521484,
+              "clean_excess_risk": 0.4252021908760071,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.996572494506836,
+                  "cosine": -0.15264976024627686
+                },
+                "moment": {
+                  "relative_squared_error": 2.4817190170288086,
+                  "cosine": -0.25549373030662537
+                }
+              }
+            },
+            {
+              "step": 45056,
+              "observed_loss": 1.2252761125564575,
+              "clean_excess_risk": 0.21877437829971313,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 11.322096824645996,
+                  "cosine": -0.4212646484375
+                },
+                "moment": {
+                  "relative_squared_error": 4.324678421020508,
+                  "cosine": -0.5044792294502258
+                }
+              }
+            },
+            {
+              "step": 49152,
+              "observed_loss": 1.3357691764831543,
+              "clean_excess_risk": 0.35869404673576355,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2.5093653202056885,
+                  "cosine": -0.08015209436416626
+                },
+                "moment": {
+                  "relative_squared_error": 1.5363796949386597,
+                  "cosine": -0.16049344837665558
+                }
+              }
+            },
+            {
+              "step": 53248,
+              "observed_loss": 1.2588927745819092,
+              "clean_excess_risk": 0.27548766136169434,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 3.286590576171875,
+                  "cosine": -0.12296219170093536
+                },
+                "moment": {
+                  "relative_squared_error": 1.6713184118270874,
+                  "cosine": -0.15032722055912018
+                }
+              }
+            },
+            {
+              "step": 57344,
+              "observed_loss": 1.483730673789978,
+              "clean_excess_risk": 0.4691874384880066,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.147371768951416,
+                  "cosine": -0.19859035313129425
+                },
+                "moment": {
+                  "relative_squared_error": 2.2207090854644775,
+                  "cosine": -0.3171916902065277
+                }
+              }
+            },
+            {
+              "step": 61440,
+              "observed_loss": 1.2083966732025146,
+              "clean_excess_risk": 0.20234671235084534,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 7.760529041290283,
+                  "cosine": -0.20370419323444366
+                },
+                "moment": {
+                  "relative_squared_error": 2.913435935974121,
+                  "cosine": -0.21736040711402893
+                }
+              }
+            },
+            {
+              "step": 65536,
+              "observed_loss": 1.4376091957092285,
+              "clean_excess_risk": 0.456508994102478,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.897408485412598,
+                  "cosine": 0.16560004651546478
+                },
+                "moment": {
+                  "relative_squared_error": 1.5817959308624268,
+                  "cosine": 0.10150159150362015
+                }
+              }
+            }
+          ],
+          "test_sustained_risk": 0.30195900052785873,
+          "test_endpoint_risk": 0.456508994102478
+        },
+        "full": {
+          "status": "selected",
+          "source_method": "full",
+          "index": 101,
+          "config": {
+            "lr": 0.0003,
+            "beta1": 0.9,
+            "beta2": 0.999,
+            "weight_decay": 0.1
+          },
+          "validation": 1.297629714012146,
+          "edge_flags": {
+            "lr": false,
+            "beta1": false,
+            "beta2": true,
+            "weight_decay": true
+          },
+          "test_curve": [
+            {
+              "step": 4096,
+              "observed_loss": 1.2443535327911377,
+              "clean_excess_risk": 0.21637415885925293,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 8.94974136352539,
+                  "cosine": 0.3947896659374237
+                },
+                "moment": {
+                  "relative_squared_error": 2.54284930229187,
+                  "cosine": 0.39622390270233154
+                }
+              }
+            },
+            {
+              "step": 8192,
+              "observed_loss": 1.303715467453003,
+              "clean_excess_risk": 0.3067050278186798,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 14.876585960388184,
+                  "cosine": -0.058466214686632156
+                },
+                "moment": {
+                  "relative_squared_error": 6.111506462097168,
+                  "cosine": 0.02587495930492878
+                }
+              }
+            },
+            {
+              "step": 12288,
+              "observed_loss": 1.1494994163513184,
+              "clean_excess_risk": 0.1844891905784607,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 8.852751731872559,
+                  "cosine": -0.05526729300618172
+                },
+                "moment": {
+                  "relative_squared_error": 3.4369208812713623,
+                  "cosine": 0.014603350311517715
+                }
+              }
+            },
+            {
+              "step": 16384,
+              "observed_loss": 1.3598806858062744,
+              "clean_excess_risk": 0.3509169816970825,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 12.054119110107422,
+                  "cosine": 0.12685462832450867
+                },
+                "moment": {
+                  "relative_squared_error": 3.9412143230438232,
+                  "cosine": 0.05817769095301628
+                }
+              }
+            },
+            {
+              "step": 20480,
+              "observed_loss": 1.1983070373535156,
+              "clean_excess_risk": 0.18712443113327026,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 14.11673641204834,
+                  "cosine": -0.4596065282821655
+                },
+                "moment": {
+                  "relative_squared_error": 6.828414440155029,
+                  "cosine": -0.41710686683654785
+                }
+              }
+            },
+            {
+              "step": 24576,
+              "observed_loss": 1.339360237121582,
+              "clean_excess_risk": 0.36546531319618225,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 7.9828314781188965,
+                  "cosine": 0.08834528177976608
+                },
+                "moment": {
+                  "relative_squared_error": 4.6753764152526855,
+                  "cosine": -0.13692598044872284
+                }
+              }
+            },
+            {
+              "step": 28672,
+              "observed_loss": 1.2192716598510742,
+              "clean_excess_risk": 0.20488432049751282,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 6.686919689178467,
+                  "cosine": -0.1911826878786087
+                },
+                "moment": {
+                  "relative_squared_error": 2.5221359729766846,
+                  "cosine": -0.0779198408126831
+                }
+              }
+            },
+            {
+              "step": 32768,
+              "observed_loss": 1.3965883255004883,
+              "clean_excess_risk": 0.3935816287994385,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 3.559218645095825,
+                  "cosine": 0.3991951644420624
+                },
+                "moment": {
+                  "relative_squared_error": 1.590924620628357,
+                  "cosine": 0.3404308557510376
+                }
+              }
+            },
+            {
+              "step": 36864,
+              "observed_loss": 1.2529473304748535,
+              "clean_excess_risk": 0.24120451509952545,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 3.4400887489318848,
+                  "cosine": 0.015303109772503376
+                },
+                "moment": {
+                  "relative_squared_error": 1.8387658596038818,
+                  "cosine": -0.12587185204029083
+                }
+              }
+            },
+            {
+              "step": 40960,
+              "observed_loss": 1.4317126274108887,
+              "clean_excess_risk": 0.43196964263916016,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 7.500221252441406,
+                  "cosine": -0.05678855627775192
+                },
+                "moment": {
+                  "relative_squared_error": 3.563248872756958,
+                  "cosine": -0.08254905045032501
+                }
+              }
+            },
+            {
+              "step": 45056,
+              "observed_loss": 1.2080973386764526,
+              "clean_excess_risk": 0.19980856776237488,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 22.752492904663086,
+                  "cosine": -0.2854076027870178
+                },
+                "moment": {
+                  "relative_squared_error": 8.494475364685059,
+                  "cosine": -0.31663328409194946
+                }
+              }
+            },
+            {
+              "step": 49152,
+              "observed_loss": 1.3542982339859009,
+              "clean_excess_risk": 0.3773067593574524,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 3.9020986557006836,
+                  "cosine": -0.00376847549341619
+                },
+                "moment": {
+                  "relative_squared_error": 2.2524304389953613,
+                  "cosine": -0.18733178079128265
+                }
+              }
+            },
+            {
+              "step": 53248,
+              "observed_loss": 1.2515175342559814,
+              "clean_excess_risk": 0.2685070335865021,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 6.185078144073486,
+                  "cosine": -0.25893670320510864
+                },
+                "moment": {
+                  "relative_squared_error": 2.9312326908111572,
+                  "cosine": -0.31183043122291565
+                }
+              }
+            },
+            {
+              "step": 57344,
+              "observed_loss": 1.488624930381775,
+              "clean_excess_risk": 0.4705902338027954,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.644028663635254,
+                  "cosine": -0.08646123111248016
+                },
+                "moment": {
+                  "relative_squared_error": 2.5584909915924072,
+                  "cosine": -0.15634357929229736
+                }
+              }
+            },
+            {
+              "step": 61440,
+              "observed_loss": 1.215296745300293,
+              "clean_excess_risk": 0.20300117135047913,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 10.195115089416504,
+                  "cosine": 0.15956531465053558
+                },
+                "moment": {
+                  "relative_squared_error": 3.8353333473205566,
+                  "cosine": 0.06294868141412735
+                }
+              }
+            },
+            {
+              "step": 65536,
+              "observed_loss": 1.4551125764846802,
+              "clean_excess_risk": 0.47222408652305603,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 3.6625828742980957,
+                  "cosine": 0.09349273145198822
+                },
+                "moment": {
+                  "relative_squared_error": 1.6145918369293213,
+                  "cosine": 0.004393447656184435
+                }
+              }
+            }
+          ],
+          "test_sustained_risk": 0.3046345664188266,
+          "test_endpoint_risk": 0.47222408652305603
+        },
+        "mars_01": {
+          "status": "selected",
+          "source_method": "mars_01",
+          "index": 98,
+          "config": {
+            "lr": 0.0003,
+            "beta1": 0.9,
+            "beta2": 0.95,
+            "weight_decay": 0.1
+          },
+          "validation": 1.2983893156051636,
+          "edge_flags": {
+            "lr": false,
+            "beta1": false,
+            "beta2": true,
+            "weight_decay": true
+          },
+          "test_curve": [
+            {
+              "step": 4096,
+              "observed_loss": 1.2376009225845337,
+              "clean_excess_risk": 0.20984843373298645,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 10.323030471801758,
+                  "cosine": 0.23720993101596832
+                },
+                "moment": {
+                  "relative_squared_error": 3.7101519107818604,
+                  "cosine": 0.17127366364002228
+                }
+              }
+            },
+            {
+              "step": 8192,
+              "observed_loss": 1.3002848625183105,
+              "clean_excess_risk": 0.3031601011753082,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 17.359514236450195,
+                  "cosine": -0.08865463733673096
+                },
+                "moment": {
+                  "relative_squared_error": 8.556435585021973,
+                  "cosine": 0.01642044447362423
+                }
+              }
+            },
+            {
+              "step": 12288,
+              "observed_loss": 1.1471271514892578,
+              "clean_excess_risk": 0.18105854094028473,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.506744384765625,
+                  "cosine": -0.10993867367506027
+                },
+                "moment": {
+                  "relative_squared_error": 4.342314720153809,
+                  "cosine": 0.01629607379436493
+                }
+              }
+            },
+            {
+              "step": 16384,
+              "observed_loss": 1.366814374923706,
+              "clean_excess_risk": 0.35772064328193665,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.541102409362793,
+                  "cosine": 0.0783107727766037
+                },
+                "moment": {
+                  "relative_squared_error": 4.384693622589111,
+                  "cosine": -0.07883582264184952
+                }
+              }
+            },
+            {
+              "step": 20480,
+              "observed_loss": 1.2047734260559082,
+              "clean_excess_risk": 0.1907729208469391,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 13.201858520507812,
+                  "cosine": -0.2080981582403183
+                },
+                "moment": {
+                  "relative_squared_error": 6.785833358764648,
+                  "cosine": -0.07386497408151627
+                }
+              }
+            },
+            {
+              "step": 24576,
+              "observed_loss": 1.332190752029419,
+              "clean_excess_risk": 0.3566243648529053,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.297952651977539,
+                  "cosine": 0.3654630482196808
+                },
+                "moment": {
+                  "relative_squared_error": 6.079831600189209,
+                  "cosine": 0.1576477438211441
+                }
+              }
+            },
+            {
+              "step": 28672,
+              "observed_loss": 1.2226531505584717,
+              "clean_excess_risk": 0.20825117826461792,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.453900337219238,
+                  "cosine": -0.17888988554477692
+                },
+                "moment": {
+                  "relative_squared_error": 2.490294933319092,
+                  "cosine": -0.17439328134059906
+                }
+              }
+            },
+            {
+              "step": 32768,
+              "observed_loss": 1.4022997617721558,
+              "clean_excess_risk": 0.39663857221603394,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2.6687300205230713,
+                  "cosine": 0.38737478852272034
+                },
+                "moment": {
+                  "relative_squared_error": 1.2454378604888916,
+                  "cosine": 0.45785030722618103
+                }
+              }
+            },
+            {
+              "step": 36864,
+              "observed_loss": 1.265878438949585,
+              "clean_excess_risk": 0.2549028992652893,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 2.3486826419830322,
+                  "cosine": 0.16851381957530975
+                },
+                "moment": {
+                  "relative_squared_error": 2.568696975708008,
+                  "cosine": -0.3964930772781372
+                }
+              }
+            },
+            {
+              "step": 40960,
+              "observed_loss": 1.439300298690796,
+              "clean_excess_risk": 0.43902772665023804,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 8.587367057800293,
+                  "cosine": -0.12010983377695084
+                },
+                "moment": {
+                  "relative_squared_error": 6.188439846038818,
+                  "cosine": -0.12233618646860123
+                }
+              }
+            },
+            {
+              "step": 45056,
+              "observed_loss": 1.2029836177825928,
+              "clean_excess_risk": 0.19670599699020386,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 24.825721740722656,
+                  "cosine": -0.11768975108861923
+                },
+                "moment": {
+                  "relative_squared_error": 10.484917640686035,
+                  "cosine": -0.009161336347460747
+                }
+              }
+            },
+            {
+              "step": 49152,
+              "observed_loss": 1.3498269319534302,
+              "clean_excess_risk": 0.3701171875,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.293957233428955,
+                  "cosine": -0.12244894355535507
+                },
+                "moment": {
+                  "relative_squared_error": 3.116088390350342,
+                  "cosine": -0.37152165174484253
+                }
+              }
+            },
+            {
+              "step": 53248,
+              "observed_loss": 1.2392783164978027,
+              "clean_excess_risk": 0.26092272996902466,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 6.996894836425781,
+                  "cosine": -0.22632017731666565
+                },
+                "moment": {
+                  "relative_squared_error": 3.8523619174957275,
+                  "cosine": -0.2826654016971588
+                }
+              }
+            },
+            {
+              "step": 57344,
+              "observed_loss": 1.4759981632232666,
+              "clean_excess_risk": 0.46673470735549927,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 3.6456830501556396,
+                  "cosine": 0.1738705039024353
+                },
+                "moment": {
+                  "relative_squared_error": 2.6127734184265137,
+                  "cosine": -0.03005293197929859
+                }
+              }
+            },
+            {
+              "step": 61440,
+              "observed_loss": 1.2218563556671143,
+              "clean_excess_risk": 0.21098171174526215,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.837084770202637,
+                  "cosine": 0.09125763177871704
+                },
+                "moment": {
+                  "relative_squared_error": 3.7681503295898438,
+                  "cosine": 0.07347498089075089
+                }
+              }
+            },
+            {
+              "step": 65536,
+              "observed_loss": 1.4528731107711792,
+              "clean_excess_risk": 0.4710419774055481,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.969382286071777,
+                  "cosine": 0.09724292904138565
+                },
+                "moment": {
+                  "relative_squared_error": 2.1177823543548584,
+                  "cosine": 0.04636874794960022
+                }
+              }
+            }
+          ],
+          "test_sustained_risk": 0.30465685576200485,
+          "test_endpoint_risk": 0.4710419774055481
+        },
+        "mars_1": {
+          "status": "selected",
+          "source_method": "mars_1",
+          "index": 98,
+          "config": {
+            "lr": 0.0003,
+            "beta1": 0.9,
+            "beta2": 0.95,
+            "weight_decay": 0.1
+          },
+          "validation": 1.2972054481506348,
+          "edge_flags": {
+            "lr": false,
+            "beta1": false,
+            "beta2": true,
+            "weight_decay": true
+          },
+          "test_curve": [
+            {
+              "step": 4096,
+              "observed_loss": 1.238828182220459,
+              "clean_excess_risk": 0.21089547872543335,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.795003890991211,
+                  "cosine": 0.23699550330638885
+                },
+                "moment": {
+                  "relative_squared_error": 2.8712728023529053,
+                  "cosine": 0.19723331928253174
+                }
+              }
+            },
+            {
+              "step": 8192,
+              "observed_loss": 1.2982829809188843,
+              "clean_excess_risk": 0.3016509413719177,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 17.283323287963867,
+                  "cosine": -0.16903571784496307
+                },
+                "moment": {
+                  "relative_squared_error": 7.189850807189941,
+                  "cosine": -0.14865082502365112
+                }
+              }
+            },
+            {
+              "step": 12288,
+              "observed_loss": 1.146795630455017,
+              "clean_excess_risk": 0.18145781755447388,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.211556434631348,
+                  "cosine": -0.09965810924768448
+                },
+                "moment": {
+                  "relative_squared_error": 3.6027581691741943,
+                  "cosine": -0.056973010301589966
+                }
+              }
+            },
+            {
+              "step": 16384,
+              "observed_loss": 1.3671866655349731,
+              "clean_excess_risk": 0.3558644652366638,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 10.11871337890625,
+                  "cosine": 0.16738805174827576
+                },
+                "moment": {
+                  "relative_squared_error": 3.411771535873413,
+                  "cosine": 0.10083293914794922
+                }
+              }
+            },
+            {
+              "step": 20480,
+              "observed_loss": 1.1999695301055908,
+              "clean_excess_risk": 0.18797838687896729,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 14.045170783996582,
+                  "cosine": -0.45489445328712463
+                },
+                "moment": {
+                  "relative_squared_error": 6.67216157913208,
+                  "cosine": -0.408354252576828
+                }
+              }
+            },
+            {
+              "step": 24576,
+              "observed_loss": 1.334680438041687,
+              "clean_excess_risk": 0.3592562675476074,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.96347713470459,
+                  "cosine": 0.16633006930351257
+                },
+                "moment": {
+                  "relative_squared_error": 5.43994665145874,
+                  "cosine": -0.015844326466321945
+                }
+              }
+            },
+            {
+              "step": 28672,
+              "observed_loss": 1.219454288482666,
+              "clean_excess_risk": 0.2051437944173813,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 5.792160987854004,
+                  "cosine": -0.25375235080718994
+                },
+                "moment": {
+                  "relative_squared_error": 2.2342278957366943,
+                  "cosine": -0.11396859586238861
+                }
+              }
+            },
+            {
+              "step": 32768,
+              "observed_loss": 1.3997246026992798,
+              "clean_excess_risk": 0.39640161395072937,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 3.346273899078369,
+                  "cosine": 0.4022170901298523
+                },
+                "moment": {
+                  "relative_squared_error": 1.5720309019088745,
+                  "cosine": 0.3429684638977051
+                }
+              }
+            },
+            {
+              "step": 36864,
+              "observed_loss": 1.2543874979019165,
+              "clean_excess_risk": 0.24224334955215454,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 3.0399811267852783,
+                  "cosine": 0.031787142157554626
+                },
+                "moment": {
+                  "relative_squared_error": 1.6523200273513794,
+                  "cosine": -0.08591163158416748
+                }
+              }
+            },
+            {
+              "step": 40960,
+              "observed_loss": 1.4243216514587402,
+              "clean_excess_risk": 0.42559850215911865,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 7.915147304534912,
+                  "cosine": -0.037423521280288696
+                },
+                "moment": {
+                  "relative_squared_error": 3.6331005096435547,
+                  "cosine": -0.050406116992235184
+                }
+              }
+            },
+            {
+              "step": 45056,
+              "observed_loss": 1.2072069644927979,
+              "clean_excess_risk": 0.1998448222875595,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 23.073427200317383,
+                  "cosine": -0.21834276616573334
+                },
+                "moment": {
+                  "relative_squared_error": 8.374267578125,
+                  "cosine": -0.2612694203853607
+                }
+              }
+            },
+            {
+              "step": 49152,
+              "observed_loss": 1.3497494459152222,
+              "clean_excess_risk": 0.3733416795730591,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.545598030090332,
+                  "cosine": -0.07036380469799042
+                },
+                "moment": {
+                  "relative_squared_error": 2.5739288330078125,
+                  "cosine": -0.2548023462295532
+                }
+              }
+            },
+            {
+              "step": 53248,
+              "observed_loss": 1.2672929763793945,
+              "clean_excess_risk": 0.2834283411502838,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 5.381262302398682,
+                  "cosine": -0.2708146274089813
+                },
+                "moment": {
+                  "relative_squared_error": 2.5840327739715576,
+                  "cosine": -0.32245752215385437
+                }
+              }
+            },
+            {
+              "step": 57344,
+              "observed_loss": 1.477447509765625,
+              "clean_excess_risk": 0.4620298445224762,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.7709641456604,
+                  "cosine": -0.035352468490600586
+                },
+                "moment": {
+                  "relative_squared_error": 2.590362071990967,
+                  "cosine": -0.10226182639598846
+                }
+              }
+            },
+            {
+              "step": 61440,
+              "observed_loss": 1.2207257747650146,
+              "clean_excess_risk": 0.2075003683567047,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 9.088725090026855,
+                  "cosine": 0.15857364237308502
+                },
+                "moment": {
+                  "relative_squared_error": 3.360053539276123,
+                  "cosine": 0.06890105456113815
+                }
+              }
+            },
+            {
+              "step": 65536,
+              "observed_loss": 1.4540654420852661,
+              "clean_excess_risk": 0.4736368656158447,
+              "deployment_gradient_diagnostic": {
+                "raw": {
+                  "relative_squared_error": 4.187655448913574,
+                  "cosine": 0.08264095336198807
+                },
+                "moment": {
+                  "relative_squared_error": 1.704413890838623,
+                  "cosine": 0.039725709706544876
+                }
+              }
+            }
+          ],
+          "test_sustained_risk": 0.30414203368127346,
+          "test_endpoint_risk": 0.4736368656158447
+        }
+      },
+      "timing": {
+        "adamw": {
+          "startup_seconds": 3.9454451729998254,
+          "training_seconds": 2.400186560000293
+        },
+        "predictive": {
+          "startup_seconds": 2.652082665999842,
+          "training_seconds": 2.6038168880004378
+        },
+        "full": {
+          "startup_seconds": 2.9151512829994317,
+          "training_seconds": 2.531998608000322
+        },
+        "mars_01": {
+          "startup_seconds": 1.8795142580001993,
+          "training_seconds": 2.7925071680001565
+        },
+        "mars_1": {
+          "startup_seconds": 1.7940993269994578,
+          "training_seconds": 2.7476271149998865
+        }
+      }
+    }
+  ],
+  "decision": "The 34% online win does not survive drift/reuse. Pursue fresh-batch information accounting and matched AdamW boundary refinement, not PPO promotion.",
+  "bandit_failure": {
+    "job": 5859,
+    "result_path": "runs/OptimizerProxy__v4_clipped_bandit__1__1788988087379573796/results.json",
+    "status": "AdamW fullstream finished; predictive failed capture beforetraining; no candidate selection/test conclusion",
+    "reason": "Whole8epoch independently evolved eager/compiled comparison at highLR;7/1223040 coordinates differ, maxabs2.99e-4; v5 replaces with strictsame-state localepochaudit andexactgraphreplay, no tolerance relaxation."
+  }
+}

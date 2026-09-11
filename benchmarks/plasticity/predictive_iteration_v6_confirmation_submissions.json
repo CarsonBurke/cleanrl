@@ -1,0 +1,349 @@
+{
+  "decision": "Committed before any v6 learning result; no additional development retuning before this confirmation. Failed prerequisites prevent execution. Preserve unfavorable and null outcomes.",
+  "jobs": [
+    {
+      "id": 6157,
+      "name": "hazard-v6-confirmation-stationary",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6149, 6150, 6151, 6152, 6153]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "confirmation",
+        "--view",
+        "stationary",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789095121179,
+      "updatedAt": 1789095121179,
+      "dependencies": [
+        {
+          "parent": 6149,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6150,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6151,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6152,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6153,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6158,
+      "name": "hazard-v6-confirmation-change",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6149, 6150, 6151, 6152, 6153]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "confirmation",
+        "--view",
+        "change",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789095121290,
+      "updatedAt": 1789095121290,
+      "dependencies": [
+        {
+          "parent": 6149,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6150,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6151,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6152,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6153,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6159,
+      "name": "hazard-v6-confirmation-null",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6149, 6150, 6151, 6152, 6153]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "confirmation",
+        "--view",
+        "null",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789095121305,
+      "updatedAt": 1789095121305,
+      "dependencies": [
+        {
+          "parent": 6149,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6150,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6151,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6152,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6153,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6160,
+      "name": "hazard-v6-confirmation-recurrent",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6149, 6150, 6151, 6152, 6153]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "confirmation",
+        "--view",
+        "recurrent",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789095121318,
+      "updatedAt": 1789095121318,
+      "dependencies": [
+        {
+          "parent": 6149,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6150,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6151,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6152,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6153,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6161,
+      "name": "hazard-v6-confirmation-two_support",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6149, 6150, 6151, 6152, 6153]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.predictive_hazard_eval_v6",
+        "--phase",
+        "confirmation",
+        "--view",
+        "two_support",
+        "--lock",
+        "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1789095121332,
+      "updatedAt": 1789095121332,
+      "dependencies": [
+        {
+          "parent": 6149,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6150,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6151,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6152,
+          "condition": "succeeded",
+          "parentState": "queued"
+        },
+        {
+          "parent": 6153,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6162,
+      "name": "return-refinement-v6-confirmation",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6154]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.panel_return_refinement_eval_v6",
+        "--stage",
+        "confirmation",
+        "--rank-offset",
+        "400",
+        "--reference-result",
+        "runs/panel_return_refinement_v6_development/results.json",
+        "--historical-result",
+        "benchmarks/plasticity/panel_frontier_v3_evidence.json",
+        "--output-dir",
+        "runs/panel_return_refinement_v6_confirmation"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 14400000,
+      "attemptCount": 0,
+      "createdAt": 1789095121345,
+      "updatedAt": 1789095121345,
+      "dependencies": [
+        {
+          "parent": 6154,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 6163,
+      "name": "return-refinement-v6-rademacher",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [6154]",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "cleanrl.plasticity.panel_return_refinement_eval_v6",
+        "--stage",
+        "development",
+        "--view",
+        "rademacher",
+        "--reference-result",
+        "runs/panel_return_refinement_v6_development/results.json",
+        "--output-dir",
+        "runs/panel_return_refinement_v6_null"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 14400000,
+      "attemptCount": 0,
+      "createdAt": 1789095121360,
+      "updatedAt": 1789095121360,
+      "dependencies": [
+        {
+          "parent": 6154,
+          "condition": "succeeded",
+          "parentState": "queued"
+        }
+      ],
+      "attempts": []
+    }
+  ]
+}

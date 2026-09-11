@@ -1,0 +1,34 @@
+{
+  "objective": "Reduce per-observation launch and memory-copy overhead with a fused FP32 Triton optimizer while preserving the v2 mathematical experiment. No covariance, optimizer change, new loss scale or privileged information.",
+  "hypothesis": "V2 single-candidate replay needs roughly1.5s Adam and2.1s tangent for65536observations of a5377parameter MLP. A candidate-owned fused kernel holding state over16observations should avoid many tiny forward/backward/update/copy launches. This bottleneck attribution is a hypothesis until measured end-to-end.",
+  "reference": "cleanrl/plasticity/predictive_transport_stream_v2.py after same-state validity-mask parity fix; jobs5807contracts38passed,5808stationary/5809stress refined224grids completed.",
+  "algorithm": "Exactly the five v2 arms adam/predictive/tangent/implicit/robust and their moment masses, beta2=.999,eps1e-8, current noisy labels only. FP32 current/previous weights and moments, no Jacobian-ratio gate. Robust retains its different pseudo-Huber objective. No beta/lr or method changes for v3.",
+  "execution": {
+    "kernel": "One CTA per candidate, analytical three-layer forward/output-Jacobian and optimizer in one Triton kernel. Process16observations per captured launch where supported. Candidate-owned stream counters prevent shared-index write/read races. Preserve historical nonfinite flags across inner-loop steps.",
+    "precision": "CUDA FP32, TF32 disabled. Rounded/libdevice operations and FP contraction disabled initially. No CPU/eager/FP64 learning fallback; eager CUDA v2 is audit-only.",
+    "queue":"mlq","max_parallel_runs":1,"max_attempts":1,"priority":0,"contract_limit":"20m","experiment_limit":"30m",
+    "autocull":"None on full65536sample diagnostic streams; no retries or short training runs."
+  },
+  "experiments": {
+    "stationary":{"seed":1,"samples":65536,"input_dim":17,"hidden":64,"noise":1,"hetero":0,"switch_at":0},
+    "stress":{"seed":1,"samples":65536,"input_dim":17,"hidden":64,"noise":1,"hetero":1,"switch_at":0.5}
+  },
+  "selection": {
+    "learning_rates":[0.000001,0.000003,0.00001,0.00003,0.0001,0.00015,0.0002,0.0003,0.0005,0.0007,0.001,0.0014,0.002,0.003,0.01,0.03],
+    "beta1":[0,0.1,0.3,0.5,0.7,0.9,0.95,0.99,0.995,0.999,0.9995,0.9998,0.9999,0.99999],
+    "candidate_count":224,
+    "criterion":"Same duration-weighted fullstream clean validation and exclusive global test barrier as v2; independentselection allarms; nofinitecandidatefiltering, no test-basedrescue. Same retained paireddatahashes.",
+    "comparison":"Compare v2/v3 selected risk and coordinates as well as K=1 fullstream event timing. Different reduction orders need not be bitidentical, but substantial error/selection changes need explanation; no faster wrong solver credited."
+  },
+  "verification":"Independent v2 CUDA FP32 eager math (itself checked against FP64 autograd/denseimplicit solve), same-state validity-mask equality before exclusions, original rtol3e-3 atol3e-5. Compare fused16stepblocks to sequentialsteps, exact fused CUDAgraph replay, complete state rollback, candidate-owned indices, transientNaNisolation and old/newweightlifetimes.",
+  "performance":"Full224candidate update/report walltime separately from selected K=1 CUDAevent fullstream replay excluding construction/capture/validation/test/checkpoint IO. Do not compare different grids as if equalwork. Include forward/Jacobian counts and runtime source/data fingerprints.",
+  "occupancy_experiment": {
+    "job":5817,
+    "reason":"Initial fused runs5812/5813 preserve all selected coordinates and sustained risk within5.3e-6, but improve K1 latency only for Adam/tangent while slowing the other arms. Test kernel occupancy rather than assume launch fusion is sufficient.",
+    "root":"runs/DenseStream__transport_warps_v3__1__20260909",
+    "controls":"Every combination of five arms, K1 or K224, and warps4/8/16. Same stationary seed1 complete65536stream, originalv2 validation-selected K1 tuple or full224grid. No new learning-hyperparameter selection. Capture parity required for each execution configuration.",
+    "measurements":"CUDAevent complete-stream replay time, registers/thread, spill count, shared memory, endpoint validation vector as a fidelity check. No held-out test scoring. Keep all rejected execution configurations visible.",
+    "retention":"Choose execution settings from measured latency/aggregate throughput subject to fidelity, not test accuracy. A retained source change gets its own version and full paired-stream confirmation."
+  },
+  "limits":"Execution optimization, not a novel optimizer. Same existingseed/task adaptation, no PPO orglobaloptimalityclaim. Fused precision may cause minortrajectorydifferences. Largecandidategrid throughput and K1 latency are different metrics."
+}

@@ -1,0 +1,36 @@
+{
+  "previous_iteration": "correlated_stock_v2",
+  "motivation": "Static dense NIG learns weak stock signal and Bayesian evidence controls null fitting, but scored0.999067 versus linear Adam0.999030 over73728 forward observations. Full covariance alone did not beat matched diagonal either. Test temporal adaptivity without abandoning calibrated uncertainty or restarting posterior means.",
+  "hypothesis": "Mean-preserving continuous coefficient drift lets informative directions track changing conditional means; evidence chooses whether this extra flexibility earns its prediction variance. Dynamic/static experts share exact conditional-scale inference, isolating temporal assumptions rather than optimizer tuning.",
+  "model": {
+    "name": "DynamicNIG v6",
+    "priors": [1e-7,1e-6,1e-5,1e-4,1e-3],
+    "information_half_lives": [65536,262144],
+    "static_controls": "The same five priors with delta=1; identical v5 dense recurrence.",
+    "conditional_process": "w_t|w_(t-1),sigma2 ~ Normal(w_(t-1), sigma2*(delta^-1-1)*P_(t-1)). P_(t-1) depends on past feature geometry, not labels; this adaptive process covariance is the explicit model, not a fixed-Q claim.",
+    "transition": "Pminus=P/delta, mminus=m. No reset, zero-mean pull, confidence clipping or current-residual-triggered plasticity.",
+    "observation_update": "Exact conditional NIG scalar conditioning: u=Pminus*x,s=1+x'u,m+=u*(y-x'm)/s,P=Pminus-u*u'/s,alpha+=.5,beta+=(y-x'm)^2/(2s). Global variance posterior accumulates innovation evidence; beta is not a discounted raw-error statistic.",
+    "mean_equivalence": "Mean and conditional covariance equal exponentially weighted ridge with faded prior precision delta^t/tau. This restores plasticity but can amplify uncertain directions; no stability or universal-optimality guarantee.",
+    "primary": "adaptive_mixture: proper prequential Student-t evidence over all15 static/dynamic experts plus null; prior mass0.5 null,0.25 static family,0.25 dynamic family",
+    "control": "static_mixture: exactly the v5 five-static-expert plus null mixture, prior mass0.5/0.5",
+    "secondary": "dynamic_mixture: ten dynamic experts plus null, prior mass0.5/0.5",
+    "selection": "No prefix or suffix selection of a prior, half-life, or mixture row. These are three fixed algorithms, all reported; primary named before execution."
+  },
+  "evaluation": {
+    "stream": "Same original SPY5-minute helper,224 features, trailing-centred/scaled/clipped target, seed1; actual maximum468021 observations.",
+    "real_selection_end_exclusive": 237568,
+    "real_selection_start_inclusive": 2000,
+    "forward_window": "[237568,468021), beyond the actual consumption of the v5 iteration. Older full-file benchmark summaries existed; not pristine data.",
+    "adam": "Fresh original linear and MLP Adam full11-LR grids; each chooses its own real-prefix LR, then locks before first forward label. Both views learn sequentially from start; null inherits real LR locks.",
+    "null": "Identical chronological features and original target magnitudes multiplied by independent seed1 random signs.",
+    "primary_comparisons": ["static_mixture","dynamic_mixture","zero","prefix-locked linear Adam","prefix-locked MLP Adam"],
+    "metrics": "Observed chronological suffix noisy MSE relative to zero, paired same-window differences, prediction energy and target-prediction cross term;8192-observation temporal blocks and cumulative mixture-family posterior masses.",
+    "promotion_gate": "Primary must improve paired real error over BOTH matched linear Adam and static mixture, and beat zero. Random-sign behavior and time-block consistency constrain interpretation; no profitability/significance claim. Do not replace primary with whichever secondary wins."
+  },
+  "resources": {
+    "queue": "mlq", "max_parallel_runs": 1, "max_attempts": 1, "priority": 0,
+    "contracts_time_limit": "10m", "experiment_time_limit": "15m per view",
+    "autocull": "Default-on suffix-local ProxyCull, ONLY primary adaptive mixture protects run; min_delta1e-4 error ratio and null also prediction energy. Default16384 warmup/8192 smoothing half-life/median3/patience3, no continuation after prune. Save raw consumed predictions/targets and complete cheap state before exit75."
+  },
+  "limitations": ["Conditional Gaussian/constant global sigma model is misspecified for financial heteroskedasticity and clipped targets.","Discounting weakens the prior along with old observations; null variance inflation is a real possible regression, not to be hidden by floors or post-hoc gating.","Single historical path with adaptive resource censoring and sequential research decisions; descriptive comparison, not statistical or trading proof."]
+}

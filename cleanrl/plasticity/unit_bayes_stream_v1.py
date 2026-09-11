@@ -182,6 +182,7 @@ class Learner:
                 w.sub_(self.scale[:, None, None] * (m / bc1) / ((v / bc2).sqrt() + 1e-8))
         else:
             mapped, uncertainty, actual_p = [], [], []
+            own_mapped, own_uncertainty = [], []
             for p, q, inp, j in zip(self.cov, self.process, inputs, sensitivities):
                 p.add_(q)
                 if self.method == "shared":
@@ -197,25 +198,35 @@ class Learner:
                 mapped.append(px)
                 uncertainty.append(j.square() * leverage)
                 actual_p.append(applied)
+                if self.method == "shuffle":
+                    own_px = torch.einsum("koij,kj->koi", p, inp)
+                    own_mapped.append(own_px)
+                    own_uncertainty.append((own_px * inp.unsqueeze(1)).sum(-1) * j.square())
             observation = (self.noise_var.index_select(0, ix).squeeze(0)
                            if self.a.known_noise else self.noise)
             total = sum(u.sum(-1) for u in uncertainty)
             denominator = observation + total + 1e-8
+            conditioning_denominator = (
+                observation + sum(u.sum(-1) for u in own_uncertainty) + 1e-8
+                if self.method == "shuffle" else denominator)
             gains = torch.cat([u / denominator.unsqueeze(-1) for u in uncertainty], -1)
             self.gain_sum.add_(gains.sum(-1))
             self.unit_variance.add_(gains.var(-1, unbiased=False))
-            for w, p, applied, px, inp, j in zip(
-                    self.weights, self.cov, actual_p, mapped, inputs, sensitivities):
+            for layer, (w, p, applied, px, inp, j) in enumerate(zip(
+                    self.weights, self.cov, actual_p, mapped, inputs, sensitivities)):
                 w.sub_(residual[:, None, None] * j.unsqueeze(-1) * px / denominator[:, None, None])
-                # Scalar control changes ONLY the mean update, not its covariance
-                # model; the covariance is still conditioned with its real P x.
-                true_px = (torch.einsum("koij,kj->koi", applied, inp)
-                           if self.method == "scalar" else px)
-                reduction = (j.square() / denominator.unsqueeze(-1))[:, :, None, None]
-                posterior = applied - reduction * true_px.unsqueeze(-1) * true_px.unsqueeze(-2)
-                # For the shuffle control, conditioned blocks return to their owners.
+                # Learn each unit's OWN history even when its mean update uses
+                # another unit's covariance. Rolling then inverse-rolling the
+                # conditioned covariance merely relabels identical priors and
+                # reproduces the unshuffled learner: it is not a control.
                 if self.method == "shuffle":
-                    posterior = torch.roll(posterior, -1, dims=1)
+                    true_px, prior = own_mapped[layer], p
+                else:
+                    true_px = (torch.einsum("koij,kj->koi", applied, inp)
+                               if self.method == "scalar" else px)
+                    prior = applied
+                reduction = (j.square() / conditioning_denominator.unsqueeze(-1))[:, :, None, None]
+                posterior = prior - reduction * true_px.unsqueeze(-1) * true_px.unsqueeze(-2)
                 p.copy_(posterior)
             # Prediction uses history only. Current residual updates the NEXT scale.
             self.noise.lerp_(residual.square(), self.a.noise_rate)
@@ -270,6 +281,42 @@ def evaluate(weights, x, y):
     return error / len(x)
 
 
+@torch.no_grad()
+def geometry_probe(learner, x):
+    """Frozen-state geometry, normalized to remove sensitivity and input norm.
+
+    x'P_i x / ((trace(P_i)/D) ||x||²) is one for isotropic P_i regardless
+    of tanh slope, scalar confidence, or a global learning-rate schedule.
+    Variation over x establishes learned directional state dependence;
+    variation over i tests whether that geometry is neuron-specific.
+    """
+    if learner.method == "adam":
+        return []
+    h1, h2, _ = forward(learner.weights, x)
+    k = learner.weights[0].shape[0]
+    one = torch.ones(k, len(x), 1, device=x.device)
+    inputs = (torch.cat((x.unsqueeze(0).expand(k, -1, -1), one), -1),
+              torch.cat((h1, one), -1), torch.cat((h2, one), -1))
+    result = []
+    for covariance, process, inp in zip(learner.cov, learner.process, inputs):
+        p = covariance + process
+        if learner.method == "shared":
+            p = p.mean(1, keepdim=True).expand_as(p)
+        elif learner.method == "shuffle":
+            p = torch.roll(p, 1, dims=1)
+        px = torch.einsum("koij,kbj->kboi", p, inp)
+        actual = (px * inp.unsqueeze(2)).sum(-1)
+        isotropic = (p.diagonal(dim1=-2, dim2=-1).mean(-1).unsqueeze(1)
+                     * inp.square().sum(-1, keepdim=True))
+        relative = actual / isotropic.clamp_min(1e-30)
+        result.append({
+            "state_geometry_sd": relative.std(1, unbiased=False).mean(-1).cpu().tolist(),
+            "unit_geometry_sd": relative.std(2, unbiased=False).mean(-1).cpu().tolist(),
+            "minimum_directional_variance": actual.amin((1, 2)).cpu().tolist(),
+        })
+    return result
+
+
 def finite_json(value):
     if isinstance(value, float) and not math.isfinite(value):
         return None
@@ -302,12 +349,14 @@ def main():
     xv = torch.randn(a.validation, a.input_dim, generator=gen, device=device)
     xt = torch.randn(a.test, a.input_dim, generator=gen, device=device)
     yv = [teach(t1, xv), teach(t2, xv)]
-    yt = teach(t2 if a.switch_at else t1, xt)
-    root = Path(a.output or f"runs/DenseStream__unit_bayes_v1__{a.seed}__{time.time_ns()}")
+    test_targets = [teach(t1, xt), teach(t2, xt)]
+    yt = test_targets[1 if a.switch_at else 0]
+    root = Path(a.output or "runs") / f"DenseStream__unit_bayes_v1__{a.seed}__{time.time_ns()}"
     root.mkdir(parents=True, exist_ok=True)
     writer = SummaryWriter(str(root))
     writer.add_text("hyperparameters", json.dumps(asdict(a), indent=2))
-    result = {"args": asdict(a), "protocol": "single paired task seed; validation-selected test error; no cross-seed inference",
+    result = {"args": asdict(a),
+              "protocol": "single paired task seed; sustained validation selects; untouched test reports; no cross-seed inference",
               "run_dir": str(root), "zero_test_mse": float(yt.square().mean()), "methods": {}}
     for method in a.methods:
         grid = a.adam_lrs if method == "adam" else a.prior_scales
@@ -317,7 +366,8 @@ def main():
         startup = time.perf_counter() - started
         torch.cuda.synchronize()
         started = time.perf_counter()
-        curves = []
+        curves, snapshots, intervals = [], [], []
+        previous_step = 0
         for step in range(a.graph_steps, a.samples + 1, a.graph_steps):
             graph.replay()
             if step % a.log_every == 0 or step == a.samples or step == switch:
@@ -328,6 +378,9 @@ def main():
                 dispersion = (learner.unit_variance / step).sqrt().cpu().tolist()
                 curves.append({"step": step, "validation": validation, "online_clean_mse": online,
                                "gain": gain, "unit_gain_sd": dispersion})
+                snapshots.append([w.clone() for w in learner.weights])
+                intervals.append(step - previous_step)
+                previous_step = step
                 for n, value in enumerate(grid):
                     tag = f"{method}/{value:g}"
                     writer.add_scalar(f"validation/{tag}", validation[n], step)
@@ -337,23 +390,34 @@ def main():
                 print(json.dumps(finite_json({"method": method, **curves[-1]})), flush=True)
         torch.cuda.synchronize()
         elapsed = time.perf_counter() - started
-        val = evaluate(learner.weights, xv, yv[1 if a.switch_at else 0])
-        finite = torch.isfinite(val)
-        if not bool(finite.any()):
-            best = None
-            test_mse = None
-        else:
-            best = int(torch.where(finite, val, torch.inf).argmin())
-            chosen = [w[best:best + 1] for w in learner.weights]
-            test_mse = float(evaluate(chosen, xt, yt)[0])
+        val = [sum(c["validation"][n] * duration for c, duration in zip(curves, intervals)) / a.samples
+               for n in range(len(grid))]
+        candidates = [n for n, value in enumerate(val) if math.isfinite(value)]
+        best = min(candidates, key=val.__getitem__) if candidates else None
+        # Persist the decision before observing any test errors, including endpoints.
+        (root / f"selection_{method}.json").write_text(json.dumps(finite_json({
+            "validation_sustained_grid": val, "chosen_index": best}), allow_nan=False) + "\n")
+        test_curve = []
+        if best is not None:
+            for checkpoint, params in zip(curves, snapshots):
+                target = test_targets[1 if checkpoint["step"] > switch else 0]
+                chosen = [w[best:best + 1] for w in params]
+                error = float(evaluate(chosen, xt, target)[0])
+                test_curve.append({"step": checkpoint["step"], "mse": error})
+                writer.add_scalar(f"test/{method}/clean_mse", error, checkpoint["step"])
+        test_mse = test_curve[-1]["mse"] if test_curve else None
+        test_sustained = (sum(c["mse"] * duration for c, duration in zip(test_curve, intervals)) / a.samples
+                          if test_curve else None)
         row = {"grid": list(grid), "parameter": "learning_rate" if method == "adam" else "prior_scale",
                "chosen": None if best is None else grid[best],
                "edge": best is None or best in (0, len(grid) - 1),
-               "validation_mse": val.cpu().tolist(), "test_mse": test_mse,
+               "validation_sustained_grid": val, "test_mse": test_mse,
+               "test_sustained_mse": test_sustained, "test_curve": test_curve,
                "test_over_zero": None if test_mse is None else test_mse / result["zero_test_mse"],
                "startup_seconds": startup, "training_seconds": elapsed,
                "aggregate_samples_per_second": a.samples * len(grid) / elapsed,
                "graph_parity_max_abs": parity, "curves": curves}
+        row["geometry_probe"] = geometry_probe(learner, xv[:128])
         result["methods"][method] = finite_json(row)
         (root / "results.json").write_text(json.dumps(finite_json(result), indent=2, allow_nan=False) + "\n")
         print("RESULT " + json.dumps(finite_json({"method": method, **{k: v for k, v in row.items() if k != "curves"}})), flush=True)

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="3.798" timestamp="2026-09-09T00:24:00.289659" hostname="cachyos-x8664-desktop"><testcase classname="tests.test_plasticity_predictive_transport_v2" name="test_capture_rejects_one_sided_nonfinite_transition_and_restores_state[compiled]" time="3.436"><failure message="Failed: DID NOT RAISE &lt;class 'AssertionError'&gt;">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7f99cbdd4040&gt;
+failure_side = 'compiled'
+
+    @pytest.mark.parametrize("failure_side", ["compiled", "eager"])
+    @torch.no_grad()
+    def test_capture_rejects_one_sided_nonfinite_transition_and_restores_state(monkeypatch, failure_side):
+        torch.compiler.reset()
+        model = learner("predictive")
+        before = model.snapshot()
+        real_compile, real_update = torch.compile, model.update
+        calls = 0
+    
+        def compile_with_fault(fn, **kwargs):
+            compiled = real_compile(fn, **kwargs)
+    
+            def run():
+                nonlocal calls
+                output = compiled()
+                calls += 1
+                if calls == 3 and failure_side == "compiled":
+                    output[0][0, 0, 0] = float("nan")
+                    model.finite_candidates[0] = False
+                return output
+    
+            return run
+    
+        def eager_with_fault():
+            real_update()
+            if failure_side == "eager":
+                model.weights[0][0, 0, 0] = float("nan")
+                model.finite_candidates[0] = False
+    
+        monkeypatch.setattr(torch, "compile", compile_with_fault)
+        monkeypatch.setattr(model, "update", eager_with_fault)
+        try:
+&gt;           with pytest.raises(AssertionError):
+E           Failed: DID NOT RAISE &lt;class 'AssertionError'&gt;
+
+tests/test_plasticity_predictive_transport_v2.py:225: Failed</failure></testcase><testcase classname="tests.test_plasticity_predictive_transport_v2" name="test_capture_rejects_one_sided_nonfinite_transition_and_restores_state[eager]" time="0.142"><failure message="Failed: DID NOT RAISE &lt;class 'AssertionError'&gt;">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7f97b503e8c0&gt;
+failure_side = 'eager'
+
+    @pytest.mark.parametrize("failure_side", ["compiled", "eager"])
+    @torch.no_grad()
+    def test_capture_rejects_one_sided_nonfinite_transition_and_restores_state(monkeypatch, failure_side):
+        torch.compiler.reset()
+        model = learner("predictive")
+        before = model.snapshot()
+        real_compile, real_update = torch.compile, model.update
+        calls = 0
+    
+        def compile_with_fault(fn, **kwargs):
+            compiled = real_compile(fn, **kwargs)
+    
+            def run():
+                nonlocal calls
+                output = compiled()
+                calls += 1
+                if calls == 3 and failure_side == "compiled":
+                    output[0][0, 0, 0] = float("nan")
+                    model.finite_candidates[0] = False
+                return output
+    
+            return run
+    
+        def eager_with_fault():
+            real_update()
+            if failure_side == "eager":
+                model.weights[0][0, 0, 0] = float("nan")
+                model.finite_candidates[0] = False
+    
+        monkeypatch.setattr(torch, "compile", compile_with_fault)
+        monkeypatch.setattr(model, "update", eager_with_fault)
+        try:
+&gt;           with pytest.raises(AssertionError):
+E           Failed: DID NOT RAISE &lt;class 'AssertionError'&gt;
+
+tests/test_plasticity_predictive_transport_v2.py:225: Failed</failure></testcase></testsuite></testsuites>

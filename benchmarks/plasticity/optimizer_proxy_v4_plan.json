@@ -1,0 +1,25 @@
+{
+  "goal": "Find a substantial, tuned Adam/AdamW advantage that survives batch size, sample reuse, signed clipped policy objectives and fresh-data validation; do not infer PPO returns from regression MSE.",
+  "diagnosis": "Prior proxy was B=1, scalar squared loss, mostly stationary IID data, fixed beta2=.999 and zero decay. PPO transfer used a fixed LR and only two beta1 values. These are different optimization regimes, not an established transfer test.",
+  "suite": [
+    {"name":"iid_online", "objective":"regression", "samples":65536,"batch_size":1,"epochs":1,"drift":false},
+    {"name":"drifting_reuse", "objective":"regression", "samples":65536,"batch_size":64,"epochs":8,"drift":true},
+    {"name":"clipped_bandit", "objective":"ppo", "samples":262144,"batch_size":256,"epochs":8,"drift":true}
+  ],
+  "model":"Same 17-64-64-1 tanh MLP and initialization API as previous dense proxy. CUDA FP32, TF32 off; compiled updates and captured repeated-epoch rounds. No covariance or Fisher state.",
+  "moving_task":"Eight equal segments interpolate through independently drawn nonlinear teachers; input mean shifts smoothly. No task ID, teacher, clean targets or noise variance enters optimizer. Targets/action rewards are noisy. Changes occur in full rounds so old PPO logprobs/advantages remain frozen within reuse epochs.",
+  "bandit":"Gaussian scalar policy with fixed std=.5; noisy reward=-(action-teacher(context))^2+N(0,1); advantages use only same-round sampled reward minus round mean. Real signed clipped PPO score with clip=.2, no critic, no advantage normalization. New on-policy actions each round, common base noise across candidates. This is a policy-optimization proxy, NOT MuJoCo or a claim of PPO ranking validity.",
+  "families":["adamw","predictive","full","mars_01","mars_1"],
+  "equations":{
+    "predictive":"C=J_current^T(score_current-score_previous), scores on same current batch and objective; m'=beta*m+(1-beta)*g+beta*(1-beta^(t-1))*C; v tracks raw g^2.",
+    "full":"C=g(theta,current_batch)-g(theta_previous,current_batch), same first-moment mass and raw-gradient v.",
+    "mars":"h=g+gamma*beta*(1-beta^(t-1))/(1-beta)*C_full; m'=beta*m+(1-beta)*h; v tracks h^2; gamma=.1 or1. No clipping, no claim to reproduce every detail of published MARS.",
+    "adamw":"C=0; ordinary bias-corrected AdamW, beta2 tuned, decoupled decay excludes bias columns in every family. Adam is the decay=0 subset."
+  },
+  "grid":{"lr":[0.00003,0.0001,0.0003,0.001,0.003,0.01,0.03],"beta1":[0,0.5,0.9,0.99,0.999,0.9999,0.99999],"beta2":[0.95,0.999],"weight_decay":[0,0.01,0.1],"candidates_per_family":294,"eps":1e-8},
+  "selection":"Identical 294 configurations per family, same initialization and exogenous draws. Select duration-weighted noisy validation loss/reward, not clean teacher MSE. Lock all family selections before held-out scoring. Report Adam decay=0 and AdamW controls separately. Boundary winner requires matched search extension before declaring an optimum. All finite poor candidates retained; nonfinite state permanently invalidates candidate and remains in artifacts.",
+  "heldout":"Independent train/validation/test RNG namespaces under seed1, no extra-seed claims. Noisy validation observed independently, clean risk diagnostic only. Held-out scoring after locks over saved selected trajectories; test scores never rerank configurations. Adaptive development rounds must be labelled, not disguised as untouched confirmation.",
+  "diagnostics":"Measure held-out risk over the full horizon, endpoint and each drift segment; same-batch fitting versus fresh-data risk; gradient estimator error/alignment against large fresh-batch expected-gradient diagnostics when practical, never fed to learner. Preserve previous transport as a falsification control. Do not require a synthetic proxy to produce a preselected ranking.",
+  "promotion":"Seek >=20% lower sustained held-out excess risk than independently tuned AdamW, no substantial regression in other regimes, and account for extra gradient evaluations/runtime. This is an experimental target, not a promised result. No RL promotion from one proxy win.",
+  "execution":{"queue":"mlq","seed":1,"max_parallel_runs":1,"max_attempts":1,"priority":0,"contracts_time_limit":"20m","experiment_time_limit":"60m","culling":"No short-horizon culling of a full comparative stream; nonfinite candidates invalidated visibly. No blind retries."}
+}

@@ -1,0 +1,18 @@
+{
+  "hypothesis": "Uncertainty over whether/how often the latent sparse relation changes can preserve stationary evidence without fixing the learner permanently in a no-change model.",
+  "observed_failure": {"source": "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/results.json", "segment_hazard_1e4_clean_mse": 0.0003697184686383244, "v3_static_clean_mse": 0.0002987429865963966, "no_change_clean_mse": 0.0002743546757378997, "interpretation": "Fixed hazard worsened stationary error. This motivates uncertainty over hazard, not a posthoc claim that the fixed-rate design worked."},
+  "primary": "hazard_mixture",
+  "hazards": [0,0.00001,0.0001,0.001],
+  "hyperprior": [0.25,0.25,0.25,0.25],
+  "segment_budget_each": 32,
+  "budget_decision_before_execution": {"evidence": "runs/SparseStream__segment_v5_development_recurrent__1__1789092960303245282/results.json", "recurrent_b9_mse": 0.006241622208672164, "recurrent_b32_mse": 0.0018468751810936492, "recurrent_v3_mse": 0.0016027031251943918, "decision": "Nine-state compression is strongly harmful on recurrence. Use32 per hazard (128 live branches total) for v6; fixed32 children isolate hazard averaging within the same per-child approximation. Higher compute/state cost is explicit, not a budget-matched claim."},
+  "hyper_update": "Past-only hazard weights produce current forecast; afterward multiply by each child's PRE-TRUNCATION Gaussian-mixture predictive density and normalize. No fixed share or hyperposterior forgetting.",
+  "controls": ["each of four hazard children", "frozen v3-static", "frozen v4 birth-only/continuous", "zero", "v5 noisy-prefix-selected AdamW", "historical Adam"],
+  "lock": "runs/SparseStream__segment_v5_development_stationary__1__1789092123533215632/prefix_lock.json",
+  "stream": {"seed": 1, "observations": 60000, "dimensions": 4096, "feature_probability": 0.01, "noise_sigma": 1, "development_namespace": 0, "confirmation_namespace": 200, "namespace_stride": 10000019, "views": ["stationary","change","null","recurrent","two_support"]},
+  "selection": "No test-based hyperparameter selection. Budget32 chosen from v5 development recurrence failure before v6 execution; hazard grid/hyperprior fixed beforehand. Original AdamW lock authenticated before draws. Hyperweights update only from online noisy observations. Namespace200 configurations fixed before any fresh outcomes.",
+  "metrics": ["full and postchange prequential clean/noisy MSE", "null prediction energy", "hazard posterior trajectories", "child segment/discarded-mass diagnostics", "final exact Bernoulli risk including stale-support partition", "state bytes", "measured runtime"],
+  "promotion": "Fresh change error at least20% below v3-static, stationary regression <=5%, null absolute clean risk<=1e-5. Publish recurrent/two-support stresses and all children, not only the best arm.",
+  "limitations": ["Four fixed hazard hypotheses approximate an unknown process", "Hyperposterior has a constant-hazard assumption and can accumulate selection debt", "Within-child support/scale/truncation approximations remain", "Four children cost more than one filter", "Informative sparsity prior is not supplied to AdamW; no generic optimizer superiority claim", "One seed with named fresh streams, no seed-level significance", "Biological analogy is not supporting evidence"],
+  "resources": {"queue": "mlq", "max_parallel_runs": 1, "priority": 0, "max_attempts": 1, "full_stream_without_plateau_culling": true, "planned_learning_time_limit_minutes": 30}
+}

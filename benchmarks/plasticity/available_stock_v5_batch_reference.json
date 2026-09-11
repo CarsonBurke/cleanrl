@@ -1,0 +1,197 @@
+{
+  "reference": "Independent FP64 direct normal equations for every dense prior and both feature frames, over complete consumed prefixes. This verifies posterior numerics, not learning performance.",
+  "views": {
+    "real": {
+      "artifact": "runs/SPY__available_stock_v5_real__1__20260909/results.json",
+      "observations": 409600,
+      "rows": [
+        {
+          "frame": "original",
+          "prior": 1e-07,
+          "coefficient_max_absolute_error": 6.632546833121224e-07,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 8.31238137665597e-06,
+          "covariance_frobenius_relative_error": 0.0015338313625032052,
+          "beta_relative_error": 1.0555150365327017e-07,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "original",
+          "prior": 1e-06,
+          "coefficient_max_absolute_error": 8.556953011385144e-07,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 9.95966339531197e-06,
+          "covariance_frobenius_relative_error": 0.0009737814943864531,
+          "beta_relative_error": 9.636048037155531e-08,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "original",
+          "prior": 1e-05,
+          "coefficient_max_absolute_error": 5.299396355437462e-06,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 5.6862949150668474e-05,
+          "covariance_frobenius_relative_error": 0.0007171263945329127,
+          "beta_relative_error": 3.0462502835537247e-07,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "original",
+          "prior": 0.0001,
+          "coefficient_max_absolute_error": 1.8231328192252517e-05,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 0.00015436976468674013,
+          "covariance_frobenius_relative_error": 0.0003747310540505694,
+          "beta_relative_error": 9.216597947600093e-07,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "original",
+          "prior": 0.001,
+          "coefficient_max_absolute_error": 2.8746097159187446e-05,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 0.0001979334969029627,
+          "covariance_frobenius_relative_error": 0.0002801626622099885,
+          "beta_relative_error": 1.4730666456145459e-06,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "latest",
+          "prior": 1e-07,
+          "coefficient_max_absolute_error": 1.2446824233422991e-06,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 9.366771677310086e-06,
+          "covariance_frobenius_relative_error": 0.001533837828227852,
+          "beta_relative_error": 1.6055569863932653e-07,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "latest",
+          "prior": 1e-06,
+          "coefficient_max_absolute_error": 1.4962958509358998e-06,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 1.052224201963504e-05,
+          "covariance_frobenius_relative_error": 0.0009737738196304847,
+          "beta_relative_error": 1.2402988074299366e-07,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "latest",
+          "prior": 1e-05,
+          "coefficient_max_absolute_error": 5.453066944812422e-06,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 6.482701798086804e-05,
+          "covariance_frobenius_relative_error": 0.0007168647935633429,
+          "beta_relative_error": 3.7593758554238277e-07,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "latest",
+          "prior": 0.0001,
+          "coefficient_max_absolute_error": 1.7840427958438522e-05,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 0.0001803452133392438,
+          "covariance_frobenius_relative_error": 0.0003748679061984202,
+          "beta_relative_error": 1.1925049678390686e-06,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "latest",
+          "prior": 0.001,
+          "coefficient_max_absolute_error": 2.7632039692183658e-05,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 0.00022945999398057436,
+          "covariance_frobenius_relative_error": 0.0002797639542537648,
+          "beta_relative_error": 1.9152075095771063e-06,
+          "covariance_cholesky_info": 0
+        }
+      ]
+    },
+    "random_sign": {
+      "artifact": "runs/SPY__available_stock_v5_random_sign__1__20260909/results.json",
+      "observations": 376832,
+      "rows": [
+        {
+          "frame": "original",
+          "prior": 1e-07,
+          "coefficient_max_absolute_error": 3.597630847901952e-07,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 4.100693147591913e-06,
+          "covariance_frobenius_relative_error": 0.0013880464917783485,
+          "beta_relative_error": 2.5014855535874732e-08,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "original",
+          "prior": 1e-06,
+          "coefficient_max_absolute_error": 9.80599795523179e-07,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 2.1682086406793328e-05,
+          "covariance_frobenius_relative_error": 0.000896683526454102,
+          "beta_relative_error": 1.04051441855007e-07,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "original",
+          "prior": 1e-05,
+          "coefficient_max_absolute_error": 5.57832201790627e-06,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 0.00013257227838948157,
+          "covariance_frobenius_relative_error": 0.0006744936961721598,
+          "beta_relative_error": 5.359327093750874e-07,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "original",
+          "prior": 0.0001,
+          "coefficient_max_absolute_error": 2.4595554383102878e-05,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 0.00037516927267060226,
+          "covariance_frobenius_relative_error": 0.00033248399062199243,
+          "beta_relative_error": 1.766939147754764e-06,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "original",
+          "prior": 0.001,
+          "coefficient_max_absolute_error": 2.8115626739655397e-05,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 0.0006194027349917979,
+          "covariance_frobenius_relative_error": 0.0002461604926881571,
+          "beta_relative_error": 3.12994663014103e-06,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "latest",
+          "prior": 1e-07,
+          "coefficient_max_absolute_error": 3.6034679249508745e-07,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 4.049705271804223e-06,
+          "covariance_frobenius_relative_error": 0.0013880415547524176,
+          "beta_relative_error": 2.4695050132697995e-08,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "latest",
+          "prior": 1e-06,
+          "coefficient_max_absolute_error": 9.452118046623763e-07,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 2.1400484675765825e-05,
+          "covariance_frobenius_relative_error": 0.0008967575628624396,
+          "beta_relative_error": 1.0313120285704943e-07,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "latest",
+          "prior": 1e-05,
+          "coefficient_max_absolute_error": 5.4061063124210065e-06,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 0.00013127373380732114,
+          "covariance_frobenius_relative_error": 0.0006742765580739823,
+          "beta_relative_error": 5.330633695700879e-07,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "latest",
+          "prior": 0.0001,
+          "coefficient_max_absolute_error": 2.3933292717050973e-05,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 0.00037109744940014343,
+          "covariance_frobenius_relative_error": 0.0003326015321111168,
+          "beta_relative_error": 1.7574376193369797e-06,
+          "covariance_cholesky_info": 0
+        },
+        {
+          "frame": "latest",
+          "prior": 0.001,
+          "coefficient_max_absolute_error": 2.8319095935203965e-05,
+          "checkpoint_forecast_rms_difference_on_consumed_features": 0.0006076324948911786,
+          "covariance_frobenius_relative_error": 0.00024575644171096107,
+          "beta_relative_error": 3.090569139524061e-06,
+          "covariance_cholesky_info": 0
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "question": "Can full feature covariance retain weak distributed stock signal that sparse static gates discarded, without the noise cost of reset-driven plasticity?",
+  "previous_evidence": "benchmarks/plasticity/stock_transfer_v1_evidence.json",
+  "diagnosis": {
+    "observed": "Static sparse v3/v4 nearly abstained and lost to linear Adam in all six scored real temporal blocks. Switching variants accumulated large prediction energy on real and random-sign targets.",
+    "hypothesis_not_yet_fact": "Correlated lagged stock channels and weak distributed signal favor joint dense shrinkage rather than marginal inclusion tests. Cross-feature uncertainty should route each observed residual through the full inverse information matrix.",
+    "not_a_claim": "Dense conjugate regression is established mathematics, not a claimed novel universal optimizer or global stock optimum. This experiment tests the missing mechanism under explicit assumptions."
+  },
+  "method": {
+    "name": "CorrelatedNIG v5",
+    "implementation": "cleanrl/plasticity/predictive_correlated_nig_v5.py",
+    "conditional_model": "y|w,sigma2 ~ Normal(x'w,sigma2); w|sigma2 ~ Normal(0,tau I sigma2); sigma2 ~ inverseGamma(2,1).",
+    "prior_variances": [1e-7, 1e-6, 1e-5, 1e-4, 1e-3],
+    "forecast_then_update": "u=P*x, s=1+x'u, mu=x'm. Current forecast uses only past posterior. After observing y, m+=u*(y-mu)/s, P-=u*u'/s, beta+=(y-mu)^2/(2*s), alpha+=1/2.",
+    "geometry": "P=(tau^-1 I + sum past x*x')^-1; dense offdiagonals transfer credit across correlated features, including a coordinate whose current x_i is zero. No independent coordinate reset or support gating.",
+    "scale": "Exact conjugate unknown shared variance under stationary Gaussian assumptions. True Student-t marginal predictive evidence, not an EMA residual scale mislabeled irreducible noise. Model can still be misspecified on financial heteroskedasticity/heavy tails.",
+    "precision": "FP32 means/covariances, TF32 disabled; FP64 scalar scale/evidence arithmetic for weak signal and stable log-gamma differences. Complete-state CUDA graph capture, no per-update host synchronization.",
+    "primary": "dense expert selected by real prefix prequential squared error, then fixed prior choice while continuing online learning",
+    "secondary": "static exact-under-model Bayesian predictive mixture of all dense priors and zero, with initial prior mass0.5 on zero and0.5 divided among dense models",
+    "ablation": "diagonal posterior projection after each otherwise identical update, its own prefix-selected prior on the same five-value grid",
+    "excluded": "No discount, injected process diffusion, restart schedule, robust-current-residual multiplier, sparse support gate, suffix-selected prediction blend or changed stock feature pipeline."
+  },
+  "evaluation": {
+    "evaluator": "cleanrl/plasticity/predictive_correlated_stock_eval_v2.py",
+    "data": "Original SPY 5-minute stock_stream defaults and full file, seed1. Same224 features, trailing normalization and clipping, forecast after intervening normalization bar before target.",
+    "selection_end_exclusive": 163840,
+    "selection_start_inclusive": 2000,
+    "reason_for_boundary": "Previous transfer consumed exactly163840 observations. Fit/select on this entire already-evaluated prefix and score the forward extension. Older benchmark summaries included the whole file, so do not call this a pristine never-seen market dataset.",
+    "expected_maximum_observations": 468021,
+    "expected_suffix_observations": 304181,
+    "baselines": "Independently trained same-class zero-initialized linear Adam and original seed1 hidden64 MLP Adam, both own LR selected on same real prefix; also always-zero prediction.",
+    "adam_lr_grid": [1e-7,3e-7,1e-6,3e-6,1e-5,3e-5,1e-4,3e-4,1e-3,3e-3,1e-2],
+    "views": ["real", "random_sign"],
+    "null": "Independent Rademacher signs rng1 preserve each actual target magnitude. Real prefix locks for dense/diagonal prior and both Adam LRs transfer unchanged; all learner states start fresh.",
+    "selection_barrier": "Durable lock at163840 before any later label update; same consumed prefix, same noisy loss criterion for all selected candidates. Bayesian mixture is fixed algorithm, not selected on suffix.",
+    "primary_metric": "Observed chronological suffix sum squared prelabel prediction error divided by sum squared target. Paired differences against both selected Adam baselines and diagonal ablation, all on identical consumed labels.",
+    "additional_evidence": "Prediction energy, target-prediction cross term, 8192-observation temporal blocks, selected prior and effective degrees of freedom. Report every candidate and secondary, do not promote a hindsight winner.",
+    "success": "Primary must beat matched linear Adam AND zero on the fixed forward real window. Lower error than matched diagonal supports the covariance mechanism. Null behavior and time-block consistency determine whether any observed improvement is robust enough to investigate further, not a significance certificate.",
+    "failure": "Losing matched linear Adam or merely matching zero rejects a claimed predictive advance; diagnose from covariance/evidence rather than retuning on the just-observed suffix. No unpruned rerun of a plateau to manufacture success."
+  },
+  "resources": {
+    "queue": "mlq",
+    "max_parallel_runs": 1,
+    "max_attempts": 1,
+    "priority": 0,
+    "contract_time_limit": "10m",
+    "experiment_time_limit": "15m per view",
+    "autocull": "Default-on, suffix-local, exactly two candidates: prefix-selected dense and fixed Bayesian mixture. Diagonal/Adam/unselected dense models cannot protect a failed candidate. Median3, EMA8192 half-life,16384 warmup,3 stale evaluations and4096 minimum cadence. Error-ratio min_delta1e-4; null also prediction-energy min_delta1e-4. Save consumed artifacts before exit75."
+  }
+}

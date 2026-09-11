@@ -1,0 +1,44 @@
+{
+  "question": "Can direct conditional-mean learning over causal expert forecasts substantially improve stock prediction beyond density winner selection?",
+  "previous_evidence": "benchmarks/plasticity/dynamic_stock_v3_evidence.json",
+  "diagnosis": "v6 accumulated preference for dynamic experts persisted despite forward evidence favoring the static control. Increasing uncertainty fitted noise, while static evidence learned weak signal. Replacing winner selection with joint regression can shrink, extrapolate, cancel correlated forecast errors, and vary this combination with observed state.",
+  "hypothesis": "A Bayesian residual predictor anchored at the strong static forecast can learn conditional expert weights directly from squared residuals. State interactions should capture when a forecast is useful without resetting the base learners or relying on a single globally preferred expert.",
+  "model": {
+    "implementation": "cleanrl/plasticity/predictive_conditional_stack_v7.py",
+    "frozen_base": "Unmodified DynamicNIG v6 with all15 real static/dynamic expert trajectories and its3 mixtures. Base learners continue online independently of the meta learner.",
+    "anchor": "Current prelabel static-mixture forecast s; predict y=s+h'w with zero prior correction mean.",
+    "forecast_basis": "g=[s, (f_1-s)/sqrt(15), ..., (f_15-s)/sqrt(15)] using all15 raw prelabel base forecasts.",
+    "state": "Seven existing normalized input channels: tanh(mean of latest8 feature bars per channel)/sqrt(7). No timestamp lookahead, target information, new symbol data, or fitted future normalization.",
+    "designs": {
+      "calibration": "Only g_0=s, padded with zeros. Learns amplitude correction for static forecast.",
+      "stacking": "All16 g coordinates, padded with zeros. Learns joint unconstrained forecast combination without state dependence.",
+      "context": "[g, z_1*g, ..., z_7*g],128 dimensions. Forecast combination varies with the current observed input state."
+    },
+    "posterior": "Independent full-covariance Normal-Inverse-Gamma regression for each design/prior; w|sigma2~N(0,tau I sigma2), sigma2~IG(2,1). Learn target y-s using the actual historical predictable design. No density mixture across meta learners; each family selects tau by real-prefix prequential squared error.",
+    "meta_priors": [0.01,0.1,1.0],
+    "matched_optimizer_control": "Vanilla Adam correction on exactly the same128-dimensional contextual design, same static anchor and zero initial correction; original11-LR grid, betas0.9/0.999,epsilon1e-5. This separates contextual representation from Bayesian optimization benefit.",
+    "causal_order": "Frozen base returns prelabel forecasts before conditioning. Only returned owned forecasts and current x enter meta designs; no updated base state is consulted. Meta and contextAdam return old corrections before observing residual target. All output rows score before their own current update.",
+    "scope": "A structured nonlinear streaming predictor using existing information, not a claimed general drop-in neural optimizer or an exact market model. Predictable designs depend on past labels through the base learners; conjugate identities apply to the stated conditional model, not calibration guarantees on misspecified stock dynamics."
+  },
+  "evaluation": {
+    "source": "Same original SPY5-minute stock_stream defaults,224 causal features and original clipped centred/scaled target, seed1.",
+    "selection_interval": [2000,294912],
+    "selection_endpoint_exclusive": 294912,
+    "forward_window": "[294912,468021), beyond previous real transfer consumption. Older full-file benchmark summaries exist; not a pristine market dataset.",
+    "selection": "Three independent NIG prior choices (calibration,stacking,context), and three independent Adam LR choices (original linear,original MLP,matched context). All minimize the same real-prefix prequential noisy MSE, locks persisted exactly before label294912. No suffix model selection.",
+    "primary": "Real-prefix-selected contextual residual NIG predictor",
+    "controls": ["selected plain stacking", "selected scalar calibration", "frozen static mixture", "frozen adaptive mixture", "zero", "prefix-locked raw linear Adam", "prefix-locked raw MLP Adam", "prefix-locked matched-context Adam"],
+    "views": ["real","random_sign"],
+    "null": "Independent seed1 Rademacher signs preserve original per-observation target magnitudes; identical chronological features. Fresh learner state, inherited six real locks, no null-specific selection.",
+    "primary_score": "Consumed forward-window prequential squared error relative to zero, paired against every control on exactly the same observations.",
+    "material_progress_goal": "Lower real error than static, raw linear Adam and matched-context Adam; aim for at least25% greater observed reduction from zero than static/raw linear Adam when their reductions are positive. Beat plain stacking to attribute value specifically to state dependence. Report effect sizes and block consistency, never substitute a winning secondary for the primary.",
+    "diagnostics": "All61 forecasts retained, prefix candidate evidence, forecast energy and target-prediction cross term,8192-observation blocks, context-versus-plain corrections and covariance health. Compare real/null only on common consumed horizon if pruning differs.",
+    "interpretation": "Single historical path and adaptive censoring: no statistical significance, trading profitability, or irreducible-noise estimate. A small noisy-MSE gain can be reported as explained-target-energy improvement only with explicit denominator and no clean-signal claim."
+  },
+  "resources": {
+    "queue": "mlq", "max_parallel_runs":1, "max_attempts":1, "priority":0,
+    "contracts_time_limit":"12m", "experiment_time_limit":"15m per view", "reference_time_limit":"10m",
+    "autocull":"Default-on suffix-local ProxyCull, only selectedcontext candidate protects run. Error-ratio min_delta1e-4; null also prediction-energy min_delta1e-4. Default median3/8192half-life/16384warmup/patience3. No shortening of source file or unpruned rerun after plateau; raw partial arrays/state beforeexit75.",
+    "verification":"CUDA algebra/capture/causality contracts, independent reviews, root TensorBoard discovery and queued FP64 direct regression reference using every consumed actual prelabel design."
+  }
+}

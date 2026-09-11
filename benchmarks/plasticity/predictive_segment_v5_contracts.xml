@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="8" time="43.415" timestamp="2026-09-10T18:47:20.035332" hostname="cachyos-x8664-desktop"><testcase classname="tests.test_predictive_segment_v5" name="test_static_d1_known_noise_kernel_matches_conjugate_posterior" time="0.231" /><testcase classname="tests.test_predictive_segment_v5" name="test_future_forecasts_preserve_gathered_segment_and_null_scale_statistics[1-0.35]" time="0.230" /><testcase classname="tests.test_predictive_segment_v5" name="test_future_forecasts_preserve_gathered_segment_and_null_scale_statistics[3-0.2]" time="0.014" /><testcase classname="tests.test_predictive_segment_v5" name="test_future_forecasts_preserve_gathered_segment_and_null_scale_statistics[3-0.0]" time="0.011" /><testcase classname="tests.test_predictive_segment_v5" name="test_current_label_independence_and_pure_next_forecast" time="0.012" /><testcase classname="tests.test_predictive_segment_v5" name="test_null_zero_features_do_not_create_coefficients_or_nonfinite_zero_mass_slots" time="0.004" /><testcase classname="tests.test_predictive_segment_v5" name="test_whole_state_cuda_graph_replay_restores_and_matches_compiled_reference" time="8.267" /><testcase classname="tests.test_predictive_segment_v5" name="test_traced_runner_records_each_consumed_observation_through_final_row" time="34.597"><failure message="AssertionError: Tensor-likes are not close!&#10;&#10;Mismatched elements: 87 / 130 (66.9%)&#10;Greatest absolute difference: 1.0 at index (0, 2) (up to 2e-06 allowed)&#10;Greatest relative difference: 1.0 at index (0, 0) (up to 3e-05 allowed)">@torch.no_grad()
+    def test_traced_runner_records_each_consumed_observation_through_final_row():
+        from cleanrl.plasticity import covariance_sparse_eval_v1 as sparse
+        from cleanrl.plasticity.predictive_segment_eval_v5 import AdamWBank, ComparisonModel, TracedRunner, adam_grid
+    
+        cfg = sparse.Args(steps=4, input_dim=4, graph_steps=1)
+        xs = torch.tensor([[True, False, False, True], [False, True, True, False],
+                           [True, True, False, False], [False, False, True, True]], device='cuda')
+        ys = scalar([1., -.5, 2., .25])
+        model = ComparisonModel(4, 'cuda')
+        runner = TracedRunner(xs, ys, model, AdamWBank(adam_grid()[:1], cfg, xs, ys))
+        graphs = runner.capture(1)
+        for row in range(len(xs)):
+            graphs[1].replay()
+            torch.cuda.synchronize()
+            for trace, segment in zip(runner.traces, model.segments):
+&gt;               torch.testing.assert_close(trace[row], segment.trace(), rtol=3e-5, atol=2e-6)
+E               AssertionError: Tensor-likes are not close!
+E               
+E               Mismatched elements: 87 / 130 (66.9%)
+E               Greatest absolute difference: 1.0 at index (0, 2) (up to 2e-06 allowed)
+E               Greatest relative difference: 1.0 at index (0, 0) (up to 3e-05 allowed)
+
+tests/test_predictive_segment_v5.py:206: AssertionError</failure></testcase></testsuite></testsuites>
