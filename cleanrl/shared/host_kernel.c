@@ -61,7 +61,9 @@ enum {
     CLEANRL_OP_RMSNORM = 15,     /* dst = src / sqrt(mean(src^2) + 1e-5)      */
     CLEANRL_OP_DERF = 16,        /* dst = erf(alpha*src + shift)*weight + bias */
     CLEANRL_OP_ATTENTION = 17,   /* token-major, noncausal per-sample attention */
-    CLEANRL_OP_SWIGLU = 18       /* dst = up * silu(gate), without caps       */
+    CLEANRL_OP_SWIGLU = 18,      /* dst = up * silu(gate), without caps       */
+    CLEANRL_OP_SILU = 19,        /* dst = silu(src)                           */
+    CLEANRL_OP_RELUSQ = 20       /* dst = relu(src)^2                         */
 };
 
 /* ops[k * OP_STRIDE + 0] is the code; the remaining seven slots are buffer
@@ -399,10 +401,28 @@ void cleanrl_host_forward(const cleanrl_host_graph *graph, const float *x, float
             for (int o = 0; o < n; ++o) dst[o] = tanh_fast(src[o]);
             break;
         }
+        case CLEANRL_OP_SILU: {
+            const float *src = bufs[op[2]];
+            const int n = op[5];
+            for (int o = 0; o < n; ++o) {
+                const float v = src[o];
+                dst[o] = v < -80.0f ? v / (1.0f + expf(-v)) : v * sigmoid_fast(v);
+            }
+            break;
+        }
         case CLEANRL_OP_RELU: {
             const float *src = bufs[op[2]];
             const int n = op[5];
             for (int o = 0; o < n; ++o) dst[o] = src[o] > 0.0f ? src[o] : 0.0f;
+            break;
+        }
+        case CLEANRL_OP_RELUSQ: {
+            const float *src = bufs[op[2]];
+            const int n = op[5];
+            for (int o = 0; o < n; ++o) {
+                const float v = src[o] > 0.0f ? src[o] : 0.0f;
+                dst[o] = v * v;
+            }
             break;
         }
         case CLEANRL_OP_LRELUSQ: {

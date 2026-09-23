@@ -45,6 +45,13 @@ class LeakyReluSq(nn.Module):
         return F.leaky_relu(x, negative_slope=0.5).square()
 
 
+class ReluSq(nn.Module):
+    """f(x) = relu(x)^2."""
+
+    def forward(self, x):
+        return F.relu(x).square()
+
+
 class SignedSquare(nn.Module):
     """f(x) = x * |x|: odd, monotone, degree-2 homogeneous, saturation-free.
 
@@ -627,6 +634,8 @@ class HostMLP:
                 self._layers.append(("tanh", None, None))
             elif isinstance(module, nn.ReLU):
                 self._layers.append(("relu", None, None))
+            elif isinstance(module, ReluSq):
+                self._layers.append(("relusq", None, None))
             elif isinstance(module, LeakyReluSq):
                 self._layers.append(("leakyrelusq", None, None))
             elif isinstance(module, SiTUGLUBranch):
@@ -702,6 +711,9 @@ class HostMLP:
                 h = out
             elif kind == "tanh":
                 np.tanh(h, out=h)
+            elif kind == "relusq":
+                np.maximum(h, 0.0, out=h)
+                np.square(h, out=h)
             elif kind == "leakyrelusq":
                 np.square(np.maximum(h, 0.5 * h), out=h)
             elif kind == "situglu":

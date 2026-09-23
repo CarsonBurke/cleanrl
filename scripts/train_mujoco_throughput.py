@@ -30,6 +30,7 @@ from cleanrl.shared.hl_gauss import Dreamer3BucketHLGaussSupport
 from cleanrl.shared.mujoco_env import make_mujoco_vector_env
 from cleanrl.shared.ppo_loop import gather_metrics, get_gae_fn
 from cleanrl.shared.rollout_graph import graph_compile
+from cleanrl.shared.runtime import configure_runtime
 from cleanrl.shared.sampling import sample_beta_actions
 from cleanrl.shared.staggered_envs import compute_phase_offsets, episode_horizon, run_phase_warmup
 from cleanrl.shared.timing import PhaseTimer

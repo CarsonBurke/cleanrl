@@ -26,9 +26,9 @@ Contracts (identical to the NumPy mirrors, so this is a drop-in replacement)
   ``LReluSphereTrunk``, ``LReluResTrunk``), ``NormResidualTrunk`` from
   ``norm_residual`` and its ``PreRMSTrunk``/``PreRMSStageTrunk``/``SiTUReorgTrunk``
   subclasses, ``Sequential(NGPTTrunk, NGPTHead)`` from ``ngpt``, and plain
-  ``nn.Sequential`` stacks of ``Linear``/``Tanh``/``ReLU``/``LeakyReluSq``/
-  ``SiTUGLUBranch`` (what ``HostMLP`` accepts). Unsupported networks may use a
-  NumPy mirror, except normalized trunks and nGPT, which require fused execution.
+  ``nn.Sequential`` stacks of ``Linear``/``Tanh``/``SiLU``/``ReLU``/``LeakyReluSq``/
+  ``SiTUGLUBranch``. SiLU requires the fused graph; other supported stacks may
+  use a NumPy mirror, except normalized trunks and nGPT, which require fused execution.
 - Host arithmetic is true FP32 with no relaxed-IEEE compiler flags. It is not
   bit-identical to the NumPy mirrors: BLAS reassociates its dot products, the
   row sums in ``justnorm`` use a different (explicit, 16-way) partial-sum
@@ -69,10 +69,10 @@ import torch
 from torch import nn
 
 from cleanrl.shared.host_actor import (
-    SQ_PAIR_CAP, CappedLeakyReluSq, CappedSignedSquare, HostLReluResActor,
+    ReluSq, SQ_PAIR_CAP, CappedLeakyReluSq, CappedSignedSquare, HostLReluResActor,
     HostLReluSphereActor, HostMLP, HostSiTUDenseActor, HostSiTUResActor,
-    HostSiTUSphereActor, LeakyReluSq, LReluResTrunk, LReluSphereTrunk,
-    LReluSqPair, SignedSquare, SiTUDenseTrunk, SiTUGLUBranch, SiTUResTrunk,
+    HostSiTUSphereActor, LReluSqPair, LeakyReluSq, LReluResTrunk,
+    LReluSphereTrunk, SiTUDenseTrunk, SiTUGLUBranch, SiTUResTrunk,
     SiTUSphereTrunk, SITU_GLU_MEAN_SQUARE,
 )
 from cleanrl.shared.ngpt import NGPTBlock, NGPTHead, NGPTTrunk
@@ -104,6 +104,8 @@ _OP_RMSNORM = 15
 _OP_DERF = 16
 _OP_ATTENTION = 17
 _OP_SWIGLU = 18
+_OP_SILU = 19
+_OP_RELUSQ = 20
 _OP_STRIDE = 8
 
 # -march=native output is CPU specific and no flag here relaxes IEEE semantics.
@@ -722,21 +724,25 @@ class HostGraphActor:
                     self.in_features = int(module.in_dim)
                 current = self._situ_glu_branch(current, module)
                 cols = int(module.out_dim)
-            elif isinstance(module, (nn.Tanh, nn.ReLU, LeakyReluSq)):
+            elif isinstance(module, (nn.Tanh, nn.SiLU, nn.ReLU, ReluSq, LeakyReluSq)):
                 if cols is None:
                     raise ValueError(
                         "HostGraphActor requires the first layer to be Linear or SiTUGLUBranch")
                 if isinstance(module, nn.Tanh):
                     code = _OP_TANH
+                elif isinstance(module, nn.SiLU):
+                    code = _OP_SILU
                 elif isinstance(module, nn.ReLU):
                     code = _OP_RELU
+                elif isinstance(module, ReluSq):
+                    code = _OP_RELUSQ
                 else:
                     code = _OP_LRELUSQ
                 self._op(code, current, current, 0, 0, self.num_rows * cols)
             else:
                 raise TypeError(
                     "HostGraphActor supports Sequential(<host_actor trunk>, Linear) and "
-                    "Linear/Tanh/ReLU/LeakyReluSq/SiTUGLUBranch stacks, not "
+                    "Linear/Tanh/SiLU/ReLU/LeakyReluSq/SiTUGLUBranch stacks, not "
                     f"{type(module).__name__}"
                 )
         if cols is None:

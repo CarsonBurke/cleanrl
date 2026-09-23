@@ -69,9 +69,9 @@ class Args:
     """total timesteps of the experiments"""
     learning_rate: float = 3e-4
     """the learning rate of the optimizer"""
-    num_envs: int = 1
+    num_envs: int = 32
     """the number of parallel game environments"""
-    num_steps: int = 2048
+    num_steps: int = 1024
     """the number of steps to run in each environment per policy rollout"""
     anneal_lr: bool = True
     """Toggle learning rate annealing for policy and value networks"""
@@ -101,8 +101,8 @@ class Args:
     # Execution controls, independent of PPO's batch and optimizer settings.
     env_backend: str = "auto"
     """native for supported v4 MuJoCo; sync for other continuous environments"""
-    env_threads: int = 2
-    """maximum physics threads; two balances latency with concurrent N16 runs"""
+    env_threads: int = 4
+    """maximum physics threads; four balances rollout throughput with concurrent runs"""
     compile: bool = True
     """compile deterministic policy statistics, PPO loss and GAE"""
     compile_mode: str = "reduce-overhead"

@@ -60,6 +60,7 @@ Do NOT retrofit frozen versioned files.
 - Set `--max-parallel-runs` from measured aggregate throughput, not per-run speed. For the standard 16-env MuJoCo PPO trainers use **6** with `--env-threads 2`: measured end-to-end, that is 235-252k aggregate SPS (~3.7 min per 8M-step run) against 115k for the old 3-runs/4-threads point, i.e. 2.1x the aggregate for a ~6% slower individual run. Go to 10 only when the box is exclusively yours (317k aggregate, ~4.5 min per run, ~17 GiB VRAM). Default novel or world-model/attention-heavy runs to **1** until characterized. Size VRAM on whole-process footprint (~1.7 GiB per standard run), never on `torch.cuda.max_memory_allocated`.
 - Keep the submitted command and all descendants in the runner's foreground process group; do not daemonize inside an `mlq` job.
 - If a run is clearly underperforming after 1-2M steps, stop it with `mlq cancel JOB_ID`; use `--force` only when graceful cancellation fails.
+- Culling is your job, not the user's: whenever you have runs in flight, keep `scripts/autocull.py --ref <best-run> --only <your-prefix> --enforce all --yes --watch 600` running in the background so runs that stall, collapse, or fall and stay behind the reference are cancelled without a human watching them.
 - After a benchmark completes (or enough data to judge): re-evaluate your hypothesis, determine if it should be iterated on further, and parse what worked and what didn't.
 - Never do smoke tests
 - Typically only do HalfCheetah and for 8 million steps
