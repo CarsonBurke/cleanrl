@@ -165,10 +165,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _runs import (  # noqa: E402
     RETURN_TAG,
+    RunScalars,
     find_runs,
     fmt_step,
     last_active,
-    load_run,
     parse_step,
     parse_steps,
     run_timestamp,
@@ -208,20 +208,32 @@ def exp_name_of(job: dict) -> str:
 # --------------------------------------------------------------------------- #
 # Metrics
 # --------------------------------------------------------------------------- #
-def ema_series(steps: np.ndarray, vals: np.ndarray, halflife: int) -> np.ndarray:
+def ema_series(steps: np.ndarray, vals: np.ndarray, halflife: int,
+               prior: np.ndarray | None = None) -> np.ndarray:
     """Step-aware EMA: per-sample decay 0.5 ** (dstep / halflife).
 
     Irregular sampling is the norm here (episodes end when they end), so decay
-    is defined in step space rather than per sample.
+    is defined in step space rather than per sample. `prior` is the EMA of a
+    prefix of the same series; only the samples past its end are computed, which
+    is what keeps a watch tick proportional to the data appended since the last
+    tick rather than to the run's whole history.
     """
     if vals.size == 0:
-        return vals
-    out = np.empty_like(vals, dtype=np.float64)
-    out[0] = vals[0]
-    d = np.diff(steps).astype(np.float64)
+        return np.empty(0, dtype=np.float64)
+    out = np.empty(vals.size, dtype=np.float64)
+    start = 0
+    if prior is not None and prior.size:
+        start = min(prior.size, vals.size)
+        out[:start] = prior[:start]
+    if start == 0:
+        out[0] = vals[0]
+        start = 1
+    if start >= vals.size:
+        return out
+    d = np.diff(steps[start - 1:]).astype(np.float64)
     alpha = 1.0 - np.power(0.5, np.maximum(d, 0.0) / float(halflife))
-    for i in range(1, vals.size):
-        out[i] = out[i - 1] + alpha[i - 1] * (vals[i] - out[i - 1])
+    for i in range(start, vals.size):
+        out[i] = out[i - 1] + alpha[i - start] * (vals[i] - out[i - 1])
     return out
 
 
@@ -250,19 +262,79 @@ def norm_slope(steps: np.ndarray, ema: np.ndarray, window: int) -> float | None:
     return slope / max(abs(float(np.mean(y))), 1.0)
 
 
+class CurveCache:
+    """Parsed curves shared across sweeps, refreshed incrementally.
+
+    Parsing a 50M-step run's tfevents costs ~2.3 s (measured: 188k events, 50k
+    return samples); a sweep re-parsing every live run, the reference, and in
+    auto-reference mode up to --ref-scan candidates from scratch made a tick
+    scale with the campaign's history instead of with what changed since the
+    last tick. Each dir keeps one RunScalars restricted to the two tags autocull
+    reads, plus the EMA per half-life; a later visit reloads only appended
+    events and extends the EMA from where it stopped (measured: 2.1 s -> 44 ms
+    for a 50M run). Finished runs cost a stat.
+
+    `prune()` at the start of each sweep drops the dirs the previous sweep did
+    not visit, so the cache tracks the live set plus the reference scan window
+    rather than every dir ever seen; archived dirs leave the same way. One-shot
+    modes (--audit, --replay) pass no cache and keep their old memory profile.
+    """
+
+    TAGS = frozenset({RETURN_TAG, VALUE_LOSS_TAG})
+
+    def __init__(self):
+        self._scalars: dict[Path, RunScalars] = {}
+        self._ema: dict[tuple[Path, int], tuple[int, np.ndarray]] = {}
+        self._touched: set[Path] = set()
+
+    def scalars(self, run_dir: Path) -> RunScalars:
+        self._touched.add(run_dir)
+        cached = self._scalars.get(run_dir)
+        if cached is None:
+            cached = self._scalars[run_dir] = RunScalars(run_dir, tags=set(self.TAGS))
+        else:
+            cached.refresh()
+        return cached
+
+    def ema(self, run_dir: Path, halflife: int, steps: np.ndarray, vals: np.ndarray) -> np.ndarray:
+        """EMA of `(steps, vals)`, which must be the cached curve of `run_dir` or a prefix of it."""
+        key = (run_dir, halflife)
+        generation = self._scalars[run_dir].generation
+        prior = None
+        entry = self._ema.get(key)
+        if entry is not None and entry[0] == generation:
+            prior = entry[1]
+            if prior.size >= vals.size:
+                # Same curve or a truncated() prefix of it: an EMA prefix is exact.
+                return prior[:vals.size]
+        out = ema_series(steps, vals, halflife, prior=prior)
+        self._ema[key] = (generation, out)
+        return out
+
+    def prune(self) -> None:
+        """Forget dirs not visited since the previous prune."""
+        stale = {d for d in self._scalars if d not in self._touched}
+        for d in stale:
+            del self._scalars[d]
+        self._ema = {k: v for k, v in self._ema.items() if k[0] not in stale}
+        self._touched.clear()
+
+
 class RunView:
     """Return-curve view of one run dir: EMA, matched-step lookups, health."""
 
-    def __init__(self, run_dir: Path, halflife: int):
+    def __init__(self, run_dir: Path, halflife: int, cache: CurveCache | None = None):
         self.run_dir = run_dir
+        self._cache = cache
         # Run dirs are `{env_id}__{exp}__{seed}__{ts}`. The env is load-bearing for judging:
         # returns are not comparable across tasks (HalfCheetah tops ~9k, Hopper ~3.5k), so a
         # cross-env reference is a winner-killer. Measured: a Hopper arm was called DEAD at
         # "0.11x" of a HalfCheetah bar it could never reach at any quality.
         self.env = run_dir.name.split("__")[0]
-        r = load_run(run_dir)
+        r = cache.scalars(run_dir) if cache is not None else RunScalars(run_dir, tags=set(CurveCache.TAGS))
         self.steps, self.vals = r.series(RETURN_TAG)
-        self.ema = ema_series(self.steps, self.vals, halflife)
+        self._alt: dict[int, np.ndarray] = {}
+        self.ema = self.ema_for(halflife)
         self.max_step = int(self.steps[-1]) if self.steps.size else 0
         # The curve's own starting line, used as the common origin for progress ratios.
         # First EMA sample, i.e. the mean of the first episodes to finish across the vec-env.
@@ -274,7 +346,6 @@ class RunView:
             or (vl is not None and not np.isfinite(vl))
         )
         self.halflife = halflife
-        self._alt: dict[int, np.ndarray] = {}
 
     def truncated(self, step: int) -> "RunView":
         """This curve as a live sweep would have seen it at `step`.
@@ -285,7 +356,8 @@ class RunView:
         """
         m = self.steps <= step
         t = object.__new__(RunView)
-        t.run_dir, t.env, t.halflife, t._alt = self.run_dir, self.env, self.halflife, {}
+        t.run_dir, t.env, t.halflife = self.run_dir, self.env, self.halflife
+        t._cache, t._alt = self._cache, {}
         t.steps, t.vals, t.ema = self.steps[m], self.vals[m], self.ema[m]
         t.max_step = int(t.steps[-1]) if t.steps.size else 0
         t.origin = float(t.ema[0]) if t.ema.size else 0.0
@@ -295,6 +367,16 @@ class RunView:
 
     def at(self, step: int) -> float | None:
         return ema_at(self.steps, self.ema, step)
+
+    def ema_for(self, halflife: int) -> np.ndarray:
+        """EMA of this curve at `halflife`, memoized; served from the shared cache when there is one."""
+        if halflife not in self._alt:
+            self._alt[halflife] = (
+                self._cache.ema(self.run_dir, halflife, self.steps, self.vals)
+                if self._cache is not None
+                else ema_series(self.steps, self.vals, halflife)
+            )
+        return self._alt[halflife]
 
     def slope(self, window: int, halflife: int | None = None) -> float | None:
         """Normalized trailing slope, optionally on a shorter-memory EMA.
@@ -307,14 +389,13 @@ class RunView:
         137 checkpoints). The level tests keep 400k so the calibrated dead/behind thresholds
         stay valid.
         """
-        if halflife is None or halflife == self.halflife:
-            return norm_slope(self.steps, self.ema, window)
-        if halflife not in self._alt:
-            self._alt[halflife] = ema_series(self.steps, self.vals, halflife)
-        return norm_slope(self.steps, self._alt[halflife], window)
+        if halflife is None:
+            halflife = self.halflife
+        return norm_slope(self.steps, self.ema_for(halflife), window)
 
 
-def resolve_run(exp: str, runs_dir: Path, halflife: int, since: float | None = None) -> RunView | None:
+def resolve_run(exp: str, runs_dir: Path, halflife: int, since: float | None = None,
+                cache: CurveCache | None = None) -> RunView | None:
     """Run dir for an exp-name, or None when it cannot be attributed unambiguously.
 
     Two ways the naive "most recently active match" is a cancel hazard:
@@ -338,11 +419,11 @@ def resolve_run(exp: str, runs_dir: Path, halflife: int, since: float | None = N
             return None
     if not matched:
         return None
-    return RunView(max(matched, key=last_active), halflife)
+    return RunView(max(matched, key=last_active), halflife, cache)
 
 
 def auto_reference(runs_dir: Path, halflife: int, env: str, min_steps: int,
-                   scan: int, min_age: float) -> RunView | None:
+                   scan: int, min_age: float, cache: CurveCache | None = None) -> RunView | None:
     """Strongest FINISHED, FULL-LENGTH curve of `env` as the bar, when --ref was not given.
 
     Without this, `--ref` defaulting to None made the whole supervisor structurally
@@ -377,7 +458,7 @@ def auto_reference(runs_dir: Path, halflife: int, env: str, min_steps: int,
     cands: list[RunView] = []
     for d in matched[:scan]:
         try:
-            rv = RunView(d, halflife)
+            rv = RunView(d, halflife, cache)
         except Exception:
             continue  # unreadable/partial dir: not a yardstick
         if rv.broken or rv.max_step < min_steps or rv.steps.size < 8 or rv.age < min_age:
@@ -411,10 +492,11 @@ class ReferencePicker:
       the thing being measured cannot measure it.
     """
 
-    def __init__(self, a, runs_dir: Path):
+    def __init__(self, a, runs_dir: Path, cache: CurveCache | None = None):
         self.a = a
         self.runs_dir = runs_dir
-        self.explicit = resolve_run(a.ref, runs_dir, a.ema_halflife) if a.ref else None
+        self.curves = cache
+        self.explicit = resolve_run(a.ref, runs_dir, a.ema_halflife, cache=cache) if a.ref else None
         if a.ref and self.explicit is None:
             print(f"! reference {a.ref!r} not found under {runs_dir}", file=sys.stderr)
         self._cache: dict[str, RunView | None] = {}
@@ -429,7 +511,7 @@ class ReferencePicker:
             if run.env not in self._cache:
                 self._cache[run.env] = auto_reference(
                     self.runs_dir, self.a.ema_halflife, run.env, self.a.min_steps,
-                    self.a.ref_scan, self.a.ref_min_age,
+                    self.a.ref_scan, self.a.ref_min_age, self.curves,
                 )
             ref = self._cache[run.env]
             if ref is None:
@@ -486,7 +568,7 @@ def judge(run: RunView, ref: RunView | None, a) -> tuple[str, str]:
     # trial even if it later recovers. Unlike plateau/behind this compares the
     # run with its own prior peak and does not penalize slow starters.
     if a.collapse_ratio > 0 and (not a.calibrated_envs or run.env in a.calibrated_envs):
-        curve = ema_series(run.steps, run.vals, a.collapse_ema_halflife)
+        curve = run.ema_for(a.collapse_ema_halflife)
         peak = np.maximum.accumulate(curve)
         hits = np.flatnonzero(
             (run.steps >= a.min_steps)
@@ -763,9 +845,10 @@ def replay(a, root: Path) -> None:
                   f"        {reason}")
 
 
-def sweep(a, root: Path) -> int:
+def sweep(a, root: Path, curves: CurveCache) -> int:
     runs_dir = root / "runs"
-    picker = ReferencePicker(a, runs_dir)
+    curves.prune()  # drop what the previous sweep did not visit; safe even if it raised
+    picker = ReferencePicker(a, runs_dir, curves)
     issued = prior_cancels(root)
     culled = 0
     rows = []
@@ -783,7 +866,7 @@ def sweep(a, root: Path) -> int:
             continue
         created = job.get("createdAt")
         run = resolve_run(exp, runs_dir, a.ema_halflife,
-                          since=float(created) / 1000.0 if created else None)
+                          since=float(created) / 1000.0 if created else None, cache=curves)
         if run is None:
             rows.append((job["id"], exp, "keep", "no run dir newer than the job, or >1 seed matched"))
             continue
@@ -957,9 +1040,10 @@ def main() -> None:
     if a.audit:
         audit(a, root)
         return
+    curves = CurveCache()
     while True:
         try:
-            sweep(a, root)
+            sweep(a, root, curves)
         except subprocess.CalledProcessError as e:
             print(f"autocull: mlq unavailable ({e}); retrying", file=sys.stderr)
         except Exception:

@@ -141,10 +141,62 @@ class RunScalars:
         self._ea.Reload()
         self._tags = set(self._ea.Tags().get("scalars", []))
         self._cache: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        # Incremented by refresh() whenever a cached series had to be rebuilt.
+        self.generation = 0
 
     @property
     def tags(self) -> set[str]:
         return self._tags
+
+    def refresh(self) -> bool:
+        """Bring every series handed out so far up to date with the event files.
+
+        EventAccumulator.Reload is incremental: it resumes each file at the offset
+        it last reached and picks up files a restarted run adds, so a long-lived
+        watcher pays for new records only. Series not yet requested are left alone;
+        they are converted on first use as usual.
+
+        A run restart (SessionLog.START or an out-of-order step) makes TensorBoard
+        PURGE already-accumulated events past the restart step, so "more events than
+        before" does not imply "the old prefix is intact". Each cached series is
+        extended only when its last sample still matches the accumulator's; otherwise
+        it is rebuilt from scratch and `generation` is bumped so derived state
+        (an EMA extended from a prefix, say) knows it can no longer trust its prefix.
+        Returns True when any series was rebuilt.
+        """
+        self._ea.Reload()
+        self._tags = set(self._ea.Tags().get("scalars", []))
+        rebuilt = False
+        for tag, (steps, vals) in self._cache.items():
+            events = self._ea.Scalars(tag) if tag in self._tags else []
+            n = steps.size
+            # NaN-tolerant tail match: a run whose last value is non-finite must not
+            # look misaligned (and force a full rebuild) on every refresh.
+            aligned = len(events) >= n and (
+                n == 0
+                or (
+                    events[n - 1].step == steps[-1]
+                    and (events[n - 1].value == vals[-1] or (np.isnan(events[n - 1].value) and np.isnan(vals[-1])))
+                )
+            )
+            if aligned and len(events) == n:
+                continue
+            if aligned:
+                new_steps, new_vals = self._convert(events[n:])
+                self._cache[tag] = (np.concatenate([steps, new_steps]), np.concatenate([vals, new_vals]))
+            else:
+                self._cache[tag] = self._convert(events)
+                rebuilt = True
+        if rebuilt:
+            self.generation += 1
+        return rebuilt
+
+    @staticmethod
+    def _convert(events) -> tuple[np.ndarray, np.ndarray]:
+        return (
+            np.fromiter((e.step for e in events), dtype=np.int64, count=len(events)),
+            np.fromiter((e.value for e in events), dtype=np.float64, count=len(events)),
+        )
 
     def series(self, tag: str) -> tuple[np.ndarray, np.ndarray]:
         """Return (steps, values) arrays for a tag, empty arrays if absent."""
@@ -154,10 +206,7 @@ class RunScalars:
             out = (np.array([], dtype=np.int64), np.array([], dtype=np.float64))
             self._cache[tag] = out
             return out
-        events = self._ea.Scalars(tag)
-        steps = np.fromiter((e.step for e in events), dtype=np.int64, count=len(events))
-        vals = np.fromiter((e.value for e in events), dtype=np.float64, count=len(events))
-        out = (steps, vals)
+        out = self._convert(self._ea.Scalars(tag))
         self._cache[tag] = out
         return out
 

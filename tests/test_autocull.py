@@ -21,6 +21,7 @@ def curve(values, env="HalfCheetah-v4"):
     run.steps, run.vals = steps, np.asarray(values, dtype=float)
     run.max_step, run.env = int(steps[-1]), env
     run.broken, run.age = False, 0
+    run._cache, run._alt = None, {}  # what __init__ sets; no shared CurveCache
     return run
 
 
