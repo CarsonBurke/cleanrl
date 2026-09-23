@@ -1,0 +1,233 @@
+{
+  "generated_utc": "2026-09-20T02:17:03.918242+00:00",
+  "environment": "HalfCheetah-v4",
+  "seed": 1,
+  "selection": "furthest logged return step per named variant, never highest return",
+  "window_steps": 50000,
+  "smoothing_episodes": 20,
+  "limits": "Single-seed training returns; no independent evaluation or statistical superiority claim. Log extent does not establish job completion.",
+  "runs": {
+    "v5 PPO control": {
+      "available": true,
+      "path": "runs/HalfCheetah-v4__jepa_intact_model_control_v5_none__1__1789798719",
+      "last_episode_step": 7995008,
+      "last_20_mean": 4452.421588134765,
+      "tail_episodes": 20,
+      "matched_step_returns": {
+        "1000000": {
+          "mean": 1838.957315879293,
+          "episodes": 101,
+          "partial_window": false
+        },
+        "2000000": {
+          "mean": 3585.0129944451965,
+          "episodes": 101,
+          "partial_window": false
+        },
+        "8000000": {
+          "mean": 4308.718955993652,
+          "episodes": 46,
+          "partial_window": true
+        }
+      },
+      "latest_metrics_not_matched": {
+        "charts/interval_SPS": {
+          "step": 7995008,
+          "value": 23859.41796875
+        },
+        "losses/explained_variance": {
+          "step": 7995008,
+          "value": 0.9763732552528381
+        },
+        "world/goal_nll": {
+          "step": 7995008,
+          "value": -3.918647050857544
+        },
+        "world/latent_std": {
+          "step": 7995008,
+          "value": 1.0191665887832642
+        },
+        "world/local_nll": {
+          "step": 7995008,
+          "value": -7.857020854949951
+        }
+      }
+    },
+    "v6 real-return correction": {
+      "available": true,
+      "path": "runs/HalfCheetah-v4__jepa_intact_real_corrected_gradient_v6_corrected__1__1789801054",
+      "last_episode_step": 7995008,
+      "last_20_mean": 5668.15552368164,
+      "tail_episodes": 20,
+      "matched_step_returns": {
+        "1000000": {
+          "mean": 2519.054511344079,
+          "episodes": 101,
+          "partial_window": false
+        },
+        "2000000": {
+          "mean": 4152.669121770576,
+          "episodes": 101,
+          "partial_window": false
+        },
+        "8000000": {
+          "mean": 5615.129933896272,
+          "episodes": 46,
+          "partial_window": true
+        }
+      },
+      "latest_metrics_not_matched": {
+        "charts/interval_SPS": {
+          "step": 7995008,
+          "value": 21563.59765625
+        },
+        "drift/kl_all": {
+          "step": 7995008,
+          "value": 0.09208236634731293
+        },
+        "losses/explained_variance": {
+          "step": 7995008,
+          "value": 0.9870615601539612
+        },
+        "world/goal_nll": {
+          "step": 7995008,
+          "value": -4.101978302001953
+        },
+        "world/latent_std": {
+          "step": 7995008,
+          "value": 1.0067249536514282
+        },
+        "world/local_nll": {
+          "step": 7995008,
+          "value": -8.412673950195312
+        }
+      }
+    },
+    "v7 imagined H1 gradient": {
+      "available": true,
+      "path": "runs/HalfCheetah-v4__jepa_intact_one_step_model_gradient_v7_model__1__1789803437",
+      "last_episode_step": 1982000,
+      "last_20_mean": 65.05317010879517,
+      "tail_episodes": 20,
+      "matched_step_returns": {
+        "1000000": {
+          "mean": 769.226760486565,
+          "episodes": 101,
+          "partial_window": false
+        },
+        "2000000": {
+          "mean": 50.13542918002967,
+          "episodes": 33,
+          "partial_window": true
+        },
+        "8000000": null
+      },
+      "latest_metrics_not_matched": {
+        "charts/interval_SPS": {
+          "step": 1965696,
+          "value": 18621.826171875
+        },
+        "drift/kl_all": {
+          "step": 1965696,
+          "value": 2.467627763748169
+        },
+        "losses/explained_variance": {
+          "step": 1965696,
+          "value": 0.17221760749816895
+        },
+        "world/goal_nll": {
+          "step": 1965696,
+          "value": -0.5791566371917725
+        },
+        "world/latent_std": {
+          "step": 1965696,
+          "value": 0.8620978593826294
+        },
+        "world/local_nll": {
+          "step": 1965696,
+          "value": -3.4385383129119873
+        }
+      }
+    },
+    "v8 factual goals H8": {
+      "available": false
+    },
+    "v8 factual goals H1": {
+      "available": false
+    },
+    "v9 action quotient WML": {
+      "available": true,
+      "path": "runs/HalfCheetah-v4__intact_quotient_wml_v9_h8_weighted__1__1789867449",
+      "last_episode_step": 6602000,
+      "last_20_mean": 3148.2954734802247,
+      "tail_episodes": 20,
+      "matched_step_returns": {
+        "1000000": {
+          "mean": 701.6069198457321,
+          "episodes": 101,
+          "partial_window": false
+        },
+        "2000000": {
+          "mean": 1690.631580466091,
+          "episodes": 101,
+          "partial_window": false
+        },
+        "8000000": null
+      },
+      "latest_metrics_not_matched": {
+        "charts/interval_SPS": {
+          "step": 6585984,
+          "value": 28071.56640625
+        },
+        "drift/kl_all": {
+          "step": 6585984,
+          "value": 0.06225105747580528
+        },
+        "goals/factual_norm": {
+          "step": 6585984,
+          "value": 9.74295425415039
+        },
+        "goals/prescribed_norm": {
+          "step": 6585984,
+          "value": 9.445576667785645
+        },
+        "losses/explained_variance": {
+          "step": 6585984,
+          "value": 0.9854750037193298
+        },
+        "losses/weighted_action_nll": {
+          "step": 6585984,
+          "value": -4.729825496673584
+        },
+        "policy/concentration": {
+          "step": 6585984,
+          "value": 46.651363372802734
+        },
+        "policy/entropy": {
+          "step": 6585984,
+          "value": -4.721765041351318
+        },
+        "selection/empirical_kl": {
+          "step": 6585984,
+          "value": 0.09999993443489075
+        },
+        "selection/ess_fraction": {
+          "step": 6585984,
+          "value": 0.3618982136249542
+        },
+        "world/goal_nll": {
+          "step": 6585984,
+          "value": -2.1961729526519775
+        },
+        "world/latent_std": {
+          "step": 6585984,
+          "value": 1.0027061700820923
+        },
+        "world/local_nll": {
+          "step": 6585984,
+          "value": -7.585176944732666
+        }
+      }
+    }
+  }
+}

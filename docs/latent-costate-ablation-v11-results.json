@@ -1,0 +1,154 @@
+[
+  {
+    "label": "v10 reference",
+    "job": 7527,
+    "artifact": "runs/HalfCheetah-v4__latent_costate_v10_no_projection_8M__1__1789544944088860507/result.json",
+    "status": "completed",
+    "transitions": 8044160,
+    "final_return": 5831.04849609375,
+    "latest_return": 5831.04833984375,
+    "peak_return": 6091.2978515625,
+    "peak_step": 7421568,
+    "actor_attempted": 245,
+    "actor_accepted": 245,
+    "mean_kl": 0.02994650115120979,
+    "mean_cg_residual": 0.08775976131509201,
+    "last_costate_rms": 9.286773681640625,
+    "max_costate_rms": 11.725539207458496,
+    "last_model_loss": 0.0014411116717383265,
+    "model_optimizer_steps": 19600,
+    "critic_optimizer_steps": 15680,
+    "critic_target_refreshes": 1960,
+    "matched_steps": {
+      "1000000": {
+        "step": 999040,
+        "value": 1939.172119140625
+      },
+      "2000000": {
+        "step": 2014848,
+        "value": 4073.23193359375
+      },
+      "4000000": {
+        "step": 4013696,
+        "value": 5620.76416015625
+      },
+      "6000000": {
+        "step": 6012544,
+        "value": 5844.70361328125
+      },
+      "8000000": {
+        "step": 8011392,
+        "value": 5871.81640625
+      }
+    }
+  },
+  {
+    "label": "Gamma 0.99",
+    "job": 7541,
+    "artifact": "runs/HalfCheetah-v4__latent_costate_v11_gamma099_8M__1__1789546373737855898/result.json",
+    "status": "completed",
+    "transitions": 8044160,
+    "final_return": 5534.409052734375,
+    "latest_return": 5534.4091796875,
+    "peak_return": 5652.7841796875,
+    "peak_step": 5783168,
+    "actor_attempted": 245,
+    "actor_accepted": 245,
+    "mean_kl": 0.029916835768367102,
+    "mean_cg_residual": 0.11525941266910956,
+    "last_costate_rms": 6.9742045402526855,
+    "max_costate_rms": 10.02916431427002,
+    "last_model_loss": 0.001378818298690021,
+    "model_optimizer_steps": 19600.0,
+    "critic_optimizer_steps": 15680.0,
+    "critic_target_refreshes": 1960.0,
+    "matched_steps": {
+      "1000000": {
+        "step": 999040,
+        "value": 1323.5382080078125
+      },
+      "2000000": {
+        "step": 2014848,
+        "value": 3286.706298828125
+      },
+      "4000000": {
+        "step": 4013696,
+        "value": 5129.50244140625
+      },
+      "6000000": {
+        "step": 6012544,
+        "value": 5503.783203125
+      },
+      "8000000": {
+        "step": 8011392,
+        "value": 5533.7294921875
+      }
+    }
+  },
+  {
+    "label": "Full batch",
+    "job": 7542,
+    "artifact": "runs/HalfCheetah-v4__latent_costate_v11_fullbatch_8M__1__1789546505585413389/progress.json",
+    "status": "cancelled_underperforming",
+    "transitions": 2866816,
+    "final_return": null,
+    "latest_return": 3.838932752609253,
+    "peak_return": 178.4558563232422,
+    "peak_step": 1457792,
+    "actor_attempted": 87,
+    "actor_accepted": 87,
+    "mean_kl": 0.029983101951367937,
+    "mean_cg_residual": 0.0013274443366082318,
+    "last_costate_rms": 1.069653868675232,
+    "max_costate_rms": 3.902137041091919,
+    "last_model_loss": 0.015407728962600231,
+    "model_optimizer_steps": 870.0,
+    "critic_optimizer_steps": 696.0,
+    "critic_target_refreshes": 696.0,
+    "matched_steps": {
+      "1000000": {
+        "step": 999040,
+        "value": -15.599842071533203
+      },
+      "2000000": {
+        "step": 2014848,
+        "value": -63.9830436706543
+      }
+    }
+  },
+  {
+    "label": "No repeated sweeps",
+    "job": 7543,
+    "artifact": "runs/HalfCheetah-v4__latent_costate_v11_no_sweeps_8M__1__1789546563794458778/progress.json",
+    "status": "cancelled_underperforming",
+    "transitions": 4013696,
+    "final_return": null,
+    "latest_return": 946.798583984375,
+    "peak_return": 1060.8743896484375,
+    "peak_step": 2834048,
+    "actor_attempted": 122,
+    "actor_accepted": 122,
+    "mean_kl": 0.015516496789071077,
+    "mean_cg_residual": 0.030761579650958003,
+    "last_costate_rms": 1.6350871324539185,
+    "max_costate_rms": 2.2345025539398193,
+    "last_model_loss": 0.006158833857625723,
+    "model_optimizer_steps": 9760.0,
+    "critic_optimizer_steps": 7808.0,
+    "critic_target_refreshes": 122.0,
+    "matched_steps": {
+      "1000000": {
+        "step": 999040,
+        "value": 361.87158203125
+      },
+      "2000000": {
+        "step": 2014848,
+        "value": 805.1591186523438
+      },
+      "4000000": {
+        "step": 4013696,
+        "value": 946.798583984375
+      }
+    }
+  }
+]

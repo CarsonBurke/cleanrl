@@ -1,0 +1,74 @@
+[
+  {
+    "name": "return_field_natural_v9_learned_8M",
+    "artifact": "runs/HalfCheetah-v4__return_field_natural_v9_learned_8M__1__1789540454042733069/result.json",
+    "transitions": 8044160,
+    "trained_transitions": 4111000,
+    "final_return": 1743.7460095214844,
+    "kl_mean": 0.009993028259123288,
+    "cg_residual_mean": 0.22555928338047032,
+    "cg_residual_max": 0.863534152507782,
+    "line_search_cap_hits": 0.0,
+    "rejections": 0,
+    "matched": {
+      "1000000": 306.2947692871094,
+      "2000000": 707.5771484375,
+      "4000000": 1180.92529296875,
+      "6000000": 1359.083251953125
+    }
+  },
+  {
+    "name": "return_field_natural_v9_sampled_8M",
+    "artifact": "runs/HalfCheetah-v4__return_field_natural_v9_sampled_8M__1__1789540585019160694/result.json",
+    "transitions": 8044160,
+    "trained_transitions": 4111000,
+    "final_return": 1464.6882857894898,
+    "kl_mean": 0.00999127852859208,
+    "cg_residual_mean": 0.24709579699395975,
+    "cg_residual_max": 0.7909611463546753,
+    "line_search_cap_hits": 0.0,
+    "rejections": 0,
+    "matched": {
+      "1000000": 129.55252075195312,
+      "2000000": 432.6371765136719,
+      "4000000": 834.9713134765625,
+      "6000000": 1213.1846923828125
+    }
+  },
+  {
+    "name": "return_field_natural_v9_cg50_learned_8M",
+    "artifact": "runs/HalfCheetah-v4__return_field_natural_v9_cg50_learned_8M__1__1789540688831828791/result.json",
+    "transitions": 8044160,
+    "trained_transitions": 4111000,
+    "final_return": 2337.5034436035157,
+    "kl_mean": 0.00999335795250834,
+    "cg_residual_mean": 0.0296370120942761,
+    "cg_residual_max": 0.2149609923362732,
+    "line_search_cap_hits": 0.0,
+    "rejections": 0,
+    "matched": {
+      "1000000": 158.51898193359375,
+      "2000000": 640.9896850585938,
+      "4000000": 1334.3045654296875,
+      "6000000": 1980.51611328125
+    }
+  },
+  {
+    "name": "return_field_natural_v9_cg50_sampled_8M",
+    "artifact": "runs/HalfCheetah-v4__return_field_natural_v9_cg50_sampled_8M__1__1789540818896226891/result.json",
+    "transitions": 8044160,
+    "trained_transitions": 4111000,
+    "final_return": 1604.7888182449342,
+    "kl_mean": 0.009991369600715824,
+    "cg_residual_mean": 8.369955837157268e-05,
+    "cg_residual_max": 0.0007201823173090816,
+    "line_search_cap_hits": 0.0,
+    "rejections": 0,
+    "matched": {
+      "1000000": 86.44868469238281,
+      "2000000": 349.7252502441406,
+      "4000000": 832.4613647460938,
+      "6000000": 1289.75634765625
+    }
+  }
+]

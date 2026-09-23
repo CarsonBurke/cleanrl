@@ -1,0 +1,131 @@
+[
+  {
+    "label": "v10 reference",
+    "job": 7527,
+    "artifact": "runs/HalfCheetah-v4__latent_costate_v10_no_projection_8M__1__1789544944088860507/result.json",
+    "status": "completed",
+    "transitions": 8044160,
+    "final_return": 5831.04849609375,
+    "latest_return": 5831.04833984375,
+    "peak_return": 6091.2978515625,
+    "peak_step": 7421568,
+    "actor_attempted": 245,
+    "actor_accepted": 245,
+    "mean_kl": 0.02994650115120979,
+    "mean_cg_residual": 0.08775976131509201,
+    "last_costate_rms": 9.286773681640625,
+    "max_costate_rms": 11.725539207458496,
+    "last_model_loss": 0.0014411116717383265,
+    "model_optimizer_steps": 19600,
+    "critic_optimizer_steps": 15680,
+    "critic_target_refreshes": 1960,
+    "matched_steps": {
+      "1000000": {
+        "step": 999040,
+        "value": 1939.172119140625
+      },
+      "2000000": {
+        "step": 2014848,
+        "value": 4073.23193359375
+      },
+      "4000000": {
+        "step": 4013696,
+        "value": 5620.76416015625
+      },
+      "6000000": {
+        "step": 6012544,
+        "value": 5844.70361328125
+      },
+      "8000000": {
+        "step": 8011392,
+        "value": 5871.81640625
+      }
+    }
+  },
+  {
+    "label": "Full batch + fixed target, old LR",
+    "job": 7546,
+    "artifact": "runs/HalfCheetah-v4__latent_costate_v12_fullbatch_fixed_low_lr_8M__1__1789577645639026017/result.json",
+    "status": "completed",
+    "transitions": 8044160,
+    "final_return": 3465.7980712890626,
+    "latest_return": 3465.798095703125,
+    "peak_return": 3465.798095703125,
+    "peak_step": 8044160,
+    "actor_attempted": 245,
+    "actor_accepted": 245,
+    "mean_kl": 0.029972083334554228,
+    "mean_cg_residual": 0.06531547932183542,
+    "last_costate_rms": 5.321834087371826,
+    "max_costate_rms": 5.563864707946777,
+    "last_model_loss": 0.0051724547520279884,
+    "model_optimizer_steps": 2450.0,
+    "critic_optimizer_steps": 1960.0,
+    "critic_target_refreshes": 245.0,
+    "matched_steps": {
+      "1000000": {
+        "step": 999040,
+        "value": -45.377708435058594
+      },
+      "2000000": {
+        "step": 2014848,
+        "value": 481.2409973144531
+      },
+      "4000000": {
+        "step": 4013696,
+        "value": 1720.63916015625
+      },
+      "6000000": {
+        "step": 6012544,
+        "value": 2779.964111328125
+      },
+      "8000000": {
+        "step": 8011392,
+        "value": 3458.7314453125
+      }
+    }
+  },
+  {
+    "label": "Full batch + fixed target, 3x LR",
+    "job": 7547,
+    "artifact": "runs/HalfCheetah-v4__latent_costate_v12_fullbatch_fixed_3x_lr_8M__1__1789577766510621770/result.json",
+    "status": "completed",
+    "transitions": 8044160,
+    "final_return": 2836.492755126953,
+    "latest_return": 2836.49267578125,
+    "peak_return": 2877.442138671875,
+    "peak_step": 7945856,
+    "actor_attempted": 245,
+    "actor_accepted": 245,
+    "mean_kl": 0.029978769743150103,
+    "mean_cg_residual": 0.1057389159324185,
+    "last_costate_rms": 4.244574069976807,
+    "max_costate_rms": 4.244574069976807,
+    "last_model_loss": 0.0027270044665783644,
+    "model_optimizer_steps": 2450.0,
+    "critic_optimizer_steps": 1960.0,
+    "critic_target_refreshes": 245.0,
+    "matched_steps": {
+      "1000000": {
+        "step": 999040,
+        "value": -73.10685729980469
+      },
+      "2000000": {
+        "step": 2014848,
+        "value": 308.97607421875
+      },
+      "4000000": {
+        "step": 4013696,
+        "value": 1480.5137939453125
+      },
+      "6000000": {
+        "step": 6012544,
+        "value": 2364.432861328125
+      },
+      "8000000": {
+        "step": 8011392,
+        "value": 2872.271240234375
+      }
+    }
+  }
+]

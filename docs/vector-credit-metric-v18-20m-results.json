@@ -1,0 +1,1771 @@
+{
+  "v17 reference": {
+    "status": "completed",
+    "artifact": "runs/HalfCheetah-v4__vector_predictive_distribution_v17_8M__1__1789592871354193081/result.json",
+    "steps": 8044160,
+    "final_return": 4333.9931640625,
+    "peak_return": 4333.9931640625,
+    "peak_step": 8044160,
+    "matched_steps": {
+      "2000000": {
+        "step": 2014848,
+        "return": 925.9213256835938
+      },
+      "4000000": {
+        "step": 4013696,
+        "return": 2114.13916015625
+      },
+      "8000000": {
+        "step": 8011392,
+        "return": 4330.90283203125
+      }
+    },
+    "mean_kl": 0.029840851332545246,
+    "median_cg_residual": 0.006411601126567738,
+    "final_metrics": {
+      "step": 8044160,
+      "iteration": 245,
+      "credit/alpha_beta_rms": 13.682686805725098,
+      "credit/model_alpha_beta_rms": 1.2303388118743896,
+      "credit/residual_alpha_beta_rms": 13.656540870666504,
+      "credit/model_residual_cosine": -0.02377495728433132,
+      "targets/component_rms": 1002.3843383789062,
+      "credit/model_vector_rms": 0.29485515809555596,
+      "credit/observed_residual_rms": 10.262578293335343,
+      "data/valid_fraction": 1.0,
+      "data/trained_transitions": 8028160.0,
+      "targets/observed_steps_mean": 31.265350341796875,
+      "targets/observed_vector_rms": 55.27959060668945,
+      "targets/continuation_rms": 0.0741695836186409,
+      "targets/vector_rms": 0.07650116831064224,
+      "policy/concentration": 12.697805404663086,
+      "policy/entropy": -5.224032402038574,
+      "losses/vector_td": 0.004292686935514212,
+      "grad/critic_preclip_norm": 0.07412607222795486,
+      "critic/td_residual_rms": 0.005625785328447819,
+      "critic/component_td_rms": 9.710953712463379,
+      "critic/moment_td_rms": 0.005669788923114538,
+      "losses/mean_block_postfit": 4.7151312173809856e-05,
+      "losses/moment_block_postfit": 0.004114753101021051,
+      "policy/accepted_gain": 1.523926380036887,
+      "policy/exact_joint_kl": 0.02989897638163498,
+      "policy/accepted_scale": 0.22815269231796265,
+      "policy/line_search_evaluations": 16.0,
+      "policy/line_search_cap_hits": 0.0,
+      "natural/cg_residual_ratio": 0.029077478419720366,
+      "natural/undamped_curvature": 1.1687214136348634,
+      "natural/g_dot_direction": 6.716349416015036,
+      "natural/gradient_norm": 3.3539464473724365,
+      "natural/cg_recursive_residual_ratio": 0.029077377078633355,
+      "natural/preconditioner_min": 0.010000049136579037,
+      "natural/preconditioner_max": 13.605087280273438,
+      "policy/importance_max": 22.371482810782524,
+      "policy/importance_mean": 1.0014208523773607,
+      "policy/importance_ess_fraction": 0.9359608733997977,
+      "updates/actor_attempted": 245.0,
+      "updates/actor_accepted": 245.0,
+      "updates/critic_optimizer": 4410.0,
+      "updates/target_snapshots": 245.0,
+      "charts/episodic_return_mean_100": 4333.9931640625,
+      "charts/SPS": 38167.330466622516,
+      "charts/interval_SPS": 53311.284899763064,
+      "timing/rollout_s": 0.059700578916817904,
+      "timing/env_s": 0.2885064173024148,
+      "timing/normalize_transfer_s": 0.02999804384307936,
+      "timing/targets_s": 0.015714624404907226,
+      "timing/update_s": 0.2047774658203125
+    },
+    "phase_diagnostics": {
+      "0-4M": {
+        "updates": 121,
+        "first_return": -265.9363708496094,
+        "last_return": 2078.62353515625,
+        "mean_return": 1018.0921722601267,
+        "cg_above_0.1": 0,
+        "importance_ess_below_0.5": 2,
+        "importance_ess_below_0.1": 0,
+        "mean_epoch_gradient_above_clip": 0,
+        "accepted_updates": 121,
+        "model_residual_credit_ratio_median": 0.03178230482880361,
+        "grad/critic_preclip_norm": {
+          "median": 0.003964748699218035,
+          "mean": 0.004385454983311929,
+          "min": 0.0005683636991307139,
+          "max": 0.012524698860943317
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.00013318387180062433,
+          "mean": 0.0007314569507100935,
+          "min": 6.571688958502449e-07,
+          "max": 0.007227386049429812
+        },
+        "policy/importance_max": {
+          "median": 23.299356211170974,
+          "mean": 51.18292475039414,
+          "min": 3.3330236607133044,
+          "max": 1412.9292161455696
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.9357279836423006,
+          "mean": 0.919878820345214,
+          "min": 0.12753451759043746,
+          "max": 0.9475051290837307
+        },
+        "policy/concentration": {
+          "median": 5.43066930770874,
+          "mean": 5.398133941918365,
+          "min": 3.386286735534668,
+          "max": 6.942675590515137
+        },
+        "policy/entropy": {
+          "median": -1.6998296976089478,
+          "mean": -1.7128905190909205,
+          "min": -2.683346748352051,
+          "max": -0.4647524952888489
+        },
+        "critic/component_td_rms": {
+          "median": 23.6054744720459,
+          "mean": 25.67339457953272,
+          "min": 2.586402416229248,
+          "max": 50.582340240478516
+        },
+        "credit/observed_residual_rms": {
+          "median": 26.095869417323215,
+          "mean": 27.221127377437664,
+          "min": 3.335242606113995,
+          "max": 51.270650271686144
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 1.0538287162780762,
+          "mean": 1.293146442652734,
+          "min": 0.0,
+          "max": 3.616365909576416
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 36.95337677001953,
+          "mean": 38.77663347149684,
+          "min": 6.3050923347473145,
+          "max": 75.20320129394531
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.01504360232502222,
+          "mean": -0.018301665403376032,
+          "min": -0.05443797633051872,
+          "max": 0.002909822389483452
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.00639877375215292,
+          "mean": 0.006389902567891173,
+          "min": 0.003529689274728298,
+          "max": 0.009563056752085686
+        },
+        "policy/accepted_gain": {
+          "median": 2.861599318700605,
+          "mean": 2.768623483191254,
+          "min": 0.2371821437043973,
+          "max": 4.695056707315143
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.029946582003827858,
+          "mean": 0.029893319558285298,
+          "min": 0.02403619644696623,
+          "max": 0.02999963183574998
+        }
+      },
+      "4-8M": {
+        "updates": 122,
+        "first_return": 2114.13916015625,
+        "last_return": 4331.88232421875,
+        "mean_return": 3383.666934154073,
+        "cg_above_0.1": 0,
+        "importance_ess_below_0.5": 2,
+        "importance_ess_below_0.1": 0,
+        "mean_epoch_gradient_above_clip": 0,
+        "accepted_updates": 122,
+        "model_residual_credit_ratio_median": 0.0819411892023554,
+        "grad/critic_preclip_norm": {
+          "median": 0.030551145784556866,
+          "mean": 0.04313592395562007,
+          "min": 0.007585725747048855,
+          "max": 0.24627001583576202
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.02600541092970579,
+          "mean": 0.030215241940728294,
+          "min": 0.0037805654392572634,
+          "max": 0.09870945468204635
+        },
+        "policy/importance_max": {
+          "median": 45.6906519348799,
+          "mean": 87.35027583577627,
+          "min": 12.258027637978632,
+          "max": 668.419941341131
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.9252999189383169,
+          "mean": 0.8917627350938562,
+          "min": 0.3872788256059698,
+          "max": 0.9435276044498132
+        },
+        "policy/concentration": {
+          "median": 9.883730411529541,
+          "mean": 9.871860105483258,
+          "min": 6.955211639404297,
+          "max": 12.586915016174316
+        },
+        "policy/entropy": {
+          "median": -4.15615701675415,
+          "mean": -4.105803008939399,
+          "min": -5.178759574890137,
+          "max": -2.7162065505981445
+        },
+        "critic/component_td_rms": {
+          "median": 9.857907772064209,
+          "mean": 10.454142140560462,
+          "min": 8.164532661437988,
+          "max": 26.96337127685547
+        },
+        "credit/observed_residual_rms": {
+          "median": 11.286340864930848,
+          "mean": 12.087942731623846,
+          "min": 9.14027824885078,
+          "max": 27.96843780873987
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 1.2178084254264832,
+          "mean": 1.2499091332076027,
+          "min": 1.05278742313385,
+          "max": 1.561174988746643
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 15.528087615966797,
+          "mean": 16.907710903980693,
+          "min": 12.358253479003906,
+          "max": 34.468772888183594
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.022233922965824604,
+          "mean": -0.023206375111810496,
+          "min": -0.041603997349739075,
+          "max": -0.008859682828187943
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.004184519872069359,
+          "mean": 0.004190176908598572,
+          "min": 0.003916100598871708,
+          "max": 0.004500139504671097
+        },
+        "policy/accepted_gain": {
+          "median": 1.7770977945037996,
+          "mean": 1.8531248277421108,
+          "min": 1.3938304520752496,
+          "max": 3.6517946267254686
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.029971974640681444,
+          "mean": 0.029787091108196752,
+          "min": 0.009007381976894296,
+          "max": 0.029999912476677375
+        }
+      },
+      "8-12M": {
+        "updates": 2,
+        "first_return": 4330.90283203125,
+        "last_return": 4333.9931640625,
+        "mean_return": 4332.447998046875,
+        "cg_above_0.1": 0,
+        "importance_ess_below_0.5": 0,
+        "importance_ess_below_0.1": 0,
+        "mean_epoch_gradient_above_clip": 0,
+        "accepted_updates": 2,
+        "model_residual_credit_ratio_median": 0.09108463079636717,
+        "grad/critic_preclip_norm": {
+          "median": 0.06309256702661514,
+          "mean": 0.06309256702661514,
+          "min": 0.05205906182527542,
+          "max": 0.07412607222795486
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.03869159604575529,
+          "mean": 0.03869159604575529,
+          "min": 0.029077478419720366,
+          "max": 0.048305713671790214
+        },
+        "policy/importance_max": {
+          "median": 28.96094680864914,
+          "mean": 28.96094680864914,
+          "min": 22.371482810782524,
+          "max": 35.55041080651576
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.9328906790915004,
+          "mean": 0.9328906790915004,
+          "min": 0.929820484783203,
+          "max": 0.9359608733997977
+        },
+        "policy/concentration": {
+          "median": 12.659700870513916,
+          "mean": 12.659700870513916,
+          "min": 12.621596336364746,
+          "max": 12.697805404663086
+        },
+        "policy/entropy": {
+          "median": -5.2118096351623535,
+          "mean": -5.2118096351623535,
+          "min": -5.224032402038574,
+          "max": -5.199586868286133
+        },
+        "critic/component_td_rms": {
+          "median": 9.77709436416626,
+          "mean": 9.77709436416626,
+          "min": 9.710953712463379,
+          "max": 9.84323501586914
+        },
+        "credit/observed_residual_rms": {
+          "median": 10.139848356721746,
+          "mean": 10.139848356721746,
+          "min": 10.017118420108151,
+          "max": 10.262578293335343
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 1.2229369282722473,
+          "mean": 1.2229369282722473,
+          "min": 1.215535044670105,
+          "max": 1.2303388118743896
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 13.428863048553467,
+          "mean": 13.428863048553467,
+          "min": 13.20118522644043,
+          "max": 13.656540870666504
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.022390163503587246,
+          "mean": -0.022390163503587246,
+          "min": -0.02377495728433132,
+          "max": -0.02100536972284317
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.004113394534215331,
+          "mean": 0.004113394534215331,
+          "min": 0.004112035967409611,
+          "max": 0.004114753101021051
+        },
+        "policy/accepted_gain": {
+          "median": 1.4997332301564668,
+          "mean": 1.4997332301564668,
+          "min": 1.4755400802760468,
+          "max": 1.523926380036887
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.02994589736053021,
+          "mean": 0.02994589736053021,
+          "min": 0.02989897638163498,
+          "max": 0.029992818339425433
+        }
+      }
+    }
+  },
+  "v18 score-weighted credit metric": {
+    "status": "completed",
+    "artifact": "runs/HalfCheetah-v4__vector_credit_metric_v18_20M__1__1789604814873169182/progress.json",
+    "steps": 20037248,
+    "final_return": 7284.92236328125,
+    "peak_return": 7361.96142578125,
+    "peak_step": 19775104,
+    "matched_steps": {
+      "2000000": {
+        "step": 2014848,
+        "return": 2261.77392578125
+      },
+      "4000000": {
+        "step": 4013696,
+        "return": 3740.6650390625
+      },
+      "8000000": {
+        "step": 8011392,
+        "return": 5314.1220703125
+      },
+      "12000000": {
+        "step": 12009088,
+        "return": 5901.25244140625
+      },
+      "16000000": {
+        "step": 16006784,
+        "return": 6529.09033203125
+      },
+      "20000000": {
+        "step": 20004480,
+        "return": 7329.45654296875
+      }
+    },
+    "mean_kl": 0.029857714994499084,
+    "median_cg_residual": 0.07810532355794499,
+    "final_metrics": {
+      "step": 20037248,
+      "iteration": 611,
+      "critic/score_energy_mean": 1.0039911270141602,
+      "critic/score_energy_max": 19.138900756835938,
+      "credit/alpha_beta_rms": 64.86582946777344,
+      "credit/model_alpha_beta_rms": 1.7915005683898926,
+      "credit/residual_alpha_beta_rms": 64.84489440917969,
+      "credit/model_residual_cosine": -0.0021268255077302456,
+      "targets/component_rms": 1986.6275634765625,
+      "credit/model_vector_rms": 0.4431407389880603,
+      "credit/observed_residual_rms": 50.45556192826456,
+      "data/valid_fraction": 1.0,
+      "data/trained_transitions": 20021248.0,
+      "targets/observed_steps_mean": 31.262451171875,
+      "targets/observed_vector_rms": 91.38059997558594,
+      "targets/continuation_rms": 0.12196967750787735,
+      "targets/vector_rms": 0.126483753323555,
+      "policy/concentration": 21.012310028076172,
+      "policy/entropy": -7.646049976348877,
+      "losses/vector_td": 1.4252567291259766,
+      "grad/critic_preclip_norm": 165.95570373535156,
+      "critic/td_residual_rms": 0.01312297210097313,
+      "critic/component_td_rms": 47.765743255615234,
+      "critic/moment_td_rms": 0.012961827218532562,
+      "losses/credit_metric_postfit": 1.2585210800170898,
+      "critic/utility_td_rms": 123.98204040527344,
+      "losses/mean_block_postfit": 0.0011407831916585565,
+      "losses/moment_block_postfit": 0.021505147218704224,
+      "losses/optimized_mean_block_postfit": 1.237015962600708,
+      "policy/accepted_gain": 4.017541543936655,
+      "policy/exact_joint_kl": 0.029937613685547967,
+      "policy/accepted_scale": 0.31613054871559143,
+      "policy/line_search_evaluations": 16.0,
+      "policy/line_search_cap_hits": 0.0,
+      "natural/cg_residual_ratio": 0.20533073549853317,
+      "natural/undamped_curvature": 0.6740234965784591,
+      "natural/g_dot_direction": 50.39075591637928,
+      "natural/gradient_norm": 45.06861877441406,
+      "natural/cg_recursive_residual_ratio": 0.20533103480870105,
+      "natural/preconditioner_min": 0.010000194422900677,
+      "natural/preconditioner_max": 113.69229888916016,
+      "policy/importance_max": 26.289991778313286,
+      "policy/importance_mean": 0.9981606338780364,
+      "policy/importance_ess_fraction": 0.9407561199305103,
+      "updates/actor_attempted": 611.0,
+      "updates/actor_accepted": 611.0,
+      "updates/critic_optimizer": 10998.0,
+      "updates/target_snapshots": 611.0,
+      "charts/episodic_return_mean_100": 7284.92236328125,
+      "charts/SPS": 50612.85194188135,
+      "charts/interval_SPS": 53548.193716730384,
+      "timing/rollout_s": 0.0589389195520198,
+      "timing/env_s": 0.2613693082530517,
+      "timing/normalize_transfer_s": 0.02821581097668968,
+      "timing/targets_s": 0.015172608375549316,
+      "timing/update_s": 0.22703875732421874
+    },
+    "phase_diagnostics": {
+      "0-4M": {
+        "updates": 121,
+        "first_return": -265.9363708496094,
+        "last_return": 3718.214599609375,
+        "mean_return": 2111.2773926474833,
+        "cg_above_0.1": 0,
+        "importance_ess_below_0.5": 0,
+        "importance_ess_below_0.1": 0,
+        "mean_epoch_gradient_above_clip": 121,
+        "accepted_updates": 121,
+        "model_residual_credit_ratio_median": 0.05925444457091192,
+        "grad/critic_preclip_norm": {
+          "median": 10.082493782043457,
+          "mean": 11.519715118014123,
+          "min": 0.5548616647720337,
+          "max": 39.46275329589844
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.014059208347347519,
+          "mean": 0.01626184572665191,
+          "min": 7.988043389995382e-07,
+          "max": 0.0701210945803553
+        },
+        "policy/importance_max": {
+          "median": 26.726289906204602,
+          "mean": 39.71857721704877,
+          "min": 3.3330236607133044,
+          "max": 384.24587839919525
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.9340262573965865,
+          "mean": 0.9262426114682493,
+          "min": 0.6415487262284002,
+          "max": 0.9475051290837307
+        },
+        "policy/concentration": {
+          "median": 6.55057954788208,
+          "mean": 6.506841363985677,
+          "min": 3.386286735534668,
+          "max": 9.029748916625977
+        },
+        "policy/entropy": {
+          "median": -2.4488511085510254,
+          "mean": -2.402849087537813,
+          "min": -3.8387703895568848,
+          "max": -0.4647524952888489
+        },
+        "critic/component_td_rms": {
+          "median": 11.961541175842285,
+          "mean": 12.668665334212879,
+          "min": 2.6199684143066406,
+          "max": 21.73813247680664
+        },
+        "critic/utility_td_rms": {
+          "median": 29.954668045043945,
+          "mean": 30.898718093052384,
+          "min": 7.333237648010254,
+          "max": 57.6696662902832
+        },
+        "credit/observed_residual_rms": {
+          "median": 13.124706841705224,
+          "mean": 13.817584248561923,
+          "min": 3.335242606113995,
+          "max": 23.49941311988548
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 1.1042720079421997,
+          "mean": 1.0412911482093747,
+          "min": 0.0,
+          "max": 1.4226495027542114
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 19.02256202697754,
+          "mean": 18.96997767834624,
+          "min": 6.04119348526001,
+          "max": 32.62392807006836
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.021591467782855034,
+          "mean": -0.020728343989977166,
+          "min": -0.04174916818737984,
+          "max": 0.0
+        },
+        "losses/optimized_mean_block_postfit": {
+          "median": 0.07084791362285614,
+          "mean": 0.08008674995142444,
+          "min": 0.003563426434993744,
+          "max": 0.22091013193130493
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.015589157119393349,
+          "mean": 0.013938484066897187,
+          "min": 0.004230647813528776,
+          "max": 0.018774306401610374
+        },
+        "policy/accepted_gain": {
+          "median": 1.7751595580615653,
+          "mean": 1.7590243532565202,
+          "min": 0.2371821437043973,
+          "max": 3.192021939340777
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.029969153223603107,
+          "mean": 0.029956458297467233,
+          "min": 0.029861528319993738,
+          "max": 0.029999326468255663
+        },
+        "critic/score_energy_mean": {
+          "median": 1.0000431537628174,
+          "mean": 0.9999971020320231,
+          "min": 0.9890356659889221,
+          "max": 1.0146831274032593
+        },
+        "critic/score_energy_max": {
+          "median": 20.86256217956543,
+          "mean": 21.7927609514599,
+          "min": 14.575942039489746,
+          "max": 37.756919860839844
+        }
+      },
+      "4-8M": {
+        "updates": 122,
+        "first_return": 3740.6650390625,
+        "last_return": 5262.62109375,
+        "mean_return": 4659.884747614626,
+        "cg_above_0.1": 13,
+        "importance_ess_below_0.5": 6,
+        "importance_ess_below_0.1": 1,
+        "mean_epoch_gradient_above_clip": 122,
+        "accepted_updates": 122,
+        "model_residual_credit_ratio_median": 0.056493124645755385,
+        "grad/critic_preclip_norm": {
+          "median": 31.65451431274414,
+          "mean": 38.323764113129165,
+          "min": 10.799267768859863,
+          "max": 94.22126007080078
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.055451518372245004,
+          "mean": 0.06247624679042716,
+          "min": 0.017842814017823068,
+          "max": 0.220130842178806
+        },
+        "policy/importance_max": {
+          "median": 57.87848004877371,
+          "mean": 122.83213774096498,
+          "min": 15.463541583065162,
+          "max": 1654.3170383969123
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.918801183863274,
+          "mean": 0.8681857911356042,
+          "min": 0.09572130006667189,
+          "max": 0.9415295478291906
+        },
+        "policy/concentration": {
+          "median": 11.37487506866455,
+          "mean": 11.371632177321636,
+          "min": 9.063753128051758,
+          "max": 13.397663116455078
+        },
+        "policy/entropy": {
+          "median": -4.816442251205444,
+          "mean": -4.796358948848287,
+          "min": -5.522156715393066,
+          "max": -3.8544697761535645
+        },
+        "critic/component_td_rms": {
+          "median": 12.81664228439331,
+          "mean": 15.127341258721273,
+          "min": 7.555771350860596,
+          "max": 40.79545974731445
+        },
+        "critic/utility_td_rms": {
+          "median": 33.716026306152344,
+          "mean": 39.725199543061805,
+          "min": 19.726276397705078,
+          "max": 101.57951354980469
+        },
+        "credit/observed_residual_rms": {
+          "median": 13.18211137736294,
+          "mean": 15.04298391370063,
+          "min": 8.417593026389474,
+          "max": 43.22393567904198
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 1.0420965552330017,
+          "mean": 1.0544920260788964,
+          "min": 0.8665735721588135,
+          "max": 1.58876633644104
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 18.13553524017334,
+          "mean": 20.47243739737839,
+          "min": 11.16482925415039,
+          "max": 53.26399612426758
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.010698979254812002,
+          "mean": -0.011820879200431442,
+          "min": -0.05594617873430252,
+          "max": 0.0016358895227313042
+        },
+        "losses/optimized_mean_block_postfit": {
+          "median": 0.07944917678833008,
+          "mean": 0.13423593345357746,
+          "min": 0.027966216206550598,
+          "max": 0.8798403739929199
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.020179630257189274,
+          "mean": 0.02005321717225626,
+          "min": 0.018533550202846527,
+          "max": 0.020934663712978363
+        },
+        "policy/accepted_gain": {
+          "median": 2.114966555559677,
+          "mean": 2.304894245996728,
+          "min": 1.3972861035611466,
+          "max": 6.274194129846125
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.029974582057924432,
+          "mean": 0.029730297303770744,
+          "min": 0.0009935892204550518,
+          "max": 0.029999653513729945
+        },
+        "critic/score_energy_mean": {
+          "median": 1.0005117654800415,
+          "mean": 1.0006306098132838,
+          "min": 0.9892582893371582,
+          "max": 1.0147156715393066
+        },
+        "critic/score_energy_max": {
+          "median": 21.1224946975708,
+          "mean": 22.444807779593546,
+          "min": 15.397685050964355,
+          "max": 48.26795959472656
+        }
+      },
+      "8-12M": {
+        "updates": 122,
+        "first_return": 5314.1220703125,
+        "last_return": 5886.60791015625,
+        "mean_return": 5614.184146068135,
+        "cg_above_0.1": 44,
+        "importance_ess_below_0.5": 5,
+        "importance_ess_below_0.1": 0,
+        "mean_epoch_gradient_above_clip": 122,
+        "accepted_updates": 122,
+        "model_residual_credit_ratio_median": 0.05212830439937387,
+        "grad/critic_preclip_norm": {
+          "median": 51.580217361450195,
+          "mean": 51.88159010840244,
+          "min": 47.01823425292969,
+          "max": 58.06586456298828
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.08972097361650205,
+          "mean": 0.10605748057772833,
+          "min": 0.034501380303149295,
+          "max": 0.5031184024424821
+        },
+        "policy/importance_max": {
+          "median": 48.49103431380386,
+          "mean": 121.50804470986937,
+          "min": 8.887150185566503,
+          "max": 1636.8102635262671
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.9198299525316818,
+          "mean": 0.8702723475826792,
+          "min": 0.10025758187907514,
+          "max": 0.9479836992596559
+        },
+        "policy/concentration": {
+          "median": 14.647382736206055,
+          "mean": 14.664557152107113,
+          "min": 13.402731895446777,
+          "max": 16.01428985595703
+        },
+        "policy/entropy": {
+          "median": -5.960347890853882,
+          "mean": -5.933439000708158,
+          "min": -6.300797462463379,
+          "max": -5.508113861083984
+        },
+        "critic/component_td_rms": {
+          "median": 12.194075107574463,
+          "mean": 15.380177255536688,
+          "min": 10.344355583190918,
+          "max": 46.66577911376953
+        },
+        "critic/utility_td_rms": {
+          "median": 33.660818099975586,
+          "mean": 41.061986626171674,
+          "min": 27.104211807250977,
+          "max": 116.62639617919922
+        },
+        "credit/observed_residual_rms": {
+          "median": 13.23187887723558,
+          "mean": 16.391086029195137,
+          "min": 11.21144973791689,
+          "max": 46.96155124128383
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 1.0216735005378723,
+          "mean": 1.044920050218457,
+          "min": 0.9708563089370728,
+          "max": 1.7785792350769043
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 19.37037754058838,
+          "mean": 22.98262168540329,
+          "min": 15.379752159118652,
+          "max": 61.19047546386719
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.005715031176805496,
+          "mean": -0.0059728868266679235,
+          "min": -0.03178102895617485,
+          "max": 0.020658187568187714
+        },
+        "losses/optimized_mean_block_postfit": {
+          "median": 0.07553424686193466,
+          "mean": 0.1574117072293016,
+          "min": 0.0502689965069294,
+          "max": 1.366368055343628
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.020176133140921593,
+          "mean": 0.020156996706347973,
+          "min": 0.019566189497709274,
+          "max": 0.020525867119431496
+        },
+        "policy/accepted_gain": {
+          "median": 2.5453061405450463,
+          "mean": 2.642278052486302,
+          "min": 1.9918089258535452,
+          "max": 5.460258361240268
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.02997784908988915,
+          "mean": 0.029864453345344377,
+          "min": 0.01836128588642024,
+          "max": 0.029999588009154393
+        },
+        "critic/score_energy_mean": {
+          "median": 1.00032377243042,
+          "mean": 1.000188134244231,
+          "min": 0.9826704263687134,
+          "max": 1.0169099569320679
+        },
+        "critic/score_energy_max": {
+          "median": 21.217632293701172,
+          "mean": 22.040353626501364,
+          "min": 13.618915557861328,
+          "max": 39.47798538208008
+        }
+      },
+      "12-16M": {
+        "updates": 122,
+        "first_return": 5901.25244140625,
+        "last_return": 6533.6650390625,
+        "mean_return": 6108.862640881148,
+        "cg_above_0.1": 62,
+        "importance_ess_below_0.5": 3,
+        "importance_ess_below_0.1": 3,
+        "mean_epoch_gradient_above_clip": 122,
+        "accepted_updates": 122,
+        "model_residual_credit_ratio_median": 0.06232259106859708,
+        "grad/critic_preclip_norm": {
+          "median": 72.23437118530273,
+          "mean": 67.86872321269551,
+          "min": 21.20574378967285,
+          "max": 107.58293151855469
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.10199087124507417,
+          "mean": 0.1249594921060568,
+          "min": 0.038364351117709826,
+          "max": 0.6597872881652006
+        },
+        "policy/importance_max": {
+          "median": 53.21444118135705,
+          "mean": 503.8812238529435,
+          "min": 13.167988981515126,
+          "max": 29488.675102394503
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.9225900349452255,
+          "mean": 0.8829279391781449,
+          "min": 0.00041598996350022943,
+          "max": 0.9614534579426192
+        },
+        "policy/concentration": {
+          "median": 17.140533447265625,
+          "mean": 17.2638894847182,
+          "min": 16.02471923828125,
+          "max": 18.740243911743164
+        },
+        "policy/entropy": {
+          "median": -6.6509246826171875,
+          "mean": -6.665830811516184,
+          "min": -7.09084939956665,
+          "max": -6.2926411628723145
+        },
+        "critic/component_td_rms": {
+          "median": 14.72292184829712,
+          "mean": 19.42096152071093,
+          "min": 10.716275215148926,
+          "max": 62.26298904418945
+        },
+        "critic/utility_td_rms": {
+          "median": 39.61115837097168,
+          "mean": 51.14351872928807,
+          "min": 27.693239212036133,
+          "max": 157.0426025390625
+        },
+        "credit/observed_residual_rms": {
+          "median": 14.103615736596055,
+          "mean": 19.00176128478849,
+          "min": 10.476971282989917,
+          "max": 62.19584915645997
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 1.2832752466201782,
+          "mean": 1.2657408636124408,
+          "min": 1.0310508012771606,
+          "max": 1.5934624671936035
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 19.214019775390625,
+          "mean": 25.9607512286452,
+          "min": 14.064390182495117,
+          "max": 91.3096694946289
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.004855571314692497,
+          "mean": -0.0049856147084103184,
+          "min": -0.030980635434389114,
+          "max": 0.02397572621703148
+        },
+        "losses/optimized_mean_block_postfit": {
+          "median": 0.10941629111766815,
+          "mean": 0.27158384819011216,
+          "min": 0.056946445256471634,
+          "max": 2.229431629180908
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.019964685663580894,
+          "mean": 0.019952687908147203,
+          "min": 0.01924329251050949,
+          "max": 0.020499644801020622
+        },
+        "policy/accepted_gain": {
+          "median": 2.6285652329403133,
+          "mean": 3.5264859227220176,
+          "min": 1.7553018351150294,
+          "max": 58.941176613368604
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.02997808013287464,
+          "mean": 0.029761400422025564,
+          "min": 0.012153991091029579,
+          "max": 0.029999532759079864
+        },
+        "critic/score_energy_mean": {
+          "median": 1.0005530714988708,
+          "mean": 1.0000155739119796,
+          "min": 0.9873790740966797,
+          "max": 1.011195182800293
+        },
+        "critic/score_energy_max": {
+          "median": 20.343971252441406,
+          "mean": 21.8168909197948,
+          "min": 14.666892051696777,
+          "max": 46.95066833496094
+        }
+      },
+      "16-20.1M": {
+        "updates": 124,
+        "first_return": 6529.09033203125,
+        "last_return": 7284.92236328125,
+        "mean_return": 7020.293315272177,
+        "cg_above_0.1": 87,
+        "importance_ess_below_0.5": 4,
+        "importance_ess_below_0.1": 1,
+        "mean_epoch_gradient_above_clip": 124,
+        "accepted_updates": 124,
+        "model_residual_credit_ratio_median": 0.07333310790925437,
+        "grad/critic_preclip_norm": {
+          "median": 134.46790313720703,
+          "mean": 131.96092833242108,
+          "min": 105.09559631347656,
+          "max": 170.84158325195312
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.12643727458499848,
+          "mean": 0.13551305087979426,
+          "min": 0.04213652157344679,
+          "max": 0.32159579067850097
+        },
+        "policy/importance_max": {
+          "median": 44.78974564023764,
+          "mean": 120.77932562564648,
+          "min": 13.152665550675648,
+          "max": 3371.6310102798375
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.9263724767006123,
+          "mean": 0.8805070709800569,
+          "min": 0.025776032348647608,
+          "max": 0.9407561199305103
+        },
+        "policy/concentration": {
+          "median": 19.924724578857422,
+          "mean": 19.93398049569899,
+          "min": 18.716487884521484,
+          "max": 21.08832550048828
+        },
+        "policy/entropy": {
+          "median": -7.478471040725708,
+          "mean": -7.454362227070716,
+          "min": -7.686453819274902,
+          "max": -7.101655006408691
+        },
+        "critic/component_td_rms": {
+          "median": 16.66179656982422,
+          "mean": 18.433002564214892,
+          "min": 11.577067375183105,
+          "max": 76.31297302246094
+        },
+        "critic/utility_td_rms": {
+          "median": 44.22313690185547,
+          "mean": 48.641581289229855,
+          "min": 29.467782974243164,
+          "max": 197.6280059814453
+        },
+        "credit/observed_residual_rms": {
+          "median": 16.05116721903984,
+          "mean": 17.774170337649267,
+          "min": 11.302457381776037,
+          "max": 77.39726269124779
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 1.6748340725898743,
+          "mean": 1.6277036032369059,
+          "min": 1.4089772701263428,
+          "max": 1.7936099767684937
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 22.783100128173828,
+          "mean": 24.760275063976163,
+          "min": 15.757131576538086,
+          "max": 102.59994506835938
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.0021622300846502185,
+          "mean": -0.002451851048165061,
+          "min": -0.012736953794956207,
+          "max": 0.006892209406942129
+        },
+        "losses/optimized_mean_block_postfit": {
+          "median": 0.13873536884784698,
+          "mean": 0.21597689991035768,
+          "min": 0.062011025846004486,
+          "max": 2.934692144393921
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.021192675456404686,
+          "mean": 0.021111915023216316,
+          "min": 0.02013804018497467,
+          "max": 0.0218534916639328
+        },
+        "policy/accepted_gain": {
+          "median": 2.8188828659714216,
+          "mean": 2.9175015853008497,
+          "min": 1.7702585660986674,
+          "max": 12.026305554947983
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.029982119374767503,
+          "mean": 0.029974854652953558,
+          "min": 0.02986390641086401,
+          "max": 0.02999994589985905
+        },
+        "critic/score_energy_mean": {
+          "median": 0.9996394217014313,
+          "mean": 0.9990370759079533,
+          "min": 0.9860819578170776,
+          "max": 1.010388970375061
+        },
+        "critic/score_energy_max": {
+          "median": 21.14545440673828,
+          "mean": 22.209274899575018,
+          "min": 13.8384428024292,
+          "max": 47.735321044921875
+        }
+      }
+    },
+    "fresh_prefix_comparison": {
+      "matched_updates": 245,
+      "max_absolute_return_difference": 0.0,
+      "return_equal_updates": 245
+    }
+  },
+  "v18 without score weighting": {
+    "status": "completed",
+    "artifact": "runs/HalfCheetah-v4__vector_credit_metric_v18_unweighted_20M__1__1789605216012141557/progress.json",
+    "steps": 20037248,
+    "final_return": 7751.142578125,
+    "peak_return": 7772.65625,
+    "peak_step": 19873408,
+    "matched_steps": {
+      "2000000": {
+        "step": 2014848,
+        "return": 2434.312255859375
+      },
+      "4000000": {
+        "step": 4013696,
+        "return": 3768.292724609375
+      },
+      "8000000": {
+        "step": 8011392,
+        "return": 5008.5546875
+      },
+      "12000000": {
+        "step": 12009088,
+        "return": 6293.044921875
+      },
+      "16000000": {
+        "step": 16006784,
+        "return": 7077.86669921875
+      },
+      "20000000": {
+        "step": 20004480,
+        "return": 7674.5068359375
+      }
+    },
+    "mean_kl": 0.02994413907767334,
+    "median_cg_residual": 0.05451407325223321,
+    "final_metrics": {
+      "step": 20037248,
+      "iteration": 611,
+      "critic/score_energy_mean": 1.0018129348754883,
+      "critic/score_energy_max": 24.37389373779297,
+      "credit/alpha_beta_rms": 20.021461486816406,
+      "credit/model_alpha_beta_rms": 1.4496062994003296,
+      "credit/residual_alpha_beta_rms": 19.982446670532227,
+      "credit/model_residual_cosine": -0.009330752305686474,
+      "targets/component_rms": 1659.14697265625,
+      "credit/model_vector_rms": 0.38708908864733094,
+      "credit/observed_residual_rms": 14.66455772364221,
+      "data/valid_fraction": 1.0,
+      "data/trained_transitions": 20021248.0,
+      "targets/observed_steps_mean": 31.262451171875,
+      "targets/observed_vector_rms": 98.1061782836914,
+      "targets/continuation_rms": 0.10218636691570282,
+      "targets/vector_rms": 0.10698536783456802,
+      "policy/concentration": 21.928897857666016,
+      "policy/entropy": -7.632015228271484,
+      "losses/vector_td": 0.19888122379779816,
+      "grad/critic_preclip_norm": 114.81328582763672,
+      "critic/td_residual_rms": 0.01272415928542614,
+      "critic/component_td_rms": 14.710749626159668,
+      "critic/moment_td_rms": 0.012864135205745697,
+      "losses/credit_metric_postfit": 0.12930342555046082,
+      "critic/utility_td_rms": 39.81467819213867,
+      "losses/mean_block_postfit": 0.00010820306488312781,
+      "losses/moment_block_postfit": 0.02118220180273056,
+      "losses/optimized_mean_block_postfit": 0.10812122374773026,
+      "policy/accepted_gain": 2.545552379962294,
+      "policy/exact_joint_kl": 0.02993422224474352,
+      "policy/accepted_scale": 0.5529904365539551,
+      "policy/line_search_evaluations": 16.0,
+      "policy/line_search_cap_hits": 0.0,
+      "natural/cg_residual_ratio": 0.1367502205327809,
+      "natural/undamped_curvature": 0.20234847455555488,
+      "natural/g_dot_direction": 4.673119014860827,
+      "natural/gradient_norm": 15.587281227111816,
+      "natural/cg_recursive_residual_ratio": 0.13674911308327625,
+      "natural/preconditioner_min": 0.01000012457370758,
+      "natural/preconditioner_max": 58.13235855102539,
+      "policy/importance_max": 61.02114764869133,
+      "policy/importance_mean": 1.0048220022109273,
+      "policy/importance_ess_fraction": 0.9106211937611295,
+      "updates/actor_attempted": 611.0,
+      "updates/actor_accepted": 611.0,
+      "updates/critic_optimizer": 10998.0,
+      "updates/target_snapshots": 611.0,
+      "charts/episodic_return_mean_100": 7751.142578125,
+      "charts/SPS": 48465.81917119782,
+      "charts/interval_SPS": 41799.0171457009,
+      "timing/rollout_s": 0.06661760143470019,
+      "timing/env_s": 0.29211441898951307,
+      "timing/normalize_transfer_s": 0.034470092854462564,
+      "timing/targets_s": 0.0218984317779541,
+      "timing/update_s": 0.345443603515625
+    },
+    "phase_diagnostics": {
+      "0-4M": {
+        "updates": 121,
+        "first_return": -265.9363708496094,
+        "last_return": 3770.02734375,
+        "mean_return": 2263.5308478489396,
+        "cg_above_0.1": 0,
+        "importance_ess_below_0.5": 0,
+        "importance_ess_below_0.1": 0,
+        "mean_epoch_gradient_above_clip": 120,
+        "accepted_updates": 121,
+        "model_residual_credit_ratio_median": 0.05619257525012035,
+        "grad/critic_preclip_norm": {
+          "median": 11.804173469543457,
+          "mean": 13.675304358163157,
+          "min": 0.4815827012062073,
+          "max": 27.546178817749023
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.009263838171786222,
+          "mean": 0.012050643189328584,
+          "min": 7.349669544150228e-07,
+          "max": 0.052280487873733704
+        },
+        "policy/importance_max": {
+          "median": 22.160068451528822,
+          "mean": 33.03611922774023,
+          "min": 3.3330236607133044,
+          "max": 305.982370265298
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.9362675755092454,
+          "mean": 0.9309942985627067,
+          "min": 0.7130761663010765,
+          "max": 0.9475051290837307
+        },
+        "policy/concentration": {
+          "median": 6.573895454406738,
+          "mean": 6.657212284970875,
+          "min": 3.386286735534668,
+          "max": 9.952595710754395
+        },
+        "policy/entropy": {
+          "median": -2.714442253112793,
+          "mean": -2.613367343737074,
+          "min": -4.263328552246094,
+          "max": -0.4647524952888489
+        },
+        "critic/component_td_rms": {
+          "median": 12.957385063171387,
+          "mean": 13.432585387190512,
+          "min": 2.619757652282715,
+          "max": 33.542964935302734
+        },
+        "critic/utility_td_rms": {
+          "median": 32.580204010009766,
+          "mean": 32.794815954098034,
+          "min": 7.354357719421387,
+          "max": 84.61351013183594
+        },
+        "credit/observed_residual_rms": {
+          "median": 14.548072763847417,
+          "mean": 15.106382979144534,
+          "min": 3.335242606113995,
+          "max": 33.8869997313728
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 1.168796181678772,
+          "mean": 1.1302361873802074,
+          "min": 0.0,
+          "max": 1.6512823104858398
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 21.95252227783203,
+          "mean": 21.458189834247936,
+          "min": 6.091172218322754,
+          "max": 46.213035583496094
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.021239029243588448,
+          "mean": -0.019746090002379126,
+          "min": -0.03614123538136482,
+          "max": 0.0
+        },
+        "losses/optimized_mean_block_postfit": {
+          "median": 0.07866591215133667,
+          "mean": 0.09126487690647525,
+          "min": 0.0035619596019387245,
+          "max": 0.524391770362854
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.017532428726553917,
+          "mean": 0.015216435617497883,
+          "min": 0.004230506718158722,
+          "max": 0.019619569182395935
+        },
+        "policy/accepted_gain": {
+          "median": 1.6765843312589803,
+          "mean": 1.6081897913735606,
+          "min": 0.2371821437043973,
+          "max": 3.0275335847043516
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.029968715408817594,
+          "mean": 0.029958198502308252,
+          "min": 0.029859849833249838,
+          "max": 0.02999992286457078
+        },
+        "critic/score_energy_mean": {
+          "median": 0.999320387840271,
+          "mean": 0.9996673913041422,
+          "min": 0.9822646975517273,
+          "max": 1.014913558959961
+        },
+        "critic/score_energy_max": {
+          "median": 21.268938064575195,
+          "mean": 22.391140125999765,
+          "min": 14.311834335327148,
+          "max": 39.92265319824219
+        }
+      },
+      "4-8M": {
+        "updates": 122,
+        "first_return": 3768.292724609375,
+        "last_return": 4991.4384765625,
+        "mean_return": 4369.629194415984,
+        "cg_above_0.1": 1,
+        "importance_ess_below_0.5": 0,
+        "importance_ess_below_0.1": 0,
+        "mean_epoch_gradient_above_clip": 122,
+        "accepted_updates": 122,
+        "model_residual_credit_ratio_median": 0.04732254766231596,
+        "grad/critic_preclip_norm": {
+          "median": 25.815460205078125,
+          "mean": 26.310232522057706,
+          "min": 14.282289505004883,
+          "max": 75.83094024658203
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.03373221746756691,
+          "mean": 0.03787941647082487,
+          "min": 0.013974454211935545,
+          "max": 0.10390803745634916
+        },
+        "policy/importance_max": {
+          "median": 37.117513258537905,
+          "mean": 52.10741481105126,
+          "min": 12.628897554958028,
+          "max": 259.1747065542571
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.9297453096072511,
+          "mean": 0.9200664274383163,
+          "min": 0.6966111733277482,
+          "max": 0.9384155276403211
+        },
+        "policy/concentration": {
+          "median": 12.207035541534424,
+          "mean": 12.25327021958398,
+          "min": 9.997922897338867,
+          "max": 14.095212936401367
+        },
+        "policy/entropy": {
+          "median": -5.228005409240723,
+          "mean": -5.235000876129651,
+          "min": -5.9814276695251465,
+          "max": -4.273872375488281
+        },
+        "critic/component_td_rms": {
+          "median": 12.238030433654785,
+          "mean": 14.62482723642568,
+          "min": 7.279949188232422,
+          "max": 41.806365966796875
+        },
+        "critic/utility_td_rms": {
+          "median": 33.142276763916016,
+          "mean": 38.59130180859175,
+          "min": 18.562721252441406,
+          "max": 104.14311218261719
+        },
+        "credit/observed_residual_rms": {
+          "median": 13.519232416919476,
+          "mean": 15.68593479341674,
+          "min": 7.948740697992744,
+          "max": 43.02081905899188
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 0.931618869304657,
+          "mean": 0.9430761073456436,
+          "min": 0.7839670777320862,
+          "max": 1.5344146490097046
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 18.80779266357422,
+          "mean": 21.09609784454596,
+          "min": 11.221936225891113,
+          "max": 57.04315185546875
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.010751581750810146,
+          "mean": -0.010788145475805217,
+          "min": -0.025777693837881088,
+          "max": 0.004955032840371132
+        },
+        "losses/optimized_mean_block_postfit": {
+          "median": 0.07550855726003647,
+          "mean": 0.12521001174435265,
+          "min": 0.02495669387280941,
+          "max": 0.804973304271698
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.019202159717679024,
+          "mean": 0.019187167546421777,
+          "min": 0.018192686140537262,
+          "max": 0.019774019718170166
+        },
+        "policy/accepted_gain": {
+          "median": 1.8890676722343742,
+          "mean": 1.9953994475906596,
+          "min": 1.1841210260071173,
+          "max": 3.419645083383233
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.029974283113404256,
+          "mean": 0.029963576734009404,
+          "min": 0.02985915880983557,
+          "max": 0.029999087251057203
+        },
+        "critic/score_energy_mean": {
+          "median": 1.0002707242965698,
+          "mean": 1.0000986491070418,
+          "min": 0.9845535755157471,
+          "max": 1.0190156698226929
+        },
+        "critic/score_energy_max": {
+          "median": 21.070136070251465,
+          "mean": 22.371390405248423,
+          "min": 14.6358642578125,
+          "max": 46.35186004638672
+        }
+      },
+      "8-12M": {
+        "updates": 122,
+        "first_return": 5008.5546875,
+        "last_return": 6302.2734375,
+        "mean_return": 5695.590508132685,
+        "cg_above_0.1": 17,
+        "importance_ess_below_0.5": 3,
+        "importance_ess_below_0.1": 1,
+        "mean_epoch_gradient_above_clip": 122,
+        "accepted_updates": 122,
+        "model_residual_credit_ratio_median": 0.04937339098015127,
+        "grad/critic_preclip_norm": {
+          "median": 54.65082931518555,
+          "mean": 54.864746203188034,
+          "min": 18.655406951904297,
+          "max": 67.37091827392578
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.0592184715673348,
+          "mean": 0.06724078669173018,
+          "min": 0.01886056210542247,
+          "max": 0.21382423319558236
+        },
+        "policy/importance_max": {
+          "median": 42.16396370026777,
+          "mean": 86.46549473958243,
+          "min": 10.91948843489225,
+          "max": 1676.0099301100097
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.9268693983944998,
+          "mean": 0.8949181131358166,
+          "min": 0.09605172025541313,
+          "max": 0.9380481240995954
+        },
+        "policy/concentration": {
+          "median": 15.831850528717041,
+          "mean": 15.706414293070308,
+          "min": 14.183158874511719,
+          "max": 17.162433624267578
+        },
+        "policy/entropy": {
+          "median": -6.516482591629028,
+          "mean": -6.4515220610821835,
+          "min": -6.738922119140625,
+          "max": -5.971255302429199
+        },
+        "critic/component_td_rms": {
+          "median": 13.12282419204712,
+          "mean": 14.762889830792536,
+          "min": 9.045454978942871,
+          "max": 57.5706901550293
+        },
+        "critic/utility_td_rms": {
+          "median": 35.57047080993652,
+          "mean": 39.585343564142946,
+          "min": 22.807321548461914,
+          "max": 142.9180908203125
+        },
+        "credit/observed_residual_rms": {
+          "median": 14.256190631429156,
+          "mean": 15.586711834283811,
+          "min": 7.642204559753084,
+          "max": 58.55414595684703
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 1.0549323558807373,
+          "mean": 1.0622049267174767,
+          "min": 1.0298911333084106,
+          "max": 1.181828498840332
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 21.226741790771484,
+          "mean": 22.188092950914726,
+          "min": 10.817028999328613,
+          "max": 89.21192169189453
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.006537825567647815,
+          "mean": -0.006060165423485935,
+          "min": -0.015123153105378151,
+          "max": 0.003963019233196974
+        },
+        "losses/optimized_mean_block_postfit": {
+          "median": 0.0865483283996582,
+          "mean": 0.13142761899555316,
+          "min": 0.03811787813901901,
+          "max": 1.5215635299682617
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.019972700625658035,
+          "mean": 0.01991610326727883,
+          "min": 0.01877034828066826,
+          "max": 0.02089044824242592
+        },
+        "policy/accepted_gain": {
+          "median": 2.3441314577945835,
+          "mean": 2.359104036857644,
+          "min": 1.2604996052532846,
+          "max": 6.38397559099155
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.029975554571190346,
+          "mean": 0.02996989924631161,
+          "min": 0.029862116786940993,
+          "max": 0.029999743636151804
+        },
+        "critic/score_energy_mean": {
+          "median": 0.9994763433933258,
+          "mean": 0.9999913969000832,
+          "min": 0.9849490523338318,
+          "max": 1.0159345865249634
+        },
+        "critic/score_energy_max": {
+          "median": 20.838496208190918,
+          "mean": 22.144480572372185,
+          "min": 15.07803726196289,
+          "max": 47.4873046875
+        }
+      },
+      "12-16M": {
+        "updates": 122,
+        "first_return": 6293.044921875,
+        "last_return": 7097.880859375,
+        "mean_return": 6862.553618884477,
+        "cg_above_0.1": 45,
+        "importance_ess_below_0.5": 11,
+        "importance_ess_below_0.1": 1,
+        "mean_epoch_gradient_above_clip": 122,
+        "accepted_updates": 122,
+        "model_residual_credit_ratio_median": 0.05168748978788261,
+        "grad/critic_preclip_norm": {
+          "median": 78.02152252197266,
+          "mean": 78.06650243039991,
+          "min": 36.53844451904297,
+          "max": 130.64256286621094
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.0826101179504781,
+          "mean": 0.09149244806475655,
+          "min": 0.019114121478985332,
+          "max": 0.24343476232772696
+        },
+        "policy/importance_max": {
+          "median": 57.33558971919912,
+          "mean": 168.33707206713314,
+          "min": 14.076740409071865,
+          "max": 2170.312050323622
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.9142430516950054,
+          "mean": 0.8309590377124567,
+          "min": 0.05964012539035211,
+          "max": 0.93805125089044
+        },
+        "policy/concentration": {
+          "median": 18.787301063537598,
+          "mean": 18.717305464822736,
+          "min": 17.2520751953125,
+          "max": 19.93148422241211
+        },
+        "policy/entropy": {
+          "median": -7.062401056289673,
+          "mean": -7.046812014501603,
+          "min": -7.272024154663086,
+          "max": -6.748695373535156
+        },
+        "critic/component_td_rms": {
+          "median": 15.541685104370117,
+          "mean": 18.72258493548534,
+          "min": 12.138285636901855,
+          "max": 57.27359390258789
+        },
+        "critic/utility_td_rms": {
+          "median": 42.372894287109375,
+          "mean": 50.13004762618268,
+          "min": 33.28269958496094,
+          "max": 147.78651428222656
+        },
+        "credit/observed_residual_rms": {
+          "median": 16.955038534918863,
+          "mean": 20.870893873621586,
+          "min": 15.352688486372168,
+          "max": 84.36070470690079
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 1.261832356452942,
+          "mean": 1.3014141966084964,
+          "min": 1.1333134174346924,
+          "max": 1.8018795251846313
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 23.888243675231934,
+          "mean": 28.61612011956387,
+          "min": 20.42881202697754,
+          "max": 111.85586547851562
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.003646765253506601,
+          "mean": -0.003563225246177696,
+          "min": -0.01914227195084095,
+          "max": 0.005826921202242374
+        },
+        "losses/optimized_mean_block_postfit": {
+          "median": 0.12179284542798996,
+          "mean": 0.2079047351220592,
+          "min": 0.0746060311794281,
+          "max": 1.5625945329666138
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.02134858351200819,
+          "mean": 0.02131521255999315,
+          "min": 0.020468592643737793,
+          "max": 0.02196379005908966
+        },
+        "policy/accepted_gain": {
+          "median": 3.0699609911040406,
+          "mean": 3.7577764066807213,
+          "min": 1.9097707249549938,
+          "max": 12.706711532198385
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.02997606744849392,
+          "mean": 0.02987243847312618,
+          "min": 0.018053210591765435,
+          "max": 0.02999903407256875
+        },
+        "critic/score_energy_mean": {
+          "median": 1.0001046657562256,
+          "mean": 1.000026237769205,
+          "min": 0.9882038831710815,
+          "max": 1.01507568359375
+        },
+        "critic/score_energy_max": {
+          "median": 20.3657865524292,
+          "mean": 21.578335527513847,
+          "min": 15.603181838989258,
+          "max": 47.27412033081055
+        }
+      },
+      "16-20.1M": {
+        "updates": 124,
+        "first_return": 7077.86669921875,
+        "last_return": 7751.142578125,
+        "mean_return": 7362.034274193548,
+        "cg_above_0.1": 74,
+        "importance_ess_below_0.5": 3,
+        "importance_ess_below_0.1": 0,
+        "mean_epoch_gradient_above_clip": 124,
+        "accepted_updates": 124,
+        "model_residual_credit_ratio_median": 0.07160729585954026,
+        "grad/critic_preclip_norm": {
+          "median": 112.32415390014648,
+          "mean": 94.58646398975003,
+          "min": 33.58223342895508,
+          "max": 189.81985473632812
+        },
+        "natural/cg_residual_ratio": {
+          "median": 0.1119866096132568,
+          "mean": 0.12192947095400435,
+          "min": 0.036284658914607415,
+          "max": 0.3269445772985768
+        },
+        "policy/importance_max": {
+          "median": 71.78374613369803,
+          "mean": 120.12670885562298,
+          "min": 16.725757338823193,
+          "max": 804.8058893858735
+        },
+        "policy/importance_ess_fraction": {
+          "median": 0.9065428346162496,
+          "mean": 0.8561610873126115,
+          "min": 0.3084438944365879,
+          "max": 0.9478200474820611
+        },
+        "policy/concentration": {
+          "median": 21.018131256103516,
+          "mean": 20.97147677021642,
+          "min": 19.93115234375,
+          "max": 21.928897857666016
+        },
+        "policy/entropy": {
+          "median": -7.361132383346558,
+          "mean": -7.411553082927581,
+          "min": -7.632015228271484,
+          "max": -7.251321315765381
+        },
+        "critic/component_td_rms": {
+          "median": 17.357422828674316,
+          "mean": 19.397728381618375,
+          "min": 11.285740852355957,
+          "max": 67.37488555908203
+        },
+        "critic/utility_td_rms": {
+          "median": 47.20251274108887,
+          "mean": 52.03324400994085,
+          "min": 30.133636474609375,
+          "max": 173.39894104003906
+        },
+        "credit/observed_residual_rms": {
+          "median": 16.328046479274537,
+          "mean": 19.286399519322536,
+          "min": 11.638546496295659,
+          "max": 70.66128792441735
+        },
+        "credit/model_alpha_beta_rms": {
+          "median": 1.4735023379325867,
+          "mean": 1.4985838984289477,
+          "min": 1.4255719184875488,
+          "max": 1.9423526525497437
+        },
+        "credit/residual_alpha_beta_rms": {
+          "median": 20.755654335021973,
+          "mean": 25.58349577073128,
+          "min": 15.855334281921387,
+          "max": 96.71290588378906
+        },
+        "credit/model_residual_cosine": {
+          "median": -0.005353202112019062,
+          "mean": -0.005263243508359723,
+          "min": -0.013594602234661579,
+          "max": 0.00461656553670764
+        },
+        "losses/optimized_mean_block_postfit": {
+          "median": 0.1504295915365219,
+          "mean": 0.2210223304648553,
+          "min": 0.06276547908782959,
+          "max": 2.1569063663482666
+        },
+        "losses/moment_block_postfit": {
+          "median": 0.020835530012845993,
+          "mean": 0.020831950294274475,
+          "min": 0.020276106894016266,
+          "max": 0.021381700411438942
+        },
+        "policy/accepted_gain": {
+          "median": 3.3387330086307223,
+          "mean": 3.575819623372815,
+          "min": 2.0662195148239686,
+          "max": 8.491320659610748
+        },
+        "policy/exact_joint_kl": {
+          "median": 0.029970324043183057,
+          "mean": 0.0299564951157948,
+          "min": 0.02986123261469899,
+          "max": 0.029999475138530164
+        },
+        "critic/score_energy_mean": {
+          "median": 1.0004721879959106,
+          "mean": 0.9999750991982799,
+          "min": 0.9847574234008789,
+          "max": 1.0125340223312378
+        },
+        "critic/score_energy_max": {
+          "median": 20.510805130004883,
+          "mean": 22.223826785241403,
+          "min": 14.387577056884766,
+          "max": 57.718475341796875
+        }
+      }
+    },
+    "fresh_prefix_comparison": {
+      "matched_updates": 245,
+      "max_absolute_return_difference": 0.0,
+      "return_equal_updates": 245
+    }
+  }
+}

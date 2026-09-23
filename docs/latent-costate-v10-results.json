@@ -1,0 +1,56 @@
+[
+  {
+    "name": "return_field_natural_v9_kl003_cg50_learned_8M",
+    "artifact": "runs/HalfCheetah-v4__return_field_natural_v9_kl003_cg50_learned_8M__1__1789541262788219790/result.json",
+    "transitions": 8044160,
+    "trained_transitions": 4111000,
+    "final_return": 1916.550327835083,
+    "peak_return": 1984.348388671875,
+    "peak_step": 7782016,
+    "mean_kl": 0.02997908123672862,
+    "mean_cg_residual": 0.04101317580479647,
+    "rejected_updates": 0,
+    "matched": {
+      "1000000": 569.9578857421875,
+      "2000000": 1104.811279296875,
+      "4000000": 1613.50244140625,
+      "6000000": 1680.4705810546875
+    }
+  },
+  {
+    "name": "latent_costate_v10_8M",
+    "artifact": "runs/HalfCheetah-v4__latent_costate_v10_8M__1__1789544778756742499/result.json",
+    "transitions": 8044160,
+    "trained_transitions": 8019656,
+    "final_return": 4294.474548339844,
+    "peak_return": 5669.24853515625,
+    "peak_step": 4996736,
+    "mean_kl": 0.029979024852209296,
+    "mean_cg_residual": 0.1273454167342523,
+    "rejected_updates": 0,
+    "matched": {
+      "1000000": 2279.317626953125,
+      "2000000": 4675.9267578125,
+      "4000000": 5396.3779296875,
+      "6000000": 5628.140625
+    }
+  },
+  {
+    "name": "latent_costate_v10_no_projection_8M",
+    "artifact": "runs/HalfCheetah-v4__latent_costate_v10_no_projection_8M__1__1789544944088860507/result.json",
+    "transitions": 8044160,
+    "trained_transitions": 8019656,
+    "final_return": 5831.04849609375,
+    "peak_return": 6091.2978515625,
+    "peak_step": 7421568,
+    "mean_kl": 0.02994650115120979,
+    "mean_cg_residual": 0.08775976131509201,
+    "rejected_updates": 0,
+    "matched": {
+      "1000000": 1939.172119140625,
+      "2000000": 4073.23193359375,
+      "4000000": 5620.76416015625,
+      "6000000": 5844.70361328125
+    }
+  }
+]

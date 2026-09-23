@@ -1,0 +1,89 @@
+{
+  "status": "completed",
+  "artifact": "runs/HalfCheetah-v4__vector_predictive_distribution_v17_8M__1__1789592871354193081/progress.json",
+  "transitions": 8044160,
+  "last_logged_return": 4333.9931640625,
+  "peak_return": 4333.9931640625,
+  "peak_step": 8044160,
+  "actor_attempted": 245,
+  "actor_accepted": 245,
+  "mean_kl": 0.029840851332545246,
+  "median_cg_residual": 0.006411601126567738,
+  "mean_cg_residual": 0.01572305714243381,
+  "max_cg_residual": 0.09870945468204635,
+  "final_metrics": {
+    "step": 8044160,
+    "iteration": 245,
+    "credit/alpha_beta_rms": 13.682686805725098,
+    "credit/model_alpha_beta_rms": 1.2303388118743896,
+    "credit/residual_alpha_beta_rms": 13.656540870666504,
+    "credit/model_residual_cosine": -0.02377495728433132,
+    "targets/component_rms": 1002.3843383789062,
+    "credit/model_vector_rms": 0.29485515809555596,
+    "credit/observed_residual_rms": 10.262578293335343,
+    "data/valid_fraction": 1.0,
+    "data/trained_transitions": 8028160.0,
+    "targets/observed_steps_mean": 31.265350341796875,
+    "targets/observed_vector_rms": 55.27959060668945,
+    "targets/continuation_rms": 0.0741695836186409,
+    "targets/vector_rms": 0.07650116831064224,
+    "policy/concentration": 12.697805404663086,
+    "policy/entropy": -5.224032402038574,
+    "losses/vector_td": 0.004292686935514212,
+    "grad/critic_preclip_norm": 0.07412607222795486,
+    "critic/td_residual_rms": 0.005625785328447819,
+    "critic/component_td_rms": 9.710953712463379,
+    "critic/moment_td_rms": 0.005669788923114538,
+    "losses/mean_block_postfit": 4.7151312173809856e-05,
+    "losses/moment_block_postfit": 0.004114753101021051,
+    "policy/accepted_gain": 1.523926380036887,
+    "policy/exact_joint_kl": 0.02989897638163498,
+    "policy/accepted_scale": 0.22815269231796265,
+    "policy/line_search_evaluations": 16.0,
+    "policy/line_search_cap_hits": 0.0,
+    "natural/cg_residual_ratio": 0.029077478419720366,
+    "natural/undamped_curvature": 1.1687214136348634,
+    "natural/g_dot_direction": 6.716349416015036,
+    "natural/gradient_norm": 3.3539464473724365,
+    "natural/cg_recursive_residual_ratio": 0.029077377078633355,
+    "natural/preconditioner_min": 0.010000049136579037,
+    "natural/preconditioner_max": 13.605087280273438,
+    "policy/importance_max": 22.371482810782524,
+    "policy/importance_mean": 1.0014208523773607,
+    "policy/importance_ess_fraction": 0.9359608733997977,
+    "updates/actor_attempted": 245.0,
+    "updates/actor_accepted": 245.0,
+    "updates/critic_optimizer": 4410.0,
+    "updates/target_snapshots": 245.0,
+    "charts/episodic_return_mean_100": 4333.9931640625,
+    "charts/SPS": 38167.330466622516,
+    "charts/interval_SPS": 53311.284899763064,
+    "timing/rollout_s": 0.059700578916817904,
+    "timing/env_s": 0.2885064173024148,
+    "timing/normalize_transfer_s": 0.02999804384307936,
+    "timing/targets_s": 0.015714624404907226,
+    "timing/update_s": 0.2047774658203125
+  },
+  "matched_steps": {
+    "1000000": {
+      "step": 999040,
+      "value": 955.4985961914062
+    },
+    "2000000": {
+      "step": 2014848,
+      "value": 925.9213256835938
+    },
+    "4000000": {
+      "step": 4013696,
+      "value": 2114.13916015625
+    },
+    "6000000": {
+      "step": 6012544,
+      "value": 3462.065673828125
+    },
+    "8000000": {
+      "step": 8011392,
+      "value": 4330.90283203125
+    }
+  }
+}

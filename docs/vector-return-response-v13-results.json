@@ -1,0 +1,73 @@
+{
+  "status": "cancelled_for_sustained_underperformance",
+  "artifact": "runs/HalfCheetah-v4__vector_return_response_v13_8M__1__1789581691929940339/progress.json",
+  "transitions": 6667904,
+  "final_return": null,
+  "last_logged_return": 1232.2315673828125,
+  "peak_return": 1477.136474609375,
+  "peak_step": 3325568,
+  "actor_attempted": 203,
+  "actor_accepted": 203,
+  "mean_kl": 0.02997270084456612,
+  "min_kl": 0.02986733115189526,
+  "mean_suffix_fraction": 0.7560253425184729,
+  "mean_cg_residual": 0.047794236440168655,
+  "median_cg_residual": 0.04461509734392166,
+  "max_cg_residual": 0.1659119576215744,
+  "final_metrics": {
+    "step": 6667904,
+    "iteration": 203,
+    "data/complete_suffix_fraction": 0.74365234375,
+    "data/trained_transitions": 5029008.0,
+    "targets/profile_rms": 79.60247039794922,
+    "policy/concentration": 9.334091186523438,
+    "policy/entropy": -5.138103485107422,
+    "losses/baseline_profile": 0.03181479126214981,
+    "grad/baseline_preclip_norm": 0.0547957718372345,
+    "losses/response_profile": 0.031275276094675064,
+    "grad/response_preclip_norm": 0.008047190494835377,
+    "credit/alpha_beta_rms": 0.807883620262146,
+    "critic/response_coefficient_rms": 0.7940765023231506,
+    "critic/active_power_mean": 1.2829736471176147,
+    "critic/kernel_std_min": 0.007535933578017019,
+    "policy/accepted_gain": 0.4572917625308748,
+    "policy/exact_joint_kl": 0.0299984052496075,
+    "policy/accepted_scale": 8.017350196838379,
+    "policy/line_search_evaluations": 16.0,
+    "policy/line_search_cap_hits": 0.0,
+    "natural/cg_residual_ratio": 0.03869587182998657,
+    "natural/undamped_curvature": 0.0009312335751019418,
+    "natural/g_dot_direction": 0.05634188652038574,
+    "natural/gradient_norm": 60.56569290161133,
+    "updates/actor_attempted": 203.0,
+    "updates/actor_accepted": 203.0,
+    "updates/baseline_optimizer": 2030.0,
+    "updates/response_optimizer": 1624.0,
+    "charts/episodic_return_mean_100": 1232.2315673828125,
+    "charts/SPS": 30086.339416936684,
+    "charts/interval_SPS": 33731.642250157856,
+    "timing/rollout_s": 0.05588285104022361,
+    "timing/env_s": 0.26087123819161206,
+    "timing/normalize_transfer_s": 0.025645048852311447,
+    "timing/targets_s": 0.0028311679363250733,
+    "timing/update_s": 0.614748291015625
+  },
+  "matched_steps": {
+    "1000000": {
+      "step": 999040,
+      "value": 438.1231994628906
+    },
+    "2000000": {
+      "step": 2014848,
+      "value": 1330.0772705078125
+    },
+    "4000000": {
+      "step": 4013696,
+      "value": 1235.443603515625
+    },
+    "6000000": {
+      "step": 6012544,
+      "value": 1262.70947265625
+    }
+  }
+}
