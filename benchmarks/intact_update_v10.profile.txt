@@ -1,0 +1,46 @@
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+## Call CompiledFxGraph fh6t6iadysme77w3juew6grizdyq...         6.27%       1.758ms        13.64%       3.823ms     238.959us       6.930ms        55.29%       6.948ms     434.225us            16  
+## Call CompiledFxGraph f5jgds6fv4rt3obianyxy53doffr...         4.72%       1.321ms        13.38%       3.748ms     234.252us       4.207ms        33.56%       4.384ms     273.983us            16  
+void cutlass::Kernel2<cutlass_80_simt_sgemm_128x32_8...         0.00%       0.000us         0.00%       0.000us       0.000us       1.783ms        14.22%       1.783ms       4.127us           432  
+void cutlass::Kernel2<cutlass_80_simt_sgemm_128x32_8...         0.00%       0.000us         0.00%       0.000us       0.000us       1.217ms         9.71%       1.217ms       3.307us           368  
+triton_per_fused__unsafe_view_add_cos_div_expand_mul...         0.00%       0.000us         0.00%       0.000us       0.000us       1.048ms         8.36%       1.048ms      65.494us            16  
+void cutlass::Kernel2<cutlass_80_simt_sgemm_64x64_8x...         0.00%       0.000us         0.00%       0.000us       0.000us       1.039ms         8.29%       1.039ms       3.092us           336  
+void cublasLt::splitKreduce_kernel<32, 16, int, floa...         0.00%       0.000us         0.00%       0.000us       0.000us     920.001us         7.34%     920.001us       1.438us           640  
+triton_red_fused__unsafe_view_cos_mean_mul_pow_sin_s...         0.00%       0.000us         0.00%       0.000us       0.000us     878.756us         7.01%     878.756us      13.731us            64  
+                               triton_poi_fused_stack_1         3.96%       1.109ms         7.94%       2.224ms       3.391us     556.780us         4.44%     556.780us       0.849us           656  
+                               triton_poi_fused_stack_1         0.00%       0.000us         0.00%       0.000us       0.000us     556.780us         4.44%     556.780us       0.849us           656  
+                             digamma_vectorized4_kernel         0.00%       0.000us         0.00%       0.000us       0.000us     447.493us         3.57%     447.493us       4.661us            96  
+void sgemm_largek_lds64<false, true, 5, 5, 4, 4, 4, ...         0.00%       0.000us         0.00%       0.000us       0.000us     429.376us         3.43%     429.376us      13.418us            32  
+                              Optimizer.step#AdamW.step         0.00%       0.000us         0.00%       0.000us       0.000us     423.839us         3.38%     423.839us      26.490us            16  
+                                triton_red_fused_sum_12         0.00%       0.000us         0.00%       0.000us       0.000us     352.769us         2.81%     352.769us       1.002us           352  
+void cutlass::Kernel2<cutlass_80_simt_sgemm_64x64_8x...         0.00%       0.000us         0.00%       0.000us       0.000us     352.479us         2.81%     352.479us       2.448us           144  
+                               Optimizer.step#Adam.step         0.00%       0.000us         0.00%       0.000us       0.000us     331.294us         2.64%     331.294us      10.353us            32  
+                          triton_poi_fused_addmm_tanh_6         0.00%       0.000us         0.00%       0.000us       0.000us     258.850us         2.06%     258.850us       0.952us           272  
+                                triton_per_fused_sum_13         0.00%       0.000us         0.00%       0.000us       0.000us     249.693us         1.99%     249.693us       0.780us           320  
+                                            aten::copy_         1.06%     298.063us         4.35%       1.218ms       6.922us     163.902us         1.31%     165.374us       0.940us           176  
+                         Memcpy DtoD (Device -> Device)         0.00%       0.000us         0.00%       0.000us       0.000us     163.902us         1.31%     163.902us       0.931us           176  
+void cutlass::Kernel2<cutlass_80_simt_sgemm_128x32_8...         0.00%       0.000us         0.00%       0.000us       0.000us     155.393us         1.24%     155.393us       2.428us            64  
+                      triton_poi_fused_tanh_backward_14         0.00%       0.000us         0.00%       0.000us       0.000us     148.890us         1.19%     148.890us       0.716us           208  
+void cublasLt::splitKreduce_kernel<32, 16, int, floa...         0.00%       0.000us         0.00%       0.000us       0.000us     140.153us         1.12%     140.153us       1.460us            96  
+                                    aten::_foreach_norm         4.05%       1.136ms         6.89%       1.932ms      40.246us     138.145us         1.10%     175.935us       3.665us            48  
+                                     aten::_fused_adam_         0.46%     128.402us         0.82%     229.722us       7.179us     103.136us         0.82%     103.136us       3.223us            32  
+void at::native::(anonymous namespace)::multi_tensor...         0.00%       0.000us         0.00%       0.000us       0.000us     103.136us         0.82%     103.136us       3.223us            32  
+                                    aten::_fused_adamw_         0.63%     176.184us         0.82%     230.724us      14.420us      99.903us         0.80%      99.903us       6.244us            16  
+void at::native::(anonymous namespace)::multi_tensor...         0.00%       0.000us         0.00%       0.000us       0.000us      99.903us         0.80%      99.903us       6.244us            16  
+void gemvNSP_kernel<float, float, float, float, 1, 3...         0.00%       0.000us         0.00%       0.000us       0.000us      94.915us         0.76%      94.915us       1.977us            48  
+void cutlass::Kernel2<cutlass_80_simt_sgemm_64x64_8x...         0.00%       0.000us         0.00%       0.000us       0.000us      91.455us         0.73%      91.455us       1.905us            48  
+void at::native::(anonymous namespace)::multi_tensor...         0.00%       0.000us         0.00%       0.000us       0.000us      84.736us         0.68%      84.736us       1.765us            48  
+                                            aten::fill_         0.80%     223.830us         1.94%     542.274us       5.649us      75.293us         0.60%      75.293us       0.784us            96  
+                       triton_per_fused_add_sum_view_15         0.00%       0.000us         0.00%       0.000us       0.000us      71.873us         0.57%      71.873us       0.898us            80  
+                                          memcpy32_post         0.00%       0.000us         0.00%       0.000us       0.000us      68.803us         0.55%      68.803us       0.717us            96  
+std::enable_if<!(false), void>::type internal::gemvx...         0.00%       0.000us         0.00%       0.000us       0.000us      64.447us         0.51%      64.447us       1.343us            48  
+triton_per_fused__unsafe_view_add_addmm_binary_cross...         0.00%       0.000us         0.00%       0.000us       0.000us      62.753us         0.50%      62.753us       3.922us            16  
+void at::native::lpnorm_cleanup<float, (at::native::...         0.00%       0.000us         0.00%       0.000us       0.000us      53.409us         0.43%      53.409us       1.113us            48  
+                                    aten::_foreach_add_         0.65%     183.394us         1.33%     372.585us       7.762us      50.367us         0.40%      50.367us       1.049us            48  
+void at::native::(anonymous namespace)::multi_tensor...         0.00%       0.000us         0.00%       0.000us       0.000us      50.367us         0.40%      50.367us       1.049us            48  
+void at::native::vectorized_elementwise_kernel<4, at...         0.00%       0.000us         0.00%       0.000us       0.000us      50.365us         0.40%      50.365us       0.787us            64  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 28.021ms
+Self CUDA time total: 12.536ms

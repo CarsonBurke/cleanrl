@@ -1,0 +1,17 @@
+{
+  "variant": "v10",
+  "steps": 320,
+  "durations_s": [
+    0.3896627089998219,
+    0.3657295189987053,
+    0.36413303099834593,
+    0.3667404070001794,
+    0.36261846300112666
+  ],
+  "median_s": 0.3657295189987053,
+  "device": "NVIDIA GeForce RTX 5090",
+  "torch_version": "2.12.0+cu130",
+  "batch_size": 16384,
+  "minibatch_size": 512,
+  "scope": "learner only; not environment SPS or learning quality"
+}
