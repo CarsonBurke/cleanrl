@@ -26,7 +26,6 @@ All our PPO implementations below are augmented with the same code-level optimiz
 | :material-github: [`ppo.py`](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/ppo.py), :material-file-document: [docs](/rl-algorithms/ppo/#ppopy) | For classic control tasks like `CartPole-v1`. |
 | :material-github: [`ppo_atari.py`](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/ppo_atari.py), :material-file-document: [docs](/rl-algorithms/ppo/#ppo_ataripy) |  For Atari games. It uses convolutional layers and common atari-based pre-processing techniques. |
 | :material-github: [`ppo_continuous_action.py`](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/ppo_continuous_action.py), :material-file-document: [docs](/rl-algorithms/ppo/#ppo_continuous_actionpy) | For continuous action space. Also implemented Mujoco-specific code-level optimizations. |
-| :material-github: [`ppo_continuous_action_beta.py`](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/ppo_continuous_action_beta.py), :material-file-document: [docs](/rl-algorithms/ppo/#ppo_continuous_action_betapy) | For finite, bounded continuous actions with an independent Beta policy. |
 | :material-github: [`ppo_atari_lstm.py`](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/ppo_atari_lstm.py), :material-file-document: [docs](/rl-algorithms/ppo/#ppo_atari_lstmpy) | For Atari games using LSTM without stacked frames. |
 | :material-github: [`ppo_atari_envpool.py`](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/ppo_atari_envpool.py), :material-file-document: [docs](/rl-algorithms/ppo/#ppo_atari_envpoolpy) | Uses the blazing fast Envpool Atari vectorized environment. |
 | :material-github: [`ppo_atari_envpool_xla_jax.py`](https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/ppo_atari_envpool_xla_jax.py),  :material-file-document: [docs](/rl-algorithms/ppo/#ppo_atari_envpool_xla_jaxpy) | Uses the blazing fast Envpool Atari vectorized environment with EnvPool's XLA interface and JAX. |
@@ -405,58 +404,6 @@ If you'd like to learn `ppo_continuous_action.py` in-depth, consider checking ou
 
 
 <div style="text-align: center;"><iframe width="560" height="315" src="https://www.youtube.com/embed/BvZvx7ENZBw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
-
-
-## `ppo_continuous_action_beta.py`
-
-This standalone variant of `ppo_continuous_action.py` replaces the Gaussian actor with independent Beta distributions. It requires floating-point `Box` actions with finite, strictly ordered bounds and finite action ranges. The Gaussian script and its checkpoints are unchanged. PPO's rollout, GAE, optimizer, losses, learning-rate schedule, and training hyperparameters are retained; this is a policy-family change, not a runtime optimization or an RPO variant.
-
-### Usage
-
-Install the same dependencies as [continuous-action PPO](/rl-algorithms/ppo/#usage_2), then run:
-
-```bash
-python cleanrl/ppo_continuous_action_beta.py --help
-python cleanrl/ppo_continuous_action_beta.py --env-id Hopper-v4
-```
-
-### Policy and action coordinates
-
-The actor and critic each retain two 64-unit tanh hidden layers. The actor's final layer outputs two state-dependent parameters per action dimension, with `alpha, beta = 1 + softplus(head)`. This constrains each marginal to an interior-unimodal Beta distribution in exact arithmetic; it cannot represent U-shaped or multimodal marginals. Extreme negative logits can round a concentration to one in floating-point arithmetic. Action dimensions remain conditionally independent.
-
-Both networks retain orthogonal initialization with hidden-layer gain `sqrt(2)` and zero biases; the critic output gain remains `1`, and the new actor output gain is `0.01`. For `D` action dimensions, the actor output changes from `D` Gaussian means plus `D` state-independent log standard deviations to `2D` logits. This adds `64D` trainable parameters. Initial concentrations are approximately `1 + log(2)`, producing actions near the interval midpoint rather than the Gaussian baseline's zero mean and unit standard deviation. This changes initial exploration as well as the learnable policy family.
-
-`Agent.get_action_and_value` samples native actions `u` in `(0, 1)` and returns their native-unit-space log probabilities and differential entropy, summed over action dimensions. PPO stores those exact samples and reuses them during optimization without inverse reconstruction or additional sample clamping. `make_env` exposes a `[0, 1]` action space through Gymnasium's `RescaleAction`, which maps actions to `a = low + (high - low) * u`. On stepping, rescaling happens before the retained inner `ClipAction` wrapper, so clipping guards physical bounds rather than altering the native samples stored by PPO.
-
-For fixed bounds, physical-space log density is `log p(a) = log p(u) - sum(log(high - low))`, and physical-space entropy adds that same constant to native entropy. This implementation deliberately uses native-unit-space densities and entropy throughout; the constant Jacobian cancels in PPO probability ratios and KL estimates and does not change entropy gradients. The entropy metric is named `losses/entropy_unit_space`; negative differential entropy is valid. The existing `losses/old_approx_kl` and `losses/approx_kl` metrics are computed from native log-density ratios and are invariant under this affine mapping. Do not compare its entropy directly with the Gaussian variant's entropy as if they described the same distribution and coordinate system.
-
-### Saving and evaluation
-
-`--save-model` retains the bare `state_dict` checkpoint format and automatically calls the existing generic PPO evaluator with this variant's `Agent` and `make_env`. The default experiment and checkpoint name is `ppo_continuous_action_beta`, and the upload algorithm label is `PPO-Beta`. Beta checkpoints have different actor keys and output shapes and are not compatible with Gaussian checkpoints. Keep a distinct experiment name when overriding `--exp-name`.
-
-For a saved local Beta checkpoint, call the generic evaluation API explicitly with the matching class and environment factory:
-
-```python
-from cleanrl.ppo_continuous_action_beta import Agent, make_env
-from cleanrl_utils.evals.ppo_eval import evaluate
-
-returns = evaluate(
-    model_path="runs/YOUR_BETA_RUN/ppo_continuous_action_beta.cleanrl_model",
-    make_env=make_env,
-    env_id="Hopper-v4",
-    eval_episodes=10,
-    run_name="ppo_beta_eval",
-    Model=Agent,
-    capture_video=False,
-    gamma=0.99,
-)
-```
-
-Use the training environment ID and gamma. The factory exposes the same unit action space in training and evaluation; passing the Gaussian factory would use the wrong action coordinates. The evaluator's standalone Gaussian checkpoint-download example is intentionally unchanged and must not be used for Beta checkpoints. As in the upstream Gaussian script, saved state dictionaries contain network weights, not observation/reward normalization statistics; evaluation creates fresh normalization wrappers.
-
-### Reference and results
-
-The Beta policy is motivated by Chou, Maturana, and Scherer (2017), [Improving Stochastic Policy Gradients in Continuous Control with Deep Reinforcement Learning using the Beta Distribution](https://proceedings.mlr.press/v70/chou17a.html). That paper studies TRPO and ACER, not this PPO implementation. No learning results are provided for this variant, and neither universal superiority nor equivalence to the Gaussian baseline is claimed.
 
 
 ## `ppo_atari_lstm.py`
