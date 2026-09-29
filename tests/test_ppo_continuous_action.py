@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import torch
 
-from cleanrl.ppo_continuous_action_beta import Agent, make_env
+from cleanrl.ppo_continuous_action import Agent, make_env
 
 
 class ActionRecorder(gym.Env):

@@ -37,17 +37,18 @@ def evaluate(
 
 
 if __name__ == "__main__":
-    from huggingface_hub import hf_hub_download
+    import argparse
 
     from cleanrl.ppo_continuous_action import Agent, make_env
 
-    model_path = hf_hub_download(
-        repo_id="sdpkjc/Hopper-v4-ppo_continuous_action-seed1", filename="ppo_continuous_action.cleanrl_model"
-    )
+    parser = argparse.ArgumentParser()
+    parser.add_argument("model_path", help="path to a Beta PPO checkpoint saved by ppo_continuous_action.py")
+    parser.add_argument("--env-id", default="Hopper-v4")
+    args = parser.parse_args()
     evaluate(
-        model_path,
+        args.model_path,
         make_env,
-        "Hopper-v4",
+        args.env_id,
         eval_episodes=10,
         run_name=f"eval",
         Model=Agent,

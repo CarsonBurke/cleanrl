@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import tyro
-from torch.distributions.normal import Normal
+from torch.distributions.beta import Beta
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -91,9 +91,24 @@ def make_env(env_id, idx, capture_video, run_name, gamma):
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = gym.make(env_id)
+        action_space = env.action_space
+        if not isinstance(action_space, gym.spaces.Box) or not np.issubdtype(action_space.dtype, np.floating):
+            raise ValueError("Beta policies require a floating-point Box action space")
+        with np.errstate(over="ignore", invalid="ignore"):
+            action_range = action_space.high - action_space.low
+        if (
+            action_space.low.size == 0
+            or not np.isfinite(action_space.low).all()
+            or not np.isfinite(action_space.high).all()
+            or not np.isfinite(action_range).all()
+            or not (action_range > 0).all()
+        ):
+            raise ValueError("Beta policies require finite, nondegenerate action bounds and ranges")
         env = gym.wrappers.FlattenObservation(env)  # deal with dm_control's Dict observation space
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ClipAction(env)
+        # Rescale first on step(), then ClipAction guards the physical bounds.
+        env = gym.wrappers.RescaleAction(env, min_action=0.0, max_action=1.0)
         env = gym.wrappers.NormalizeObservation(env)
         env = gym.wrappers.TransformObservation(env, lambda obs: np.clip(obs, -10, 10))
         env = gym.wrappers.NormalizeReward(env, gamma=gamma)
@@ -112,6 +127,14 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 class Agent(nn.Module):
     def __init__(self, envs):
         super().__init__()
+        action_space = envs.single_action_space
+        if (
+            not isinstance(action_space, gym.spaces.Box)
+            or not (action_space.low == 0).all()
+            or not (action_space.high == 1).all()
+        ):
+            raise ValueError("Use make_env to expose a unit Box action space")
+        self.action_shape = action_space.shape
         self.critic = nn.Sequential(
             layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
             nn.Tanh(),
@@ -119,26 +142,27 @@ class Agent(nn.Module):
             nn.Tanh(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
-        self.actor_mean = nn.Sequential(
+        self.actor = nn.Sequential(
             layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01),
+            layer_init(nn.Linear(64, 2 * int(np.prod(self.action_shape))), std=0.01),
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
 
     def get_value(self, x):
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
-        probs = Normal(action_mean, action_std)
+        alpha, beta = (1.0 + nn.functional.softplus(self.actor(x))).chunk(2, dim=-1)
+        probs = Beta(alpha.reshape((-1,) + self.action_shape), beta.reshape((-1,) + self.action_shape))
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
+        # Store and replay the native sample exactly; never invert the environment mapping.
+        # The constant physical-action Jacobian cancels in PPO ratios and KL estimates.
+        logprob = probs.log_prob(action).reshape(x.shape[0], -1).sum(1)
+        entropy = probs.entropy().reshape(x.shape[0], -1).sum(1)
+        return action, logprob, entropy, self.critic(x)
 
 
 if __name__ == "__main__":
