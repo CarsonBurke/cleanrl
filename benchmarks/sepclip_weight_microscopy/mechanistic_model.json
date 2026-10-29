@@ -1,0 +1,856 @@
+{
+  "status": "Analytical and finite-update model with completed compound causal training outcomes; actual v14 layer, exact first-gradient, internal optimizer and NorMuon physics validation pending. Full physical PG and global optimum unestablished.",
+  "layer_chain": [
+    {
+      "stage": "SiTU product",
+      "law": "phi(g,u)=4*tanh(g/4)*sigmoid(g)*25*tanh(u/25)",
+      "gate_derivative": "[sech(g/4)^2*sigmoid(g)+4*tanh(g/4)*sigmoid(g)*(1-sigmoid(g))]*25*tanh(u/25)",
+      "up_derivative": "4*tanh(g/4)*sigmoid(g)*sech(u/25)^2",
+      "interpretation": "Both signed gating and multiplicative input sensitivity matter on visited states; leading near-origin quadratic parity is insufficient."
+    },
+    {
+      "stage": "unit direction",
+      "law": "y=b/||b||; dy/db=(I-y*y^T)/||b||",
+      "interpretation": "Only transverse branch changes survive to features. Small pre-normalization branch norm amplifies local derivatives; singular matrix values alone do not measure functional step."
+    },
+    {
+      "stage": "actor readout",
+      "law": "z=gain*(W_head*[8*normalize(h+normalize(branch2(8h)))]+bias)",
+      "interpretation": "Readout gains, head alignment, gate derivatives and all normalization projectors jointly determine J_theta."
+    },
+    {
+      "stage": "Beta score",
+      "law": "alpha=1+softplus(z_alpha); beta=1+softplus(z_beta); score_alpha=sigmoid(z_alpha)*[log(u)-digamma(alpha)+digamma(alpha+beta)] (beta uses log(1-u))",
+      "interpretation": "The gradient is a score covector, not a torque gradient. Exact same FP32 shapes must underlie likelihood/Fisher/precision comparisons."
+    },
+    {
+      "stage": "PPO policy gradient",
+      "law": "g_theta=mean[J_theta^T*score*advantage*ratio*active_mask]; active_mask depends on ratio and advantage sign",
+      "interpretation": "State-only baselines cancel in exact unclipped importance-weighted expectation at any iterate under support/integrability. Finite samples, sign-dependent clipping and action-dependent future critic errors do not give that cancellation automatically."
+    },
+    {
+      "stage": "optimizer transport",
+      "law": "W_next=R(W-eta*D); first-order deltaW=-eta*[D-W*sum(W*D)] with row or column axis matching constraint",
+      "interpretation": "Ambient momentum/polar preconditioning followed by retraction need not equal tangent preconditioning. Compare independent physical-PG pairing at actual joint Fisher cost, including layer cross terms."
+    },
+    {
+      "stage": "functional policy motion",
+      "law": "delta_z=sum_layers J_layer*deltaW_layer; cost=.5*mean[delta_z^T*F_Beta*delta_z]",
+      "interpretation": "Cross-layer Gram matters. Historical replayed proposals reinforce; actual newarchitecture cross terms remain to be measured. Reinforcement is not proof of usefulness or duplication."
+    },
+    {
+      "stage": "physical action and gait",
+      "law": "physical_mean=(alpha-beta)/(alpha+beta); physical_variance=(1-physical_mean^2)/(alpha+beta+1); return=sum[step_velocity-0.1*sum(action^2)]",
+      "interpretation": "Noise can perturb contact timing and stride velocity, far beyond its direct torque-cost tax. Evaluate sampled, mean and mode closed loops separately."
+    }
+  ],
+  "constraint": {
+    "law": "alpha,beta>1 implies |physical_mean|<1-2/kappa",
+    "interpretation": "Near-bound mean requires large precision. Learned head gain removes a fixed small-logit capacity bound; conditioning remains a measurable hypothesis."
+  },
+  "critic_transport": {
+    "law": "A_GAE(V_est)-A_GAE(V_pi)=-e_t+gamma*(1-lambda)*sum_k[(gamma*lambda)^k*e_(t+k+1)] plus explicit boundary/tail terms",
+    "e_definition": "estimated V minus independent V_pi, never minus a known globally optimal value",
+    "interpretation": "Score-weighted action-dependent future error is relevant; high explained variance against self-bootstrapped targets is not an independent PG accuracy certificate."
+  },
+  "optimum_definition": {
+    "local_policy": "conditional first-action finite-H physical return, continuation policy frozen, normalization explicitly held fixed",
+    "natural_direction": "u_star=F^-1*g; maximal linear gain at cost c is sqrt(2*c*g^T*F^-1*g)",
+    "model_constraint": "project whitened score field onto actual tangent functional Jacobian range; report threshold sensitivity and finite retraction validity",
+    "uncertainty": "Use independent-noise signed cross-energy and held-out direction pairing. An arithmetic fit to a noisy field is not proof of useful direction or representation capacity.",
+    "global": "Neither local conditional PG nor TD7 reported benchmark establishes a mathematical global optimum."
+  },
+  "intervention_selection_gates": [
+    "Independent physical-PG signal must be resolved across noise replicates before interpreting fitted optimum efficiency.",
+    "Credit hypothesis: matched observed-action Q_H score-weighted error and clipping-mask changes persist under horizon/tail and independent-noise checks.",
+    "Transport hypothesis: stored PG direction supported by physical oracle but actual functional step pairs poorly at comparable Fisher cost; finite retraction and held-out noise validate alternative.",
+    "Representation hypothesis: physically useful gait-phase response remains outside trustworthy actor tangent range or needs nonlocal invalidating retractions; rank alone is insufficient.",
+    "Chart hypothesis: independently useful mode/precision covector and poor original chart conditioning, stable likelihood/sampling numerics, monitored actual policy steps; same initial policy does not imply same post-update readout family."
+  ],
+  "causal_training_protocol": "If evidence selects a mechanism: new version, fresh HalfCheetah-v4 seed1 8M16env2threads compiled CUDA, exact matched Adam/Anvil controls, mlq max1, prefix autocull, no finetuning.",
+  "closed_loop_objective": {
+    "zero_tail": "J_H(theta)=E_theta[sum_t gamma^t r_t], with fixed initial physical states and frozen row normalizers",
+    "fixed_critic_tail": "J_H_tail(theta)=E_theta[sum_t gamma^t r_t+gamma^H V_old(s_H)], with V_old held fixed as a function; use either raw units V_old*fixed_reward_std or normalized units separately",
+    "directional_derivative": "sum_t gamma^t [score_t dot J_theta(s_t)*actual_parameter_chord] * (G_t_tail-V_old(s_t))",
+    "tail_score": "gamma^H V_old(s_H)*sum_t [score_t dot J_theta(s_t)*actual_parameter_chord]",
+    "gae_comparison": "GAE_lambda minus same-trajectory augmented MC isolates the score-weighted GAE transport difference for this fixed-terminal objective; lambda=1 equality validates algebra, not critic accuracy",
+    "finite_feedback": "delta_all-delta_t0_only-delta_after_t0 is an exact paired finite-return interaction; it is not an additive gradient or critic-error decomposition"
+  },
+  "closed_loop_review_limits": [
+    "The actual endpoint weight chord differs from a sphere-retracted path derivative at second order; its ambient JVP is labeled, not claimed to be exact Riemannian tangent transport.",
+    "Continuous Beta scores approximate the clamped sampler law; reject strong derivative signs if measured atom mass or clipping is consequential.",
+    "Raw reward units equal fixed_std times normalized units only in the absence of reward clipping and up to FP32 rounding.",
+    "Four noise replicas give conditional Monte Carlo intervals for the fixed selected states; they do not estimate training-seed or state-population uncertainty.",
+    "Early/middle episode ages and frozen normalizers restrict generalization to the actual online training occupancy.",
+    "A finite-step minus directional-prediction residual mixes curvature, feedback and Monte Carlo noise."
+  ],
+  "committee_reviewed_at": 1791265325.3370132,
+  "analytical_restart_refinements": {
+    "source_manifest": {
+      "analytical_chart_identification.md": {
+        "sha256": "1589f95e5dd6bdf700a05be917004f2f8167cd9ece7f23e4f3c41d91cc35db7c",
+        "evidence_type": "analytical identity / existing scalar reanalysis; no new model execution"
+      },
+      "analytical_optimizer_credit.md": {
+        "sha256": "e6685ffbf44b80030ee88cec5c9f7c8af39160c95a89ee673d56cd99d1ba71c5",
+        "evidence_type": "analytical identity / existing scalar reanalysis; no new model execution"
+      },
+      "analytical_feedback_credit.md": {
+        "sha256": "2d00f5a835c00778704a55d7c01798c587f60ec25f0e81f9e2737e69b2814819",
+        "evidence_type": "analytical identity / existing scalar reanalysis; no new model execution"
+      },
+      "analytical_readout_and_precision.md": {
+        "sha256": "1431dafb17ae017d4693706e02e8b76585e909ed986af3591e4c524b616ed786",
+        "evidence_type": "analytical identity / existing scalar reanalysis; no new model execution"
+      },
+      "analytical_transport_sensitivity.md": {
+        "sha256": "22b24a05c7687dde76d45971e2f3fb51340b5ee36e6d5f88c8da7e38f8d3522f",
+        "evidence_type": "analytical identity / existing scalar reanalysis; no new model execution"
+      },
+      "root_analytical_transport.md": {
+        "sha256": "c71094aba10a7c4abaec6b307c780a69870432ffe2cd8d0b394c8553b179c97d",
+        "evidence_type": "analytical identity / existing scalar reanalysis; no new model execution"
+      },
+      "ppo_epoch_credit_appendix.md": {
+        "sha256": "d78dbf8ce168196d897dfee985617f27e879ae4694af3c64d7c41619cb3cd2d1",
+        "evidence_type": "analytical identity / existing scalar reanalysis; no new model execution"
+      },
+      "analytical_transport_sensitivity_review.md": {
+        "sha256": "de3631329cc11606afcc0189d89ae9648161e8a9e0bc4e30c0e82a41683fef98",
+        "evidence_type": "analytical identity / existing scalar reanalysis; no new model execution"
+      },
+      "analytical_singular_mode_credit.md": {
+        "sha256": "6da61de0a57a6f6884a4b7cec5559593db1cc6ff27146eac836b8d1b16c3b4d1",
+        "evidence_type": "analytical identity / existing scalar reanalysis; no new model execution"
+      },
+      "analytical_objective_alignment.md": {
+        "sha256": "7b6d04cf1312d7fc9a186bd82ab82cf2336d9461aed7823674c5d9a3f99a333a",
+        "evidence_type": "analytical identity / existing scalar reanalysis; no new model execution"
+      },
+      "analytical_sampler_score_contract.md": {
+        "sha256": "655af4f182f60b65e9f5b2738d198535b7155d03db1cf8c0644654ff902e0344",
+        "evidence_type": "analytical identity / existing scalar reanalysis; no new model execution"
+      },
+      "analytical_sampler_score_review.md": {
+        "sha256": "706c518015963ef9fd8805601596b882379488b2fab46d6a27a57463e36fa204",
+        "evidence_type": "analytical identity / existing scalar reanalysis; no new model execution"
+      },
+      "analytical_oracle_reliability.md": {
+        "sha256": "d2791593cb8e1f821fe71fdb9b5ab0e930fe4957d38ade9f665849cc98354785",
+        "evidence_type": "independently reviewed analytical statistical identity; no new physical samples"
+      },
+      "analytical_oracle_reliability_review.md": {
+        "sha256": "2efd08aae194a13aa06cf27c48fe5ef5b7d1438f1a7647e2d43b87efdf2ce1e2",
+        "evidence_type": "independently reviewed analytical statistical identity; no new physical samples"
+      },
+      "analytical_gate_credit.md": {
+        "sha256": "6300894bb21766bae883f458520a21f9cb84a8f3ae0b7010eb7f96667544ceb4",
+        "evidence_type": "analytical / existing scalar reanalysis; no model execution"
+      },
+      "chart_credit_interpretation_contract.md": {
+        "sha256": "b3ab53489e281314c8010b1b9e853c5bfd4bdee9714e2551f071ee7cf1ee413d",
+        "evidence_type": "independently reviewed analytical/source-only evidence; no new model measurement"
+      },
+      "analytical_chart_sphere_witness.md": {
+        "sha256": "9d45b98bdf92925f9a2236fb2c8669b74ed8379355c63102dc199617d5820a2d",
+        "evidence_type": "independently reviewed analytical/source-only evidence; no new model measurement"
+      },
+      "analytical_chart_sphere_review.md": {
+        "sha256": "280aad73790be1bbc9373f231f0c20f6456e1fff4c41c249b7b01f99f7d7fd97",
+        "evidence_type": "independently reviewed analytical/source-only evidence; no new model measurement"
+      },
+      "chart_credit_independent_code_review.md": {
+        "sha256": "9d9b0eec01363ff4acca373604a741e6a08d53ae54ed8a42aead7cbae5c480ca",
+        "evidence_type": "independently reviewed analytical/source-only evidence; no new model measurement"
+      },
+      "chart_credit_physics_source_review.md": {
+        "sha256": "e7c26ad490c11fb28f9ff3d403b359143840a15364b10a5ed15864c11ee33ec9",
+        "evidence_type": "independently reviewed analytical/source-only evidence; no new model measurement"
+      },
+      "analytical_readout_optimizer_metric.md": {
+        "sha256": "a99090c5643dccca2e2d6ecdb36e57a5f42e072c5e7857c1ed93a2f3c8523468",
+        "evidence_type": "independently verified analytical identity and old gain-summary arithmetic; no model execution"
+      },
+      "analytical_readout_optimizer_metric_review.md": {
+        "sha256": "ac5a86ae83256273f8fe6d278365b76cf9fba0d3f46a14e562521e266ae86444",
+        "evidence_type": "independently verified analytical identity and old gain-summary arithmetic; no model execution"
+      }
+    },
+    "normalized_readout_capacity": "Nonzero effective affine readout rows remain locally representable through row direction, gain and bias. Normalization alone is not a readout capacity ceiling. Optimizer coordinates and shared clipping still alter update transport; hidden SiTU constraints are separate.",
+    "chart_credit": "For actual interior alpha,beta, r=log((alpha-1)/(beta-1)), ell=log(alpha+beta-2). Precision-coordinate credit mixes physical mean and log-kappa credit: g_ell=(2*m/kappa)*g_m+(1-2/kappa)*g_logkappa. Actual rounded shapes and candidate softplus-excess coordinates must be distinguished.",
+    "extrinsic_normal_conversion": "Ideal polar and coordinatewise Adam can turn an ambient normal force into a nonzero retracted tangent even when the constrained objective gradient vanishes. This is a verified algebraic possibility, not evidence of actual harmful physical motion. Historical isolated-bank projection changes both gradient and rails and has mixed gain/sqrt(Fisher cost).",
+    "clipped_baseline": "Exact action importance sampling cancels a fixed state baseline at every theta when unclipped. Sign-dependent clipping masks generally break cancellation. Finite empirical baseline noise is separate from population critic bias.",
+    "objective_alignment": "Uniform learner stored-state occupancy, selected first-action finite-horizon forks, and all-time closed-loop propagated discounted occupancy define different covectors. Their pairing signs can disagree with an exact critic; scope, horizon, tail, units, and sampling law must match before attributing differences to critic/optimizer.",
+    "decision": "No candidate selected. Historical PG replication remains unresolved, replacement numerical/physical contracts and actual-update diagnostics remain pending.",
+    "singular_mode_credit": "Selected diagonal lookahead-SVD proposal coefficients are not a complete modal decomposition: lane adaptation introduces offdiagonal and thin-subspace residual motion, and finite mode retractions/Fisher cross terms are nonadditive. Mode current-gradient and subset-surrogate signs do not identify physical credit.",
+    "sampler_score": "Exact ideal clamped-Beta atoms require tail-mass scores, not density scores at clamp endpoints. Diagnostic uniform-quantile truncation and FP32 rounding further change the law. Probability mass alone does not bound directional score bias; observed finite return effects retain their declared-sampler meaning.",
+    "precision_scope": "Actual-step Fisher re-evaluates softplus in FP64 from FP32 logits; distinguish this diagnostic geometry from Fisher algebra on actual rounded FP32 shapes. Candidate actual chart covectors remain unmeasured.",
+    "direction_dependent_reliability": "Fixed actual-update pairing uncertainty depends on v^T C v, whereas whole-field noise depends on trace(C). Exact signed cross-energy variance includes shared-pair dependence. A scalar reliable chord does not justify newly fitted noisy modes; observed-field Cauchy validity does not prove efficiency against unknown mean field.",
+    "full_gate_credit": "Full k(g)=4*tanh(g/4)*sigmoid(g) has unique stationary minimum at -1.2187557268720126 (k=-.2697689954724918), where cap derivative~.912622 but kprime=0. Tangent gate credit is q*kprime(g)*t(u)*(x-w*(w dot x)); up/down can remain active. Visited marginal cap summaries do not identify full gate or useful-credit distributions; no starvation or gate-offset intervention selected.",
+    "readout_sphere_witness": "On the same ideal norm-eight feature great circle, original affine softplus alpha/beta logits cannot maintain constant kappa with nonconstant mean; anchored chart explicit k=1 unit-row/gain construction can, within actual decoder exact-large branch. This proves a fixed-readout-domain family difference, not visited-trunk capacity, superset, optimizer conditioning or causal benefit.",
+    "readout_gradient_mobility": "At fixed features, equal-rate SGD on normalized w, gain rho and bias b induces effective-affine mobility M=rho^2*diag(P_w,1)+[w;b]*[w;b]^T (metric inverse). M=I at rho=+/-1,b=0; later gain/bias change it. Actual independent Adam histories do not implement this M. Nonsingular joint head stationarity implies zero effective-affine covector, unlike body constraints lacking gain routes.",
+    "action_units": "Historical layer audit mean_rms measures native Beta mean on [0,1]; physical torque mean RMS on [-1,1] is exactly twice it. Actual-step script reports physical_mean_motion_rms explicitly. Fisher cost and likelihood pairing are invariant under fixed action rescaling."
+  },
+  "updated_at": 1791345583.093286,
+  "committee_causal_selection_contract": {
+    "scope": "Conditional selected-state diagnosis; no new physical measurements or causal selection.",
+    "optimizer_direction": "Require resolved actual fixed-chord weak/negative physical PG pairing and a positive held-noise alternative at comparable ACHIEVED Fisher cost. Negative held-fit gains falsify the fitted rescue. Same-policy/batch optimizer replay with explicit moment-history controls must separate optimizer transport from its input GAE covector.",
+    "representation": "Require resolved held-noise credit outside a numerically trustworthy functional range or structured held-state fitting failure. Current held-noise validation shares states; selected-state full rank and chart conditioning cannot establish visited-state generalization or global capacity.",
+    "critic": "Matched all-time GAE-minus-tail-augmented-MC discrepancy shares a frozen estimated old-critic tail; it is estimator discrepancy, not true infinite-horizon critic bias. Observed-action GAE-Q differences also contain action sampling.",
+    "feedback": "If local first-action pairing is positive but finite closed-loop return falls, require resolved all-time directional PG before attributing feedback. Hybrid interactions establish finite feedback, while derivative residual also contains curvature; epsilon-chord arms would be needed to isolate derivative scaling.",
+    "objective_robustness": "Compare the identical actual first/end motions under finite raw, finite normalized and estimated-tail normalized fields, plus paired SAME-replica tail increments. Do not infer aggregate raw credit by scaling normalized credit with an average reward standard deviation.",
+    "uncertainty": "Noise replicas measure conditional MC error at fixed saved states only; intervals do not quantify state-population or training-seed uncertainty. No architecture or optimizer winner is currently selected."
+  },
+  "restart_completed_layer_measurement": {
+    "job_id": 11757,
+    "max_parallel_runs": 1,
+    "artifact_sha256": "b44dcca698dd15bec9318f350506b20bb5efc80519f6a52ebc142cd76a65b53b",
+    "execution_manifest": "execution_sources/sepclip_microscopy_layer_historical_fp64_1791320411555435874.json",
+    "rows": [
+      {
+        "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_4013696.pt",
+        "step": 4013696,
+        "joint_fisher": 0.0036395650822669268,
+        "finite_kl": 0.0036290047579983853,
+        "finite_kl_to_fisher": 0.9970984653303785,
+        "cross_fraction": 0.7470645919318508,
+        "physical_mean_motion_rms": 0.006597056984901428,
+        "linearization_relative_error": 0.010537726804614067
+      },
+      {
+        "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_7995008.pt",
+        "step": 7995008,
+        "joint_fisher": 2.2469106397693395e-07,
+        "finite_kl": 2.2466574569291264e-07,
+        "finite_kl_to_fisher": 0.9998873195774982,
+        "cross_fraction": 0.7006157270010906,
+        "physical_mean_motion_rms": 4.961706872563809e-05,
+        "linearization_relative_error": 0.003961177077144384
+      },
+      {
+        "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016/diagnostic_snapshot_4013696.pt",
+        "step": 4013696,
+        "joint_fisher": 0.011985883116722107,
+        "finite_kl": 0.012171210340484198,
+        "finite_kl_to_fisher": 1.0154621250647382,
+        "cross_fraction": 0.7205395849365769,
+        "physical_mean_motion_rms": 0.014004773460328579,
+        "linearization_relative_error": 0.02343723364174366
+      },
+      {
+        "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016/diagnostic_snapshot_7995008.pt",
+        "step": 7995008,
+        "joint_fisher": 7.117882887541782e-07,
+        "finite_kl": 7.119932797183265e-07,
+        "finite_kl_to_fisher": 1.000287994291824,
+        "cross_fraction": 0.7392918110269422,
+        "physical_mean_motion_rms": 0.00010758842836366966,
+        "linearization_relative_error": 0.0023891013115644455
+      },
+      {
+        "snapshot": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146/diagnostic_snapshot_4013696.pt",
+        "step": 4013696,
+        "joint_fisher": 0.005540680140256882,
+        "finite_kl": 0.0055323507351854725,
+        "finite_kl_to_fisher": 0.9984966818403953,
+        "cross_fraction": 0.7791266476839136,
+        "physical_mean_motion_rms": 0.00857677310705185,
+        "linearization_relative_error": 0.01159742008894682
+      },
+      {
+        "snapshot": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146/diagnostic_snapshot_7995008.pt",
+        "step": 7995008,
+        "joint_fisher": 1.9537830553417734e-07,
+        "finite_kl": 1.9546647852318859e-07,
+        "finite_kl_to_fisher": 1.000451293651924,
+        "cross_fraction": 0.7167390162407228,
+        "physical_mean_motion_rms": 4.7704088501632214e-05,
+        "linearization_relative_error": 0.004442370962351561
+      }
+    ],
+    "all_required_restore_checks": true,
+    "all_numeric_artifact_fields_finite": true,
+    "interpretation": "FP64 KL algebra on actual FP32 shapes repairs cancellation at tiny late updates. This validates local functional measurement, not physical PG, optimizer efficiency or causal benchmark advantage.",
+    "updated_at": 1791320716.4321334,
+    "independent_review": "benchmarks/sepclip_weight_microscopy/layer_historical_fp64_measurement_review.md",
+    "independent_review_sha256": "cf316f233cd0b756a45dd2361f7f34692fc9aa4b0d874417142624ffe7458398",
+    "provenance_limit": "Execution manifest records source/environment hashes but not six checkpoint byte hashes. Current checkpoint hashes recorded after measurement cannot independently prove historical input identity.",
+    "post_measurement_input_inventory": {
+      "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_4013696.pt": {
+        "sha256_after_measurement": "253afd0111b500475a4777a941e36483ef4c648fa92de0e5016d453a4c78927f",
+        "size_bytes": 2311570
+      },
+      "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_7995008.pt": {
+        "sha256_after_measurement": "254481ce20051e0a7d8e84717b8fed41c80ab14f8592f1202a30692c45f2cd1d",
+        "size_bytes": 2311506
+      },
+      "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016/diagnostic_snapshot_4013696.pt": {
+        "sha256_after_measurement": "f004e9bb2775c814574f90ac588fd9267ce7c43e6378198efe5556fa1c360906",
+        "size_bytes": 2311506
+      },
+      "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016/diagnostic_snapshot_7995008.pt": {
+        "sha256_after_measurement": "3a6a696f7142349591c26a49f784366924da227dcb5ee494a6201333d19980fc",
+        "size_bytes": 2311634
+      },
+      "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146/diagnostic_snapshot_4013696.pt": {
+        "sha256_after_measurement": "b5777a26429553eb904febd1050df706fba353af1bb3a4f16db07e9afe134ef3",
+        "size_bytes": 2311378
+      },
+      "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146/diagnostic_snapshot_7995008.pt": {
+        "sha256_after_measurement": "fcbc726f7c121d6f5ff72c613a3d0321a6d2fab996ca31c1f3cd805bb38c7a12",
+        "size_bytes": 2311378
+      }
+    }
+  },
+  "root_committee_analytical_integration": {
+    "captured_at": 1791331584.5607812,
+    "source_sha256": {
+      "committee_joint_bank_geometry.md": "88d855a3310ba36a0a0e1fef1094e911851fee87bde46d078a88c537723aa0e3",
+      "ppo_active_set_fisher_appendix.md": "bd852777a5ba67c1152e1dac2245fd6e21ce46857c081a87493ad6dfa38b96c1",
+      "independent_allocation_and_phase_appendix.md": "8f90fac6f29a4c954a67c011064b21b0244a6eb856a973db57a396ed8a040b5e",
+      "analytical_synthesis.md": "6b2ae5a7ba47789a2a46977a4c4e0dc4ea0f4efa4374207df04bc4986cdef193"
+    },
+    "evidence_class": "Analytical synthesis of existing accepted measurements; no new ML, optimization, physical PG or causal selection.",
+    "refinements": [
+      "Net cross-layer reinforcement does not establish collinearity, redundancy, excess LR or useful credit.",
+      "Fixed-bank comparison uses the full joint Gram H=2*stored_Gram and a supported credit covector on the SAME states/metric/chord; ill-conditioned coefficient cancellation and finite retractions can invalidate its optimum.",
+      "PPO joint six-action ratio selects whole-sample active masks; a Fisher second moment cannot determine removed credit or inactive fraction.",
+      "Native mean/total-concentration components are nonorthogonal and differ from mode/excess precision; small concentration cost does not prove zero physical credit.",
+      "Near-bound mode, inward mean and pooled torque thresholds do not identify a torque ceiling or gait optimum."
+    ],
+    "historical_layer_scope": "One replayed next-rollout full-batch proposal per saved checkpoint; functional evaluation on 512 stored states, distinct from actual first/ten-epoch updates."
+  },
+  "user_prescription_selection": {
+    "captured_at": 1791331944.7048934,
+    "authorization": "Root relayed explicit user instruction TRY the prescription if not already queued.",
+    "selection_class": "User-selected exploratory causal hypothesis; physical oracle is not yet resolved and no bottleneck is proved.",
+    "planned_scope": "Original/additive pre-RMS actor crossed with Adam/Anvil, plus separate constraint-aware/intrinsic Anvil test; fresh HalfCheetah seed1 8M CUDA mlq max1.",
+    "source_submission_owner": "Root owns new v14/v15 sources/tests/experiments until exact handoff. Supervisor must not duplicate submissions or edit those files.",
+    "mode_precision_chart": "Deferred, remains unselected.",
+    "pending": "Fresh trials completed or gracefully culled; actual mechanism attribution is evidence-gated and pending.",
+    "interpretation_gate": "Independent signal and matched objective/cost/finite evidence remain necessary for physical PG efficiency and mechanistic attribution.",
+    "architecture_loader_gate": "Existing physical/dense/closed-loop/actual-step/gait audits instantiate frozen v7/v12 actor semantics. Identical state_dict shapes cannot certify a new additive actor. Later causal microscopy requires architecture-specific module/source pins and saved-policy forward parity before deployment; existing historical/v12 jobs remain unchanged.",
+    "updated_at": 1791332017.8607783
+  },
+  "prescription_replay_contract_gate": {
+    "job_id": 11882,
+    "declared_max_parallel_runs": 1,
+    "status": "queued, numerical validation pending",
+    "loader_cases": 37,
+    "physical_cases": 12,
+    "source_manifest": "benchmarks/sepclip_prescription_v14/source_manifest_replay_contracts_v1.json",
+    "source_manifest_sha256": "25131f145e45cfecff564fae68288401155281786ef80f269e9b59a5bb69ae83",
+    "reviews": [
+      "benchmarks/sepclip_weight_microscopy/prescription_replay_loader_independent_review.md",
+      "benchmarks/sepclip_weight_microscopy/prescription_closed_loop_independent_review.md"
+    ],
+    "scope": "Actual v14/v15 compiled primal replay, recorded values/shapes/logprob, strict provenance/Args/banks, domain validation; seven-arm return law and source-dispatched future observations. Does not certify actual nonzero warm continuation or full captured-chord nonlinear derivative.",
+    "updated_at": 1791333250.002346
+  },
+  "prescription_full_chord_contract_gate": {
+    "job_id": 11883,
+    "declared_max_parallel_runs": 1,
+    "after_success": 11882,
+    "expected_contract_cases": 16,
+    "status": "queued; source-approved, numerically unexecuted",
+    "source_manifest_sha256": "4fe9683aa68bec04914b77132a253ecdaf766434720cd60ddd54f738680eff68",
+    "source_manifest": "benchmarks/sepclip_prescription_v14/source_manifest_chord_contracts_v1.json",
+    "source_sha256": "3c9fcc0adbaf95c01aa36d93e0ca64d1f37c276bc2fbc556d3264a682f9ded9d",
+    "test_sha256": "e607bdfc0f58b1fb4269e84284163fd9dfc75654242cfb0943749eaca8d0b9fb",
+    "review": "benchmarks/sepclip_weight_microscopy/prescription_full_chord_independent_review.md",
+    "acceptance_scope": "Numerical machinery and falsification fixtures only; actual captured full first/end actor chord derivatives require separate artifact execution and independent telemetry assessment.",
+    "actual_derivative_claims_validated": false,
+    "updated_at": 1791333839.982322
+  },
+  "restart_artifact_acceptance_notes": [
+    "benchmarks/sepclip_weight_microscopy/pending_oracle_artifact_acceptance.md",
+    "benchmarks/sepclip_weight_microscopy/dense_pg_reliability_redteam_restart.md"
+  ],
+  "restart_recent_contract_acceptance": "benchmarks/sepclip_weight_microscopy/restart_recent_contract_acceptance.json",
+  "restart_new_failures_and_recovery": {
+    "original_11770": {
+      "state": "failed",
+      "passed": 26,
+      "failed": 2,
+      "nonchart_cases_passed": 21,
+      "failure_receipt": "benchmarks/sepclip_weight_microscopy/gait_actual_step_11770_failure_scope_receipt.json",
+      "replacement_gate": 11885,
+      "replacements": {
+        "11773": 11886,
+        "11782": 11887
+      }
+    },
+    "original_11795": {
+      "state": "failed",
+      "passed": 12,
+      "failed": 2,
+      "failure": "Compiled functional JVP forward-view tangent layout assertion",
+      "preserved_skipped": [
+        11812,
+        11825
+      ],
+      "repair_status": "NEW versioned helper independently reviewed; queued numerical proof pending",
+      "replacement_combined_gate": 11891,
+      "replacement_physical_job": 11892,
+      "combined_gate_covers_skipped": 11825,
+      "source": "scripts/audit_sepclip_closed_loop_update_v2.py",
+      "contracts": 23,
+      "source_hash": "2b6dd11213f0aa28a1d6472124c8863e8ca96ba190229e6a1eace4ea1c815e99"
+    },
+    "updated_at": 1791335098.2341027
+  },
+  "restart_chart_contract_repair": {
+    "job": 11890,
+    "expected_cases": 9,
+    "declared_limit": 1,
+    "status": "queued; static review approved, numerical proof pending",
+    "trainer_modified": false,
+    "chart_selected": false,
+    "exact_numerical_failure_source": "Outer F.softplus default threshold20 versus ideal smooth softplus; independently derived deficit and chain budgets, not arbitrary tolerance loosening",
+    "original_failed_job_preserved": 11770
+  },
+  "restart_prospective_credit_review": {
+    "note": "benchmarks/sepclip_weight_microscopy/prospective_signed_credit_decision_checklist.md",
+    "sha256": "16bd067bea2ee7c8de87949bd73873a7eb8a2c03824e0bb7da9b000ed4d250e5",
+    "review_scope": "Independent prospective source/protocol review; no empirical results",
+    "interpretation": "All pointwise local-credit intervals remain exploratory. No full-field efficiency or chart preference is certified by signed cross-energy, pointwise intervals, or fitted gains. Paired finite simulator interventions remain conditional on selected states and the diagnostic sampling law.",
+    "unresolved": [
+      "No registered familywise local claim alpha allocation",
+      "No justified robust full-field energy confidence procedure",
+      "No registered practically meaningful finite-return threshold or horizon-convergence rule",
+      "No independent gradient bias bound for quantile truncation, clipping atoms and FP32 action law"
+    ],
+    "planned_use": "Apply replay/source/JVP numerical gates, show all paired objective/motion contrasts and failures, retain the previously proposed R2 precision screen as descriptive only; do not choose post hoc significant contrasts."
+  },
+  "restart_completed_dense_measurement": {
+    "job_id": 11765,
+    "state": "succeeded",
+    "acceptance_receipt": "benchmarks/sepclip_weight_microscopy/dense_pg_controls_acceptance.json",
+    "artifact_sha256": "4928741aade1d67d125f765186c397ef7a3560e3d94999c2ffd8e0a10e1531e5",
+    "independent_review": "benchmarks/sepclip_weight_microscopy/dense_pg_controls_independent_physics_empirical_review.md",
+    "measurements": "Four matched Adam/Anvil4M/8M snapshots,32states,16first-actions,two independent complete replicas,H1/16/64/256/512; exact physical transition replay and finite/source reconciliation.",
+    "reliability": "Full field remains unresolved. Anvil8M H512 Euclidean cosine.592, Fisher-dual.231; one selected state contributes105.92%/117.84% of aggregate signed cross-energy, with other31 aggregate negative. Fixed actual-direction reliability pending11887.",
+    "interpretation": "No field efficiency or chart preference; no microscopic benchmark cause established."
+  },
+  "restart_v15_test_only_recovery": {
+    "failed": 11877,
+    "test_passed": 9,
+    "test_failed": 2,
+    "failure": "test line45 omitted required dim argument; no trainer defect established",
+    "original_preserved": true,
+    "new_test": "tests/test_sepclip_constraint_transport_v15_v2.py",
+    "new_test_sha256": "913f617e59e16aa117fe7ca62d8f228c4dc18f65028485e7a1f2b2d4c171ff33",
+    "fresh_gate": 11895,
+    "replacements": {
+      "11881": 11896,
+      "11882": 11897,
+      "11883": 11898
+    },
+    "receipt": "benchmarks/sepclip_prescription_v14/v15_skipped_dependents_recovery_v2.json",
+    "trainer_modified": false,
+    "execution_acceptance": {
+      "captured_at": 1791340606.4223177,
+      "job_id": 11895,
+      "state": "succeeded",
+      "exit_code": 0,
+      "cases": 11,
+      "failed": 0,
+      "junit_sha256": "486af10178eee59929c1698863257da5ace28fe3ffb2033332a968bcac267fce",
+      "source_checked": 54,
+      "source_discrepancies": [],
+      "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v15_contracts_recovered_v2_1791340576278039779.json",
+      "execution_sha256": "41a0285f1bfa75a562348b976bd76dd8fb1ee2152408680f75bdef296b7187d4",
+      "scope": "Test-only missing dim repaired; original failed attempt preserved, trainer unchanged."
+    }
+  },
+  "restart_recovered_contract_acceptance": {
+    "captured_at": 1791340359.0245776,
+    "rows": [
+      {
+        "id": 11885,
+        "state": "succeeded",
+        "attempt_id": 9470,
+        "exit_code": 0,
+        "case_count": 21,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "junit": "benchmarks/sepclip_weight_microscopy/gait_actual_split_v2.xml",
+        "junit_sha256": "2b492c949c927af646750bc32d7e3b7b708cd331d77682b32dbc14183fac9f46",
+        "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_gait_actual_split_v2_1791340273868766955.json",
+        "execution_manifest_sha256": "7a5ce710c655e5c9a64d023ad671df00dbd9640ddce3558b4e1ec7989b17bf62",
+        "source_count": 68,
+        "discrepancies": []
+      },
+      {
+        "id": 11890,
+        "state": "succeeded",
+        "attempt_id": 9472,
+        "exit_code": 0,
+        "case_count": 9,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "junit": "benchmarks/sepclip_weight_microscopy/chart_contracts_v2.xml",
+        "junit_sha256": "d074932e8e7aa6609f2484399b8d829a20c575a1cb78562c0c9863d6e83d29f8",
+        "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_chart_contracts_v2_1791340281818165174.json",
+        "execution_manifest_sha256": "7ceb1e1854678ce402e362be028217d11f9d44f64322b7aa1ae6e397d3bd1708",
+        "source_count": 66,
+        "discrepancies": []
+      },
+      {
+        "id": 11891,
+        "state": "succeeded",
+        "attempt_id": 9473,
+        "exit_code": 0,
+        "case_count": 23,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "junit": "benchmarks/sepclip_weight_microscopy/closed_loop_contracts_v2.xml",
+        "junit_sha256": "fbdfff7a6b6d5679496a0982e15d7c62a7dfaacf0cb67b72dce2c7ff912ceaec",
+        "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_closed_loop_contracts_v2_1791340298022117697.json",
+        "execution_manifest_sha256": "b7399bf74320b0b87b0e8f15f4406e96cf4c404550dfab162136bd7f50810996",
+        "source_count": 66,
+        "discrepancies": []
+      }
+    ],
+    "scope": "Strict numerical contracts, not actual closed-loop intervention results or selected chart."
+  },
+  "restart_completed_chart_and_historical_rank": {
+    "review": "benchmarks/sepclip_weight_microscopy/chart_and_historical_rank_empirical_review.md",
+    "sha256": "c5e77c71673184de938f2df7e8d5cc0ff119ec0774ed2122ff5325bad8d9ce6f",
+    "chart_job": 11775,
+    "historical_rank_job": 11781,
+    "chart_unselected": true,
+    "historical_oracle_scope": "physics_complete H64/H256, not denseH512",
+    "chart_measurement": "108/245 FP32 KL negative; FP64 same actual shapes positive. At kappa1e6 ell score relative error34.086% versus mode .004655%; actual decoder stress has15nonfinite/87rows.",
+    "historical_rank_measurement": "72fits can report arithmetic rank192/192 but actual finiteKL357.9\u2013769796 times targetKL.001, relative retraction linearization error13.36\u20131993.58; none certifies usable finite-budget credit.",
+    "limits": "Reference chart chain uses FP32 exp(logexcess) cast toFP64, not rounded-shape-minus1, despite docstring. Arithmetic rank and SPD do not certify reliable finite fit. No retained actual-motion fields in historical artifact. Field reliability and chart preference withheld."
+  },
+  "restart_completed_strong_reference": {
+    "job_id": 11827,
+    "review": "benchmarks/sepclip_weight_microscopy/strong_reference_independent_physics_empirical_review.md",
+    "review_sha256": "7406cdf6c03a76d1850b5edcf02da92aeaee39bfd337750275274683e6d9e94a",
+    "scores": {
+      "sample": 14925.93,
+      "mean": 15769.63,
+      "mode": 16173.9
+    },
+    "velocity": {
+      "sample": 15.3296,
+      "mean": 16.1536,
+      "mode": 16.6038
+    },
+    "control_cost_per_step": {
+      "sample": 0.40367,
+      "mean": 0.38398,
+      "mode": 0.42995
+    },
+    "limits": "50M longer-trained different actor; historical execution unpinned. Correct-normalizer/checkpoint/source/trace acceptance does not match8M causal conditions, prove20k optimum, or identify microscopic cause. Sparse contacts are solver-observation counts, not stance impulses.",
+    "inference": "Falsifies universal Beta-family10k score ceiling."
+  },
+  "restart_completed_normuon_control": {
+    "job_id": 11811,
+    "state": "succeeded",
+    "review": "benchmarks/sepclip_weight_microscopy/normuon_control_empirical_source_review.md",
+    "numbers": "benchmarks/sepclip_weight_microscopy/normuon_control_empirical_source_review.json",
+    "primary_trailing200k_at7_9M": 8072.715564025575,
+    "primary_episode_count": 201,
+    "final100": 8189.44580078125,
+    "execution_parity": "All7964return events and28non-timing shared scalar series exactly match historical same-seedv4normuon_fast.",
+    "interpretation": "Reliable same-seed control, not independent replicate or optimizer superiority. Actual methodNorMuon .005/.85/.95/bf16actoronly despite anvil2 dispatch label; v14 differs architecture/matrix membership."
+  },
+  "restart_prescription_v14_benchmark_measurements": {
+    "captured_at": 1791340641.871761,
+    "score_contract": "Inclusive[7.7M,7.9M] sampled training episodes, seed1; final100 separate; same-seed compound package comparison not isolatedcause/seedgeneralization.",
+    "rows": [
+      {
+        "job_id": 11878,
+        "name": "sepclip_prescription_v14_additive_adam",
+        "state": "succeeded",
+        "attempt_id": 9474,
+        "max_parallel_runs": 1,
+        "run": "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_adam__1__1791340312",
+        "last_step": 7995008,
+        "return_events": 7964,
+        "primary_trailing200k_at7_9M": 8376.899767519822,
+        "primary_episode_count": 201,
+        "final100": 8495.269858398438,
+        "incomplete_tail100_descriptive": null,
+        "incomplete_scope": null,
+        "matched_4M_trailing200k": 7297.906634430387,
+        "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v14_additive_adam_1791340311519606926.json",
+        "execution_sha256": "00baaa618c949961736fccdd617dce045ed8abc94f42076dc9280357ecfed11f",
+        "source_checked": 50,
+        "source_discrepancies": [],
+        "event_file_sha256": {
+          "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_adam__1__1791340312/events.out.tfevents.1791340312.cachyos-x8664-desktop.3668802.0": "4b45a5eed224dc193b0dd5fb0e36c9fc9aa70c9b507779904d0cfcbeeaba1e75"
+        }
+      },
+      {
+        "job_id": 11879,
+        "name": "sepclip_prescription_v14_additive_anvil",
+        "state": "cancelled",
+        "attempt_id": 9475,
+        "max_parallel_runs": 1,
+        "run": "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_anvil__1__1791340406",
+        "last_step": 6056000,
+        "return_events": 6025,
+        "primary_trailing200k_at7_9M": null,
+        "primary_episode_count": null,
+        "final100": null,
+        "incomplete_tail100_descriptive": 5165.955104980469,
+        "incomplete_scope": "Culled; no late score extrapolation. Preserve4M snapshot/trace.",
+        "matched_4M_trailing200k": 4026.6146185576026,
+        "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v14_additive_anvil_1791340404968080943.json",
+        "execution_sha256": "788e68ebf1bc464c75e3af569bd8e4782b7406c98f63d9e193b3162a664cac93",
+        "source_checked": 50,
+        "source_discrepancies": [],
+        "event_file_sha256": {
+          "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_anvil__1__1791340406/events.out.tfevents.1791340406.cachyos-x8664-desktop.3672534.0": "460face64a7f299fa1155444037d932233e4b756c768ac62e28244ec5834ebc4"
+        }
+      },
+      {
+        "job_id": 11880,
+        "name": "sepclip_prescription_v14_additive_normuon",
+        "state": "succeeded",
+        "attempt_id": 9476,
+        "max_parallel_runs": 1,
+        "run": "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_normuon__1__1791340481",
+        "last_step": 7995008,
+        "return_events": 7964,
+        "primary_trailing200k_at7_9M": 4972.433546986746,
+        "primary_episode_count": 201,
+        "final100": 4976.175275268554,
+        "incomplete_tail100_descriptive": null,
+        "incomplete_scope": null,
+        "matched_4M_trailing200k": 3539.9759649328926,
+        "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v14_additive_normuon_1791340480720551304.json",
+        "execution_sha256": "b13583ffefada73030a474a11172b054b62bc9c2e81ad248c6a02b0f4f2c18ea",
+        "source_checked": 50,
+        "source_discrepancies": [],
+        "event_file_sha256": {
+          "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_normuon__1__1791340481/events.out.tfevents.1791340481.cachyos-x8664-desktop.3674751.0": "3b7417772e068af07073fa236921f2d51c1e76a4f5dece9b328b92dd98f090fa"
+        }
+      }
+    ],
+    "v15_status": "Recovery gate11895passed11, recoveredtrial11896queued"
+  },
+  "restart_prescription_v15_benchmark_measurement": {
+    "captured_at": 1791341125.283859,
+    "job_id": 11896,
+    "replaces_skipped": 11881,
+    "state": "succeeded",
+    "attempt_id": 9481,
+    "declared_limit": 1,
+    "run": "runs/HalfCheetah-v4__sepclip_prescription_v15_intrinsic_anvil_recovered_v2__1__1791340701",
+    "primary_trailing200k_at7_9M": 8250.580795667658,
+    "primary_episode_count": 201,
+    "final100": 8382.645986328125,
+    "last_step": 7995008,
+    "return_events": 7964,
+    "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v15_intrinsic_anvil_recovered_v2_1791340699886245143.json",
+    "execution_manifest_sha256": "867780f0684af6761ef8cc25a5909206ea4de25231e330ff70bc12de475ce580",
+    "source_checked": 50,
+    "source_discrepancies": [],
+    "event_sha256": {
+      "runs/HalfCheetah-v4__sepclip_prescription_v15_intrinsic_anvil_recovered_v2__1__1791340701/events.out.tfevents.1791340701.cachyos-x8664-desktop.3682551.0": "ce46816d770b0f0af5873f8981ba8dd43110f9ab02ff2b439d5b291bf515fd83"
+    },
+    "comparison_control": {
+      "primary": 8781.567,
+      "final100": 8600.528,
+      "variant": "v7fullrollout-clock Anvil.005, originalactor"
+    },
+    "interpretation": "Intrinsic compound direction/amplitude/history geometry intervention is lower primary at thisseed than ambientcontrol; noseedgeneralization/puretransportisolation. Test-only recovery preserved originaltrainer unchanged."
+  },
+  "restart_completed_actual_gait_closedloop": {
+    "actual_direction": {
+      "job_id": 11887,
+      "review": "benchmarks/sepclip_weight_microscopy/actual_step_dense_recovered_v2_independent_empirical_review.md",
+      "review_sha256": "3af493a393f4ff85b56ade6004187d78390fc64e55f1871c352564ba282d70a1",
+      "result": "6/144pointwise objective/motion contrasts pass descriptiveR2 precision screen; allnegativeAnvil8M/H512 ten-epoch endpoint normalized/tailaugmented. Actualfirst0pass/raw0pass. Firsttangent retained>=.9999999998668 atcutoff1e-4; endpointretentiononlyconfiguredcutoff. ActualKL/Fisher.98944\u20131.00783, nofullfieldefficiencycertification."
+    },
+    "gait": {
+      "job_id": 11886,
+      "review": "benchmarks/sepclip_weight_microscopy/gait_dense_recovered_v2_independent_empirical_review.md",
+      "review_sha256": "209a12f5dc5238a51e44994f4f04f9879a1c87984bfb0394e61f1e0e641dcc96",
+      "result": "No positive aggregate selected/directed holdout intervention excludes0 evenpointwise; effective32states exactdenseattachment. Sparsecontactstrata, aliased/transientbiasedcycles cannot establishstride/flightmechanism."
+    },
+    "closed_loop": {
+      "job_id": 11892,
+      "review": "benchmarks/sepclip_weight_microscopy/closed_loop_anvil_recovered_v2_independent_empirical_review.md",
+      "review_sha256": "476a920d18253aa6a05619047371a51f8ebc48041ccd276d76cdc2716f67bec4",
+      "result": "Anvil8M/H512 sampled endpointfull+2.784 CI[-3.894,9.462] unresolved, t0-only-8.631 CI[-10.327,-6.935], feedbackinteraction+6.842 CI[2.264,11.419]. Meanendpoint+1.158,mode-21.833 conditional32states. All-timePGsigns unresolved; one nativeclampatomrealized. Nofamilywisecertification."
+    }
+  },
+  "restart_completed_v14_actual_feedback": {
+    "status": "accepted finite conditional effects; layer attribution pending",
+    "jobs": [
+      11899,
+      11900,
+      11901,
+      11902,
+      11903,
+      11904
+    ],
+    "independent_review": "v14_closed_loop_independent_physics_empirical_review.md",
+    "independent_numbers": "v14_closed_loop_independent_physics_numbers.json",
+    "H512_sampled_raw_discounted_endpoint": {
+      "adam4m": {
+        "mean": 0.03529,
+        "pointwise_t3_ci": [
+          -3.97506,
+          4.04565
+        ]
+      },
+      "adam8m": {
+        "mean": 3.45985,
+        "pointwise_t3_ci": [
+          0.38426,
+          6.53543
+        ]
+      },
+      "anvil4m": {
+        "mean": -3.20799,
+        "pointwise_t3_ci": [
+          -5.93467,
+          -0.48132
+        ]
+      }
+    },
+    "limitations": [
+      "32 fixed own states; four independent continuation replicas; pointwise unadjusted many contrasts",
+      "Diagnostic truncated inverse-CDF quantiles with native FP32 action clipping; host sampler RNG equivalence uncertified",
+      "Different occupancy and frozen normalizers across captures; no matched optimizer efficiency claim",
+      "First bank reconstructed from saved old weights plus FP32 delta, not independently saved",
+      "Critic terminal augmentation is not a true infinite-return oracle",
+      "Finite first/later feedback interaction identity accepted; components mostly unresolved, not unique layer/critic/contact cause"
+    ]
+  },
+  "restart_layer_fisher_v2_gate": {
+    "status": "queued; source/static review accepted, CUDA gate unexecuted",
+    "failed_gate": 11905,
+    "preserved_skipped": [
+      11906,
+      11907,
+      11908
+    ],
+    "replacement_gate": 11926,
+    "expected_tests": 44,
+    "replacement_layers": [
+      11928,
+      11929,
+      11930,
+      11933,
+      11934
+    ],
+    "additional_normuon_chord_physics": [
+      11912,
+      11913,
+      11914,
+      11915
+    ],
+    "preserved_preexecution_output_repairs": [
+      11931,
+      11932
+    ],
+    "source_sha256": "c1455aae7ebb5c54cde98d0eca5cf198617e07cf86ba398276544245b83b2bcb",
+    "test_sha256": "27f47d43c7ab6f71a13fe06ecc10a77756615921120fd6bc2557777aff70aa7a",
+    "static_review": "prescription_layer_geometry_v2_independent_static_review.md",
+    "strict_original_tests_preserved": 18,
+    "repair": "Stable CUDA FP64 trigamma recurrence and differences; conditional scalar error budget and true-small-mode withholding; no tolerance relaxation or trainer change",
+    "withhold": [
+      "unexecuted contracts are not validation",
+      "Fisher scalar budget does not certify JVP, Gram accumulation, digamma/lgamma KL or sampler score"
+    ]
+  },
+  "stationary_pg_alignment_exception": {
+    "status": "analytical exception, not demonstrated occupancy root cause",
+    "condition": "Initial nu=d_old stationary under same policy/environment/reset/normalizer kernel; learner state law d_batch=d_old; exact unclipped score and old Q",
+    "identities": [
+      "grad J_infinite = g_batch/(1-gamma)",
+      "With exact frozen V_old terminal tail, grad J_H_tail = (1-gamma**H)/(1-gamma) * g_batch"
+    ],
+    "limits": "Selected 32states, finite zero/approximate tail, later actor iterates and possibly differing normalization kernels do not establish these assumptions. Their failure allows but does not prove mismatch."
+  },
+  "restart_optimizer_forensic_preparation": {
+    "status": "static-approved frozen; queued numerical gate and actual-capture executions, no measured result yet",
+    "source": "scripts/audit_sepclip_prescription_optimizer_forensics.py",
+    "committee_note": "v14_optimizer_chain_committee_review.md",
+    "required": "Full source-private warm replay fed recorded clipped gradients; same factory/name mapping, once-only beginrollout, full fusedAdam and compiled normalization. Each ambient/retracted delta plus endpoint parity and independent stage/lane parity before telemetry. No alternative proposal/physicalPG/causal efficacy.",
+    "purpose": "Measured moment/cascade/lane history is missing from actual traces; user explicitly requires detailed optimizer understanding.",
+    "contract_gate": 11937,
+    "expected_contract_cases": 24,
+    "actual_capture_jobs": [
+      11938,
+      11939,
+      11940,
+      11941,
+      11942
+    ],
+    "source_sha256": "fe744392f3355222848f5d1e1b3193e3fb580527119d07410ab15c3518145e32",
+    "test_sha256": "2e95eff6a4a643cba5d2c850124ee9eb7178ae16fcdc022c2bf8d77b1a90dda3",
+    "manifest_sha256": "9198410e93c9a0da8614c24f12837d1530f8af933bd60fcf117c3f830b95d2a0",
+    "static_review": "prescription_optimizer_forensics_independent_static_review.md",
+    "actual_step_parity": "Every ambient/retracted delta and saved full endpoint bitwise equal; shadow stages have separately declared bounded lane/subtraction parity."
+  },
+  "restart_v14_actual_chord_acceptance": {
+    "review": "v14_captured_chord_independent_empirical_review.md",
+    "numbers": "v14_captured_chord_independent_numbers.json",
+    "captures": [
+      "adam4m",
+      "adam8m",
+      "anvil4m"
+    ],
+    "full_old_batch_states": 16384,
+    "actor_parameters": 18584,
+    "adjacent_h": [
+      1,
+      0.5
+    ],
+    "max_channel_relative_error": 0.003474,
+    "max_direction_relative_error": 0.005853,
+    "limits": [
+      "captured aggregate chord only, not perlayer or shape-floor-coordinate",
+      "no monotone small-h or best-h selection",
+      "storage ULP heuristic is not accumulated error certificate",
+      "no Fisher/physicalPG/efficiency/causal attribution"
+    ]
+  },
+  "active_human_report": "analytical_synthesis.md",
+  "restart_first_gradient_bridge_preparation": {
+    "status": "independently_static_approved_frozen_queued_unexecuted",
+    "gate_job": 11948,
+    "capture_jobs": [
+      11949,
+      11950,
+      11951,
+      11952,
+      11953
+    ],
+    "declared_max_parallel_runs": 1,
+    "source_sha256": "0adfa1acf004b26fcc4cfd5c429ac9056260e2be747eb347aed84699506b0261",
+    "test_sha256": "9e0d01920ecccd47ba2503443290573f971230e4b1e6ef97c760ee29e5a728d3",
+    "expected_contract_cases": 23,
+    "scope": "Private CUDA first-permutation reconstruction; all recorded clipped actor/critic gradients must match bitwise before independent full actor covector common-scale residuals. Not physical PG or optimizer efficacy.",
+    "receipts": [
+      "benchmarks/sepclip_prescription_v14/first_gradient_contracts_v1_submission.json",
+      "benchmarks/sepclip_weight_microscopy/v14_actual_first_gradient_v1_submission.json"
+    ],
+    "review": "benchmarks/sepclip_weight_microscopy/prescription_first_gradient_v1_independent_static_review.md",
+    "updated_at": 1791346034.9661474
+  },
+  "restart_critic_error_algebra_scope_review": {
+    "updated_at": 1791347285.6765296,
+    "status": "independently_checked_algebra_not_empirical_critic_bias",
+    "value_definition": "e_t = learned value minus exact value of SAME continuation policy and matched reward law; not optimal value.",
+    "q": "gamma*lambda",
+    "finite_unmasked_H_error": "-e_t + gamma*(1-lambda)*sum(k=0..H-1) q^k e_(t+k+1) + q^H e_(t+H)",
+    "infinite_error": "-e_t + gamma*(1-lambda)*sum(k>=0) q^k e_(t+k+1)",
+    "infinite_assumptions": "Convergent integrable errors and vanishing terminal term; reset/truncation masks handled separately.",
+    "cancellation_scope": "State-only baseline cancels in exact unclipped expectation (including valid importance sampling), not a finite empirical or sign-masked guarantee.",
+    "normalization_scope": "Changing normalization needs matched time/normalizer-state indexed value and reward definitions; different reward laws add weighted reward differences, not pure critic error.",
+    "independent_review": "Parent root and independent red-team algebra; no models, tests, jobs or parameter sweep."
+  }
+}

@@ -1,0 +1,16 @@
+....                                                                     [100%]
+=============================== warnings summary ===============================
+tests/test_sepclip_sample_fisher_head.py: 14 warnings
+  /home/marvin/Documents/repositories/cleanrl/.venv/lib/python3.10/site-packages/torch/jit/_script.py:365: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+tests/test_sepclip_sample_fisher_head.py::test_compiled_curvature_calibration_checkpoint_and_ownership[sample]
+  /home/marvin/Documents/repositories/cleanrl/.venv/lib/python3.10/site-packages/torch/_inductor/compile_fx.py:320: UserWarning: TensorFloat32 tensor cores for float32 matrix multiplication available but not enabled. Consider setting `torch.set_float32_matmul_precision('high')` for better performance.
+    warnings.warn(
+
+tests/test_sepclip_sample_fisher_head.py::test_compiled_curvature_calibration_checkpoint_and_ownership[sample]
+  /home/marvin/Documents/repositories/cleanrl/.venv/lib/python3.10/site-packages/torch/_inductor/lowering.py:2158: FutureWarning: `torch._prims_common.check` is deprecated and will be removed in the future. Please use `torch._check*` functions instead.
+    check(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 passed, 16 warnings in 12.02s

@@ -1,0 +1,22 @@
+{
+  "captured_at": 1791314868.3779213,
+  "job_id": 11825,
+  "job_state_at_edit": "queued attemptCount=0",
+  "test_source": "tests/test_sepclip_closed_loop_nonlinear_jvp.py",
+  "old_sha256": "2a12a26a26b2e549c61f18cb2bb8f0be1d337a2db4ae9cd543b18e0491a19ab6",
+  "new_sha256": "58fe105aa6b605cc3a194efa8c90bc91c6a00b20ae28aed62197e26f34b9db34",
+  "reason": "Independent static review: tie shared reconstructed chords to exact stored endpoint and first delta; externally pin reconciled artifact bytes before loads. No trainer/audit modification or duplicate submission.",
+  "artifact_sha256": {
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_4013696.pt": "8b17da17c1a4d6ed31e62076f76debfc01763e6f0a8b95f401674e55415d6197",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_updates_4013696.pt": "762e1629a4d2b547fa3d5442c081c2ff99ea62c05c3f97a46477304b14f9fa6b",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_7995008.pt": "5d7979136fb15329c9bd6d0e6340cde6206d8b0956c21f273f223bbb851b3f30",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_updates_7995008.pt": "7cdb678b6a24b260f543cca4771c234e6338bdf2de8d6fd4c428d7a18cd38926",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_4013696.pt": "18d6879248fb472d9d84c4254b5052918f2432bf731c398f0f87ad8138ae56cb",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_updates_4013696.pt": "25709629234dc4f8bd43f9c6597247d25557be071702d8bfdb66895c2c2ffbde",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_7995008.pt": "06819047d869a87baa62ea4d4f4e4a18044f0c52c71fa3beea2b9a66cab7c587",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_updates_7995008.pt": "1bb42d0cc7faa006422f055f5f43264a0782356d8703b6b340618b5a455efe1b"
+  },
+  "validation_status": "Queued CUDA contract remains unexecuted; no passing result claimed.",
+  "reviewed_sha256": "6215fe343943eb885e3fb335e30d7849835394f5202d18fc8559c0692d741878",
+  "post_review_defense": "Assert exactly two chords and three policy banks to prevent zip truncation; no numerical logic change."
+}

@@ -1,0 +1,377 @@
+{
+  "conclusion": "For this seed and setup, the major regression localizes to the actor optimizer replacement. Actor NorMuon exhibits persistent-size, oscillatory updates that improve the clipped training objective while losing held-out benefit. This supports poor policy-space calibration and generalization as the observed failure, rather than a faulty optimizer port or principally a critic failure. Fixed norm, spectral direction, neuron adaptation and the Adam-head interaction have not been uniquely separated as internal causes.",
+  "training": {
+    "actor_only_job": 11328,
+    "critic_only_job": 11329,
+    "max_parallel_runs": 1,
+    "seed": 1,
+    "target_steps": 50000000,
+    "adam_lr": 0.0024,
+    "normuon_lr": 0.005,
+    "returns_at_8M": {
+      "control": 8390.9,
+      "actor_only": 5026.3,
+      "critic_only": 8565.0
+    },
+    "returns_final_window_50M": {
+      "control": 13964.2,
+      "critic_only": 12552.0
+    },
+    "actor_only_outcome": "cancelled at9.56M after persistent underperformance; automatic culling could not disambiguate the failed instrumentation attempt from its retry"
+  },
+  "diagnostic_jobs": [
+    {
+      "id": 11327,
+      "name": "sepclip_normuon_causal_bench",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/diagnose_sepclip_normuon.py",
+        "runs/HalfCheetah-v4__capture3_ppo_sepclip_control_50M__1__1790299181/policy_snapshot_12009088.pt",
+        "runs/HalfCheetah-v4__capture3_ppo_sepclip_control_50M__1__1790299181/policy_snapshot_24002176.pt",
+        "--out",
+        "benchmarks/sepclip_polar_express_normuon_v1/causal_bench.json"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "readySequence": 10440,
+      "attemptCount": 2,
+      "createdAt": 1791013582754,
+      "updatedAt": 1791013798796,
+      "finishedAt": 1791013798796,
+      "attempts": [
+        {
+          "id": 9042,
+          "jobId": 11327,
+          "number": 1,
+          "state": "failed",
+          "maxParallelRuns": 1,
+          "exitCode": 1,
+          "message": "command exited with code 1",
+          "createdAt": 1791013583004,
+          "finishedAt": 1791013621196,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9042"
+        },
+        {
+          "id": 9043,
+          "jobId": 11327,
+          "number": 2,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791013761209,
+          "finishedAt": 1791013798796,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9043"
+        }
+      ]
+    },
+    {
+      "id": 11328,
+      "name": "sepclip_normuon_split_v2_actor_hc50m",
+      "state": "cancelled",
+      "stateReason": "cancelled by request",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_normuon_split_diagnostic_v2.sh",
+        "actor"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 7200000,
+      "readySequence": 10441,
+      "attemptCount": 2,
+      "createdAt": 1791013600722,
+      "updatedAt": 1791014000619,
+      "finishedAt": 1791014000619,
+      "attempts": [
+        {
+          "id": 9044,
+          "jobId": 11328,
+          "number": 1,
+          "state": "failed",
+          "maxParallelRuns": 1,
+          "exitCode": 1,
+          "message": "command exited with code 1",
+          "createdAt": 1791013820033,
+          "finishedAt": 1791013830597,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9044"
+        },
+        {
+          "id": 9045,
+          "jobId": 11328,
+          "number": 2,
+          "state": "cancelled",
+          "maxParallelRuns": 1,
+          "termSignal": 15,
+          "message": "cancelled by request",
+          "createdAt": 1791013853560,
+          "finishedAt": 1791014000619,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9045"
+        }
+      ]
+    },
+    {
+      "id": 11329,
+      "name": "sepclip_normuon_split_v2_critic_hc50m",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_normuon_split_diagnostic_v2.sh",
+        "critic"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 7200000,
+      "readySequence": 10439,
+      "attemptCount": 1,
+      "createdAt": 1791013600744,
+      "updatedAt": 1791014863352,
+      "finishedAt": 1791014863352,
+      "attempts": [
+        {
+          "id": 9046,
+          "jobId": 11329,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791014000626,
+          "finishedAt": 1791014863352,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9046"
+        }
+      ]
+    },
+    {
+      "id": 11330,
+      "name": "sepclip_normuon_spectral_causal_bench",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/diagnose_sepclip_normuon.py",
+        "runs/HalfCheetah-v4__capture3_ppo_sepclip_control_50M__1__1790299181/policy_snapshot_12009088.pt",
+        "runs/HalfCheetah-v4__capture3_ppo_sepclip_control_50M__1__1790299181/policy_snapshot_24002176.pt",
+        "--spectral-only",
+        "--out",
+        "benchmarks/sepclip_polar_express_normuon_v1/spectral_causal_bench.json"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "readySequence": 10442,
+      "attemptCount": 1,
+      "createdAt": 1791014066356,
+      "updatedAt": 1791014907901,
+      "finishedAt": 1791014907901,
+      "attempts": [
+        {
+          "id": 9047,
+          "jobId": 11330,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791014865669,
+          "finishedAt": 1791014907901,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9047"
+        }
+      ]
+    },
+    {
+      "id": 11331,
+      "name": "sepclip_normuon_history_probe",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/diagnose_sepclip_normuon_history.py",
+        "runs/HalfCheetah-v4__sepclip_normuon_split_v2_actor_hc50m__1__1791013855/diagnostic_snapshot_4013696.pt",
+        "runs/HalfCheetah-v4__sepclip_normuon_split_v2_actor_hc50m__1__1791013855/diagnostic_snapshot_8011392.pt",
+        "--out",
+        "benchmarks/sepclip_polar_express_normuon_v1/history_probe.json"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "readySequence": 10443,
+      "attemptCount": 1,
+      "createdAt": 1791014295285,
+      "updatedAt": 1791015006002,
+      "finishedAt": 1791015006002,
+      "attempts": [
+        {
+          "id": 9048,
+          "jobId": 11331,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791014988304,
+          "finishedAt": 1791015006002,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9048"
+        }
+      ]
+    },
+    {
+      "id": 11332,
+      "name": "sepclip_normuon_history_objective_probe",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/diagnose_sepclip_normuon_history.py",
+        "runs/HalfCheetah-v4__sepclip_normuon_split_v2_actor_hc50m__1__1791013855/diagnostic_snapshot_4013696.pt",
+        "runs/HalfCheetah-v4__sepclip_normuon_split_v2_actor_hc50m__1__1791013855/diagnostic_snapshot_8011392.pt",
+        "--out",
+        "benchmarks/sepclip_polar_express_normuon_v1/history_objective_probe.json"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "readySequence": 10444,
+      "attemptCount": 1,
+      "createdAt": 1791015150020,
+      "updatedAt": 1791015178202,
+      "finishedAt": 1791015178202,
+      "attempts": [
+        {
+          "id": 9049,
+          "jobId": 11332,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791015150370,
+          "finishedAt": 1791015178202,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9049"
+        }
+      ]
+    }
+  ],
+  "verified_replay": {
+    "4M_post_first_kl_absolute_error": 4.7218e-06,
+    "4M_post_final_kl_absolute_error": 0.00082205,
+    "8M_post_first_kl_absolute_error": 3.9257e-05,
+    "8M_post_final_kl_absolute_error": 4.6108e-05,
+    "note": "Replay omits trainer minibatch row permutations; resulting floating-point and BF16 differences explain small residual errors."
+  },
+  "observations": {
+    "control_actor_average_top5_gradient_energy_12M": 0.9023,
+    "control_actor_average_top5_gradient_energy_24M": 0.8539,
+    "control_actor_raw_vs_polar_held_gradient_cosine_12M": [
+      0.2318,
+      0.0754
+    ],
+    "control_actor_raw_vs_polar_held_gradient_cosine_24M": [
+      0.2953,
+      0.1059
+    ],
+    "control_actor_bf16_vs_fp32_polar_cosine": [
+      0.9973,
+      0.9976
+    ],
+    "control_24M_matched_kl": {
+      "adam_kl": 0.0443593,
+      "muon_lr0025_kl": 0.043314,
+      "adam_heldout_gain": 0.000225829,
+      "muon_heldout_gain": -0.0003878
+    }
+  },
+  "excluded_simple_causes": [
+    "Adam LR mismatch",
+    "Incorrect port of casmi NorMuon",
+    "Critic failure as the principal cause",
+    "BF16 precision as a sufficient cause (full-SVD polar reproduces behavior)",
+    "Inherited momentum as a sufficient cause (reset and zero-momentum fail to reliably rescue)",
+    "Weak singular directions as a complete explanation (truncation and partial flattening do not consistently rescue)"
+  ],
+  "interpretation_limits": [
+    "Single seed; no population-level significance claim.",
+    "Frozen rollout counterfactuals diagnose local surrogate geometry, not long-term returns.",
+    "Cold-optimizer controls are kept separate from real-history replay.",
+    "Exact optimum actor LR, useful epoch count and policy-aware preconditioner remain undetermined.",
+    "Clipped training objective improves: this is poorer generalization and policy-space calibration, not proof that NorMuon fails to descend its training loss.",
+    "Actual-history final held-out gain is negative at4M, but positive and reduced relative to the first epoch at8M.",
+    "Adam also exhibits noisy held-out fluctuations; oscillation alone does not uniquely identify the cause.",
+    "The precise contribution of constant norm versus singular-direction redistribution, row adaptation and Adam-head interaction remains unresolved."
+  ],
+  "queue": "Paused; all unrelated jobs held, none admitted.",
+  "actual_history_cases": [
+    {
+      "snapshot_step": 4013696,
+      "first_epoch": {
+        "train_clipped_gain": 0.0003260696539655328,
+        "heldout_gain": 0.00033435560180805624
+      },
+      "final_epoch": {
+        "train_clipped_gain": 0.0011019911617040634,
+        "heldout_gain": -0.00011511285265441984
+      },
+      "final_heldout_chunk_gains": [
+        -0.0001335206616204232,
+        -3.671937884064391e-05,
+        -0.00017509848112240434
+      ],
+      "projected_step_norms_by_epoch": [
+        0.032438372261822224,
+        0.0317284424478809,
+        0.031970164738595486,
+        0.031889667734503746,
+        0.032132161470750965,
+        0.03211022447794676,
+        0.03165871308495601,
+        0.03193351222823063,
+        0.03187216973553101,
+        0.03207934616754452
+      ]
+    },
+    {
+      "snapshot_step": 8011392,
+      "first_epoch": {
+        "train_clipped_gain": 4.6615277824457735e-05,
+        "heldout_gain": 0.000316794088575989
+      },
+      "final_epoch": {
+        "train_clipped_gain": 0.0008999541751109064,
+        "heldout_gain": 0.00012134885037085041
+      },
+      "final_heldout_chunk_gains": [
+        0.0003197923069819808,
+        8.33467929624021e-05,
+        -3.909254155587405e-05
+      ],
+      "projected_step_norms_by_epoch": [
+        0.02917164781441291,
+        0.029234712322552998,
+        0.029266854748129845,
+        0.029108071389297645,
+        0.02891815733164549,
+        0.029021480741600197,
+        0.02896066289395094,
+        0.029271631812055905,
+        0.029318793366352718,
+        0.02925535012036562
+      ]
+    }
+  ]
+}

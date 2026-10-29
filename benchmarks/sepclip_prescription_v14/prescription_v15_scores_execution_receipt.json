@@ -1,0 +1,27 @@
+{
+  "captured_at": 1791341125.283859,
+  "job_id": 11896,
+  "replaces_skipped": 11881,
+  "state": "succeeded",
+  "attempt_id": 9481,
+  "declared_limit": 1,
+  "run": "runs/HalfCheetah-v4__sepclip_prescription_v15_intrinsic_anvil_recovered_v2__1__1791340701",
+  "primary_trailing200k_at7_9M": 8250.580795667658,
+  "primary_episode_count": 201,
+  "final100": 8382.645986328125,
+  "last_step": 7995008,
+  "return_events": 7964,
+  "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v15_intrinsic_anvil_recovered_v2_1791340699886245143.json",
+  "execution_manifest_sha256": "867780f0684af6761ef8cc25a5909206ea4de25231e330ff70bc12de475ce580",
+  "source_checked": 50,
+  "source_discrepancies": [],
+  "event_sha256": {
+    "runs/HalfCheetah-v4__sepclip_prescription_v15_intrinsic_anvil_recovered_v2__1__1791340701/events.out.tfevents.1791340701.cachyos-x8664-desktop.3682551.0": "ce46816d770b0f0af5873f8981ba8dd43110f9ab02ff2b439d5b291bf515fd83"
+  },
+  "comparison_control": {
+    "primary": 8781.567,
+    "final100": 8600.528,
+    "variant": "v7fullrollout-clock Anvil.005, originalactor"
+  },
+  "interpretation": "Intrinsic compound direction/amplitude/history geometry intervention is lower primary at thisseed than ambientcontrol; noseedgeneralization/puretransportisolation. Test-only recovery preserved originaltrainer unchanged."
+}

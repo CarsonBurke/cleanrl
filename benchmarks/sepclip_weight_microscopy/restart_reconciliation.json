@@ -1,0 +1,340 @@
+{
+  "captured_at": 1791311037.0952604,
+  "scope": "read-only restart reconciliation; no source edits, submissions, cancellations or queue reprioritization",
+  "owned_job_states": {
+    "11730": "failed",
+    "11731": "skipped",
+    "11732": "skipped",
+    "11733": "succeeded",
+    "11734": "succeeded",
+    "11735": "succeeded",
+    "11736": "succeeded",
+    "11737": "failed",
+    "11739": "succeeded",
+    "11740": "cancelled",
+    "11741": "cancelled",
+    "11742": "cancelled",
+    "11743": "succeeded",
+    "11744": "succeeded",
+    "11745": "succeeded",
+    "11746": "succeeded",
+    "11750": "failed",
+    "11752": "succeeded",
+    "11753": "succeeded",
+    "11754": "failed",
+    "11755": "succeeded",
+    "11756": "succeeded",
+    "11757": "queued",
+    "11758": "skipped",
+    "11764": "queued",
+    "11765": "queued",
+    "11770": "queued",
+    "11771": "cancelled",
+    "11772": "cancelled",
+    "11773": "queued",
+    "11774": "queued",
+    "11775": "queued",
+    "11776": "queued",
+    "11781": "queued",
+    "11782": "queued",
+    "11783": "queued",
+    "11795": "queued",
+    "11799": "cancelled",
+    "11810": "queued",
+    "11811": "queued",
+    "11812": "queued"
+  },
+  "all_owned_limits_one": true,
+  "protected_unrelated_jobs": [
+    11800,
+    11802
+  ],
+  "current_sources": {
+    "scripts/audit_sepclip_dense_pg.py": {
+      "expected": "1f4053ebe4854063ce19e36b05be37dc3e036d94e368b9b424595c5b98b4c058",
+      "actual": "1f4053ebe4854063ce19e36b05be37dc3e036d94e368b9b424595c5b98b4c058"
+    },
+    "scripts/audit_sepclip_physics.py": {
+      "expected": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114",
+      "actual": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114"
+    },
+    "scripts/audit_sepclip_gait.py": {
+      "expected": "cc5f8b35167c3beffcc71561474dcf81c79f3ad68b7b82ab35816f04f4d7e68e",
+      "actual": "cc5f8b35167c3beffcc71561474dcf81c79f3ad68b7b82ab35816f04f4d7e68e"
+    },
+    "scripts/audit_sepclip_oracle_geometry.py": {
+      "expected": "03bca505a2e00e1b7ca2d93b8982beb4343dc8b24bcd7287100b593611fbc678",
+      "actual": "03bca505a2e00e1b7ca2d93b8982beb4343dc8b24bcd7287100b593611fbc678"
+    },
+    "scripts/audit_sepclip_actual_oracle_step.py": {
+      "expected": "80e4dbc117808da90e9b5b87febc856a2c26d708ac3a4e9c2a56542ffa64c8e5",
+      "actual": "80e4dbc117808da90e9b5b87febc856a2c26d708ac3a4e9c2a56542ffa64c8e5"
+    },
+    "scripts/audit_sepclip_chart_numerics.py": {
+      "expected": "b4d6e5f5573dbfd1b8749d2e88f774ad3c0b31170714addc173632d98cba60a6",
+      "actual": "b4d6e5f5573dbfd1b8749d2e88f774ad3c0b31170714addc173632d98cba60a6"
+    },
+    "scripts/run_sepclip_microscopy.py": {
+      "expected": "8efe2f6e1cf005368a2b04ba03e1c5c01811a08fdeb8112a3ab90d3bf53be53a",
+      "actual": "8efe2f6e1cf005368a2b04ba03e1c5c01811a08fdeb8112a3ab90d3bf53be53a"
+    },
+    "cleanrl/ppo_continuous_action_sepclip_transition_microscopy_v12.py": {
+      "expected": "b8063ba4c3806d7812d6422c1b4c531d11def5ed58e1a85ccd10cd4591d66867",
+      "actual": "b8063ba4c3806d7812d6422c1b4c531d11def5ed58e1a85ccd10cd4591d66867"
+    },
+    "cleanrl/ppo_continuous_action_sepclip_anchored_precision_chart_v13.py": {
+      "expected": "35e9d4d704c4c5bb2a9a6706b84507d6d6f0e867fdb10bf43c5323f4d0cdd68e",
+      "actual": "35e9d4d704c4c5bb2a9a6706b84507d6d6f0e867fdb10bf43c5323f4d0cdd68e"
+    },
+    "scripts/audit_sepclip_closed_loop_update.py": {
+      "expected": "59dec8199edcadb6d02264ad3a8f9545d7a4d5785ad98a25660b1ed05619c208",
+      "actual": "59dec8199edcadb6d02264ad3a8f9545d7a4d5785ad98a25660b1ed05619c208"
+    },
+    "scripts/plot_sepclip_microscopy.py": {
+      "expected": "e748d0d869a8f7b464e3127cdb2dc04c283d1a4abe211b5b5ef5db3fc92cf431",
+      "actual": "b89d6e3f022a0c8b10ff8c230ab75edec5efce13c67e3c2db492800e3f77a33e"
+    },
+    "tests/test_sepclip_closed_loop_update.py": {
+      "expected": "c3482ab7c4a7fd33be10c629438467aa7b7f7a9308b5ce548a9649b68082c72e",
+      "actual": "c3482ab7c4a7fd33be10c629438467aa7b7f7a9308b5ce548a9649b68082c72e"
+    },
+    "tests/test_sepclip_microscopy_normuon.py": {
+      "expected": "4a65a58613b9b9dfaa6164bf144e3e4657d25f354d4dde8d95ca23e53627c64a",
+      "actual": "4a65a58613b9b9dfaa6164bf144e3e4657d25f354d4dde8d95ca23e53627c64a"
+    },
+    "tests/test_sepclip_actual_oracle_step.py": {
+      "expected": "c8d905cb782dabbe57186d4cd6e3760a16bbbe0f9c6198227af00a4f67079f17",
+      "actual": "c8d905cb782dabbe57186d4cd6e3760a16bbbe0f9c6198227af00a4f67079f17"
+    },
+    "tests/test_sepclip_oracle_geometry.py": {
+      "expected": "41ce2a52a9e59864a8f29fbc32d292810503552dce07a0ab0aeffcc5ae47f7ff",
+      "actual": "41ce2a52a9e59864a8f29fbc32d292810503552dce07a0ab0aeffcc5ae47f7ff"
+    },
+    "tests/test_sepclip_anchored_precision_chart.py": {
+      "expected": null,
+      "actual": "d5e8e3f8a95a3fb2e18c5ea4f855a7430d0b81141f1a4c066276fcb469ca5e95"
+    },
+    "tests/test_sepclip_chart_numerics.py": {
+      "expected": null,
+      "actual": "fdb223418d6bdb6dfc5ef0216485449109f511739040fcf836f97ae6d1e3a079"
+    },
+    "tests/test_sepclip_critic_transport.py": {
+      "expected": null,
+      "actual": "e24a0c642775ce7fc9bffa6bdd57ce66609488921e543570084b32d2fd1ea015"
+    },
+    "tests/test_sepclip_dense_capture_boundary.py": {
+      "expected": null,
+      "actual": "376e8dcb9933e6ff16e9d5905a50d084919bfae6cb2e9c960aea5f749f5da6ca"
+    },
+    "tests/test_sepclip_dense_pg.py": {
+      "expected": null,
+      "actual": "cf54ad6684999b49b1683028892201a36f7126b48648d9eb8e27984368421086"
+    },
+    "tests/test_sepclip_gait.py": {
+      "expected": null,
+      "actual": "540c7b8bef4ee0db0ec52a911f39cec10198a0aff2625365a3cdd01dde5deb71"
+    },
+    "tests/test_sepclip_layer_transport.py": {
+      "expected": null,
+      "actual": "41f62b660c6b8e9738be61ad102cc364b85a3fd8ae21288b6ba604367d61f34c"
+    },
+    "tests/test_sepclip_physics.py": {
+      "expected": null,
+      "actual": "07f85a3fa02c7d93c92803b7d178cafddf0134368abbd61c585dc5f5ca3ed1be"
+    },
+    "tests/test_sepclip_representation.py": {
+      "expected": null,
+      "actual": "2de0b286f8104325c43b49a51e36f9646700feb5e9cfc0fd574b5b8fb9ab87c0"
+    },
+    "tests/test_sepclip_transition_microscopy.py": {
+      "expected": null,
+      "actual": "30eaedb57cd205f9e9728e18969ec45b4684868088a466178e93129ff318b8c3"
+    }
+  },
+  "historical_execution_reconciliation": [
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_critic_historical_1791260888249500026.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_dense_boundary_contract_1791260833028836755.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_dense_pg_contracts_1791261029572714353.json",
+      "exit_code": 1,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py",
+        "scripts/audit_sepclip_dense_pg.py",
+        "tests/test_sepclip_dense_pg.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_layer_fp64_kl_contracts_1791261069194950098.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_layer_historical_1791260867843776543.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py",
+        "scripts/audit_sepclip_layer_transport.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_layer_representation_critic_contracts_1791260821184671446.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py",
+        "scripts/audit_sepclip_layer_transport.py",
+        "tests/test_sepclip_layer_transport.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_oracle_geometry_contracts_1791260912841577641.json",
+      "exit_code": 1,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py",
+        "scripts/audit_sepclip_oracle_geometry.py",
+        "tests/test_sepclip_oracle_geometry.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_oracle_geometry_contracts_repair_1791261039933502700.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py",
+        "scripts/audit_sepclip_oracle_geometry.py",
+        "tests/test_sepclip_oracle_geometry.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_physics_compiled_gradient_contracts_1791260926776135673.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_physics_complete_1791260958582903177.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_physics_historical_1791260837386207935.json",
+      "exit_code": 1,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py",
+        "scripts/audit_sepclip_physics.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_physics_score_contracts_1791260807245663656.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py",
+        "scripts/audit_sepclip_physics.py",
+        "tests/test_sepclip_physics.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_representation_historical_1791260847887349813.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_v12_adam_control_1791260589591001913.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_v12_anvil_control_1791260695924793199.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_v12_contracts_1791260457285614300.json",
+      "exit_code": 1,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py",
+        "cleanrl/ppo_continuous_action_sepclip_transition_microscopy_v12.py",
+        "tests/test_sepclip_transition_microscopy.py"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_v12_physics_contracts_repair_1791260548167082834.json",
+      "exit_code": 0,
+      "changed_since_execution": [
+        "scripts/run_sepclip_microscopy.py",
+        "scripts/audit_sepclip_physics.py",
+        "tests/test_sepclip_physics.py"
+      ]
+    }
+  ],
+  "plot_discrepancy": "Current plotting source differs from readiness hash; pending historical figure job will record actual source. Do not overwrite historical hash or claim old plot source executed. Diagnostic, trainer and pinned tests unchanged.",
+  "cull_supervision": "No owned training running; queued 11811 foreground runner starts prefix-scoped cull automatically.",
+  "initial_source_ready_reconciliation": {
+    "scripts/audit_sepclip_layer_transport.py": {
+      "recorded": "c560aebdb89e47a18580bd84103571525c7b19744a68056c20c21b930ee67dc6",
+      "current": "23fb1162c8c9c26d14320e4b744b9667feef29d5a143bf38d7eee6fccdb87b0e",
+      "same": false
+    },
+    "scripts/audit_sepclip_representation.py": {
+      "recorded": "377c39e256b25b00c705714910315cf18d23c0db8e2e61abc4d3ddda24467fb7",
+      "current": "377c39e256b25b00c705714910315cf18d23c0db8e2e61abc4d3ddda24467fb7",
+      "same": true
+    },
+    "scripts/audit_sepclip_critic_transport.py": {
+      "recorded": "0e33fb479d94cd438cd29ab3b8429fa9abd91b4f6e65b15f68673ac2cf6046be",
+      "current": "0e33fb479d94cd438cd29ab3b8429fa9abd91b4f6e65b15f68673ac2cf6046be",
+      "same": true
+    },
+    "tests/test_sepclip_layer_transport.py": {
+      "recorded": "584c6912600e0570ee88330da44a9ec3f4f1ffe14bf59774761b0527df044427",
+      "current": "41f62b660c6b8e9738be61ad102cc364b85a3fd8ae21288b6ba604367d61f34c",
+      "same": false
+    },
+    "tests/test_sepclip_representation.py": {
+      "recorded": "2de0b286f8104325c43b49a51e36f9646700feb5e9cfc0fd574b5b8fb9ab87c0",
+      "current": "2de0b286f8104325c43b49a51e36f9646700feb5e9cfc0fd574b5b8fb9ab87c0",
+      "same": true
+    },
+    "tests/test_sepclip_critic_transport.py": {
+      "recorded": "e24a0c642775ce7fc9bffa6bdd57ce66609488921e543570084b32d2fd1ea015",
+      "current": "e24a0c642775ce7fc9bffa6bdd57ce66609488921e543570084b32d2fd1ea015",
+      "same": true
+    }
+  },
+  "historical_source_note": "Initial source_ready is historical, not current readiness: layer FP64 KL repair superseded two hashes and passed 11756; dependent 11757 queued. Original initial source_ready retained.",
+  "restart_committee": [
+    "restart_geometry_review.md",
+    "restart_physics_review.md",
+    "restart_architecture_review.md"
+  ],
+  "ownership_correction": {
+    "reported_by": "parent session8cb68ea5 via cagents inbox messagea74e7e8d",
+    "recorded_at": 1791311453.278476,
+    "old_supervisor": "f115b9c8",
+    "status": "Interrupted after daemon restart; closure UNCONFIRMED, no exact native holder/close receipt",
+    "current_supervisor": "bd67787a-6033-4ae5-82de-f317731838ad; sole intended research supervisor",
+    "live_session_check": "cagents ls lists no old resumed holder; coordinate if one reappears",
+    "scope": "No claim that old session was closed"
+  }
+}

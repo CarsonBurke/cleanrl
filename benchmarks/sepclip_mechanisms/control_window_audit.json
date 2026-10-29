@@ -1,0 +1,26 @@
+[
+  {
+    "variant": "normuon_audit_8m_adam",
+    "run": "runs/HalfCheetah-v4__normuon_audit_8m_adam__1__1791057936",
+    "final100": 8281.17818359375,
+    "trailing200k_at7_9M": 8308.72625944982,
+    "count": 201,
+    "legacy_centered400k_at7_9M": 8296.799945315799
+  },
+  {
+    "variant": "sepclip_anvil2_v4_anvil_half",
+    "run": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146",
+    "final100": 8345.413642578125,
+    "trailing200k_at7_9M": 8271.011124795943,
+    "count": 201,
+    "legacy_centered400k_at7_9M": 8292.611749597498
+  },
+  {
+    "variant": "sepclip_mechanisms_adam_reference",
+    "run": "runs/HalfCheetah-v4__sepclip_mechanisms_adam_reference__1__1791240609",
+    "final100": 8281.17818359375,
+    "trailing200k_at7_9M": 8308.72625944982,
+    "count": 201,
+    "legacy_centered400k_at7_9M": 8296.799945315799
+  }
+]

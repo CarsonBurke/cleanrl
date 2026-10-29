@@ -1,0 +1,180 @@
+{
+  "method": "sepclip PPO control with Polar Express NorMuon on hidden matrices, Adam on auxiliaries; unchanged nGPT projection",
+  "source": "cleanrl/ppo_continuous_action_sepclip_polar_express_normuon_v1.py",
+  "optimizer_reference": "/home/marvin/Documents/repositories/casmi/src/casmi/optim.py",
+  "env": "HalfCheetah-v4",
+  "seed": 1,
+  "requested_steps": 50000000,
+  "adam_lr": 0.0024,
+  "normuon_lrs": [
+    0.005,
+    0.0025,
+    0.02
+  ],
+  "max_parallel_runs": 1,
+  "cuda_checks": "3 passed in job 11324",
+  "jobs": [
+    {
+      "id": 11324,
+      "name": "sepclip_polar_express_normuon_v1_hc50m",
+      "state": "cancelled",
+      "stateReason": "cancelled by request",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_polar_express_normuon_v1.sh"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 7200000,
+      "readySequence": 10434,
+      "attemptCount": 1,
+      "createdAt": 1791011987264,
+      "updatedAt": 1791012245377,
+      "finishedAt": 1791012245377,
+      "attempts": [
+        {
+          "id": 9039,
+          "jobId": 11324,
+          "number": 1,
+          "state": "cancelled",
+          "maxParallelRuns": 1,
+          "termSignal": 15,
+          "message": "cancelled by request",
+          "createdAt": 1791011991611,
+          "finishedAt": 1791012245377,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9039"
+        }
+      ]
+    },
+    {
+      "id": 11325,
+      "name": "sepclip_polar_express_normuon_v1_lrhalf_hc50m",
+      "state": "cancelled",
+      "stateReason": "cancelled by request",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_polar_express_normuon_v1.sh",
+        "sepclip_polar_express_normuon_v1_lrhalf_hc50m",
+        "0.0025"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 7200000,
+      "readySequence": 10435,
+      "attemptCount": 1,
+      "createdAt": 1791012287895,
+      "updatedAt": 1791012434385,
+      "finishedAt": 1791012434385,
+      "attempts": [
+        {
+          "id": 9040,
+          "jobId": 11325,
+          "number": 1,
+          "state": "cancelled",
+          "maxParallelRuns": 1,
+          "termSignal": 15,
+          "message": "cancelled by request",
+          "createdAt": 1791012287940,
+          "finishedAt": 1791012434385,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9040"
+        }
+      ]
+    },
+    {
+      "id": 11326,
+      "name": "sepclip_polar_express_normuon_v1_lr02_hc50m",
+      "state": "cancelled",
+      "stateReason": "cancelled by request",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_polar_express_normuon_v1.sh",
+        "sepclip_polar_express_normuon_v1_lr02_hc50m",
+        "0.02"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 7200000,
+      "readySequence": 10436,
+      "attemptCount": 1,
+      "createdAt": 1791013061501,
+      "updatedAt": 1791013240497,
+      "finishedAt": 1791013240497,
+      "attempts": [
+        {
+          "id": 9041,
+          "jobId": 11326,
+          "number": 1,
+          "state": "cancelled",
+          "maxParallelRuns": 1,
+          "termSignal": 15,
+          "message": "cancelled by request",
+          "createdAt": 1791013061741,
+          "finishedAt": 1791013240497,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9041"
+        }
+      ]
+    }
+  ],
+  "culling_decisions": [
+    {
+      "t": 1791012245.1498628,
+      "action": "cancel",
+      "job": 11324,
+      "exp": "sepclip_polar_express_normuon_v1_hc50m",
+      "verdict": "plateau",
+      "reason": "slope +0.4%/1M < 2.0% over the last 1M and 5950 = 0.67x ref progress (< 0.75) at 9.8M  [ref awr_ce_ppo_sepclip_control_v1_50M @50.0M]",
+      "force": false,
+      "step": 9791008,
+      "mlq": "job 11324 [sepclip_polar_express_normuon_v1_hc50m] cancel requested"
+    },
+    {
+      "t": 1791012434.0780683,
+      "action": "cancel",
+      "job": 11325,
+      "exp": "sepclip_polar_express_normuon_v1_lrhalf_hc50m",
+      "verdict": "plateau",
+      "reason": "slope -3.2%/1M < 2.0% over the last 1M and 4359 = 0.49x ref progress (< 0.75) at 11.3M  [ref awr_ce_ppo_sepclip_control_v1_50M @50.0M]",
+      "force": false,
+      "step": 11332000,
+      "mlq": "job 11325 [sepclip_polar_express_normuon_v1_lrhalf_hc50m] cancel requested"
+    },
+    {
+      "t": 1791013240.1635172,
+      "action": "cancel",
+      "job": 11326,
+      "exp": "sepclip_polar_express_normuon_v1_lr02_hc50m",
+      "verdict": "plateau",
+      "reason": "slope -9.4%/1M < 2.0% over the last 1M and 4895 = 0.58x ref progress (< 0.75) at 9.1M  [ref awr_ce_ppo_sepclip_control_v1_50M @50.0M]",
+      "force": false,
+      "step": 9090000,
+      "mlq": "job 11326 [sepclip_polar_express_normuon_v1_lr02_hc50m] cancel requested"
+    }
+  ],
+  "conclusion": "All three fresh 50M-target runs plateaued far below the matched-step control and were culled. Raising NorMuon LR to .02 did not recover performance; no 50M NorMuon result was obtained.",
+  "queue": "Paused; all previously queued unrelated jobs held, none admitted.",
+  "supervision_note": "First job omitted XDG_RUNTIME_DIR; supervisor run from submitting session. Second job explicitly inherited XDG_RUNTIME_DIR and included working supervision.",
+  "control_lr_verification": {
+    "run": "HalfCheetah-v4__awr_ce_ppo_sepclip_control_v1_50M__1__1790202576",
+    "learning_rate": 0.0024,
+    "anneal_lr": true,
+    "source": "Recorded TensorBoard hyperparameters and first/last charts/learning_rate scalars"
+  },
+  "lr02_diagnostics_at_6M": {
+    "normuon_return": 4908.9,
+    "control_return": 7230.3,
+    "normuon_approx_kl": 0.1924,
+    "control_approx_kl": 0.02572,
+    "normuon_explained_variance": 0.846,
+    "control_explained_variance": 0.9317
+  },
+  "independent_audit": "No confirmed implementation mismatch with casmi reference or unintended PPO loss/rollout change. Heads and gains remain Adam at control LR. Potential interactions: amplitude-independent matrix updates, .95 momentum, row-adaptive down updates followed by column normalization."
+}

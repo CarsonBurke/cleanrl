@@ -1,0 +1,191 @@
+{
+  "status": "prepared; CUDA contracts and fresh training queued, unverified",
+  "objective": "Investigate and resolve why NorMuon/Anvil only match Adam; seek a substantial measured improvement through mechanism-driven PPO optimizer innovations.",
+  "mechanisms": [
+    "Measured trajectory-fold covariance with momentum-consistent confidence polar, lane equalization off by default.",
+    "Slow Anvil rail updated only on fresh rollout initial gradient, with elapsed-memory-matched decay.",
+    "Beta Fisher/Kronecker natural readout with Anvil and Adam trunk controls."
+  ],
+  "source_review": "Three reviewers participated. Noise scaling/isotropic approximation and zero-row head normalization issues corrected before queued validation.",
+  "jobs": [
+    11655,
+    11656,
+    11657,
+    11658,
+    11659,
+    11660,
+    11661,
+    11662,
+    11663,
+    11664,
+    11665,
+    11666,
+    11667,
+    11668,
+    11669,
+    11670
+  ],
+  "all_declared_limits": 1,
+  "owned_files": {
+    "cleanrl/ppo_continuous_action_sepclip_noise_polar_v6.py": "1bf3837152176fd5c522f8fac4835dd78d72540e54851ea3de32cbe28c12074d",
+    "cleanrl/ppo_continuous_action_sepclip_rollout_clock_anvil_v7.py": "07f5f9636103dd5fdc9896de3eb781078df8bb1cb9b3ad87bcb79907fc619c8d",
+    "cleanrl/ppo_continuous_action_sepclip_fisher_head_v8.py": "18415290f80ac5a52cefc8e532b3141ccbb32fd9d03388fb39617f7a0a8a9536",
+    "tests/test_sepclip_noise_polar.py": "7b1ea602d9c0809dc943706c70ed63285e20ff118c3107532eb755defa46afdf",
+    "tests/test_sepclip_rollout_clock.py": "8b96fa17cda20ee96c45f69551f5370ab06d1422f89f7cbc9c442d0e03441740",
+    "tests/test_sepclip_fisher_head.py": "e6f51b6176115a0448b411895c04038e6fcd13f4a59f4791a06c4319a1c9036e",
+    "scripts/run_sepclip_mechanisms.sh": "591ccf67e733476983617fa622bbf4ab02252d2af7c08d2857669d7212708e7e",
+    "scripts/audit_sepclip_mechanisms.py": "340cf96e709b025d99a30a664450fd69ebf9900264d6de62a2f0edd95d669b6e",
+    "scripts/analyze_sepclip_mechanisms.py": "0e2f4d18e3103ad8dffa7b2aec4911ba2d3629ad2341cb9fd8763a4fe63c0b93"
+  },
+  "shared_source_sha256": {
+    "cleanrl/shared/__init__.py": "988469b1cb85cdd166fe20856e4784014ba2f6a908eb44f1161c30e12df739de",
+    "cleanrl/shared/hl_gauss.py": "72ce856c718ee35b412a95685fb47719f9ddde733aee9f1edcc7db8c92397842",
+    "cleanrl/shared/trl_projection.py": "e04b7436cf9b07fc3ef422c0751bd886bbf91c4f099384a4db9c1638c7a60782",
+    "cleanrl/shared/lejepa.py": "f48406704da8973a6911559184c1634d3ccb6125c8c86424b9cf6a31282233c3",
+    "cleanrl/shared/vector_norm.py": "6ffb9a266ed3afc9b8c7f41acbdbcb8a824a4d1319edaa342e52d1661bc19196",
+    "cleanrl/shared/staggered_envs.py": "1b2ddbee11cb4e89d5f3649be55bf0e22a265d82353f00f1410ace9ce8fb89e2",
+    "cleanrl/shared/ppo_loop.py": "0106a8abc5dada8932129a6220c0beba757ff01a4c989fe1910f301e6d14bd72",
+    "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae",
+    "cleanrl/shared/timing.py": "8875429424a2ba18ee79fc4e2b3e68bf699f1621301bc3936112cb979a3a331b",
+    "cleanrl/shared/rollout_transfer.py": "0191543f8fe129d76405c16db255493d65f0e7973a99bab7f4fb8c8c06f911d7",
+    "cleanrl/shared/mujoco_env.py": "ca9bf82b174e0396b7b3c6e3a4fc08a53f6ff6c5c20c570282c72c5410df8abf",
+    "cleanrl/shared/sampling.py": "1d7ebb4ff054c73bc7a6cfdd701c8cdf34e6d8e848dfe96f1dbe8ed4ad9aa610",
+    "cleanrl/shared/hl_gauss_kernels.py": "cd66f42a7292696f140d928fb5ae9caf548c77dfda4c491bf626c75ec6142ac2",
+    "cleanrl/shared/legacy_normalization.py": "32748845ab039e6b36a3914c286deee05aed85f399e12ed20ca1c02923dc504f",
+    "cleanrl/shared/cuda_update.py": "09370f4a16172de3c23e6db6a46da1d8dede7c10de8488696280e332af3f5f63",
+    "cleanrl/shared/collector.py": "6947c54685a137952b5ad0f501b9096ea776718ed1a07020ff47d0c7462d4d04",
+    "cleanrl/shared/vmpo_temperature.py": "98625b16890563c6a5bbe64b48f97c70b7e00ed1f4192b500d8b75f1989f2630",
+    "cleanrl/shared/inference_cache.py": "f27eb84e8dd2c4cfed994c3ae7c80a1b7563ce8d0c8e27c3f0a5affba555a244",
+    "cleanrl/shared/rollout_graph.py": "057d2ef3257d64d7c70d2f172d7a069f22f370465c4b4767b7eb7af3647207ab",
+    "cleanrl/shared/host_actor.py": "679925e692d862719cf278c5e0b9d4bdd2f04dd5d8c6f0cac5d9c7d58e4114cf",
+    "cleanrl/shared/state_plasticity.py": "5d42652503f803e0575894d56f5a1dd1cc393ec78d4855caa3ea73bd0df75d44",
+    "cleanrl/shared/sphere_diagnostics.py": "d472f5e99f8126cbf99087f61269f947dbf0ef604f38d51f8b0a1ebeea9970e1",
+    "cleanrl/shared/norm_residual.py": "ad3d7e9da1283cbcea4143d27cc4f4d8d3523fd17f954bfb821cb71a90394fee",
+    "cleanrl/shared/pre_rms.py": "9d2d1c02a81531fd59bf5698ff993e94a4cb5811246839541bae2b405e6d2da5",
+    "cleanrl/shared/gae.py": "f8ef3f9cd4677c0848f53ac837c886300c820ede09c24f4ccd5f84935cf72b59",
+    "cleanrl/shared/pre_rms_stage.py": "39251a71a6baf42d87e48a19a4fabe5c25bb87b4d0da9076c75e98454b9f23b8",
+    "cleanrl/shared/situ_reorg.py": "e3d68f55ba53ee33e9323d2507af7ca72ab1ddb5cbd355da0c0542a848038f18",
+    "cleanrl/shared/two_hot.py": "baec39ef08fc3e46287b6c6abb7a811ba8abe5c9a02a1b9b4112b2a47bf4c212",
+    "cleanrl/shared/situ_factorized.py": "5baf5e2a54a965bdc078ee30b9d793aaf7757af726ed5998be3fbaa56d2c2891",
+    "cleanrl/shared/autocull.py": "112db580c5e19259b7eb24413ddb1be41807bc80286410ff43b1c30bbed27c41",
+    "cleanrl/shared/paper_norm.py": "54203b792fe78d617e9f6cd0904d09b4211165982d51c693a0dfa57b06810412",
+    "cleanrl/shared/ngpt.py": "abc8257c783eb6556f8223db09dafbe67fd1a7bf6a332a2dd39cf615741f5ee2",
+    "cleanrl/shared/adamh.py": "dcfc8f757b4a1598d9766b5b2bda93c2207f978fae972f91097a5e65524e998d",
+    "cleanrl/shared/predictive_ppo.py": "f2e716a084de85930df42d7f8c03941ad00db13ec76769fd6367e0d010a108f9",
+    "cleanrl/shared/gate_polar.py": "4f96d7357e3d4c673238d34fb73b9fe7c8d694531693aab8d77890def519d9b5",
+    "cleanrl/shared/hl_gauss_std.py": "ba9bd4d46347fdc891ac03f94750c3a1e698df63679c43708cdfc879a6a4b10a",
+    "cleanrl/shared/muonh.py": "e1e08f80e3a773d43e21c0fcc303482ac48a0e7d8c6f8a4d01a661035e4df3be",
+    "cleanrl/shared/graph_step.py": "43569df0461a1f7501d4251e7e5a88afd5d56dec1d15748fd89d3325fc36dec6",
+    "cleanrl/shared/host_graph.py": "e4d336e290639c7316642e014232bbcd865c72e2a0acdd2acc91a51886c4aae2",
+    "cleanrl/shared/linear_scan.py": "d62f053fcda226d375726c3c5f155d9eaae53a5f64a8db69f8f8abb1dd4bd2ad",
+    "cleanrl/shared/landscape.py": "2bc240705e86b814bff012ce09cb17d757f1c99bf2ec31b609b346ff7758488b",
+    "cleanrl/shared/host_kernel.c": "c433305a69ce7d5838642bd9f78afffff86f80a4e72b4533de579c67fb625cc6"
+  },
+  "limits": [
+    "No new benchmark outcome yet.",
+    "No assurance that the requested performance advantage is attainable.",
+    "Frozen prior versions and unrelated dirty changes preserved."
+  ],
+  "persistent_supervisor": {
+    "agent_id": "217b9ebc-42dd-49c1-a7dd-aafd4d5e999f",
+    "run_id": "b58abd09-d547-47d3-ba30-06ee30575d9c",
+    "prompt": "benchmarks/sepclip_mechanisms/supervisor_task.txt"
+  },
+  "supervision_resumed_at": 1791233549.9709074,
+  "pre_execution_updates": [
+    "Independent diagnostic review: add head-only exact KL and sample Fisher quadratic, trunk/pre-head metrics, head-update reversals, eight trajectory partitions and matched-trace isotropic control.",
+    "Add compiled epoch-clock parity and covariance checkpoint continuation across a rollout boundary.",
+    "Capture execution-time trainer/shared source hashes per fresh run."
+  ],
+  "original_preparation_sha256": {
+    "cleanrl/ppo_continuous_action_sepclip_noise_polar_v6.py": "1bf3837152176fd5c522f8fac4835dd78d72540e54851ea3de32cbe28c12074d",
+    "cleanrl/ppo_continuous_action_sepclip_rollout_clock_anvil_v7.py": "07f5f9636103dd5fdc9896de3eb781078df8bb1cb9b3ad87bcb79907fc619c8d",
+    "cleanrl/ppo_continuous_action_sepclip_fisher_head_v8.py": "18415290f80ac5a52cefc8e532b3141ccbb32fd9d03388fb39617f7a0a8a9536",
+    "tests/test_sepclip_noise_polar.py": "67ac77dac42d033f0c27084ec9e5cf1c0fb3859ac808331c409953fafd33128b",
+    "tests/test_sepclip_rollout_clock.py": "1c2c7c34b70b9190b9e335aa626192b42a727c34425fe616a105fe92a46618d5",
+    "tests/test_sepclip_fisher_head.py": "c585934025c1036ea660d7a2132c135d4b12b876da4e84a97f6374c94d243602",
+    "scripts/run_sepclip_mechanisms.sh": "ffa590a5b859f98b2394e7206277c12318bc721b5287b8deac183bbf7b6bd620",
+    "scripts/audit_sepclip_mechanisms.py": "c79ed601bf9cb6ac88baf77a53851cccdc881708a01642e99beb195cff3c7261",
+    "scripts/analyze_sepclip_mechanisms.py": "5ec792de72d709d497e42219ba7ebd9ce12bf9ead0d0f503f22311620a008eb3"
+  },
+  "comparison_protocol": {
+    "primary": "Return averaged over trailing 200k environment steps at common 7.9M step.",
+    "secondary": [
+      "Final 100 episode mean on succeeded >=7.9M runs.",
+      "Matched 1M, 2M, 4M, and 6M windows; reject last-window cherry picking.",
+      "Same-head Adam trunk control for natural-head attribution.",
+      "Same-floor zero-noise polar control for covariance filtering attribution."
+    ],
+    "substantial_advantage_target": "Seek roughly 10% or more over fresh Adam with consistent late-window improvement; this is an operational research target, not a statistical significance threshold or promise.",
+    "uncertainty": "One seed on one environment cannot establish robustness. Marginal differences do not resolve the user objective."
+  },
+  "latest_source_refresh_at": 1791233870.537656,
+  "updated_at": 1791238131.7041185,
+  "replacement_jobs": {
+    "reason": "11655 strict compiled moment equality failed at FP32 rounding scale; 11658,11664,11665 permanently skipped. Revised moments-only tolerance with recorded deviations, exact parameters and eager contracts retained.",
+    "contract_job": 11676,
+    "replacements": [
+      {
+        "id": 11677,
+        "name": "sepclip_mechanisms_diagnostic_recheck",
+        "maxParallelRuns": 1,
+        "dependencies": [
+          11676,
+          11656,
+          11657
+        ]
+      },
+      {
+        "id": 11678,
+        "name": "sepclip_mechanisms_rollout_clock",
+        "maxParallelRuns": 1,
+        "dependencies": [
+          11676
+        ]
+      },
+      {
+        "id": 11679,
+        "name": "sepclip_mechanisms_rollout_clock_full",
+        "maxParallelRuns": 1,
+        "dependencies": [
+          11676
+        ]
+      }
+    ]
+  },
+  "control_window_audit": [
+    {
+      "variant": "normuon_audit_8m_adam",
+      "run": "runs/HalfCheetah-v4__normuon_audit_8m_adam__1__1791057936",
+      "final100": 8281.17818359375,
+      "trailing200k_at7_9M": 8308.72625944982,
+      "count": 201,
+      "legacy_centered400k_at7_9M": 8296.799945315799
+    },
+    {
+      "variant": "sepclip_anvil2_v4_anvil_half",
+      "run": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146",
+      "final100": 8345.413642578125,
+      "trailing200k_at7_9M": 8271.011124795943,
+      "count": 201,
+      "legacy_centered400k_at7_9M": 8292.611749597498
+    },
+    {
+      "variant": "sepclip_mechanisms_adam_reference",
+      "run": "runs/HalfCheetah-v4__sepclip_mechanisms_adam_reference__1__1791240609",
+      "final100": 8281.17818359375,
+      "trailing200k_at7_9M": 8308.72625944982,
+      "count": 201,
+      "legacy_centered400k_at7_9M": 8296.799945315799
+    }
+  ],
+  "analyzer_window_repair": {
+    "problem": "Prepared analyzer called symmetric window_mean despite intended trailing200k definition. Caught before evidence job execution.",
+    "repair": "Explicit inclusive trailing [step-200000,step] with counts. Legacy symmetric windows retained separately with explicit labels.",
+    "shared_helper_unchanged": true
+  },
+  "source_refresh_sha256": {
+    "scripts/analyze_sepclip_mechanisms.py": "1b261d444c9ffe8e47ff9fe2cb64d7300f395e2904ea815830dfa96fc5f7c6ba",
+    "tests/test_sepclip_rollout_clock.py": "8b96fa17cda20ee96c45f69551f5370ab06d1422f89f7cbc9c442d0e03441740"
+  }
+}

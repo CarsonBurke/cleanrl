@@ -1,0 +1,24 @@
+# Prescription closed-loop driver: independent static review
+
+Approved source preparation, conditional on the strict replay loader's separate review and queued numerical validation. No models, tests or jobs were executed or submitted by this reviewer. Existing queued diagnostics and frozen trainers were not edited. The source owner reports AST-only preparation; this review does not claim passing numerical contracts or physical results.
+
+Reviewed exact hashes:
+
+| File | SHA256 |
+| --- | --- |
+| scripts/audit_sepclip_prescription_closed_loop.py | 9bb20ffde6c2e3aa3c73572f38edd960658e49fe9f3278f6875f79b0a4d8e493 |
+| tests/test_sepclip_prescription_closed_loop.py | b2bbd1bdacf3d4a6bf858a3a0f2923c5393ab157b377562d23268fbb896d8052 |
+
+All seven arms dispatch correctly in selected-state-major order: old throughout, first throughout, endpoint throughout, first only at time zero, first after time zero, endpoint only at time zero and endpoint after time zero. Each future observation is evaluated by the actual source-dispatched functional actor bank, including all v14 free-body parameters. No legacy v7 actor, tangent projection, inferred latent inversion or optimizer replay is used. Returned tensor buffers are copied before subsequent forwards. Tests compare against separately loaded actual v14 original/additive and v15 models on initial and changed future observations.
+
+The driver restores complete physical integration state and episode age, checks the saved physical action's raw next observation/reward with finite errors before threshold comparisons, then restores again before probing. Borrowed restoration code sets integration state both before and after mj_forward, resets vector/native wrapper age counters and checks recorded raw observation/integration fields. No boundary crossing is accepted. Selected rows keep their own frozen observation means/variances and reward scales. New trajectory guards reject invalid policies, draws, raw observations/rewards, preclip reward overflow and nonfinite accumulation before successful output.
+
+The shared per-state quantile is repeated across seven arms while different selected states draw different quantiles. Replica seeds differ by 100003 and are repeatable. The sampling scope now expressly describes a truncated-quantile inverse-CDF diagnostic law with native clipping, without certifying identity to the production host sampler's finite-precision law or RNG. Mean/mode runs are deterministic. Actual shape-one mode handling gives endpoints for one boundary shape and chooses midpoint for the nonunique uniform case; it does not invent latent excess.
+
+Raw sums and discount factors use actual raw rewards; normalized rewards divide by each frozen FP64 scale, clip and cast each reward to FP32 before FP64 accumulation. Discounted terminal tails use the original fixed critic on each arm's own terminal observation. Raw-tail conversion multiplies by the same frozen reward scale. These are separately labeled estimated critic-tail objectives, not actual infinite returns or an updated critic. The source now reproduces the native environment's FP32 square/sum followed by scalar-cost promotion, and checks reward_ctrl, reward_run and x_velocity consistency to 1e-10. This preserves the actual action dtype contract rather than silently recomputing costs in FP64.
+
+Paired gains subtract old_all within the same state and noise replica. Feedback interaction is R_all - R_t0_only - R_after_t0 + R_old, with uncertainty computed on that paired scalar difference. Conditional summary uses replica Student-t uncertainty and explicitly excludes training-seed and state-population uncertainty. No score PG or retained-range efficiency is reported. Source hashes include the new loader and physics/dense/closed-loop helper sources; frozen actor/source and checkpoint pins belong to loader validation.
+
+Test coverage is meaningful for actual architecture dispatch, changing future observations, exact reward/discount arithmetic, unchanged live model, shared-arm versus independent-replica noise, malformed transitions/boundaries, reward decomposition corruption, shape-one mode, preclip overflow and the interaction identity. The trajectory arithmetic tests intentionally replace restoration/historical transition checking with synthetic hooks. A separate fake-environment test checks historical transition mismatch/NaN; these tests are not independent real-MuJoCo restoration certification. They remain unexecuted. Actual trial outcomes and required queued contracts must gate which physical probes are useful.
+
+Recording limits remain explicit: old alpha/beta/logprob/value are saved but old logits are not independently recorded; first policy is reconstructed old plus saved FP32 first delta rather than an independently saved intermediate model. Final endpoint identity and architecture/provenance validation are delegated to the new loader, whose review is still separate.

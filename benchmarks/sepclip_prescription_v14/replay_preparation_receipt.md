@@ -1,0 +1,26 @@
+# Architecture-aware replay preparation
+
+New owned support files only; frozen v7/v12/v14/v15 trainers and existing audits/tests remain untouched. No model execution, tests or queue submissions by the loader owner. AST parsing is valid; CUDA execution and independent final review remain gates.
+
+| File | SHA256 |
+| --- | --- |
+| scripts/sepclip_prescription_replay.py | 7edfc432775a0098a60d63cb3c8642c65a599c3e8ae8fa2cc2f3354885d1dcf9 |
+| tests/test_sepclip_prescription_replay.py | 4d8323ba10bd65dddb5a2544569d113717f9d5b13455740d1b088f3c5be09206 |
+
+Static expanded test count:37 (3 architecture/recorded-statistics contracts;3 floor-law contracts covering alpha-only, beta-only and both uniform;3 saved-head-chord compiled-JVP contracts;1 free-body radial-JVP/legacy-tangent witness;14 corrupt-recording contracts;3 source/command dispatch contracts;3 v15 trace-geometry contracts;7 actual warm-state contracts). This count is AST-derived, not pytest collection or a pass claim.
+
+Final independent review tightened one-sided floor cases to assert the counterpart shape remains strictly above1. Superseded prepared test hashes were b34993d92500366a9d58a02d58d67ad0edcec937b692370061e2a1820d67e44d (35 cases) and b8d1afa31f35b5249aeaa14f2586bb65d63c7b9a2365c2c5e5408817e9087017 (37 cases before counterpart assertion). No executed contract or submission existed at this amendment.
+
+Source manifests remain immutable: v14 SHA25680b4adf1e5301573084b28b3183d1f32dd96b8ed745785f0741c3932b249bbe2; v15 SHA25625c229c57ceed4376084fea0b25dd7722e898dfc15edeeae02a845eddb40fc17. They pin trainer sources27a3e7a84e2c5d0ab1679f84cc4ddb8dad5eb1b6e2bc5f66850ad93ccf1012b0 and62bb7ca6a87072414ef9fa90f31a7e5e9a14762bec0633789bef5167ccbaec9a respectively. New loader/test bytes require their own execution manifest; they are not silently covered by the old trainer manifests.
+
+API: load_replay(snapshot_path,trace_path, module_name=...,manifest_path=...,manifest_sha256=...,execution_path=...,execution_sha256=...,exp_name=...,snapshot_sha256=...,trace_sha256=...). Every pin is caller-required. Explicit allowlisted actual modules instantiate their own complete Args and Agent; command/runtime-derived Args, source manifest, execution source hashes/name and snapshot are bound. CUDA compiled forward validates actual saved alpha/beta/native logprob/critic values against matching uploaded batch observations. Per-time/per-environment frozen FP64 observation normalization, unclipped quotient finiteness, physical/native action mapping and normalizer arrays are checked.
+
+Replay exposes module,args,agent,snapshot,trace,banks,deltas,constraint_axes,compiled_forward,compiled_old_value,validation. Actor banks are dictionaries old/first/endpoint. compiled_forward(bank,observations) returns logits,alpha,beta; compiled_old_value(observations) uses the unchanged old critic. Unknown actor buffers fail closed rather than inherit implicit state. No free-body v14 retraction or old v7 dispatch occurs. v14 original and v15 original branches retain their recorded row/column axes; additive v14 actor body is Euclidean, head rows constrained.
+
+The first bank privately reconstructs old FP32 weights plus the stored first retracted delta; no original first full model was independently recorded, and subtraction/addition roundoff remains. The endpoint actor comes exactly from the full saved model_after_update; cumulative trace comparison is a separate numerical contract. Every gradient/ambient/retracted entry covers all actual parameters with matching epoch/update sequence, finite shapes/dtypes and v15 geometry/stage metadata. No source normalization is applied while reconstructing banks.
+
+independently_recorded_logits=False is unconditional for these frozen recording schemas. Forward logits are available from the pinned actual compiled actor; no inverse softplus, floor-latent recovery or independent old-logit certification is invented. Floor-one Beta laws and native exact sampler-clamp endpoints are valid and covered by tests. Gradient/JVP tests independently compare saved head-chord derivatives to the affine gain identity and a central finite chord, and demonstrate that a v14 free projection radial direction is removed by an inappropriate legacy sphere tangent map.
+
+Optional load_warm_optimizers uses actual module.make_optimizers. Native factory load plus additional checks enforce v15 geometry/axes/state_version2/stack coverage/dtypes/basepoint finiteness and unit geometry, tangent rails, positive transport denominators and zero sticky pathology. Non-LR Adam semantics are checked; annealed learning rate may differ. Basepoint/current and renormalized-basepoint/current residuals are telemetry, with no arbitrary abs2e-5 equality cap: actual source renormalizes FP32 rows after intrinsic endpoints. No independent warm-continuation execution certification is claimed until contracts and actual captures are reviewed.
+
+Root will prepare one new combined contract submission with the physical-driver tests and all imported helper byte pins; no loader owner submission or amendment of existing training jobs occurred. Physics driver API is coordinated and independent geometry review was requested on the hashes above.

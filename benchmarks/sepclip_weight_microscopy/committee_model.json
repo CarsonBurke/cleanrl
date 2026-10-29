@@ -1,0 +1,136 @@
+{
+  "status": "First quantitative microscopy and physical evaluation complete; causal interventions and matched dense PG oracle pending.",
+  "user_scope": "Weights, layers, gradients, policy gradient and optimizer, and the gap to strong locomotion. Generic data-reuse or hyperparameter explanations are outside the requested focus.",
+  "research_supervisor": {
+    "agent_id": "b7d1f09b-357d-42ce-905c-9016bd583ef3",
+    "session_id": "f115b9c8-d740-4896-9748-37d84c0dbf92",
+    "task": "benchmarks/sepclip_weight_microscopy/supervisor_task.txt"
+  },
+  "model": {
+    "policy_gradient": "g(theta) = E[J_logits(theta,s)^T score_logits(a|s) A(s,a)]. Correct optimizer algebra cannot repair an inaccurate A, a poorly conditioned logits Jacobian, or missing behavioral directions.",
+    "actual_matrix_step": "DeltaW = normalize_axis(W - eta D) - W. For unit rows or columns, DeltaW is approximately -eta [D - W sum_axis(W D)]. Polarizing a gradient, projecting it onto the constraint tangent and transporting it through the network Jacobian do not commute.",
+    "functional_update": "Delta logits = sum_layers J_layer DeltaW_layer plus head and gain contributions. The policy-Fisher cost includes cross-layer terms; summing isolated costs can miss cancellation or reinforcement.",
+    "actor_readout": "z = diag(gain) [W_head * 8 normalize(h_first + normalize(branch_second)) + bias]. Gate derivatives, normalization projectors, feature geometry, head orientations and row gains determine the actual control direction.",
+    "beta_control": "alpha,beta=1+softplus(z); c=alpha+beta; physical mean=2 alpha/c-1; variance=4 alpha beta/[c^2(c+1)]. Mean derivative w.r.t. z_alpha is 2 beta sigmoid(z_alpha)/c^2; w.r.t. z_beta it is -2 alpha sigmoid(z_beta)/c^2. Large near-boundary mean torques can become poorly conditioned in these logits.",
+    "value_error_transport": "For V=V_pi+e, with V_pi the true value of the current policy (not the globally optimal value), and away from finite boundaries, GAE advantage error = -e(s_t) + gamma(1-lambda) sum_k (gamma lambda)^k e(s_(t+k+1)). Current-state baseline error cancels in expected fresh unclipped policy score; successor errors can be action dependent. Later clipped PPO masks require separate treatment. Self-bootstrapped explained variance does not measure this bias.",
+    "physical_optimum": "A high-return gait is a closed-loop dynamical behavior. The local policy gradient around the current gait and a globally better gait are different objects; no global optimum is known from current checkpoints. Compare true physical action-credit and stronger verified evaluation policies before attributing the gap to optimization speed.",
+    "local_functional_optimum": "For measured conditional finite-horizon logit score gradient g_z and Beta Fisher F_z, unrestricted per-state steepest motion is proportional to inverse(F_z) g_z. Its fixed-cost Cauchy bound provides a local functional upper bound. Projection through the actual network tangent and JVP/VJP distinguishes model reachability from optimizer efficiency. This is not the globally optimal gait and can overfit noisy oracle estimates."
+  },
+  "hypotheses": [
+    {
+      "id": "head_initialization",
+      "exact_fact": "The actor head is initialized with output_std=.01, then its rows are normalized to unit length while readout_gain starts at one. That normalization removes the intended small row scale.",
+      "test": "Measure initialized logits and Beta mean/concentration before head-only and full projection using identical weights and labeled input distributions. Test restoring the intended gain only if actual gradient/behavior measurements support it.",
+      "causal_status": "Performance effect unestablished; shared by Adam and Anvil, so it cannot by itself explain their relative ordering."
+    },
+    {
+      "id": "gated_representation",
+      "exact_fact": "For the bias-free SiTU product, even part = .5 cap(g) cap(u), odd part = even part*tanh(g/2). The leading small-input response is quadratic and even; its Jacobian at zero is zero. Normalization removes the leading radial magnitude.",
+      "test": "Measure odd/even energy, signed-velocity sensitivity, radial/tangent Jacobian spectra and normalization contraction on real visited observations, separately from algebraic scaled/negated probes.",
+      "causal_status": "Actual standardized observations are not generally infinitesimal. A blanket claim that sign information is lost is unsupported."
+    },
+    {
+      "id": "ambient_vs_tangent_optimizer",
+      "exact_fact": "The optimizer operates in ambient matrix coordinates, followed by unit-axis retraction. Stored momentum need not lie in the current tangent space.",
+      "test": "Measure radial fractions of gradients, rails and directions; before/after-retraction PG gain; functional singular-mode energy and cross-layer Fisher Gram. Compare projection-before-cascade and projection-after-cascade as labeled counterfactuals.",
+      "causal_status": "A radial component is not always a pure gauge for nonlinear gates. Projected optimization is appropriate to the existing constraint but may not improve the constrained architecture."
+    },
+    {
+      "id": "beta_actuation_conditioning",
+      "exact_fact": "alpha,beta>=1 implies |physical mean|<=1-2/c. Mode and mean differ: physical mode = c/(c-2) times physical mean, where c>2. Learned gains can increase c, so this is a conditioning constraint rather than a fixed capacity ceiling.",
+      "test": "Measure reachable torques and output derivatives, then actual sample/mean/mode checkpoint return, velocity, control cost and gait. Determine whether near-boundary torque is useful before changing parameterization.",
+      "causal_status": "No evidence yet that the optimal gait requires actuator saturation or that deterministic evaluation will approach20k."
+    },
+    {
+      "id": "critic_score_bias",
+      "exact_fact": "Existing snapshots omit transition rewards, boundary masks and simulator states. They do not identify independent value error or true action credit.",
+      "test": "Measure available per-layer critic Jacobians and score-baseline sampling noise; collect independent paired-state physical continuation returns and score-weighted successor error with explicit finite-horizon/tail limitations.",
+      "causal_status": "High explained variance and small critic residuals against its own targets cannot establish accurate PG; low gain is not a supported value-range ceiling."
+    }
+  ],
+  "previous_falsifications": [
+    "Fractional singular weighting improved selected tangent alignments but caused approximately4x policy displacement at equal parameter norms.",
+    "Correcting that matrix-only policy budget did not improve returns; v11 primary8074 versus matched cascade8632. Scalar functional step calibration is insufficient.",
+    "Sample-Fisher head calibration corrected exact local KL amplitude, but both matched Anvil and Adam fresh returns worsened. Fixing this approximation did not cure learning.",
+    "Large critic or actor gradient clipping starvation is unsupported: observed norms are well below the independent .5 caps."
+  ],
+  "committee": {
+    "root_specialists": [
+      "/root/mechanism_review",
+      "/root/reference_review",
+      "/root/ppo_review"
+    ],
+    "persistent_specialists": "Supervisor instructed to convene three further independent specialists and adversarial review rounds.",
+    "ownership": {
+      "scripts/audit_sepclip_layer_transport.py": "/root/mechanism_review",
+      "scripts/audit_sepclip_representation.py": "/root/reference_review",
+      "scripts/audit_sepclip_critic_transport.py": "/root/ppo_review"
+    }
+  },
+  "limitations": [
+    "These are analytic facts and testable mechanisms, not completed causal explanations of the return gap.",
+    "Local policy-Fisher/JVP diagnostics do not establish environment-return improvement.",
+    "The global optimum is unknown. Published checkpoint-evaluation scores and sampled training returns require protocol matching.",
+    "All model/GPU diagnostics and fresh training must run through mlq; no GPU measurements have been launched by the root committee yet."
+  ],
+  "observed_microscopy": {
+    "contracts_job": 11739,
+    "cuda_contracts_passed": 15,
+    "observational_training": {
+      "adam_job": 11734,
+      "anvil_job": 11735,
+      "final100_adam": 8281.178,
+      "final100_anvil": 8729.247,
+      "interpretation": "Instrumented controls exactly reproduce historical scores; capture did not change learning."
+    },
+    "head_initialization_logit_rms": {
+      "before_head_projection": 0.0107203984,
+      "after_head_projection": 1.07203988,
+      "after_all_projection": 1.06891877,
+      "input_scope": "trained visited inputs applied to freshly initialized models; not the initial rollout distribution"
+    },
+    "layer_transport": {
+      "joint_fisher_half_rate_4m": 0.00363956508,
+      "isolated_diagonal_cost": 0.00092057476,
+      "cross_terms": "positive reinforcement, approximately74.7% of joint cost",
+      "proposal_radial_energy": "approximately1\u20139% across measured banks",
+      "mean_fisher_fraction_half_rate_end": 0.9976428,
+      "qualification": "local training-state geometry, not independent physical-return gain"
+    },
+    "representation": {
+      "gate_odd_even_energy_half_rate_end": 0.46682757,
+      "global_even_map_hypothesis": "rejected on visited observations; asymptotic origin property remains exact"
+    },
+    "physics": {
+      "job": 11753,
+      "state_restore_and_replay_max_error": 0,
+      "half_rate_end": {
+        "sample_return": 8856.74,
+        "mean_return": 9582.11,
+        "mode_return": 9750.18
+      },
+      "full_rate_end": {
+        "sample_return": 9030.22,
+        "mean_return": 10030.0,
+        "mode_return": 10207.08,
+        "mode_mean_speed_m_per_s": 10.58034,
+        "mode_mean_control_cost": 0.37326
+      },
+      "interpretation": "Removing sampling noise improves approximately0.7\u20131.4k, insufficient to explain20k gap; stronger mode torques have small additional gain. Current gait velocity dominates deficit. Evaluation uses saved frozen per-env normalization and a specified reset protocol, not training return."
+    },
+    "sources": [
+      "benchmarks/sepclip_weight_microscopy/representation_historical.json",
+      "benchmarks/sepclip_weight_microscopy/layer_historical.json",
+      "benchmarks/sepclip_weight_microscopy/critic_historical.json",
+      "benchmarks/sepclip_weight_microscopy/physics_complete.json"
+    ],
+    "remaining_identification": [
+      "matched actual training-state finite-horizon action-credit and GAE disagreement",
+      "current model tangent reachability of useful physical action changes",
+      "layer direction efficiency at equal joint policy Fisher cost",
+      "closed-loop gait phase and velocity effects",
+      "fresh matched causal architecture/optimizer interventions"
+    ],
+    "measurement_repair": "End-window FP32 Beta KL cancellation found; FP64 analytic-KL rerun requested without changing FP32 model."
+  }
+}

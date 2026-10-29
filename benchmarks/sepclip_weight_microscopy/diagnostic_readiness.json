@@ -1,0 +1,825 @@
+{
+  "captured_at": 1791265951.8596764,
+  "source_sha256": {
+    "scripts/audit_sepclip_dense_pg.py": "1f4053ebe4854063ce19e36b05be37dc3e036d94e368b9b424595c5b98b4c058",
+    "scripts/audit_sepclip_physics.py": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114",
+    "scripts/audit_sepclip_gait.py": "cc5f8b35167c3beffcc71561474dcf81c79f3ad68b7b82ab35816f04f4d7e68e",
+    "scripts/audit_sepclip_oracle_geometry.py": "03bca505a2e00e1b7ca2d93b8982beb4343dc8b24bcd7287100b593611fbc678",
+    "scripts/audit_sepclip_actual_oracle_step.py": "80e4dbc117808da90e9b5b87febc856a2c26d708ac3a4e9c2a56542ffa64c8e5",
+    "scripts/audit_sepclip_chart_numerics.py": "b4d6e5f5573dbfd1b8749d2e88f774ad3c0b31170714addc173632d98cba60a6",
+    "scripts/run_sepclip_microscopy.py": "8efe2f6e1cf005368a2b04ba03e1c5c01811a08fdeb8112a3ab90d3bf53be53a",
+    "cleanrl/ppo_continuous_action_sepclip_transition_microscopy_v12.py": "b8063ba4c3806d7812d6422c1b4c531d11def5ed58e1a85ccd10cd4591d66867",
+    "cleanrl/ppo_continuous_action_sepclip_anchored_precision_chart_v13.py": "35e9d4d704c4c5bb2a9a6706b84507d6d6f0e867fdb10bf43c5323f4d0cdd68e",
+    "scripts/audit_sepclip_closed_loop_update.py": "59dec8199edcadb6d02264ad3a8f9545d7a4d5785ad98a25660b1ed05619c208",
+    "scripts/plot_sepclip_microscopy.py": "e748d0d869a8f7b464e3127cdb2dc04c283d1a4abe211b5b5ef5db3fc92cf431",
+    "tests/test_sepclip_closed_loop_update.py": "c3482ab7c4a7fd33be10c629438467aa7b7f7a9308b5ce548a9649b68082c72e",
+    "tests/test_sepclip_microscopy_normuon.py": "4a65a58613b9b9dfaa6164bf144e3e4657d25f354d4dde8d95ca23e53627c64a",
+    "tests/test_sepclip_actual_oracle_step.py": "c8d905cb782dabbe57186d4cd6e3760a16bbbe0f9c6198227af00a4f67079f17",
+    "tests/test_sepclip_oracle_geometry.py": "41ce2a52a9e59864a8f29fbc32d292810503552dce07a0ab0aeffcc5ae47f7ff"
+  },
+  "executed_frozen_trainers": [
+    "cleanrl/ppo_continuous_action_sepclip_transition_microscopy_v12.py"
+  ],
+  "candidate_unselected": "cleanrl/ppo_continuous_action_sepclip_anchored_precision_chart_v13.py",
+  "updated_contract_gates": {
+    "dense_pg": 11764,
+    "gait_and_chart": 11770,
+    "oracle_rank_and_covariance": 11776,
+    "chart_numerics": 11774,
+    "closed_loop": 11795
+  },
+  "cancelled_before_execution": {
+    "11771": "added FP32 Jacobian/SVD threshold sensitivity and updated contract dependency",
+    "11772": "added signed cross-replica oracle uncertainty and updated contract dependency",
+    "11799": "Added matched fixed-terminal GAE transport and retained zero-tail PG separately"
+  },
+  "replacement_jobs": [
+    11781,
+    11782,
+    11812
+  ],
+  "no_training_selection_until": "matched physical/PG/gait/step evidence; numeric contracts",
+  "revisions": [
+    {
+      "previous_captured_at": 1791262579.034129,
+      "previous_source_sha256": {
+        "scripts/audit_sepclip_dense_pg.py": "59e8703e84defb9c1f7dd33bb1ed0830590d1059fbd27e1847eed82f96519725",
+        "scripts/audit_sepclip_physics.py": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114",
+        "scripts/audit_sepclip_gait.py": "cc5f8b35167c3beffcc71561474dcf81c79f3ad68b7b82ab35816f04f4d7e68e",
+        "scripts/audit_sepclip_oracle_geometry.py": "afbf5f66656f0dc85e89c6af6e941a029b79448205c617e3912b9520b01dd9f4",
+        "scripts/audit_sepclip_actual_oracle_step.py": "f056c7f3d4cc1f170c7ce803b5e9543f8b3e7a7a7906e4f82f92b46766eca73a",
+        "scripts/audit_sepclip_chart_numerics.py": "d684d0e4c5980caa225ecdbf79e0ef65f7d83c7c748ef323211c14afff106635",
+        "scripts/run_sepclip_microscopy.py": "5a44e7add11a9736edef38b3e3539b4ebb4edea91de79b09fa7235e1c1d4cdcf",
+        "cleanrl/ppo_continuous_action_sepclip_transition_microscopy_v12.py": "b8063ba4c3806d7812d6422c1b4c531d11def5ed58e1a85ccd10cd4591d66867",
+        "cleanrl/ppo_continuous_action_sepclip_anchored_precision_chart_v13.py": "dcc696d4f1d3fb41ebc13bbc9917e9d8049ac0e099bb8cd2c877edc206116fa6"
+      },
+      "reason": "Unexecuted candidate numerical inverse repair, transitive source hashing, compile guard capacity only; no frozen trainer changed"
+    },
+    {
+      "previous_captured_at": 1791263132.3561313,
+      "previous_source_sha256": {
+        "scripts/audit_sepclip_dense_pg.py": "1f4053ebe4854063ce19e36b05be37dc3e036d94e368b9b424595c5b98b4c058",
+        "scripts/audit_sepclip_physics.py": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114",
+        "scripts/audit_sepclip_gait.py": "cc5f8b35167c3beffcc71561474dcf81c79f3ad68b7b82ab35816f04f4d7e68e",
+        "scripts/audit_sepclip_oracle_geometry.py": "95482bef8a386902c3b8c0571d48d5349fd624cdb5a42edf80cab1a1804e15c0",
+        "scripts/audit_sepclip_actual_oracle_step.py": "ff331d72ceb8094b4747540e9de018588b2d643f40bd8ba2ec39c4c236036774",
+        "scripts/audit_sepclip_chart_numerics.py": "b4d6e5f5573dbfd1b8749d2e88f774ad3c0b31170714addc173632d98cba60a6",
+        "scripts/run_sepclip_microscopy.py": "5a44e7add11a9736edef38b3e3539b4ebb4edea91de79b09fa7235e1c1d4cdcf",
+        "cleanrl/ppo_continuous_action_sepclip_transition_microscopy_v12.py": "b8063ba4c3806d7812d6422c1b4c531d11def5ed58e1a85ccd10cd4591d66867",
+        "cleanrl/ppo_continuous_action_sepclip_anchored_precision_chart_v13.py": "35e9f5f89438feb102facb2d70a0f7ff9d4edd0bb00b94d1d89858ef133f70cc",
+        "scripts/audit_sepclip_closed_loop_update.py": "",
+        "scripts/plot_sepclip_microscopy.py": ""
+      },
+      "reason": "Before any candidate execution: optional saved-policy frozen evaluation, actual-shape FP64 KL telemetry; new full closed-loop diagnostic and physical source manifest"
+    },
+    {
+      "previous_captured_at": 1791264254.8184195,
+      "previous_source_sha256": {
+        "scripts/audit_sepclip_dense_pg.py": "1f4053ebe4854063ce19e36b05be37dc3e036d94e368b9b424595c5b98b4c058",
+        "scripts/audit_sepclip_physics.py": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114",
+        "scripts/audit_sepclip_gait.py": "cc5f8b35167c3beffcc71561474dcf81c79f3ad68b7b82ab35816f04f4d7e68e",
+        "scripts/audit_sepclip_oracle_geometry.py": "95482bef8a386902c3b8c0571d48d5349fd624cdb5a42edf80cab1a1804e15c0",
+        "scripts/audit_sepclip_actual_oracle_step.py": "ff331d72ceb8094b4747540e9de018588b2d643f40bd8ba2ec39c4c236036774",
+        "scripts/audit_sepclip_chart_numerics.py": "b4d6e5f5573dbfd1b8749d2e88f774ad3c0b31170714addc173632d98cba60a6",
+        "scripts/run_sepclip_microscopy.py": "8efe2f6e1cf005368a2b04ba03e1c5c01811a08fdeb8112a3ab90d3bf53be53a",
+        "cleanrl/ppo_continuous_action_sepclip_transition_microscopy_v12.py": "b8063ba4c3806d7812d6422c1b4c531d11def5ed58e1a85ccd10cd4591d66867",
+        "cleanrl/ppo_continuous_action_sepclip_anchored_precision_chart_v13.py": "35e9d4d704c4c5bb2a9a6706b84507d6d6f0e867fdb10bf43c5323f4d0cdd68e",
+        "scripts/audit_sepclip_closed_loop_update.py": "e001cd80ab7284fd34c090eb7e1ebde9f42ed81c3342c01f70eeef1a8ecd0fbd",
+        "scripts/plot_sepclip_microscopy.py": "e748d0d869a8f7b464e3127cdb2dc04c283d1a4abe211b5b5ef5db3fc92cf431"
+      },
+      "reason": "Unexecuted closed-loop matched GAE terminal objective and new best-settings NorMuon parity/control coverage; prior closed-loop job cancelled before start"
+    },
+    {
+      "previous_captured_at": 1791265287.6619306,
+      "previous_source_sha256": {
+        "scripts/audit_sepclip_dense_pg.py": "1f4053ebe4854063ce19e36b05be37dc3e036d94e368b9b424595c5b98b4c058",
+        "scripts/audit_sepclip_physics.py": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114",
+        "scripts/audit_sepclip_gait.py": "cc5f8b35167c3beffcc71561474dcf81c79f3ad68b7b82ab35816f04f4d7e68e",
+        "scripts/audit_sepclip_oracle_geometry.py": "95482bef8a386902c3b8c0571d48d5349fd624cdb5a42edf80cab1a1804e15c0",
+        "scripts/audit_sepclip_actual_oracle_step.py": "ff331d72ceb8094b4747540e9de018588b2d643f40bd8ba2ec39c4c236036774",
+        "scripts/audit_sepclip_chart_numerics.py": "b4d6e5f5573dbfd1b8749d2e88f774ad3c0b31170714addc173632d98cba60a6",
+        "scripts/run_sepclip_microscopy.py": "8efe2f6e1cf005368a2b04ba03e1c5c01811a08fdeb8112a3ab90d3bf53be53a",
+        "cleanrl/ppo_continuous_action_sepclip_transition_microscopy_v12.py": "b8063ba4c3806d7812d6422c1b4c531d11def5ed58e1a85ccd10cd4591d66867",
+        "cleanrl/ppo_continuous_action_sepclip_anchored_precision_chart_v13.py": "35e9d4d704c4c5bb2a9a6706b84507d6d6f0e867fdb10bf43c5323f4d0cdd68e",
+        "scripts/audit_sepclip_closed_loop_update.py": "59dec8199edcadb6d02264ad3a8f9545d7a4d5785ad98a25660b1ed05619c208",
+        "scripts/plot_sepclip_microscopy.py": "e748d0d869a8f7b464e3127cdb2dc04c283d1a4abe211b5b5ef5db3fc92cf431",
+        "tests/test_sepclip_closed_loop_update.py": "c3482ab7c4a7fd33be10c629438467aa7b7f7a9308b5ce548a9649b68082c72e",
+        "tests/test_sepclip_microscopy_normuon.py": "4a65a58613b9b9dfaa6164bf144e3e4657d25f354d4dde8d95ca23e53627c64a"
+      },
+      "reason": "Independent architecture reviewer repaired retained-range Cauchy efficiency before any affected diagnostic execution: project both score and motion, report discarded energy"
+    },
+    {
+      "previous_captured_at": 1791265748.54195,
+      "previous_source_sha256": {
+        "scripts/audit_sepclip_dense_pg.py": "1f4053ebe4854063ce19e36b05be37dc3e036d94e368b9b424595c5b98b4c058",
+        "scripts/audit_sepclip_physics.py": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114",
+        "scripts/audit_sepclip_gait.py": "cc5f8b35167c3beffcc71561474dcf81c79f3ad68b7b82ab35816f04f4d7e68e",
+        "scripts/audit_sepclip_oracle_geometry.py": "95482bef8a386902c3b8c0571d48d5349fd624cdb5a42edf80cab1a1804e15c0",
+        "scripts/audit_sepclip_actual_oracle_step.py": "54c2c165592d53be072c0176f0cc863b98af7aaa0d492d2171f773a1be8855d4",
+        "scripts/audit_sepclip_chart_numerics.py": "b4d6e5f5573dbfd1b8749d2e88f774ad3c0b31170714addc173632d98cba60a6",
+        "scripts/run_sepclip_microscopy.py": "8efe2f6e1cf005368a2b04ba03e1c5c01811a08fdeb8112a3ab90d3bf53be53a",
+        "cleanrl/ppo_continuous_action_sepclip_transition_microscopy_v12.py": "b8063ba4c3806d7812d6422c1b4c531d11def5ed58e1a85ccd10cd4591d66867",
+        "cleanrl/ppo_continuous_action_sepclip_anchored_precision_chart_v13.py": "35e9d4d704c4c5bb2a9a6706b84507d6d6f0e867fdb10bf43c5323f4d0cdd68e",
+        "scripts/audit_sepclip_closed_loop_update.py": "59dec8199edcadb6d02264ad3a8f9545d7a4d5785ad98a25660b1ed05619c208",
+        "scripts/plot_sepclip_microscopy.py": "e748d0d869a8f7b464e3127cdb2dc04c283d1a4abe211b5b5ef5db3fc92cf431",
+        "tests/test_sepclip_closed_loop_update.py": "c3482ab7c4a7fd33be10c629438467aa7b7f7a9308b5ce548a9649b68082c72e",
+        "tests/test_sepclip_microscopy_normuon.py": "4a65a58613b9b9dfaa6164bf144e3e4657d25f354d4dde8d95ca23e53627c64a",
+        "tests/test_sepclip_actual_oracle_step.py": "48b0a84e4685ba904cdba10aa9d98d568aa1312cc1dda19f7404ea6bf3308e74"
+      },
+      "reason": "Pre-execution provenance closure: exact dense row mapping, saved initial logits, strict full trace replay, oracle and dependency source content hashes; historical evaluation states remain unmatched"
+    }
+  ],
+  "normuon_parity_contract": 11810,
+  "normuon_fresh_control": 11811,
+  "restart_additional_gate": {
+    "job_id": 11825,
+    "declared_limit": 1,
+    "dependency": 11795,
+    "source": "tests/test_sepclip_closed_loop_nonlinear_jvp.py",
+    "sha256": "58fe105aa6b605cc3a194efa8c90bc91c6a00b20ae28aed62197e26f34b9db34",
+    "purpose": "Independent centered finite-difference validation of compiled real nonlinear first/end actor chords for Adam/Anvil at4M/8M; must pass before interpreting closed-loop directional PG",
+    "status": "queued; not validated",
+    "independent_review_revision": {
+      "captured_at": 1791314868.3779213,
+      "job_id": 11825,
+      "job_state_at_edit": "queued attemptCount=0",
+      "test_source": "tests/test_sepclip_closed_loop_nonlinear_jvp.py",
+      "old_sha256": "2a12a26a26b2e549c61f18cb2bb8f0be1d337a2db4ae9cd543b18e0491a19ab6",
+      "new_sha256": "58fe105aa6b605cc3a194efa8c90bc91c6a00b20ae28aed62197e26f34b9db34",
+      "reason": "Independent static review: tie shared reconstructed chords to exact stored endpoint and first delta; externally pin reconciled artifact bytes before loads. No trainer/audit modification or duplicate submission.",
+      "artifact_sha256": {
+        "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_4013696.pt": "8b17da17c1a4d6ed31e62076f76debfc01763e6f0a8b95f401674e55415d6197",
+        "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_updates_4013696.pt": "762e1629a4d2b547fa3d5442c081c2ff99ea62c05c3f97a46477304b14f9fa6b",
+        "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_7995008.pt": "5d7979136fb15329c9bd6d0e6340cde6206d8b0956c21f273f223bbb851b3f30",
+        "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_updates_7995008.pt": "7cdb678b6a24b260f543cca4771c234e6338bdf2de8d6fd4c428d7a18cd38926",
+        "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_4013696.pt": "18d6879248fb472d9d84c4254b5052918f2432bf731c398f0f87ad8138ae56cb",
+        "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_updates_4013696.pt": "25709629234dc4f8bd43f9c6597247d25557be071702d8bfdb66895c2c2ffbde",
+        "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_7995008.pt": "06819047d869a87baa62ea4d4f4e4a18044f0c52c71fa3beea2b9a66cab7c587",
+        "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_updates_7995008.pt": "1bb42d0cc7faa006422f055f5f43264a0782356d8703b6b340618b5a455efe1b"
+      },
+      "validation_status": "Queued CUDA contract remains unexecuted; no passing result claimed.",
+      "reviewed_sha256": "6215fe343943eb885e3fb335e30d7849835394f5202d18fc8559c0692d741878",
+      "post_review_defense": "Assert exactly two chords and three policy banks to prevent zip truncation; no numerical logic change."
+    },
+    "submitted_source_sha256": "2a12a26a26b2e549c61f18cb2bb8f0be1d337a2db4ae9cd543b18e0491a19ab6"
+  },
+  "strong_reference_gate": {
+    "contracts": 11826,
+    "physics": 11827,
+    "declared_limit": 1,
+    "source_sha256": {
+      "scripts/audit_sepclip_strong_reference.py": "9c2f313d5bfcfb23da6e34785acab3b2ec290a38c8a59b8aeedf20e04d15e7df",
+      "tests/test_sepclip_strong_reference.py": "5a61b5e675192b014d17615a949dba59bf6ac78f8fdfd2cb24d9971f5e5baa5d",
+      "cleanrl/ppo_continuous_action_prerms_adamh_v22.py": "514cfd7c4b65ab891fa421ddd784c27f346502cf34e0eca0206b0d0c422478a3"
+    },
+    "status": "queued, not physically measured",
+    "selection": "Saved50M pre-RMS PPO; unmatched budget, current strict-loaded architecture, historical execution source unpinned",
+    "purpose": "Empirical stronger physical/gait reference, not causal optimizer attribution or optimum certificate"
+  },
+  "interpretation_contracts": {
+    "physical_objective": "analytical_objective_alignment.md",
+    "sampler_score": "analytical_sampler_score_contract.md",
+    "mode_decomposition": "analytical_singular_mode_credit.md",
+    "numerical_jvp": "restart_nonlinear_jvp_independent_review.md",
+    "oracle_replication": "Dense pending default is two independently redrawn action/continuation replicas, 16 actions per32 selected states; not enough by itself for high-dimensional confidence. Positive signed cross-energy does not certify signal. Inspect scalar actual-chord intervals, independently fitted cross-noise gains and threshold/finite-step sensitivity before increasing targeted information if needed.",
+    "candidate_chart": "Actual r/ell covector/Fisher and same rounded-shape numerical contract must precede candidate selection; native mean/total concentration field is not sufficient.",
+    "completion": "All owned jobs terminal, numerical contracts reconciled to execution hashes, physical/causal conclusions independently reviewed; no final completion claim until these and evidence-gated iteration satisfied."
+  },
+  "updated_at": 1791345583.0918818,
+  "chart_credit_preparation": {
+    "status": "Prepared, unexecuted, unsubmitted; held pending reliable dense physical PG fields and required numerical validation",
+    "captured_at": 1791316775.984104,
+    "source_sha256": {
+      "scripts/audit_sepclip_chart_credit.py": "89d821323c352df5141adf9a1adc6ae350f037202a9bd260a6714f980269fe6c",
+      "tests/test_sepclip_chart_credit.py": "ab789012a21abc4862d3ceaac8bf4ed8ca0c49ecc2f7b5d7e72de16b4fe1f0f3"
+    },
+    "validation": "AST parse plus independent physics/architecture static approvals only; no models, tests or jobs executed/submitted; no numerical pass",
+    "reference": "analytical_chart_identification.md",
+    "proposed_execution_policy": "No submission made; execution held pending reliable dense fields and required numerical validation. All future local CUDA work through mlq maxParallelRuns1.",
+    "frozen_trainer_changes": false,
+    "independent_static_reviews": {
+      "architecture": "Approved final source89d821323c352df5141adf9a1adc6ae350f037202a9bd260a6714f980269fe6c/testab789012a21abc4862d3ceaac8bf4ed8ca0c49ecc2f7b5d7e72de16b4fe1f0f3, including accepted-ULP logit-Fisher domain guard. No new blocker; source review only.",
+      "physics": "Approved final source89d821323c352df5141adf9a1adc6ae350f037202a9bd260a6714f980269fe6c/testab789012a21abc4862d3ceaac8bf4ed8ca0c49ecc2f7b5d7e72de16b4fe1f0f3 after logit-Fisher domain guard; no remaining blocking math/source/scope defect. Source review only."
+    },
+    "review_artifacts": [
+      "chart_credit_physics_source_review.md",
+      "chart_credit_independent_code_review.md",
+      "chart_credit_interpretation_contract.md"
+    ]
+  },
+  "restart_diagnostic_contract_reconciliation": {
+    "captured_at": 1791318783.8530872,
+    "reason": "Independent committee closes fixed-motion objective scope and fail-closed measurement integrity gaps before existing queued CUDA gates execute.",
+    "source_sha256": {
+      "scripts/audit_sepclip_actual_oracle_step.py": "0d23d4b61059a255b7c566fd8088ebea629f357905a3fd7b35928cbb5b848953",
+      "tests/test_sepclip_actual_oracle_step.py": "e6a5ed7b073bbbdd8c017b241016f4ed7b4c48430c6f69c30d7b48b45638c05f",
+      "scripts/audit_sepclip_dense_pg.py": "e7c6fd46e185e158bc7b00b11b9f86f94d3dbd885d6bc6bfea80146f57f2ddac",
+      "tests/test_sepclip_dense_pg.py": "c5d61ba145df32a0e9b1fc2e6a86345ae3be87f820607874af73b8e03d987d98",
+      "scripts/audit_sepclip_closed_loop_update.py": "761e5ffd86d7432cdc47c21c9ad3a77a8c9d0f50ea39c40b608defdd812cef65",
+      "tests/test_sepclip_closed_loop_update.py": "58f02e6bb956b0f08c1a385838e29fb8a4b7a6012352901cf039a1e62c166808"
+    },
+    "job_states": {
+      "11764": {
+        "state": "queued",
+        "attemptCount": 0,
+        "maxParallelRuns": 1
+      },
+      "11770": {
+        "state": "queued",
+        "attemptCount": 0,
+        "maxParallelRuns": 1
+      },
+      "11776": {
+        "state": "queued",
+        "attemptCount": 0,
+        "maxParallelRuns": 1
+      },
+      "11795": {
+        "state": "queued",
+        "attemptCount": 0,
+        "maxParallelRuns": 1
+      },
+      "11765": {
+        "state": "queued",
+        "attemptCount": 0,
+        "maxParallelRuns": 1
+      },
+      "11782": {
+        "state": "queued",
+        "attemptCount": 0,
+        "maxParallelRuns": 1
+      },
+      "11812": {
+        "state": "queued",
+        "attemptCount": 0,
+        "maxParallelRuns": 1
+      },
+      "11825": {
+        "state": "queued",
+        "attemptCount": 0,
+        "maxParallelRuns": 1
+      }
+    },
+    "new_submissions": [],
+    "frozen_trainer_changes": false,
+    "execution_status": "Only static syntax/review; numerical tests unexecuted",
+    "execution_hash_policy": "Runner hashes actual sources and transitive imports at execution; reconcile against this revision. Historical restart source map and original submission hashes remain preserved.",
+    "receipts": [
+      "actual_step_objective_pairing_repair_receipt.md",
+      "nonfinite_guard_source_revision.json"
+    ],
+    "pre_final_review_source_sha256": {
+      "scripts/audit_sepclip_actual_oracle_step.py": "0d23d4b61059a255b7c566fd8088ebea629f357905a3fd7b35928cbb5b848953",
+      "tests/test_sepclip_actual_oracle_step.py": "e6a5ed7b073bbbdd8c017b241016f4ed7b4c48430c6f69c30d7b48b45638c05f",
+      "scripts/audit_sepclip_dense_pg.py": "b04db2a56fb3fe921080d8185be8e7579a4b9af43ff2d7d9ce439ec6c8b9283d",
+      "tests/test_sepclip_dense_pg.py": "718eff4735260dda233d05da8ea2f6eca7db7efbe7a1e23b5e6bc739d9e94a28",
+      "scripts/audit_sepclip_closed_loop_update.py": "761e5ffd86d7432cdc47c21c9ad3a77a8c9d0f50ea39c40b608defdd812cef65",
+      "tests/test_sepclip_closed_loop_update.py": "58f02e6bb956b0f08c1a385838e29fb8a4b7a6012352901cf039a1e62c166808"
+    },
+    "final_independent_review": "objective_pairing_and_finite_guard_independent_review.md",
+    "final_independent_review_sha256": "9950fa3e98829a39a834898fb4b730261dbf3c4e59c5df49486ec042dc39acab",
+    "updated_at": 1791318918.582826
+  },
+  "restart_completed_contracts": {
+    "11764": {
+      "job_id": 11764,
+      "max_parallel_runs": 1,
+      "status": "passed",
+      "tests_passed": 38,
+      "manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_dense_pg_contracts_repair_1791329562612487190.json",
+      "manifest_sha256": "cf9e850c72a3eab145717409146f6d09fa4fbeb2988935ffd260c967a885822b",
+      "captured_at": 1791329636.3256347,
+      "scope": "Fork/score/boundary/replay/finite data contracts; independent PG signal agreement remains unmeasured."
+    }
+  },
+  "prescription_replay_contract_gate": {
+    "job_id": 11882,
+    "declared_max_parallel_runs": 1,
+    "status": "queued, numerical validation pending",
+    "loader_cases": 37,
+    "physical_cases": 12,
+    "source_manifest": "benchmarks/sepclip_prescription_v14/source_manifest_replay_contracts_v1.json",
+    "source_manifest_sha256": "25131f145e45cfecff564fae68288401155281786ef80f269e9b59a5bb69ae83",
+    "reviews": [
+      "benchmarks/sepclip_weight_microscopy/prescription_replay_loader_independent_review.md",
+      "benchmarks/sepclip_weight_microscopy/prescription_closed_loop_independent_review.md"
+    ],
+    "scope": "Actual v14/v15 compiled primal replay, recorded values/shapes/logprob, strict provenance/Args/banks, domain validation; seven-arm return law and source-dispatched future observations. Does not certify actual nonzero warm continuation or full captured-chord nonlinear derivative.",
+    "updated_at": 1791333250.002346
+  },
+  "user_prescription_selection_override": {
+    "source": "Parent/user explicit override, recorded in user_prescription_selection_receipt.json",
+    "authorized_training_job_ids": [
+      11878,
+      11879,
+      11880,
+      11881
+    ],
+    "scope": "Explore these packages despite unresolved historical oracle; numerical trainer contracts still required. Prior no-training-selection rule remains a requirement for oracle-based claims/chart selection, not a prohibition on explicitly authorized exploratory trials.",
+    "chart_candidate_selected": false,
+    "oracle_reliability_established": false
+  },
+  "prescription_full_chord_contract_gate": {
+    "job_id": 11883,
+    "declared_max_parallel_runs": 1,
+    "after_success": 11882,
+    "expected_contract_cases": 16,
+    "status": "queued; source-approved, numerically unexecuted",
+    "source_manifest_sha256": "4fe9683aa68bec04914b77132a253ecdaf766434720cd60ddd54f738680eff68",
+    "source_manifest": "benchmarks/sepclip_prescription_v14/source_manifest_chord_contracts_v1.json",
+    "source_sha256": "3c9fcc0adbaf95c01aa36d93e0ca64d1f37c276bc2fbc556d3264a682f9ded9d",
+    "test_sha256": "e607bdfc0f58b1fb4269e84284163fd9dfc75654242cfb0943749eaca8d0b9fb",
+    "review": "benchmarks/sepclip_weight_microscopy/prescription_full_chord_independent_review.md",
+    "acceptance_scope": "Numerical machinery and falsification fixtures only; actual captured full first/end actor chord derivatives require separate artifact execution and independent telemetry assessment.",
+    "actual_derivative_claims_validated": false,
+    "updated_at": 1791333839.982322
+  },
+  "restart_artifact_acceptance_notes": [
+    "benchmarks/sepclip_weight_microscopy/pending_oracle_artifact_acceptance.md",
+    "benchmarks/sepclip_weight_microscopy/dense_pg_reliability_redteam_restart.md"
+  ],
+  "restart_recent_contract_acceptance": "benchmarks/sepclip_weight_microscopy/restart_recent_contract_acceptance.json",
+  "restart_new_failures_and_recovery": {
+    "original_11770": {
+      "state": "failed",
+      "passed": 26,
+      "failed": 2,
+      "nonchart_cases_passed": 21,
+      "failure_receipt": "benchmarks/sepclip_weight_microscopy/gait_actual_step_11770_failure_scope_receipt.json",
+      "replacement_gate": 11885,
+      "replacements": {
+        "11773": 11886,
+        "11782": 11887
+      }
+    },
+    "original_11795": {
+      "state": "failed",
+      "passed": 12,
+      "failed": 2,
+      "failure": "Compiled functional JVP forward-view tangent layout assertion",
+      "preserved_skipped": [
+        11812,
+        11825
+      ],
+      "repair_status": "NEW versioned helper independently reviewed; queued numerical proof pending",
+      "replacement_combined_gate": 11891,
+      "replacement_physical_job": 11892,
+      "combined_gate_covers_skipped": 11825,
+      "source": "scripts/audit_sepclip_closed_loop_update_v2.py",
+      "contracts": 23,
+      "source_hash": "2b6dd11213f0aa28a1d6472124c8863e8ca96ba190229e6a1eace4ea1c815e99"
+    },
+    "updated_at": 1791335098.2341027
+  },
+  "restart_chart_contract_repair": {
+    "job": 11890,
+    "expected_cases": 9,
+    "declared_limit": 1,
+    "status": "queued; static review approved, numerical proof pending",
+    "trainer_modified": false,
+    "chart_selected": false,
+    "exact_numerical_failure_source": "Outer F.softplus default threshold20 versus ideal smooth softplus; independently derived deficit and chain budgets, not arbitrary tolerance loosening",
+    "original_failed_job_preserved": 11770
+  },
+  "restart_prospective_credit_review": {
+    "note": "benchmarks/sepclip_weight_microscopy/prospective_signed_credit_decision_checklist.md",
+    "sha256": "16bd067bea2ee7c8de87949bd73873a7eb8a2c03824e0bb7da9b000ed4d250e5",
+    "review_scope": "Independent prospective source/protocol review; no empirical results",
+    "interpretation": "All pointwise local-credit intervals remain exploratory. No full-field efficiency or chart preference is certified by signed cross-energy, pointwise intervals, or fitted gains. Paired finite simulator interventions remain conditional on selected states and the diagnostic sampling law.",
+    "unresolved": [
+      "No registered familywise local claim alpha allocation",
+      "No justified robust full-field energy confidence procedure",
+      "No registered practically meaningful finite-return threshold or horizon-convergence rule",
+      "No independent gradient bias bound for quantile truncation, clipping atoms and FP32 action law"
+    ],
+    "planned_use": "Apply replay/source/JVP numerical gates, show all paired objective/motion contrasts and failures, retain the previously proposed R2 precision screen as descriptive only; do not choose post hoc significant contrasts."
+  },
+  "restart_completed_dense_measurement": {
+    "job_id": 11765,
+    "state": "succeeded",
+    "acceptance_receipt": "benchmarks/sepclip_weight_microscopy/dense_pg_controls_acceptance.json",
+    "artifact_sha256": "4928741aade1d67d125f765186c397ef7a3560e3d94999c2ffd8e0a10e1531e5",
+    "independent_review": "benchmarks/sepclip_weight_microscopy/dense_pg_controls_independent_physics_empirical_review.md",
+    "measurements": "Four matched Adam/Anvil4M/8M snapshots,32states,16first-actions,two independent complete replicas,H1/16/64/256/512; exact physical transition replay and finite/source reconciliation.",
+    "reliability": "Full field remains unresolved. Anvil8M H512 Euclidean cosine.592, Fisher-dual.231; one selected state contributes105.92%/117.84% of aggregate signed cross-energy, with other31 aggregate negative. Fixed actual-direction reliability pending11887.",
+    "interpretation": "No field efficiency or chart preference; no microscopic benchmark cause established."
+  },
+  "restart_v15_test_only_recovery": {
+    "failed": 11877,
+    "test_passed": 9,
+    "test_failed": 2,
+    "failure": "test line45 omitted required dim argument; no trainer defect established",
+    "original_preserved": true,
+    "new_test": "tests/test_sepclip_constraint_transport_v15_v2.py",
+    "new_test_sha256": "913f617e59e16aa117fe7ca62d8f228c4dc18f65028485e7a1f2b2d4c171ff33",
+    "fresh_gate": 11895,
+    "replacements": {
+      "11881": 11896,
+      "11882": 11897,
+      "11883": 11898
+    },
+    "receipt": "benchmarks/sepclip_prescription_v14/v15_skipped_dependents_recovery_v2.json",
+    "trainer_modified": false,
+    "execution_acceptance": {
+      "captured_at": 1791340606.4223177,
+      "job_id": 11895,
+      "state": "succeeded",
+      "exit_code": 0,
+      "cases": 11,
+      "failed": 0,
+      "junit_sha256": "486af10178eee59929c1698863257da5ace28fe3ffb2033332a968bcac267fce",
+      "source_checked": 54,
+      "source_discrepancies": [],
+      "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v15_contracts_recovered_v2_1791340576278039779.json",
+      "execution_sha256": "41a0285f1bfa75a562348b976bd76dd8fb1ee2152408680f75bdef296b7187d4",
+      "scope": "Test-only missing dim repaired; original failed attempt preserved, trainer unchanged."
+    }
+  },
+  "restart_recovered_contract_acceptance": {
+    "captured_at": 1791340359.0245776,
+    "rows": [
+      {
+        "id": 11885,
+        "state": "succeeded",
+        "attempt_id": 9470,
+        "exit_code": 0,
+        "case_count": 21,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "junit": "benchmarks/sepclip_weight_microscopy/gait_actual_split_v2.xml",
+        "junit_sha256": "2b492c949c927af646750bc32d7e3b7b708cd331d77682b32dbc14183fac9f46",
+        "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_gait_actual_split_v2_1791340273868766955.json",
+        "execution_manifest_sha256": "7a5ce710c655e5c9a64d023ad671df00dbd9640ddce3558b4e1ec7989b17bf62",
+        "source_count": 68,
+        "discrepancies": []
+      },
+      {
+        "id": 11890,
+        "state": "succeeded",
+        "attempt_id": 9472,
+        "exit_code": 0,
+        "case_count": 9,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "junit": "benchmarks/sepclip_weight_microscopy/chart_contracts_v2.xml",
+        "junit_sha256": "d074932e8e7aa6609f2484399b8d829a20c575a1cb78562c0c9863d6e83d29f8",
+        "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_chart_contracts_v2_1791340281818165174.json",
+        "execution_manifest_sha256": "7ceb1e1854678ce402e362be028217d11f9d44f64322b7aa1ae6e397d3bd1708",
+        "source_count": 66,
+        "discrepancies": []
+      },
+      {
+        "id": 11891,
+        "state": "succeeded",
+        "attempt_id": 9473,
+        "exit_code": 0,
+        "case_count": 23,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "junit": "benchmarks/sepclip_weight_microscopy/closed_loop_contracts_v2.xml",
+        "junit_sha256": "fbdfff7a6b6d5679496a0982e15d7c62a7dfaacf0cb67b72dce2c7ff912ceaec",
+        "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_closed_loop_contracts_v2_1791340298022117697.json",
+        "execution_manifest_sha256": "b7399bf74320b0b87b0e8f15f4406e96cf4c404550dfab162136bd7f50810996",
+        "source_count": 66,
+        "discrepancies": []
+      }
+    ],
+    "scope": "Strict numerical contracts, not actual closed-loop intervention results or selected chart."
+  },
+  "restart_completed_chart_and_historical_rank": {
+    "review": "benchmarks/sepclip_weight_microscopy/chart_and_historical_rank_empirical_review.md",
+    "sha256": "c5e77c71673184de938f2df7e8d5cc0ff119ec0774ed2122ff5325bad8d9ce6f",
+    "chart_job": 11775,
+    "historical_rank_job": 11781,
+    "chart_unselected": true,
+    "historical_oracle_scope": "physics_complete H64/H256, not denseH512",
+    "chart_measurement": "108/245 FP32 KL negative; FP64 same actual shapes positive. At kappa1e6 ell score relative error34.086% versus mode .004655%; actual decoder stress has15nonfinite/87rows.",
+    "historical_rank_measurement": "72fits can report arithmetic rank192/192 but actual finiteKL357.9\u2013769796 times targetKL.001, relative retraction linearization error13.36\u20131993.58; none certifies usable finite-budget credit.",
+    "limits": "Reference chart chain uses FP32 exp(logexcess) cast toFP64, not rounded-shape-minus1, despite docstring. Arithmetic rank and SPD do not certify reliable finite fit. No retained actual-motion fields in historical artifact. Field reliability and chart preference withheld."
+  },
+  "restart_completed_strong_reference": {
+    "job_id": 11827,
+    "review": "benchmarks/sepclip_weight_microscopy/strong_reference_independent_physics_empirical_review.md",
+    "review_sha256": "7406cdf6c03a76d1850b5edcf02da92aeaee39bfd337750275274683e6d9e94a",
+    "scores": {
+      "sample": 14925.93,
+      "mean": 15769.63,
+      "mode": 16173.9
+    },
+    "velocity": {
+      "sample": 15.3296,
+      "mean": 16.1536,
+      "mode": 16.6038
+    },
+    "control_cost_per_step": {
+      "sample": 0.40367,
+      "mean": 0.38398,
+      "mode": 0.42995
+    },
+    "limits": "50M longer-trained different actor; historical execution unpinned. Correct-normalizer/checkpoint/source/trace acceptance does not match8M causal conditions, prove20k optimum, or identify microscopic cause. Sparse contacts are solver-observation counts, not stance impulses.",
+    "inference": "Falsifies universal Beta-family10k score ceiling."
+  },
+  "restart_completed_normuon_control": {
+    "job_id": 11811,
+    "state": "succeeded",
+    "review": "benchmarks/sepclip_weight_microscopy/normuon_control_empirical_source_review.md",
+    "numbers": "benchmarks/sepclip_weight_microscopy/normuon_control_empirical_source_review.json",
+    "primary_trailing200k_at7_9M": 8072.715564025575,
+    "primary_episode_count": 201,
+    "final100": 8189.44580078125,
+    "execution_parity": "All7964return events and28non-timing shared scalar series exactly match historical same-seedv4normuon_fast.",
+    "interpretation": "Reliable same-seed control, not independent replicate or optimizer superiority. Actual methodNorMuon .005/.85/.95/bf16actoronly despite anvil2 dispatch label; v14 differs architecture/matrix membership."
+  },
+  "restart_prescription_v14_benchmark_measurements": {
+    "captured_at": 1791340641.871761,
+    "score_contract": "Inclusive[7.7M,7.9M] sampled training episodes, seed1; final100 separate; same-seed compound package comparison not isolatedcause/seedgeneralization.",
+    "rows": [
+      {
+        "job_id": 11878,
+        "name": "sepclip_prescription_v14_additive_adam",
+        "state": "succeeded",
+        "attempt_id": 9474,
+        "max_parallel_runs": 1,
+        "run": "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_adam__1__1791340312",
+        "last_step": 7995008,
+        "return_events": 7964,
+        "primary_trailing200k_at7_9M": 8376.899767519822,
+        "primary_episode_count": 201,
+        "final100": 8495.269858398438,
+        "incomplete_tail100_descriptive": null,
+        "incomplete_scope": null,
+        "matched_4M_trailing200k": 7297.906634430387,
+        "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v14_additive_adam_1791340311519606926.json",
+        "execution_sha256": "00baaa618c949961736fccdd617dce045ed8abc94f42076dc9280357ecfed11f",
+        "source_checked": 50,
+        "source_discrepancies": [],
+        "event_file_sha256": {
+          "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_adam__1__1791340312/events.out.tfevents.1791340312.cachyos-x8664-desktop.3668802.0": "4b45a5eed224dc193b0dd5fb0e36c9fc9aa70c9b507779904d0cfcbeeaba1e75"
+        }
+      },
+      {
+        "job_id": 11879,
+        "name": "sepclip_prescription_v14_additive_anvil",
+        "state": "cancelled",
+        "attempt_id": 9475,
+        "max_parallel_runs": 1,
+        "run": "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_anvil__1__1791340406",
+        "last_step": 6056000,
+        "return_events": 6025,
+        "primary_trailing200k_at7_9M": null,
+        "primary_episode_count": null,
+        "final100": null,
+        "incomplete_tail100_descriptive": 5165.955104980469,
+        "incomplete_scope": "Culled; no late score extrapolation. Preserve4M snapshot/trace.",
+        "matched_4M_trailing200k": 4026.6146185576026,
+        "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v14_additive_anvil_1791340404968080943.json",
+        "execution_sha256": "788e68ebf1bc464c75e3af569bd8e4782b7406c98f63d9e193b3162a664cac93",
+        "source_checked": 50,
+        "source_discrepancies": [],
+        "event_file_sha256": {
+          "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_anvil__1__1791340406/events.out.tfevents.1791340406.cachyos-x8664-desktop.3672534.0": "460face64a7f299fa1155444037d932233e4b756c768ac62e28244ec5834ebc4"
+        }
+      },
+      {
+        "job_id": 11880,
+        "name": "sepclip_prescription_v14_additive_normuon",
+        "state": "succeeded",
+        "attempt_id": 9476,
+        "max_parallel_runs": 1,
+        "run": "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_normuon__1__1791340481",
+        "last_step": 7995008,
+        "return_events": 7964,
+        "primary_trailing200k_at7_9M": 4972.433546986746,
+        "primary_episode_count": 201,
+        "final100": 4976.175275268554,
+        "incomplete_tail100_descriptive": null,
+        "incomplete_scope": null,
+        "matched_4M_trailing200k": 3539.9759649328926,
+        "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v14_additive_normuon_1791340480720551304.json",
+        "execution_sha256": "b13583ffefada73030a474a11172b054b62bc9c2e81ad248c6a02b0f4f2c18ea",
+        "source_checked": 50,
+        "source_discrepancies": [],
+        "event_file_sha256": {
+          "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_normuon__1__1791340481/events.out.tfevents.1791340481.cachyos-x8664-desktop.3674751.0": "3b7417772e068af07073fa236921f2d51c1e76a4f5dece9b328b92dd98f090fa"
+        }
+      }
+    ],
+    "v15_status": "Recovery gate11895passed11, recoveredtrial11896queued"
+  },
+  "restart_prescription_v15_benchmark_measurement": {
+    "captured_at": 1791341125.283859,
+    "job_id": 11896,
+    "replaces_skipped": 11881,
+    "state": "succeeded",
+    "attempt_id": 9481,
+    "declared_limit": 1,
+    "run": "runs/HalfCheetah-v4__sepclip_prescription_v15_intrinsic_anvil_recovered_v2__1__1791340701",
+    "primary_trailing200k_at7_9M": 8250.580795667658,
+    "primary_episode_count": 201,
+    "final100": 8382.645986328125,
+    "last_step": 7995008,
+    "return_events": 7964,
+    "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v15_intrinsic_anvil_recovered_v2_1791340699886245143.json",
+    "execution_manifest_sha256": "867780f0684af6761ef8cc25a5909206ea4de25231e330ff70bc12de475ce580",
+    "source_checked": 50,
+    "source_discrepancies": [],
+    "event_sha256": {
+      "runs/HalfCheetah-v4__sepclip_prescription_v15_intrinsic_anvil_recovered_v2__1__1791340701/events.out.tfevents.1791340701.cachyos-x8664-desktop.3682551.0": "ce46816d770b0f0af5873f8981ba8dd43110f9ab02ff2b439d5b291bf515fd83"
+    },
+    "comparison_control": {
+      "primary": 8781.567,
+      "final100": 8600.528,
+      "variant": "v7fullrollout-clock Anvil.005, originalactor"
+    },
+    "interpretation": "Intrinsic compound direction/amplitude/history geometry intervention is lower primary at thisseed than ambientcontrol; noseedgeneralization/puretransportisolation. Test-only recovery preserved originaltrainer unchanged."
+  },
+  "restart_completed_actual_gait_closedloop": {
+    "actual_direction": {
+      "job_id": 11887,
+      "review": "benchmarks/sepclip_weight_microscopy/actual_step_dense_recovered_v2_independent_empirical_review.md",
+      "review_sha256": "3af493a393f4ff85b56ade6004187d78390fc64e55f1871c352564ba282d70a1",
+      "result": "6/144pointwise objective/motion contrasts pass descriptiveR2 precision screen; allnegativeAnvil8M/H512 ten-epoch endpoint normalized/tailaugmented. Actualfirst0pass/raw0pass. Firsttangent retained>=.9999999998668 atcutoff1e-4; endpointretentiononlyconfiguredcutoff. ActualKL/Fisher.98944\u20131.00783, nofullfieldefficiencycertification."
+    },
+    "gait": {
+      "job_id": 11886,
+      "review": "benchmarks/sepclip_weight_microscopy/gait_dense_recovered_v2_independent_empirical_review.md",
+      "review_sha256": "209a12f5dc5238a51e44994f4f04f9879a1c87984bfb0394e61f1e0e641dcc96",
+      "result": "No positive aggregate selected/directed holdout intervention excludes0 evenpointwise; effective32states exactdenseattachment. Sparsecontactstrata, aliased/transientbiasedcycles cannot establishstride/flightmechanism."
+    },
+    "closed_loop": {
+      "job_id": 11892,
+      "review": "benchmarks/sepclip_weight_microscopy/closed_loop_anvil_recovered_v2_independent_empirical_review.md",
+      "review_sha256": "476a920d18253aa6a05619047371a51f8ebc48041ccd276d76cdc2716f67bec4",
+      "result": "Anvil8M/H512 sampled endpointfull+2.784 CI[-3.894,9.462] unresolved, t0-only-8.631 CI[-10.327,-6.935], feedbackinteraction+6.842 CI[2.264,11.419]. Meanendpoint+1.158,mode-21.833 conditional32states. All-timePGsigns unresolved; one nativeclampatomrealized. Nofamilywisecertification."
+    }
+  },
+  "restart_completed_v14_actual_feedback": {
+    "status": "accepted finite conditional effects; layer attribution pending",
+    "jobs": [
+      11899,
+      11900,
+      11901,
+      11902,
+      11903,
+      11904
+    ],
+    "independent_review": "v14_closed_loop_independent_physics_empirical_review.md",
+    "independent_numbers": "v14_closed_loop_independent_physics_numbers.json",
+    "H512_sampled_raw_discounted_endpoint": {
+      "adam4m": {
+        "mean": 0.03529,
+        "pointwise_t3_ci": [
+          -3.97506,
+          4.04565
+        ]
+      },
+      "adam8m": {
+        "mean": 3.45985,
+        "pointwise_t3_ci": [
+          0.38426,
+          6.53543
+        ]
+      },
+      "anvil4m": {
+        "mean": -3.20799,
+        "pointwise_t3_ci": [
+          -5.93467,
+          -0.48132
+        ]
+      }
+    },
+    "limitations": [
+      "32 fixed own states; four independent continuation replicas; pointwise unadjusted many contrasts",
+      "Diagnostic truncated inverse-CDF quantiles with native FP32 action clipping; host sampler RNG equivalence uncertified",
+      "Different occupancy and frozen normalizers across captures; no matched optimizer efficiency claim",
+      "First bank reconstructed from saved old weights plus FP32 delta, not independently saved",
+      "Critic terminal augmentation is not a true infinite-return oracle",
+      "Finite first/later feedback interaction identity accepted; components mostly unresolved, not unique layer/critic/contact cause"
+    ]
+  },
+  "restart_layer_fisher_v2_gate": {
+    "status": "queued; source/static review accepted, CUDA gate unexecuted",
+    "failed_gate": 11905,
+    "preserved_skipped": [
+      11906,
+      11907,
+      11908
+    ],
+    "replacement_gate": 11926,
+    "expected_tests": 44,
+    "replacement_layers": [
+      11928,
+      11929,
+      11930,
+      11933,
+      11934
+    ],
+    "additional_normuon_chord_physics": [
+      11912,
+      11913,
+      11914,
+      11915
+    ],
+    "preserved_preexecution_output_repairs": [
+      11931,
+      11932
+    ],
+    "source_sha256": "c1455aae7ebb5c54cde98d0eca5cf198617e07cf86ba398276544245b83b2bcb",
+    "test_sha256": "27f47d43c7ab6f71a13fe06ecc10a77756615921120fd6bc2557777aff70aa7a",
+    "static_review": "prescription_layer_geometry_v2_independent_static_review.md",
+    "strict_original_tests_preserved": 18,
+    "repair": "Stable CUDA FP64 trigamma recurrence and differences; conditional scalar error budget and true-small-mode withholding; no tolerance relaxation or trainer change",
+    "withhold": [
+      "unexecuted contracts are not validation",
+      "Fisher scalar budget does not certify JVP, Gram accumulation, digamma/lgamma KL or sampler score"
+    ]
+  },
+  "stationary_pg_alignment_exception": {
+    "status": "analytical exception, not demonstrated occupancy root cause",
+    "condition": "Initial nu=d_old stationary under same policy/environment/reset/normalizer kernel; learner state law d_batch=d_old; exact unclipped score and old Q",
+    "identities": [
+      "grad J_infinite = g_batch/(1-gamma)",
+      "With exact frozen V_old terminal tail, grad J_H_tail = (1-gamma**H)/(1-gamma) * g_batch"
+    ],
+    "limits": "Selected 32states, finite zero/approximate tail, later actor iterates and possibly differing normalization kernels do not establish these assumptions. Their failure allows but does not prove mismatch."
+  },
+  "restart_optimizer_forensic_preparation": {
+    "status": "static-approved frozen; queued numerical gate and actual-capture executions, no measured result yet",
+    "source": "scripts/audit_sepclip_prescription_optimizer_forensics.py",
+    "committee_note": "v14_optimizer_chain_committee_review.md",
+    "required": "Full source-private warm replay fed recorded clipped gradients; same factory/name mapping, once-only beginrollout, full fusedAdam and compiled normalization. Each ambient/retracted delta plus endpoint parity and independent stage/lane parity before telemetry. No alternative proposal/physicalPG/causal efficacy.",
+    "purpose": "Measured moment/cascade/lane history is missing from actual traces; user explicitly requires detailed optimizer understanding.",
+    "contract_gate": 11937,
+    "expected_contract_cases": 24,
+    "actual_capture_jobs": [
+      11938,
+      11939,
+      11940,
+      11941,
+      11942
+    ],
+    "source_sha256": "fe744392f3355222848f5d1e1b3193e3fb580527119d07410ab15c3518145e32",
+    "test_sha256": "2e95eff6a4a643cba5d2c850124ee9eb7178ae16fcdc022c2bf8d77b1a90dda3",
+    "manifest_sha256": "9198410e93c9a0da8614c24f12837d1530f8af933bd60fcf117c3f830b95d2a0",
+    "static_review": "prescription_optimizer_forensics_independent_static_review.md",
+    "actual_step_parity": "Every ambient/retracted delta and saved full endpoint bitwise equal; shadow stages have separately declared bounded lane/subtraction parity."
+  },
+  "restart_v14_actual_chord_acceptance": {
+    "review": "v14_captured_chord_independent_empirical_review.md",
+    "numbers": "v14_captured_chord_independent_numbers.json",
+    "captures": [
+      "adam4m",
+      "adam8m",
+      "anvil4m"
+    ],
+    "full_old_batch_states": 16384,
+    "actor_parameters": 18584,
+    "adjacent_h": [
+      1,
+      0.5
+    ],
+    "max_channel_relative_error": 0.003474,
+    "max_direction_relative_error": 0.005853,
+    "limits": [
+      "captured aggregate chord only, not perlayer or shape-floor-coordinate",
+      "no monotone small-h or best-h selection",
+      "storage ULP heuristic is not accumulated error certificate",
+      "no Fisher/physicalPG/efficiency/causal attribution"
+    ]
+  },
+  "active_human_report": "analytical_synthesis.md",
+  "restart_first_gradient_bridge_preparation": {
+    "status": "independently_static_approved_frozen_queued_unexecuted",
+    "gate_job": 11948,
+    "capture_jobs": [
+      11949,
+      11950,
+      11951,
+      11952,
+      11953
+    ],
+    "declared_max_parallel_runs": 1,
+    "source_sha256": "0adfa1acf004b26fcc4cfd5c429ac9056260e2be747eb347aed84699506b0261",
+    "test_sha256": "9e0d01920ecccd47ba2503443290573f971230e4b1e6ef97c760ee29e5a728d3",
+    "expected_contract_cases": 23,
+    "scope": "Private CUDA first-permutation reconstruction; all recorded clipped actor/critic gradients must match bitwise before independent full actor covector common-scale residuals. Not physical PG or optimizer efficacy.",
+    "receipts": [
+      "benchmarks/sepclip_prescription_v14/first_gradient_contracts_v1_submission.json",
+      "benchmarks/sepclip_weight_microscopy/v14_actual_first_gradient_v1_submission.json"
+    ],
+    "review": "benchmarks/sepclip_weight_microscopy/prescription_first_gradient_v1_independent_static_review.md",
+    "updated_at": 1791346034.9661474
+  },
+  "restart_remaining_validation": [
+    "Execute and independently review NorMuon actual 4M/8M chords and physical probes11912\u201311915.",
+    "Execute Fisher V2 numerical gate11926 and actual v14 layer captures11928/29/30/33/34; retain failed/skipped/cancelled attempts.",
+    "Execute optimizer-forensics numerical gate11937 and actual captures11938\u201311942; require bitwise every recorded delta and endpoint before moment/cascade/lane interpretation.",
+    "Execute exact first-gradient contracts11948 and actual captures11949\u201311953; bitwise full actor/critic clipped-gradient replay precedes independent full-actor ascent residual interpretation.",
+    "Evidence-gated adjudication after actual measurements; full-field and all-time PG reliability remain unresolved, no chart or new causal trainer selected.",
+    "Produce accepted-input figures, finalize human report and numerical/source/failure receipts, obtain independent validation, mark all owned jobs terminal and clean up owned observer."
+  ],
+  "restart_status": "Active; frozen source/static approvals complete, actual numerical/empirical gates pending."
+}

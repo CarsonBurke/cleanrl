@@ -1,0 +1,182 @@
+{
+  "review_scope": "Read-only MLQ states/log and manifest inspection; source AST/hash parsing only. No model/test execution, job submission, source edits or alteration of originals.",
+  "original_job": 11770,
+  "original_attempt": 9436,
+  "original_state": "failed",
+  "original_exit_code": 1,
+  "executed_manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_gait_actual_step_v13_contracts_1791334812772678408.json",
+  "executed_manifest_sha256": "3e43bc1b11984631f49ec2d9e64765279e8fdd4f6494876ac5277f3af6129a88",
+  "executed_command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_sepclip_gait.py",
+    "tests/test_sepclip_actual_oracle_step.py",
+    "tests/test_sepclip_anchored_precision_chart.py"
+  ],
+  "observed_summary": {
+    "passed": 26,
+    "failed": 2,
+    "skipped": 0,
+    "duration_seconds": 34.89
+  },
+  "accepted_nonchart_case_counts": {
+    "gait": 6,
+    "actual_step": 15,
+    "total": 21
+  },
+  "parent_expected_count_correction": "Frozen AST has 6 gait +15 actual-step, not 8+14. Chart has7. 21+7=28 matches observed total; first22 progress dots include first passing chartcontrol.",
+  "nonchart_acceptance": "All21 nonchart passed, inferred from exact source/parameter expansion, supplied file order, complete progress, no skip summary, and both named failures belonging only to chart file. No per-case JUnit from original -q command; no stronger per-case artifact claim.",
+  "source_sha256": {
+    "scripts/audit_sepclip_gait.py": "cc5f8b35167c3beffcc71561474dcf81c79f3ad68b7b82ab35816f04f4d7e68e",
+    "scripts/audit_sepclip_actual_oracle_step.py": "0d23d4b61059a255b7c566fd8088ebea629f357905a3fd7b35928cbb5b848953",
+    "tests/test_sepclip_gait.py": "540c7b8bef4ee0db0ec52a911f39cec10198a0aff2625365a3cdd01dde5deb71",
+    "tests/test_sepclip_actual_oracle_step.py": "e6a5ed7b073bbbdd8c017b241016f4ed7b4c48430c6f69c30d7b48b45638c05f"
+  },
+  "test_cases": {
+    "tests/test_sepclip_gait.py": [
+      {
+        "name": "test_contact_cycles_distinguish_stance_and_swing",
+        "expanded_cases": 1
+      },
+      {
+        "name": "test_candidate_selection_uses_discovery_and_respects_feasible_gradient_budget",
+        "expanded_cases": 1
+      },
+      {
+        "name": "test_real_floor_contacts_report_named_geometries_and_nonnegative_normal_force",
+        "expanded_cases": 1
+      },
+      {
+        "name": "test_phase_profiles_recover_known_action_peak_timing",
+        "expanded_cases": 1
+      },
+      {
+        "name": "test_dense_link_rejects_same_path_checkpoint_hash_mismatch",
+        "expanded_cases": 1
+      },
+      {
+        "name": "test_cycle_displacement_velocity_and_phase_power_use_same_timing",
+        "expanded_cases": 1
+      }
+    ],
+    "tests/test_sepclip_actual_oracle_step.py": [
+      {
+        "name": "test_fixed_objective_pairings_keep_normalization_and_tail_sign_flips",
+        "expanded_cases": 1
+      },
+      {
+        "name": "test_fixed_tail_increment_uses_correlated_same_replica_differences",
+        "expanded_cases": 1
+      },
+      {
+        "name": "test_fixed_objective_pairings_reject_inconsistent_inputs",
+        "expanded_cases": 7
+      },
+      {
+        "name": "test_actual_mean_concentration_budget_keeps_signed_cross_term",
+        "expanded_cases": 1
+      },
+      {
+        "name": "test_retained_bound_projects_motion_and_reports_discarded_energy",
+        "expanded_cases": 1
+      },
+      {
+        "name": "test_actual_trace_rejects_incomplete_sequence_and_wrong_endpoint",
+        "expanded_cases": 1
+      },
+      {
+        "name": "test_natural_logit_direction_saturates_cauchy_bound",
+        "expanded_cases": 1
+      },
+      {
+        "name": "test_replica_cross_energy_is_signed_and_whitening_basis_invariant",
+        "expanded_cases": 1
+      },
+      {
+        "name": "test_actual_jvp_and_independent_replica_falsification",
+        "expanded_cases": 1
+      }
+    ]
+  },
+  "chart_failures": [
+    {
+      "case": "test_initial_chart_preserves_policy_hidden_jacobian_and_full_head_flow",
+      "source": "tests/test_sepclip_anchored_precision_chart.py:44",
+      "failure": "Inductor CantSplit in compiled jacrev, 64*s33 not divisible by ((s33**2)//s33); no successful chart-Jacobian claim"
+    },
+    {
+      "case": "test_chart_shape_jacobian_and_wide_numerical_range",
+      "source": "tests/test_sepclip_anchored_precision_chart.py:81",
+      "failure": "One FP64 shape mismatch; abs4.32471836120385e-11, relative1.7393441750334208e-12 exceeds requiredrtol1e-12; preserve failed tolerance evidence"
+    }
+  ],
+  "split_gate": {
+    "name_proposal": "sepclip_microscopy_gait_actual_step_split_11770_contracts",
+    "max_parallel_runs": 1,
+    "source_files": [
+      "scripts/audit_sepclip_gait.py",
+      "scripts/audit_sepclip_actual_oracle_step.py",
+      "tests/test_sepclip_gait.py",
+      "tests/test_sepclip_actual_oracle_step.py"
+    ],
+    "command": [
+      ".venv/bin/python",
+      "-u",
+      "scripts/run_sepclip_microscopy.py",
+      "--name",
+      "sepclip_microscopy_gait_actual_step_split_11770_contracts",
+      "--source",
+      "scripts/audit_sepclip_gait.py",
+      "--source",
+      "scripts/audit_sepclip_actual_oracle_step.py",
+      "--source",
+      "tests/test_sepclip_gait.py",
+      "--source",
+      "tests/test_sepclip_actual_oracle_step.py",
+      "--",
+      ".venv/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_sepclip_gait.py",
+      "tests/test_sepclip_actual_oracle_step.py",
+      "--junitxml",
+      "benchmarks/sepclip_weight_microscopy/gait_actual_step_split_11770_contracts.xml"
+    ],
+    "expected_cases": 21,
+    "acceptance": [
+      "Terminal MLQ success with exit0",
+      "Fresh JUnit reports exactly21 tests,0failures,0errors,0skips; preserve/archive any prior same-path report before run",
+      "New execution manifest hashes of all four exact frozen sources match this receipt; compare reused transitive helpers against original executed manifest",
+      "Chart trainer and chart test excluded from selected pytest target; no failing chart test modified, disabled or claimed passed"
+    ],
+    "scope": "Numerical/structural gait+actual-step diagnostic contracts only. It does not repair or validate unselected v13chart, physicalPG reliability or causal training."
+  },
+  "dependent_recovery": [
+    {
+      "preserved_original": 11773,
+      "observed_state": "skipped",
+      "attempt_count": 0,
+      "new_attempt_prerequisites": [
+        "Verified split gate success",
+        11765
+      ],
+      "scope": "Same exact frozen gait_dense command and four snapshots; new distinct recovery name, original remains untouched"
+    },
+    {
+      "preserved_original": 11782,
+      "observed_state": "skipped",
+      "attempt_count": 0,
+      "new_attempt_prerequisites": [
+        "Verified split gate success",
+        11765,
+        11776
+      ],
+      "rank_gate_observed_state": "11776 succeeded",
+      "scope": "Same exact frozen actual_step_dense_rank command/H256,H512/four snapshots; new distinct recovery name, original remains untouched"
+    }
+  ],
+  "no_submission_made": true
+}

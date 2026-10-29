@@ -1,0 +1,84 @@
+{
+  "upstream": "https://github.com/qlabs-eng/dust",
+  "base": "cleanrl/awr/ppo_continuous_action_ppo_sepclip_control_v1.py",
+  "method": "Per-site antithetic activation loss differences; cached-input local linear reconstruction; independent actor/critic objectives.",
+  "hypothesis": "Activation-space smoothing may improve clipped PPO geometry enough to offset sampling noise.",
+  "adaptations": "Feedforward Beta PPO; paired rather than one-sided draws; no sequence credit or attention hubs; retain Adam and SepClip instead of upstream SGD.",
+  "config": {
+    "env": "HalfCheetah-v4",
+    "requested_steps": 8000000,
+    "seed": 1,
+    "num_envs": 16,
+    "env_threads": 2,
+    "learning_rate": 0.0024,
+    "norm_adv": false,
+    "clip_vloss": false,
+    "clip_coef_upper": 0.2,
+    "dust_draws": 16,
+    "dust_sigma": 0.05,
+    "dust_pairs_per_chunk": 4
+  },
+  "validation": {
+    "job_id": 11702,
+    "max_parallel_runs": 1,
+    "result": "9 passed",
+    "checks": "Exact clean forward/objective equivalence; high-population gradient agreement with autograd; all parameters update without requires_grad; compiled full production gradients across every site; invalid arguments."
+  },
+  "runs": [
+    {
+      "variant": "sepclip_dust_v1_backprop",
+      "run_directory": "runs/HalfCheetah-v4__sepclip_dust_v1_backprop__1__1791246627",
+      "state": "succeeded",
+      "job_id": 11703,
+      "max_parallel_runs": 6,
+      "last_episode_step": 7995008,
+      "final_100_episode_mean": 8281.17818359375,
+      "episode_sampling_ci95": 131.5049674484005,
+      "matched_step_returns": {
+        "500000": 985.8618402764349,
+        "1000000": 2910.1655367105313,
+        "2000000": 4769.828404190516,
+        "3000000": 5834.79240493019,
+        "4000000": 6620.046904006807,
+        "6000000": 7668.829290106745
+      },
+      "mean_last_100_rollout_metrics": {
+        "timing/update_s": 0.010120682911947369,
+        "charts/interval_SPS": 84717.002734375,
+        "losses/approx_kl": 0.00876578763287398,
+        "losses/explained_variance": 0.9212735116481781
+      },
+      "approximate_training_seconds": 99.03268880603486
+    },
+    {
+      "variant": "sepclip_dust_v1_dust",
+      "run_directory": "runs/HalfCheetah-v4__sepclip_dust_v1_dust__1__1791246731",
+      "state": "succeeded",
+      "job_id": 11704,
+      "max_parallel_runs": 1,
+      "last_episode_step": 7995008,
+      "final_100_episode_mean": 5744.836499023438,
+      "episode_sampling_ci95": 25.467203819604205,
+      "matched_step_returns": {
+        "500000": 432.62388032969864,
+        "1000000": 1242.979051386956,
+        "2000000": 2517.6344905135657,
+        "3000000": 3560.75086536974,
+        "4000000": 4444.00514870823,
+        "6000000": 5368.52370339573
+      },
+      "mean_last_100_rollout_metrics": {
+        "timing/update_s": 0.17929208129644394,
+        "charts/interval_SPS": 45356.2305078125,
+        "losses/approx_kl": 0.003863677693043428,
+        "losses/explained_variance": 0.8511063855886459
+      },
+      "approximate_training_seconds": 190.31202094739348
+    }
+  ],
+  "return_change_percent": -30.627787838150667,
+  "conclusion": "Regression in this adaptation: lower return at every measured step and approximately double training time. Do not replace the SepClip control.",
+  "interpretation": "Consistent with noisy local credit reducing optimization efficiency; smoothing benefit did not compensate. Not a causal identification of noise versus smoothing bias.",
+  "limitations": "One seed, one task, one draw count and perturbation scale. This is an adaptation, not the upstream transformer recipe. Episode confidence intervals do not measure across-seed uncertainty.",
+  "next_hypothesis": "If revisited, separate estimator variance from smoothing with a larger-population ablation before changing optimizer or architecture."
+}

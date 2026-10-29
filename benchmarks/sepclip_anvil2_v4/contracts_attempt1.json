@@ -1,0 +1,91 @@
+{
+  "measurements": [
+    {
+      "contract": "scalar_spectral_oracle",
+      "shape": [
+        43,
+        17
+      ],
+      "precision": "fp32",
+      "relative_error": 5.7353654483449645e-06,
+      "tolerance": 0.001
+    },
+    {
+      "contract": "scalar_spectral_oracle",
+      "shape": [
+        43,
+        17
+      ],
+      "precision": "bf16",
+      "relative_error": 0.25222697854042053,
+      "tolerance": 0.12
+    },
+    {
+      "contract": "scalar_spectral_oracle",
+      "shape": [
+        43,
+        64
+      ],
+      "precision": "fp32",
+      "relative_error": 3.420387884034426e-06,
+      "tolerance": 0.001
+    },
+    {
+      "contract": "scalar_spectral_oracle",
+      "shape": [
+        43,
+        64
+      ],
+      "precision": "bf16",
+      "relative_error": 0.14179763197898865,
+      "tolerance": 0.12
+    },
+    {
+      "contract": "scalar_spectral_oracle",
+      "shape": [
+        64,
+        43
+      ],
+      "precision": "fp32",
+      "relative_error": 3.282838861196069e-06,
+      "tolerance": 0.001
+    },
+    {
+      "contract": "scalar_spectral_oracle",
+      "shape": [
+        64,
+        43
+      ],
+      "precision": "bf16",
+      "relative_error": 0.1376866102218628,
+      "tolerance": 0.12
+    },
+    {
+      "contract": "direct_upstream_cascade",
+      "shape": [
+        2,
+        43,
+        17
+      ],
+      "precision": "bf16",
+      "relative_error": 0.0,
+      "tolerance": 0.03
+    },
+    {
+      "contract": "direct_upstream_cascade",
+      "shape": [
+        2,
+        64,
+        43
+      ],
+      "precision": "bf16",
+      "relative_error": 0.0,
+      "tolerance": 0.03
+    }
+  ],
+  "reference_revision": "4ea6b937337a4889b8cfe3f38a93d120048d8f71",
+  "torch_version": "2.12.0+cu130",
+  "matmul_precision": "highest",
+  "allow_tf32": false,
+  "note": "Measurements are evidence, not a substitute for the mlq test outcome."
+}

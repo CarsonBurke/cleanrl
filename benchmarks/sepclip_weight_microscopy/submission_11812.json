@@ -1,0 +1,55 @@
+{
+  "id": 11812,
+  "name": "sepclip_microscopy_closed_loop_anvil_gae",
+  "state": "queued",
+  "eligibility": "waiting_for_dependencies: jobs [11795]",
+  "maxParallelRuns": 1,
+  "priority": 0,
+  "cwd": "/home/marvin/Documents/repositories/cleanrl",
+  "args": [
+    ".venv/bin/python",
+    "-u",
+    "scripts/run_sepclip_microscopy.py",
+    "--name",
+    "sepclip_microscopy_closed_loop_anvil_gae",
+    "--source",
+    "scripts/audit_sepclip_closed_loop_update.py",
+    "--output-json",
+    "benchmarks/sepclip_weight_microscopy/closed_loop_anvil.json",
+    "--",
+    ".venv/bin/python",
+    "-u",
+    "scripts/audit_sepclip_closed_loop_update.py",
+    "--snapshot",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_4013696.pt",
+    "--snapshot",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_7995008.pt",
+    "--hybrid-arms",
+    "--directional-pg",
+    "--gae-transport",
+    "--out",
+    "benchmarks/sepclip_weight_microscopy/closed_loop_anvil.json"
+  ],
+  "maxAttempts": 1,
+  "retryDelayMs": 0,
+  "timeLimitMs": 2700000,
+  "attemptCount": 0,
+  "createdAt": 1791265087433,
+  "updatedAt": 1791265087433,
+  "dependencies": [
+    {
+      "parent": 11735,
+      "condition": "succeeded",
+      "parentState": "succeeded",
+      "resolution": "satisfied",
+      "parentOutcome": "succeeded",
+      "resolvedAt": 1791265087433
+    },
+    {
+      "parent": 11795,
+      "condition": "succeeded",
+      "parentState": "queued"
+    }
+  ],
+  "attempts": []
+}

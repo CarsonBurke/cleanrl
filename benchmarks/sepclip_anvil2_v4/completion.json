@@ -1,0 +1,139 @@
+{
+  "completion_verified_at": "2026-10-05T06:10:40.241870+00:00",
+  "validation_summary": {
+    "cuda_contracts_v4": {
+      "job": 11518,
+      "passed": 19
+    },
+    "cuda_contracts_v5": {
+      "job": 11587,
+      "passed": 2
+    },
+    "independent_review": "Read-only reviewers assessed source port and final scoring/wrapper; reporting omissions corrected.",
+    "figures_visually_inspected": [
+      "learning_curves.png",
+      "frontier.png"
+    ],
+    "extra_supervisors_stopped": true,
+    "all_relevant_jobs_terminal": true,
+    "all_declared_max_parallel_runs": 1,
+    "final_independent_review": "Passed consistency of scores, matched-step caveat, all terminal states, counts, cull evidence, frontier claims and file hashes."
+  },
+  "final_analysis_job": {
+    "id": 11594,
+    "name": "sepclip_anvil2_investigation_complete",
+    "state": "succeeded",
+    "maxParallelRuns": 1,
+    "priority": 0,
+    "cwd": "/home/marvin/Documents/repositories/cleanrl",
+    "args": [
+      ".venv/bin/python",
+      "scripts/analyze_sepclip_anvil2.py",
+      "--jobs",
+      "11518",
+      "11519",
+      "11520",
+      "11521",
+      "11522",
+      "11523",
+      "11524",
+      "11525",
+      "11526",
+      "11527",
+      "11528",
+      "11550",
+      "11551",
+      "11552",
+      "11553",
+      "11554",
+      "11555",
+      "11556",
+      "11557",
+      "11558",
+      "11559",
+      "11565",
+      "11566",
+      "11567",
+      "11568",
+      "11569",
+      "11570",
+      "11571",
+      "11572",
+      "11573",
+      "11574",
+      "11587",
+      "11593"
+    ],
+    "maxAttempts": 1,
+    "retryDelayMs": 0,
+    "timeLimitMs": 600000,
+    "readySequence": 10656,
+    "attemptCount": 1,
+    "createdAt": 1791178947104,
+    "updatedAt": 1791180479139,
+    "finishedAt": 1791180479139,
+    "dependencies": [
+      {
+        "parent": 11574,
+        "condition": "terminal",
+        "parentState": "succeeded",
+        "resolution": "satisfied",
+        "parentOutcome": "succeeded",
+        "resolvedAt": 1791179592340
+      },
+      {
+        "parent": 11587,
+        "condition": "terminal",
+        "parentState": "succeeded",
+        "resolution": "satisfied",
+        "parentOutcome": "succeeded",
+        "resolvedAt": 1791179587240
+      },
+      {
+        "parent": 11593,
+        "condition": "terminal",
+        "parentState": "succeeded",
+        "resolution": "satisfied",
+        "parentOutcome": "succeeded",
+        "resolvedAt": 1791179713089
+      }
+    ],
+    "attempts": [
+      {
+        "id": 9257,
+        "jobId": 11594,
+        "number": 1,
+        "state": "succeeded",
+        "maxParallelRuns": 1,
+        "exitCode": 0,
+        "createdAt": 1791180473445,
+        "finishedAt": 1791180479139,
+        "logDir": "/home/marvin/.local/state/mlqueue/attempts/9257"
+      }
+    ]
+  },
+  "conclusion": {
+    "best_tested_anvil": {
+      "variant": "sepclip_anvil2_v4_anvil_half",
+      "job": 11568,
+      "precision": "bf16",
+      "matrix_lr": 0.0025,
+      "final_100_return": 8345.413642578125,
+      "gain_vs_adam": 64.23545898437442,
+      "percent_vs_adam": 0.7756801938114899
+    },
+    "interpretation": "Anvil recovers the historical NorMuon deficit and slightly exceeds Adam in the final 100-episode window on this seed, but has not established consistent or robust superiority. At the common 7.9M trailing 200k-step window, Anvil half is 8271.0 versus Adam 8308.7; early training also lags Adam.",
+    "normuon": "Momentum .85 at LR .005 reaches 8189.4 versus 5906.6 for historical longer-axis .95, a 38.65% increase. LR .0025 with .95 reaches 6932.2; higher LR .01 is culled. Faster tracking is promising evidence, not proof of a newly fixed algebra bug.",
+    "fasttracking_v5": "Constant .85 Anvil fast EMA/lookahead reaches 8171.4, 174.0 below v4 half and below it at every recorded matched step. Reject this schedule as an improvement for this configuration and seed; retain v4 as best tested.",
+    "precision": "FP32 .005 is culled at 6,237,008 steps after low 4M/6M checkpoints; no final 8M comparison is available. This negative training evidence does not support numerical idealization as a rescue.",
+    "frontier": "All 19 candidates have negative final heldout lambda=1 surrogate gain after 10 epochs. Lower rates reduce exact KL; cold Anvil is not warm Anvil, and frozen replay is not evidence of fresh-training returns. Three heldout chunks are not independent seeds.",
+    "mechanism": "Weak-mode amplification and gradient-history lag remain plausible explanations. The low-rate and momentum contrasts do not isolate a single causal mechanism; no further gross v3 NorMuon algebra bug was established.",
+    "iteration_decision": "No additional iteration warranted by this evidence. Retain best v4 BF16 LR .0025; archive failed constant-fasttracking v5. No assertion that optimizer scheduling or role rates are globally optimal.",
+    "limitations": [
+      "Only HalfCheetah-v4, seed 1; no cross-seed or cross-environment robustness.",
+      "Candidate selection and culling use the same reference; marginal gains and final-window selection are not significance tests.",
+      "Historical baselines verified succeeded; shared-runtime mtime provenance supports compatibility but is not historical content-hash proof.",
+      "Terminal latest optimizer metrics occur under late learning-rate annealing; they are not late-window averages and should not replace the prior interval-level clipfraction/KL evidence."
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "captured_at": 1791340194.4502826,
+  "rows": [
+    {
+      "id": 11876,
+      "state": "succeeded",
+      "attempt": 9464,
+      "exit_code": 0,
+      "junit": "benchmarks/sepclip_prescription_v14/contracts_v14.xml",
+      "junit_sha256": "66c47139aa3f02ea33c6d09edd95559162ba266e71a0f070ed6ea24177772f7b",
+      "case_count": 9,
+      "failures": [],
+      "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v14_contracts_1791340065235776849.json",
+      "execution_manifest_sha256": "99c5f50cafb63b349d53eb09eb80d91360d28b5bf988687862bb325571f3dc90",
+      "checked_source_count": 51,
+      "discrepancies": []
+    },
+    {
+      "id": 11877,
+      "state": "failed",
+      "attempt": 9465,
+      "exit_code": 1,
+      "junit": "benchmarks/sepclip_prescription_v14/contracts_v15.xml",
+      "junit_sha256": "32f70dd3899f63456748da55ebc32d2bc394b66b0d3ec3cf27d8e061889330aa",
+      "case_count": 11,
+      "failures": [
+        {
+          "name": "test_finite_endpoint_parallel_transport_is_tangent_isometric_and_reversible[0]",
+          "failure": "TypeError: tangent_projection() missing 1 required positional argument: 'dim'"
+        },
+        {
+          "name": "test_finite_endpoint_parallel_transport_is_tangent_isometric_and_reversible[1]",
+          "failure": "TypeError: tangent_projection() missing 1 required positional argument: 'dim'"
+        }
+      ],
+      "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v15_contracts_1791340096424816050.json",
+      "execution_manifest_sha256": "de20ce6886255d34b072398ff79a05b1e124bdf1d6a053582d1a745fc0a891b9",
+      "checked_source_count": 51,
+      "discrepancies": []
+    }
+  ],
+  "failure_scope": "v15 test line45 omitted required dim in negative projection witness; preceding transport assertions pass. Original trainer/test/manifests preserved; test-only v2 pending. No algorithmic v15 failure established.",
+  "skipped_preserved": [
+    11881,
+    11882,
+    11883
+  ]
+}

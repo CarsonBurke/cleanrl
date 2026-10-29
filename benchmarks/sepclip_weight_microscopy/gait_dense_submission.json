@@ -1,0 +1,55 @@
+{
+  "id": 11773,
+  "name": "sepclip_microscopy_gait_dense",
+  "state": "queued",
+  "eligibility": "waiting_for_dependencies: jobs [11765, 11770]",
+  "maxParallelRuns": 1,
+  "priority": 0,
+  "cwd": "/home/marvin/Documents/repositories/cleanrl",
+  "args": [
+    ".venv/bin/python",
+    "-u",
+    "scripts/run_sepclip_microscopy.py",
+    "--name",
+    "sepclip_microscopy_gait_dense",
+    "--source",
+    "scripts/audit_sepclip_gait.py",
+    "--output-json",
+    "benchmarks/sepclip_weight_microscopy/gait_dense.json",
+    "--",
+    ".venv/bin/python",
+    "-u",
+    "scripts/audit_sepclip_gait.py",
+    "--dense-oracle",
+    "benchmarks/sepclip_weight_microscopy/dense_pg_controls.json",
+    "--snapshot",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_4013696.pt",
+    "--snapshot",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_7995008.pt",
+    "--snapshot",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_4013696.pt",
+    "--snapshot",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_7995008.pt",
+    "--out",
+    "benchmarks/sepclip_weight_microscopy/gait_dense.json"
+  ],
+  "maxAttempts": 1,
+  "retryDelayMs": 0,
+  "timeLimitMs": 2700000,
+  "attemptCount": 0,
+  "createdAt": 1791261887850,
+  "updatedAt": 1791261887850,
+  "dependencies": [
+    {
+      "parent": 11765,
+      "condition": "succeeded",
+      "parentState": "queued"
+    },
+    {
+      "parent": 11770,
+      "condition": "succeeded",
+      "parentState": "queued"
+    }
+  ],
+  "attempts": []
+}

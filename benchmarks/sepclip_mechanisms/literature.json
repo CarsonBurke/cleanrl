@@ -1,0 +1,23 @@
+{
+  "sources": [
+    {
+      "title": "Muon: An optimizer for hidden layers in neural networks",
+      "url": "https://kellerjordan.github.io/posts/muon/",
+      "relevance": "Uniform spectral whitening promotes weak modes. The original author treats their usefulness as a hypothesis; PPO need not share pretraining gradient statistics."
+    },
+    {
+      "title": "Rethinking Muon Beyond Pretraining: Spectral Failures and High-Pass Remedies for VLA and RLVR",
+      "url": "https://arxiv.org/html/2605.19282v1",
+      "relevance": "A 2026 preprint reports noise amplification in VLA and RLVR and proposes spectral filtering. This motivates a discriminating test; its post-training benchmarks do not establish anything about fresh MuJoCo PPO."
+    },
+    {
+      "title": "Scalable trust-region method for deep reinforcement learning using Kronecker-factored approximation",
+      "url": "https://arxiv.org/abs/1708.05144",
+      "relevance": "ACKTR motivates using policy curvature and trust regions. A Kronecker approximation remains distinct from exact per-sample Fisher geometry and measured policy KL."
+    }
+  ],
+  "limitations": [
+    "External research motivates hypotheses and is not local benchmark evidence.",
+    "No universal optimizer superiority is assumed."
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "captured_at": 1791335509.9198506,
+  "contracts": [
+    {
+      "id": 11774,
+      "state": "succeeded",
+      "tests_passed": 4,
+      "execution_manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_chart_numerics_contracts_1791334852719693525.json",
+      "exit_code": 0,
+      "test_source_discrepancies": {},
+      "scope": "Numerical contracts; no causal benchmark or physical PG reliability inferred",
+      "relevant_source_discrepancies": {},
+      "relevant_sources_checked": 46
+    },
+    {
+      "id": 11776,
+      "state": "succeeded",
+      "tests_passed": 22,
+      "execution_manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_oracle_rank_contracts_1791334863668302402.json",
+      "exit_code": 0,
+      "test_source_discrepancies": {},
+      "scope": "Numerical contracts; no causal benchmark or physical PG reliability inferred",
+      "relevant_source_discrepancies": {},
+      "relevant_sources_checked": 47
+    },
+    {
+      "id": 11810,
+      "state": "succeeded",
+      "tests_passed": 1,
+      "execution_manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_normuon_parity_contract_1791334889469102923.json",
+      "exit_code": 0,
+      "test_source_discrepancies": {},
+      "scope": "Numerical contracts; no causal benchmark or physical PG reliability inferred",
+      "relevant_source_discrepancies": {},
+      "relevant_sources_checked": 44
+    },
+    {
+      "id": 11826,
+      "state": "succeeded",
+      "tests_passed": 5,
+      "execution_manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_strong_reference_contract_1791334904615175106.json",
+      "exit_code": 0,
+      "test_source_discrepancies": {},
+      "scope": "Numerical contracts; no causal benchmark or physical PG reliability inferred",
+      "relevant_source_discrepancies": {},
+      "relevant_sources_checked": 46
+    }
+  ]
+}

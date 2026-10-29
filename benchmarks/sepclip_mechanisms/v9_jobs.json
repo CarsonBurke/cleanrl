@@ -1,0 +1,24 @@
+{
+  "contracts": 11682,
+  "review": "Independent static review found no blocking issue; CUDA4contracts passed. Only validation text/early CLI checks changed afterward.",
+  "jobs": [
+    {
+      "id": 11683,
+      "name": "sepclip_mechanisms_sample_fisher_anvil_v9",
+      "maxParallelRuns": 1,
+      "contract_dependency": 11682
+    },
+    {
+      "id": 11684,
+      "name": "sepclip_mechanisms_sample_fisher_adam_v9",
+      "maxParallelRuns": 1,
+      "contract_dependency": 11682
+    },
+    {
+      "id": 11685,
+      "name": "sepclip_mechanisms_kfac_radius_control_v9",
+      "maxParallelRuns": 1,
+      "contract_dependency": 11682
+    }
+  ]
+}

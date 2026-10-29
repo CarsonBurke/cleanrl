@@ -1,0 +1,4550 @@
+{
+  "fisher_numerical_contract": {
+    "arithmetic": "CUDA FP64 fixed32 recurrence + B14 asymptotic; stable paired differences",
+    "shift": 32,
+    "first_omitted_coefficient": "B16=-3617/510",
+    "maximum_entry_absolute_error_budget": 9.290220087199518e-14,
+    "minimum_normalized_small_mode_gap_lower": 0.010925191499997822,
+    "minimum_true_normalized_small_mode_gap_lower": 0.010925191499884756,
+    "maximum_conditional_relative_quadratic_error": 1.0349092060342478e-11,
+    "relative_quadratic_error_denominator": "Exact mathematical Fisher quadratic, not computed quadratic: eta/(gap_lower-eta)",
+    "retained_relative_quadratic_error_limit": 0.01,
+    "scope": "Conditional engineering bound assuming standard RN FP64 elementary arithmetic and gradual underflow; independently validate on queued CUDA references. Not a hardware proof."
+  },
+  "layer_partition": {
+    "readout_gain": [
+      "readout_gain"
+    ],
+    "trunk.in_proj": [
+      "trunk.in_proj.weight",
+      "trunk.in_proj.bias"
+    ],
+    "trunk.blocks.0.gate": [
+      "trunk.blocks.0.gate.weight"
+    ],
+    "trunk.blocks.0.up": [
+      "trunk.blocks.0.up.weight"
+    ],
+    "trunk.blocks.0.down": [
+      "trunk.blocks.0.down.weight"
+    ],
+    "trunk.blocks.1.gate": [
+      "trunk.blocks.1.gate.weight"
+    ],
+    "trunk.blocks.1.up": [
+      "trunk.blocks.1.up.weight"
+    ],
+    "trunk.blocks.1.down": [
+      "trunk.blocks.1.down.weight"
+    ],
+    "trunk.block_gates.0": [
+      "trunk.block_gates.0"
+    ],
+    "trunk.block_gates.1": [
+      "trunk.block_gates.1"
+    ],
+    "head.0": [
+      "head.0.weight",
+      "head.0.bias"
+    ]
+  },
+  "chords": {
+    "first": {
+      "layer_order": [
+        "readout_gain",
+        "trunk.in_proj",
+        "trunk.blocks.0.gate",
+        "trunk.blocks.0.up",
+        "trunk.blocks.0.down",
+        "trunk.blocks.1.gate",
+        "trunk.blocks.1.up",
+        "trunk.blocks.1.down",
+        "trunk.block_gates.0",
+        "trunk.block_gates.1",
+        "head.0"
+      ],
+      "full_joint_shape_fisher_gram": [
+        [
+          6.387154141630593e-07,
+          6.6564326579420104e-06,
+          1.423706699665709e-06,
+          3.545465002233856e-06,
+          5.704668573202514e-06,
+          7.567683968124359e-07,
+          2.071623625833135e-06,
+          5.182534133130249e-06,
+          1.3725418954065835e-08,
+          7.486549692430538e-08,
+          4.333249555498935e-06
+        ],
+        [
+          6.656432657942012e-06,
+          0.0017213180289629216,
+          0.0003772192300976148,
+          0.0004610752029517862,
+          0.0006961041127200078,
+          0.00017858623431184591,
+          0.0002621905953550564,
+          0.0005524995935180913,
+          2.744365376068683e-06,
+          8.958344339113846e-06,
+          0.00030592609499196084
+        ],
+        [
+          1.4237066996657083e-06,
+          0.0003772192300976148,
+          0.0001371324157437984,
+          0.00012045600507260634,
+          0.00019957659626539405,
+          4.933989573567546e-05,
+          7.976159081327496e-05,
+          0.00017412912173690642,
+          7.645541806589107e-07,
+          1.9849878852632642e-06,
+          8.998053702148544e-05
+        ],
+        [
+          3.545465002233858e-06,
+          0.00046107520295178605,
+          0.00012045600507260638,
+          0.00019873573191090194,
+          0.0002947130088142307,
+          5.904058906185152e-05,
+          0.00012090500863696852,
+          0.000288966255790411,
+          2.2897490702037595e-06,
+          4.444041632596522e-06,
+          0.0001758191805345202
+        ],
+        [
+          5.704668573202514e-06,
+          0.0006961041127200078,
+          0.00019957659626539397,
+          0.00029471300881423075,
+          0.0005576501966680304,
+          0.00011277246301302676,
+          0.0002241494650313574,
+          0.000551739044390046,
+          4.827456974085944e-06,
+          7.681165153595943e-06,
+          0.000361712217588121
+        ],
+        [
+          7.567683968124355e-07,
+          0.00017858623431184597,
+          4.933989573567548e-05,
+          5.9040589061851533e-05,
+          0.00011277246301302672,
+          4.271687464252297e-05,
+          3.883886081431646e-05,
+          9.333072830038834e-05,
+          7.974376487666382e-07,
+          1.104049056558226e-06,
+          6.346665815914434e-05
+        ],
+        [
+          2.0716236258331347e-06,
+          0.00026219059535505625,
+          7.976159081327497e-05,
+          0.00012090500863696855,
+          0.0002241494650313574,
+          3.883886081431647e-05,
+          0.00011493832082492038,
+          0.0002711491970807954,
+          2.402873626155211e-06,
+          4.238977782302249e-06,
+          0.00018110916420835722
+        ],
+        [
+          5.182534133130251e-06,
+          0.0005524995935180909,
+          0.00017412912173690652,
+          0.00028896625579041097,
+          0.0005517390443900463,
+          9.333072830038832e-05,
+          0.00027114919708079547,
+          0.0007928186903285324,
+          6.31457596668038e-06,
+          1.1664716620465384e-05,
+          0.0005619438651202926
+        ],
+        [
+          1.3725418954065792e-08,
+          2.744365376068683e-06,
+          7.645541806589105e-07,
+          2.2897490702037586e-06,
+          4.827456974085945e-06,
+          7.974376487666379e-07,
+          2.4028736261552113e-06,
+          6.314575966680383e-06,
+          2.552703083708787e-07,
+          1.7331397026392581e-07,
+          5.4411466726594314e-06
+        ],
+        [
+          7.486549692430548e-08,
+          8.958344339113856e-06,
+          1.9849878852632655e-06,
+          4.444041632596521e-06,
+          7.681165153595945e-06,
+          1.1040490565582237e-06,
+          4.238977782302247e-06,
+          1.166471662046538e-05,
+          1.7331397026392566e-07,
+          3.303285485281149e-07,
+          9.437445967413905e-06
+        ],
+        [
+          4.333249555498932e-06,
+          0.00030592609499196084,
+          8.998053702148539e-05,
+          0.00017581918053452038,
+          0.0003617122175881213,
+          6.346665815914431e-05,
+          0.00018110916420835722,
+          0.0005619438651202928,
+          5.441146672659431e-06,
+          9.437445967413904e-06,
+          0.0005158981452065012
+        ]
+      ],
+      "diagonal_energy_sum": 0.004082432718559192,
+      "cross_term_sum": 0.014103065517237164,
+      "joint_energy": 0.018185498235796356,
+      "summed_layer_response_energy": 0.01818549823579636,
+      "gram_sum_vs_summed_layer_energy_abs_error": 3.469446951953614e-18,
+      "gram_symmetry_max_abs_error": 3.2526065174565133e-19,
+      "gram_numerical_min_eigenvalue": 7.947469959421867e-08,
+      "independent_full_jvp_energy": 0.01818549818301347,
+      "joint_vs_full_jvp_energy_abs_error": 5.2782885701097015e-11,
+      "layer_sum_vs_full_shape_jvp_l2_error": 9.502327091549424e-06,
+      "layer_sum_vs_full_logit_jvp_l2_error": 9.900314712817044e-06,
+      "layer_logit_jvp_norms": {
+        "readout_gain": 0.8975395368833933,
+        "trunk.in_proj": 24.403437656773324,
+        "trunk.blocks.0.gate": 6.968945961003978,
+        "trunk.blocks.0.up": 7.714403654937251,
+        "trunk.blocks.0.down": 12.608073983613114,
+        "trunk.blocks.1.gate": 3.570215245975658,
+        "trunk.blocks.1.up": 5.161993043950778,
+        "trunk.blocks.1.down": 12.249766968116019,
+        "trunk.block_gates.0": 0.2793397923531799,
+        "trunk.block_gates.1": 0.6933014806544142,
+        "head.0": 10.938238881401519
+      },
+      "old_stored_clipped_ppo_ascent_credit_by_layer": {
+        "readout_gain": 1.912786114929843e-06,
+        "trunk.in_proj": 0.0003492240305965329,
+        "trunk.blocks.0.gate": 0.00010457034602647998,
+        "trunk.blocks.0.up": 0.0001122399770961418,
+        "trunk.blocks.0.down": 0.00018499289539949907,
+        "trunk.blocks.1.gate": 6.48947009747388e-05,
+        "trunk.blocks.1.up": 7.274607825848904e-05,
+        "trunk.blocks.1.down": 0.00012163313155075655,
+        "trunk.block_gates.0": 1.0104099148236208e-06,
+        "trunk.block_gates.1": 1.1485001924007058e-06,
+        "head.0": 7.908746756796688e-05
+      },
+      "old_stored_clipped_ppo_ascent_credit_full": 0.0010934603236927593,
+      "finite_actual_old_to_bank_kl": 0.009192525120487743,
+      "first_order_half_fisher_energy": 0.009092749117898178,
+      "full_logit_jvp_norm": 66.42316491621618,
+      "finite_actual_logit_delta_norm": 66.51151913212603,
+      "finite_minus_linear_logit_l2_error": 0.36698120939539025,
+      "finite_minus_linear_relative_to_jvp": 0.005524897975853565,
+      "zero_finite_logit_response_elements": 1,
+      "rounded_shape_floor_counts": {
+        "alpha": {
+          "old": 576,
+          "bank": 557
+        },
+        "beta": {
+          "old": 0,
+          "bank": 0
+        }
+      }
+    },
+    "endpoint": {
+      "layer_order": [
+        "readout_gain",
+        "trunk.in_proj",
+        "trunk.blocks.0.gate",
+        "trunk.blocks.0.up",
+        "trunk.blocks.0.down",
+        "trunk.blocks.1.gate",
+        "trunk.blocks.1.up",
+        "trunk.blocks.1.down",
+        "trunk.block_gates.0",
+        "trunk.block_gates.1",
+        "head.0"
+      ],
+      "full_joint_shape_fisher_gram": [
+        [
+          2.358842706306863e-05,
+          -3.61814618278443e-05,
+          -4.4842102859939094e-05,
+          2.0675948888417728e-05,
+          3.282398447950359e-05,
+          1.3062313655992685e-05,
+          4.323330556388296e-06,
+          3.896256883840461e-05,
+          2.407845260012444e-06,
+          3.4082981690050666e-06,
+          -2.883684287849761e-05
+        ],
+        [
+          -3.618146182784431e-05,
+          0.0060894138347613236,
+          0.0009351580164185197,
+          0.0006185659472830933,
+          0.00013841524172680662,
+          0.00020673483875392488,
+          0.00019375219772454024,
+          0.0001394322987554734,
+          -8.150057119366427e-06,
+          2.2021378118883276e-06,
+          -0.00035957317883668534
+        ],
+        [
+          -4.4842102859939094e-05,
+          0.0009351580164185195,
+          0.0017098692852287063,
+          0.00013801266500453215,
+          0.0003180718862571605,
+          -1.83985061745674e-05,
+          -1.641221950896025e-05,
+          -0.000359404943252767,
+          -2.17338247886048e-05,
+          6.952638672465904e-06,
+          -0.00014523891516430838
+        ],
+        [
+          2.0675948888417728e-05,
+          0.0006185659472830933,
+          0.00013801266500453215,
+          0.0010683792616267408,
+          0.0003298301679133919,
+          0.00024815803359153245,
+          3.6887232368130794e-05,
+          -0.00011899134504620931,
+          2.3703960239633684e-05,
+          -1.0787938106945075e-05,
+          -0.00023657172731632263
+        ],
+        [
+          3.282398447950359e-05,
+          0.00013841524172680675,
+          0.0003180718862571605,
+          0.0003298301679133921,
+          0.002173821163973376,
+          0.0005065246822512138,
+          0.00037262479376618077,
+          0.00019172540023255138,
+          3.649440006332379e-05,
+          1.5713799649946106e-05,
+          -1.0910819581321842e-06
+        ],
+        [
+          1.3062313655992704e-05,
+          0.00020673483875392488,
+          -1.8398506174567385e-05,
+          0.0002481580335915325,
+          0.000506524682251214,
+          0.0005535877791860695,
+          6.665014126067194e-05,
+          1.6926353635003368e-05,
+          1.8590584798222414e-05,
+          -6.80910649319663e-06,
+          -7.155788991846007e-05
+        ],
+        [
+          4.3233305563882884e-06,
+          0.00019375219772454005,
+          -1.641221950896031e-05,
+          3.688723236813077e-05,
+          0.0003726247937661809,
+          6.665014126067194e-05,
+          0.0004699058109890254,
+          0.00034715814592562485,
+          5.125704542219947e-06,
+          9.883982944514826e-06,
+          0.0002590624488118383
+        ],
+        [
+          3.896256883840459e-05,
+          0.0001394322987554735,
+          -0.00035940494325276687,
+          -0.00011899134504620922,
+          0.0001917254002325514,
+          1.69263536350033e-05,
+          0.0003471581459256247,
+          0.001207426449675365,
+          -6.936082614341307e-06,
+          2.690255483896015e-05,
+          0.001054707308632141
+        ],
+        [
+          2.4078452600124454e-06,
+          -8.15005711936644e-06,
+          -2.1733824788604788e-05,
+          2.370396023963368e-05,
+          3.649440006332377e-05,
+          1.859058479822242e-05,
+          5.125704542219958e-06,
+          -6.936082614341297e-06,
+          1.9972691360733285e-05,
+          -2.2986097472761905e-06,
+          -4.855710290572414e-05
+        ],
+        [
+          3.408298169005066e-06,
+          2.2021378118883212e-06,
+          6.952638672465885e-06,
+          -1.0787938106945075e-05,
+          1.571379964994609e-05,
+          -6.809106493196619e-06,
+          9.883982944514816e-06,
+          2.6902554838960127e-05,
+          -2.2986097472761893e-06,
+          1.0378909218087702e-05,
+          7.689586092196385e-05
+        ],
+        [
+          -2.8836842878497592e-05,
+          -0.0003595731788366854,
+          -0.0001452389151643082,
+          -0.00023657172731632255,
+          -1.0910819581326433e-06,
+          -7.155788991845993e-05,
+          0.0002590624488118382,
+          0.0010547073086321418,
+          -4.855710290572413e-05,
+          7.689586092196387e-05,
+          0.0036647916725387683
+        ]
+      ],
+      "diagonal_energy_sum": 0.016991135285621264,
+      "cross_term_sum": 0.009828309556250091,
+      "joint_energy": 0.026819444841871355,
+      "summed_layer_response_energy": 0.02681944484187136,
+      "gram_sum_vs_summed_layer_energy_abs_error": 3.469446951953614e-18,
+      "gram_symmetry_max_abs_error": 6.505213034913027e-19,
+      "gram_numerical_min_eigenvalue": 6.858154148497172e-06,
+      "independent_full_jvp_energy": 0.02681944473759153,
+      "joint_vs_full_jvp_energy_abs_error": 1.0427982435889938e-10,
+      "layer_sum_vs_full_shape_jvp_l2_error": 2.0361726542360322e-05,
+      "layer_sum_vs_full_logit_jvp_l2_error": 2.099190226937625e-05,
+      "layer_logit_jvp_norms": {
+        "readout_gain": 7.345255424375178,
+        "trunk.in_proj": 50.33009412847708,
+        "trunk.blocks.0.gate": 24.268943607531103,
+        "trunk.blocks.0.up": 20.921488997401003,
+        "trunk.blocks.0.down": 29.480467501411567,
+        "trunk.blocks.1.gate": 15.68507745189482,
+        "trunk.blocks.1.up": 17.378263984619085,
+        "trunk.blocks.1.down": 22.34491614183682,
+        "trunk.block_gates.0": 2.5557379496448385,
+        "trunk.block_gates.1": 6.170167027434002,
+        "head.0": 56.377444067748804
+      },
+      "old_stored_clipped_ppo_ascent_credit_by_layer": {
+        "readout_gain": 1.3056256936969102e-05,
+        "trunk.in_proj": 0.0010592661912365484,
+        "trunk.blocks.0.gate": 0.0005115023877473509,
+        "trunk.blocks.0.up": 0.00043465069885178164,
+        "trunk.blocks.0.down": 0.000756065421890754,
+        "trunk.blocks.1.gate": 0.00034607514339122397,
+        "trunk.blocks.1.up": 0.0003276532447668123,
+        "trunk.blocks.1.down": 0.00027765600801063354,
+        "trunk.block_gates.0": 9.294072850662429e-06,
+        "trunk.block_gates.1": 6.324125362654003e-06,
+        "head.0": 0.00026575146839752156
+      },
+      "old_stored_clipped_ppo_ascent_credit_full": 0.004007295019442912,
+      "finite_actual_old_to_bank_kl": 0.013377034911033559,
+      "first_order_half_fisher_energy": 0.013409722420935678,
+      "full_logit_jvp_norm": 120.11451473666065,
+      "finite_actual_logit_delta_norm": 119.90294236116945,
+      "finite_minus_linear_logit_l2_error": 3.018630302626553,
+      "finite_minus_linear_relative_to_jvp": 0.025131270015489846,
+      "zero_finite_logit_response_elements": 0,
+      "rounded_shape_floor_counts": {
+        "alpha": {
+          "old": 576,
+          "bank": 642
+        },
+        "beta": {
+          "old": 0,
+          "bank": 0
+        }
+      }
+    }
+  },
+  "epoch_trace": [
+    {
+      "epoch": 0,
+      "update": 0,
+      "layers": {
+        "readout_gain": {
+          "parameter_names": [
+            "readout_gain"
+          ],
+          "constraint_axes": {
+            "readout_gain": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 5.075238672500422,
+          "gradient_after_clip_norm": 0.010525198381102658,
+          "ambient_delta_norm": 0.00041340587099873244,
+          "retracted_delta_norm": 0.00041340587099873244,
+          "actual_relative_weight_motion": 8.145545415208215e-05,
+          "negative_clipped_loss_gradient_dot_ambient": 1.9127939534721583e-06,
+          "negative_clipped_loss_gradient_dot_actual": 1.9127939534721583e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.in_proj": {
+          "parameter_names": [
+            "trunk.in_proj.weight",
+            "trunk.in_proj.bias"
+          ],
+          "constraint_axes": {
+            "trunk.in_proj.weight": null,
+            "trunk.in_proj.bias": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.951482635020662,
+          "gradient_after_clip_norm": 0.031413492304950906,
+          "ambient_delta_norm": 0.020706752836762984,
+          "retracted_delta_norm": 0.020706752836762984,
+          "actual_relative_weight_motion": 0.0020807706345075676,
+          "negative_clipped_loss_gradient_dot_ambient": 0.0003492241065293155,
+          "negative_clipped_loss_gradient_dot_actual": 0.0003492241065293155,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.in_proj.weight": {
+              "frobenius": 9.871711215970402,
+              "row_l2_min": 0.7568337009627415,
+              "row_l2_max": 1.6919143702381523,
+              "column_l2_min": 1.2237159623901683,
+              "column_l2_max": 3.5717800635346246
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.gate": {
+          "parameter_names": [
+            "trunk.blocks.0.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.453260390947518,
+          "gradient_after_clip_norm": 0.017363194223127945,
+          "ambient_delta_norm": 0.011405459617762601,
+          "retracted_delta_norm": 0.011405459617762601,
+          "actual_relative_weight_motion": 0.0013492379378229674,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00010457031285604627,
+          "negative_clipped_loss_gradient_dot_actual": 0.00010457031285604627,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.gate.weight": {
+              "frobenius": 8.453260390947518,
+              "row_l2_min": 1.1230608315424395,
+              "row_l2_max": 1.5453432883845906,
+              "column_l2_min": 0.7701963849792829,
+              "column_l2_max": 1.3860693548726766
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.up": {
+          "parameter_names": [
+            "trunk.blocks.0.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.35724104848267,
+          "gradient_after_clip_norm": 0.018580230588305584,
+          "ambient_delta_norm": 0.01157927279146913,
+          "retracted_delta_norm": 0.01157927279146913,
+          "actual_relative_weight_motion": 0.0012374665493251106,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00011224005319000182,
+          "negative_clipped_loss_gradient_dot_actual": 0.00011224005319000182,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.up.weight": {
+              "frobenius": 9.35724104848267,
+              "row_l2_min": 1.1839156330695786,
+              "row_l2_max": 1.6212812416862192,
+              "column_l2_min": 0.8656322416286147,
+              "column_l2_max": 1.457415813570814
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.down": {
+          "parameter_names": [
+            "trunk.blocks.0.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.705321038872386,
+          "gradient_after_clip_norm": 0.02374005693916212,
+          "ambient_delta_norm": 0.02004796643646486,
+          "retracted_delta_norm": 0.02004796643646486,
+          "actual_relative_weight_motion": 0.0023029554392013218,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00018499294689361281,
+          "negative_clipped_loss_gradient_dot_actual": 0.00018499294689361281,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.down.weight": {
+              "frobenius": 8.705321038872386,
+              "row_l2_min": 0.7284802609895253,
+              "row_l2_max": 1.3779703492432518,
+              "column_l2_min": 1.1070003158560628,
+              "column_l2_max": 1.540889889515392
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.gate": {
+          "parameter_names": [
+            "trunk.blocks.1.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.00541137595599,
+          "gradient_after_clip_norm": 0.010408634936345685,
+          "ambient_delta_norm": 0.016670288646592913,
+          "retracted_delta_norm": 0.016670288646592913,
+          "actual_relative_weight_motion": 0.001388564550147742,
+          "negative_clipped_loss_gradient_dot_ambient": 6.489470266593724e-05,
+          "negative_clipped_loss_gradient_dot_actual": 6.489470266593724e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.gate.weight": {
+              "frobenius": 12.00541137595599,
+              "row_l2_min": 1.4760999513148714,
+              "row_l2_max": 2.176588769971838,
+              "column_l2_min": 1.0477484673054147,
+              "column_l2_max": 1.8488749373533484
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.up": {
+          "parameter_names": [
+            "trunk.blocks.1.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.976367894277322,
+          "gradient_after_clip_norm": 0.01107392532308433,
+          "ambient_delta_norm": 0.016650726189082723,
+          "retracted_delta_norm": 0.016650726189082723,
+          "actual_relative_weight_motion": 0.0012831576851659564,
+          "negative_clipped_loss_gradient_dot_ambient": 7.274612219002158e-05,
+          "negative_clipped_loss_gradient_dot_actual": 7.274612219002158e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.up.weight": {
+              "frobenius": 12.976367894277322,
+              "row_l2_min": 1.4574516466280454,
+              "row_l2_max": 2.590600756533755,
+              "column_l2_min": 1.3063737569802596,
+              "column_l2_max": 1.9380844311822831
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.down": {
+          "parameter_names": [
+            "trunk.blocks.1.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.653166248506702,
+          "gradient_after_clip_norm": 0.02286642198949738,
+          "ambient_delta_norm": 0.011293243267650558,
+          "retracted_delta_norm": 0.011293243267650558,
+          "actual_relative_weight_motion": 0.0014756302033624466,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00012163326654650169,
+          "negative_clipped_loss_gradient_dot_actual": 0.00012163326654650169,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.down.weight": {
+              "frobenius": 7.653166248506702,
+              "row_l2_min": 0.72790535638451,
+              "row_l2_max": 1.2286398900176456,
+              "column_l2_min": 0.6872074303288735,
+              "column_l2_max": 1.667469702582512
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.0": {
+          "parameter_names": [
+            "trunk.block_gates.0"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.0": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.081785559730116,
+          "gradient_after_clip_norm": 0.0028566062951938765,
+          "ambient_delta_norm": 0.0012443180163874846,
+          "retracted_delta_norm": 0.0012443180163874846,
+          "actual_relative_weight_motion": 0.00013701248594824364,
+          "negative_clipped_loss_gradient_dot_ambient": 1.0104109813843603e-06,
+          "negative_clipped_loss_gradient_dot_actual": 1.0104109813843603e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.1": {
+          "parameter_names": [
+            "trunk.block_gates.1"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.1": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.844844803132365,
+          "gradient_after_clip_norm": 0.0030355935726425866,
+          "ambient_delta_norm": 0.001238874952328827,
+          "retracted_delta_norm": 0.001238874952328827,
+          "actual_relative_weight_motion": 0.0001579221748063336,
+          "negative_clipped_loss_gradient_dot_ambient": 1.1485027276022467e-06,
+          "negative_clipped_loss_gradient_dot_actual": 1.1485027276022467e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "head.0": {
+          "parameter_names": [
+            "head.0.weight",
+            "head.0.bias"
+          ],
+          "constraint_axes": {
+            "head.0.weight": 1,
+            "head.0.bias": null
+          },
+          "geometry": "mixed",
+          "reconstructed_weight_norm": 3.510438586510655,
+          "gradient_after_clip_norm": 0.05085223056409452,
+          "ambient_delta_norm": 0.004245116419421647,
+          "retracted_delta_norm": 0.004018666616480139,
+          "actual_relative_weight_motion": 0.0011447762202484956,
+          "negative_clipped_loss_gradient_dot_ambient": 8.404353742882834e-05,
+          "negative_clipped_loss_gradient_dot_actual": 7.908764401280768e-05,
+          "normalization_correction_norm": 0.0013664563946938933,
+          "matrix_weight_norms": {
+            "head.0.weight": {
+              "frobenius": 3.4641015429410293,
+              "row_l2_min": 0.9999999161070058,
+              "row_l2_max": 1.0000000696398403,
+              "column_l2_min": 0.24661875838495356,
+              "column_l2_max": 0.6421744425340058
+            }
+          },
+          "constrained_decomposition": {
+            "head.0.weight": {
+              "axis": 1,
+              "clipped_gradient_normal_norm": 0.015198888136437855,
+              "clipped_gradient_tangent_norm": 0.04851460968609096,
+              "reconstructed_axis_unit_max_abs_error": 8.389299421818208e-08
+            }
+          }
+        }
+      },
+      "matrix_geometry": "ambient",
+      "matrix_delta_stage": "ambient proposal before global normalization"
+    },
+    {
+      "epoch": 1,
+      "update": 1,
+      "layers": {
+        "readout_gain": {
+          "parameter_names": [
+            "readout_gain"
+          ],
+          "constraint_axes": {
+            "readout_gain": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 5.075520660624194,
+          "gradient_after_clip_norm": 0.006860120275928138,
+          "ambient_delta_norm": 0.00036164721219375463,
+          "retracted_delta_norm": 0.00036164721219375463,
+          "actual_relative_weight_motion": 7.125322432423688e-05,
+          "negative_clipped_loss_gradient_dot_ambient": 6.040267030854585e-07,
+          "negative_clipped_loss_gradient_dot_actual": 6.040267030854585e-07,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.in_proj": {
+          "parameter_names": [
+            "trunk.in_proj.weight",
+            "trunk.in_proj.bias"
+          ],
+          "constraint_axes": {
+            "trunk.in_proj.weight": null,
+            "trunk.in_proj.bias": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.951440277327707,
+          "gradient_after_clip_norm": 0.034958979556746025,
+          "ambient_delta_norm": 0.020472271694794267,
+          "retracted_delta_norm": 0.020472271694794267,
+          "actual_relative_weight_motion": 0.002057216957975027,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00037830462713781275,
+          "negative_clipped_loss_gradient_dot_actual": 0.00037830462713781275,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.in_proj.weight": {
+              "frobenius": 9.871688619208324,
+              "row_l2_min": 0.7556610529178046,
+              "row_l2_max": 1.6915043154325142,
+              "column_l2_min": 1.2251537577628528,
+              "column_l2_max": 3.570607279312601
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.gate": {
+          "parameter_names": [
+            "trunk.blocks.0.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.452837175085026,
+          "gradient_after_clip_norm": 0.024797600403185772,
+          "ambient_delta_norm": 0.011713734119564388,
+          "retracted_delta_norm": 0.011713734119564388,
+          "actual_relative_weight_motion": 0.001385775435742563,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00014597991394369,
+          "negative_clipped_loss_gradient_dot_actual": 0.00014597991394369,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.gate.weight": {
+              "frobenius": 8.452837175085026,
+              "row_l2_min": 1.1223022521070531,
+              "row_l2_max": 1.5455141729285833,
+              "column_l2_min": 0.7702461947130286,
+              "column_l2_max": 1.3860718110374375
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.up": {
+          "parameter_names": [
+            "trunk.blocks.0.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.356684554720903,
+          "gradient_after_clip_norm": 0.02421454370859211,
+          "ambient_delta_norm": 0.01190324837334585,
+          "retracted_delta_norm": 0.01190324837334585,
+          "actual_relative_weight_motion": 0.0012721651888264291,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00013787043365785356,
+          "negative_clipped_loss_gradient_dot_actual": 0.00013787043365785356,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.up.weight": {
+              "frobenius": 9.356684554720903,
+              "row_l2_min": 1.1842211746600022,
+              "row_l2_max": 1.6205166692057635,
+              "column_l2_min": 0.8657918179336888,
+              "column_l2_max": 1.457349706783985
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.down": {
+          "parameter_names": [
+            "trunk.blocks.0.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.70571434416712,
+          "gradient_after_clip_norm": 0.03825765489572964,
+          "ambient_delta_norm": 0.020196244049494418,
+          "retracted_delta_norm": 0.020196244049494418,
+          "actual_relative_weight_motion": 0.0023198836133448393,
+          "negative_clipped_loss_gradient_dot_ambient": 0.0002507562146310049,
+          "negative_clipped_loss_gradient_dot_actual": 0.0002507562146310049,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.down.weight": {
+              "frobenius": 8.70571434416712,
+              "row_l2_min": 0.7286365711169074,
+              "row_l2_max": 1.3781038368804241,
+              "column_l2_min": 1.1072812826290317,
+              "column_l2_max": 1.5406338510685544
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.gate": {
+          "parameter_names": [
+            "trunk.blocks.1.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.0058751530767,
+          "gradient_after_clip_norm": 0.01200832488245978,
+          "ambient_delta_norm": 0.016349034175808075,
+          "retracted_delta_norm": 0.016349034175808075,
+          "actual_relative_weight_motion": 0.0013617528058017805,
+          "negative_clipped_loss_gradient_dot_ambient": 7.896247131611131e-05,
+          "negative_clipped_loss_gradient_dot_actual": 7.896247131611131e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.gate.weight": {
+              "frobenius": 12.0058751530767,
+              "row_l2_min": 1.4761050059008247,
+              "row_l2_max": 2.177163406052732,
+              "column_l2_min": 1.0475486285502367,
+              "column_l2_max": 1.8486182060270497
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.up": {
+          "parameter_names": [
+            "trunk.blocks.1.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.977207422413807,
+          "gradient_after_clip_norm": 0.020411181547408355,
+          "ambient_delta_norm": 0.016346055181317678,
+          "retracted_delta_norm": 0.016346055181317678,
+          "actual_relative_weight_motion": 0.0012595972807743913,
+          "negative_clipped_loss_gradient_dot_ambient": 9.228917678836281e-05,
+          "negative_clipped_loss_gradient_dot_actual": 9.228917678836281e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.up.weight": {
+              "frobenius": 12.977207422413807,
+              "row_l2_min": 1.4575559137907967,
+              "row_l2_max": 2.5909082470518054,
+              "column_l2_min": 1.306371187026928,
+              "column_l2_max": 1.9385186026497279
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.down": {
+          "parameter_names": [
+            "trunk.blocks.1.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.653704903609713,
+          "gradient_after_clip_norm": 0.05143450569251601,
+          "ambient_delta_norm": 0.010993004650978282,
+          "retracted_delta_norm": 0.010993004650978282,
+          "actual_relative_weight_motion": 0.001436298471057286,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00019915497092870172,
+          "negative_clipped_loss_gradient_dot_actual": 0.00019915497092870172,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.down.weight": {
+              "frobenius": 7.653704903609713,
+              "row_l2_min": 0.727760574563005,
+              "row_l2_max": 1.228666875016105,
+              "column_l2_min": 0.6872862362980492,
+              "column_l2_max": 1.6673415329237877
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.0": {
+          "parameter_names": [
+            "trunk.block_gates.0"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.0": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.081561094581664,
+          "gradient_after_clip_norm": 0.005375860930201623,
+          "ambient_delta_norm": 0.00149513970919791,
+          "retracted_delta_norm": 0.00149513970919791,
+          "actual_relative_weight_motion": 0.00016463465847187393,
+          "negative_clipped_loss_gradient_dot_ambient": 4.087501985274369e-06,
+          "negative_clipped_loss_gradient_dot_actual": 4.087501985274369e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.1": {
+          "parameter_names": [
+            "trunk.block_gates.1"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.1": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.844161709463493,
+          "gradient_after_clip_norm": 0.0077306071381752885,
+          "ambient_delta_norm": 0.0013773931042700266,
+          "retracted_delta_norm": 0.0013773931042700266,
+          "actual_relative_weight_motion": 0.0001755946849754879,
+          "negative_clipped_loss_gradient_dot_ambient": 6.199471201137488e-06,
+          "negative_clipped_loss_gradient_dot_actual": 6.199471201137488e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "head.0": {
+          "parameter_names": [
+            "head.0.weight",
+            "head.0.bias"
+          ],
+          "constraint_axes": {
+            "head.0.weight": 1,
+            "head.0.bias": null
+          },
+          "geometry": "mixed",
+          "reconstructed_weight_norm": 3.510441018604951,
+          "gradient_after_clip_norm": 0.10988171437968353,
+          "ambient_delta_norm": 0.004633354483485312,
+          "retracted_delta_norm": 0.0043950252657573175,
+          "actual_relative_weight_motion": 0.0012519866428360902,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00018203564223103372,
+          "negative_clipped_loss_gradient_dot_actual": 0.00017844575661826815,
+          "normalization_correction_norm": 0.0014647233171586492,
+          "matrix_weight_norms": {
+            "head.0.weight": {
+              "frobenius": 3.4641015465313196,
+              "row_l2_min": 0.9999998841169437,
+              "row_l2_max": 1.0000000500340518,
+              "column_l2_min": 0.24677130564178218,
+              "column_l2_max": 0.6422368879719422
+            }
+          },
+          "constrained_decomposition": {
+            "head.0.weight": {
+              "axis": 1,
+              "clipped_gradient_normal_norm": 0.009760891982406717,
+              "clipped_gradient_tangent_norm": 0.10941848918452052,
+              "reconstructed_axis_unit_max_abs_error": 1.1588305626197837e-07
+            }
+          }
+        }
+      },
+      "matrix_geometry": "ambient",
+      "matrix_delta_stage": "ambient proposal before global normalization"
+    },
+    {
+      "epoch": 2,
+      "update": 2,
+      "layers": {
+        "readout_gain": {
+          "parameter_names": [
+            "readout_gain"
+          ],
+          "constraint_axes": {
+            "readout_gain": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 5.07580401344453,
+          "gradient_after_clip_norm": 0.008972066250123319,
+          "ambient_delta_norm": 0.000468752678975685,
+          "retracted_delta_norm": 0.000468752678975685,
+          "actual_relative_weight_motion": 9.235042916040038e-05,
+          "negative_clipped_loss_gradient_dot_ambient": 2.8203275635810265e-06,
+          "negative_clipped_loss_gradient_dot_actual": 2.8203275635810265e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.in_proj": {
+          "parameter_names": [
+            "trunk.in_proj.weight",
+            "trunk.in_proj.bias"
+          ],
+          "constraint_axes": {
+            "trunk.in_proj.weight": null,
+            "trunk.in_proj.bias": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.95136621274275,
+          "gradient_after_clip_norm": 0.03605519629779844,
+          "ambient_delta_norm": 0.02022084662381383,
+          "retracted_delta_norm": 0.02022084662381383,
+          "actual_relative_weight_motion": 0.0020319668869105616,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00030701392369329917,
+          "negative_clipped_loss_gradient_dot_actual": 0.00030701392369329917,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.in_proj.weight": {
+              "frobenius": 9.871614582663957,
+              "row_l2_min": 0.7543480366649217,
+              "row_l2_max": 1.6909491576944906,
+              "column_l2_min": 1.226922515303474,
+              "column_l2_max": 3.569399087631003
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.gate": {
+          "parameter_names": [
+            "trunk.blocks.0.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.452990171508363,
+          "gradient_after_clip_norm": 0.01678644661154179,
+          "ambient_delta_norm": 0.011323367705607448,
+          "retracted_delta_norm": 0.011323367705607448,
+          "actual_relative_weight_motion": 0.0013395694867567665,
+          "negative_clipped_loss_gradient_dot_ambient": 9.093456231748586e-05,
+          "negative_clipped_loss_gradient_dot_actual": 9.093456231748586e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.gate.weight": {
+              "frobenius": 8.452990171508363,
+              "row_l2_min": 1.1219700671165442,
+              "row_l2_max": 1.5462018809218694,
+              "column_l2_min": 0.7703354208864683,
+              "column_l2_max": 1.3859494128671177
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.up": {
+          "parameter_names": [
+            "trunk.blocks.0.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.356702821467083,
+          "gradient_after_clip_norm": 0.019732296969329804,
+          "ambient_delta_norm": 0.011665178302377895,
+          "retracted_delta_norm": 0.011665178302377895,
+          "actual_relative_weight_motion": 0.0012467189056827237,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00011407518138340539,
+          "negative_clipped_loss_gradient_dot_actual": 0.00011407518138340539,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.up.weight": {
+              "frobenius": 9.356702821467083,
+              "row_l2_min": 1.1841495179128207,
+              "row_l2_max": 1.6206386627306597,
+              "column_l2_min": 0.8658277605370397,
+              "column_l2_max": 1.4576250751217952
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.down": {
+          "parameter_names": [
+            "trunk.blocks.0.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.706199202741786,
+          "gradient_after_clip_norm": 0.025213342913730313,
+          "ambient_delta_norm": 0.019855270028138118,
+          "retracted_delta_norm": 0.019855270028138118,
+          "actual_relative_weight_motion": 0.0022805899067741557,
+          "negative_clipped_loss_gradient_dot_ambient": 0.0001733757015243482,
+          "negative_clipped_loss_gradient_dot_actual": 0.0001733757015243482,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.down.weight": {
+              "frobenius": 8.706199202741786,
+              "row_l2_min": 0.7287245491943323,
+              "row_l2_max": 1.3782208592679643,
+              "column_l2_min": 1.1076813268650108,
+              "column_l2_max": 1.5403231215747277
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.gate": {
+          "parameter_names": [
+            "trunk.blocks.1.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.006238090842924,
+          "gradient_after_clip_norm": 0.009950451303914414,
+          "ambient_delta_norm": 0.016462902027770846,
+          "retracted_delta_norm": 0.016462902027770846,
+          "actual_relative_weight_motion": 0.0013711956987032424,
+          "negative_clipped_loss_gradient_dot_ambient": 5.991926721126087e-05,
+          "negative_clipped_loss_gradient_dot_actual": 5.991926721126087e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.gate.weight": {
+              "frobenius": 12.006238090842924,
+              "row_l2_min": 1.4759557411872055,
+              "row_l2_max": 2.177111811647881,
+              "column_l2_min": 1.0473987620771679,
+              "column_l2_max": 1.848526352724358
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.up": {
+          "parameter_names": [
+            "trunk.blocks.1.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.978231634421395,
+          "gradient_after_clip_norm": 0.013162250287008312,
+          "ambient_delta_norm": 0.01656033880398668,
+          "retracted_delta_norm": 0.01656033880398668,
+          "actual_relative_weight_motion": 0.0012760088793657123,
+          "negative_clipped_loss_gradient_dot_ambient": 6.863576057810944e-05,
+          "negative_clipped_loss_gradient_dot_actual": 6.863576057810944e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.up.weight": {
+              "frobenius": 12.978231634421395,
+              "row_l2_min": 1.4575673584852453,
+              "row_l2_max": 2.5916343581633146,
+              "column_l2_min": 1.3065085517948367,
+              "column_l2_max": 1.9389706841827443
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.down": {
+          "parameter_names": [
+            "trunk.blocks.1.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.654176584326073,
+          "gradient_after_clip_norm": 0.03003182873406419,
+          "ambient_delta_norm": 0.011174446016342205,
+          "retracted_delta_norm": 0.011174446016342205,
+          "actual_relative_weight_motion": 0.001459914844298837,
+          "negative_clipped_loss_gradient_dot_ambient": 0.0001291394291856169,
+          "negative_clipped_loss_gradient_dot_actual": 0.0001291394291856169,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.down.weight": {
+              "frobenius": 7.654176584326073,
+              "row_l2_min": 0.7277350253231103,
+              "row_l2_max": 1.2282721435057593,
+              "column_l2_min": 0.6873586831536315,
+              "column_l2_max": 1.6673404400523217
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.0": {
+          "parameter_names": [
+            "trunk.block_gates.0"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.0": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.08134896488059,
+          "gradient_after_clip_norm": 0.0038503076510519756,
+          "ambient_delta_norm": 0.001656057604305867,
+          "retracted_delta_norm": 0.001656057604305867,
+          "actual_relative_weight_motion": 0.00018235810678679743,
+          "negative_clipped_loss_gradient_dot_ambient": 2.04815625384655e-06,
+          "negative_clipped_loss_gradient_dot_actual": 2.04815625384655e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.1": {
+          "parameter_names": [
+            "trunk.block_gates.1"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.1": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.843310362161108,
+          "gradient_after_clip_norm": 0.004069642601588828,
+          "ambient_delta_norm": 0.001244613270888915,
+          "retracted_delta_norm": 0.001244613270888915,
+          "actual_relative_weight_motion": 0.000158684689680695,
+          "negative_clipped_loss_gradient_dot_ambient": 7.725101804804751e-07,
+          "negative_clipped_loss_gradient_dot_actual": 7.725101804804751e-07,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "head.0": {
+          "parameter_names": [
+            "head.0.weight",
+            "head.0.bias"
+          ],
+          "constraint_axes": {
+            "head.0.weight": 1,
+            "head.0.bias": null
+          },
+          "geometry": "mixed",
+          "reconstructed_weight_norm": 3.510432602135452,
+          "gradient_after_clip_norm": 0.06549796141296087,
+          "ambient_delta_norm": 0.004779099047859243,
+          "retracted_delta_norm": 0.0045103117256279435,
+          "actual_relative_weight_motion": 0.0012848307421952068,
+          "negative_clipped_loss_gradient_dot_ambient": 6.174951157929826e-05,
+          "negative_clipped_loss_gradient_dot_actual": 5.188931647934073e-05,
+          "normalization_correction_norm": 0.0015784038152809059,
+          "matrix_weight_norms": {
+            "head.0.weight": {
+              "frobenius": 3.464101560730793,
+              "row_l2_min": 0.999999924836513,
+              "row_l2_max": 1.0000000606204722,
+              "column_l2_min": 0.24691744774525376,
+              "column_l2_max": 0.6425080968330653
+            }
+          },
+          "constrained_decomposition": {
+            "head.0.weight": {
+              "axis": 1,
+              "clipped_gradient_normal_norm": 0.012642223728277883,
+              "clipped_gradient_tangent_norm": 0.06424693433658135,
+              "reconstructed_axis_unit_max_abs_error": 7.516348698999309e-08
+            }
+          }
+        }
+      },
+      "matrix_geometry": "ambient",
+      "matrix_delta_stage": "ambient proposal before global normalization"
+    },
+    {
+      "epoch": 3,
+      "update": 3,
+      "layers": {
+        "readout_gain": {
+          "parameter_names": [
+            "readout_gain"
+          ],
+          "constraint_axes": {
+            "readout_gain": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 5.076054850338907,
+          "gradient_after_clip_norm": 0.009286953293153377,
+          "ambient_delta_norm": 0.00033598154351176593,
+          "retracted_delta_norm": 0.00033598154351176593,
+          "actual_relative_weight_motion": 6.618950216610324e-05,
+          "negative_clipped_loss_gradient_dot_ambient": 5.495032834174074e-07,
+          "negative_clipped_loss_gradient_dot_actual": 5.495032834174074e-07,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.in_proj": {
+          "parameter_names": [
+            "trunk.in_proj.weight",
+            "trunk.in_proj.bias"
+          ],
+          "constraint_axes": {
+            "trunk.in_proj.weight": null,
+            "trunk.in_proj.bias": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.95148520286079,
+          "gradient_after_clip_norm": 0.02556634528483922,
+          "ambient_delta_norm": 0.021100821311854256,
+          "retracted_delta_norm": 0.021100821311854256,
+          "actual_relative_weight_motion": 0.002120369058659538,
+          "negative_clipped_loss_gradient_dot_ambient": 0.0002495920815519647,
+          "negative_clipped_loss_gradient_dot_actual": 0.0002495920815519647,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.in_proj.weight": {
+              "frobenius": 9.871758286883386,
+              "row_l2_min": 0.7533463455075294,
+              "row_l2_max": 1.6910572717469976,
+              "column_l2_min": 1.2284353461615791,
+              "column_l2_max": 3.5688231013671277
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.gate": {
+          "parameter_names": [
+            "trunk.blocks.0.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.452411386991642,
+          "gradient_after_clip_norm": 0.015400158156227474,
+          "ambient_delta_norm": 0.011347202343014121,
+          "retracted_delta_norm": 0.011347202343014121,
+          "actual_relative_weight_motion": 0.0013424810771134018,
+          "negative_clipped_loss_gradient_dot_ambient": 8.516037824340352e-05,
+          "negative_clipped_loss_gradient_dot_actual": 8.516037824340352e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.gate.weight": {
+              "frobenius": 8.452411386991642,
+              "row_l2_min": 1.1210579997297445,
+              "row_l2_max": 1.5461672575883922,
+              "column_l2_min": 0.7703471094347606,
+              "column_l2_max": 1.3857663767876243
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.up": {
+          "parameter_names": [
+            "trunk.blocks.0.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.356308675307652,
+          "gradient_after_clip_norm": 0.01577837078008746,
+          "ambient_delta_norm": 0.011841932773434989,
+          "retracted_delta_norm": 0.011841932773434989,
+          "actual_relative_weight_motion": 0.001265662900229786,
+          "negative_clipped_loss_gradient_dot_ambient": 8.324161034172993e-05,
+          "negative_clipped_loss_gradient_dot_actual": 8.324161034172993e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.up.weight": {
+              "frobenius": 9.356308675307652,
+              "row_l2_min": 1.1842120659439652,
+              "row_l2_max": 1.6200802274139818,
+              "column_l2_min": 0.866211596501811,
+              "column_l2_max": 1.4577233221947064
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.down": {
+          "parameter_names": [
+            "trunk.blocks.0.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.70649440512151,
+          "gradient_after_clip_norm": 0.024493520499278026,
+          "ambient_delta_norm": 0.020244879306936716,
+          "retracted_delta_norm": 0.020244879306936716,
+          "actual_relative_weight_motion": 0.0023252618522361726,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00016600047351160262,
+          "negative_clipped_loss_gradient_dot_actual": 0.00016600047351160262,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.down.weight": {
+              "frobenius": 8.70649440512151,
+              "row_l2_min": 0.7288160566739217,
+              "row_l2_max": 1.3781361725886594,
+              "column_l2_min": 1.1080339649797075,
+              "column_l2_max": 1.5402917995755578
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.gate": {
+          "parameter_names": [
+            "trunk.blocks.1.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.006686562640716,
+          "gradient_after_clip_norm": 0.010407177115151765,
+          "ambient_delta_norm": 0.016705317979234247,
+          "retracted_delta_norm": 0.016705317979234247,
+          "actual_relative_weight_motion": 0.0013913345611280892,
+          "negative_clipped_loss_gradient_dot_ambient": 5.772313715687884e-05,
+          "negative_clipped_loss_gradient_dot_actual": 5.772313715687884e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.gate.weight": {
+              "frobenius": 12.006686562640716,
+              "row_l2_min": 1.4759923395278285,
+              "row_l2_max": 2.1772315883809936,
+              "column_l2_min": 1.0470028378083667,
+              "column_l2_max": 1.8480717248217478
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.up": {
+          "parameter_names": [
+            "trunk.blocks.1.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.979214156562955,
+          "gradient_after_clip_norm": 0.011266798354083188,
+          "ambient_delta_norm": 0.016381707849480138,
+          "retracted_delta_norm": 0.016381707849480138,
+          "actual_relative_weight_motion": 0.0012621494376989463,
+          "negative_clipped_loss_gradient_dot_ambient": 5.5843215721988626e-05,
+          "negative_clipped_loss_gradient_dot_actual": 5.5843215721988626e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.up.weight": {
+              "frobenius": 12.979214156562955,
+              "row_l2_min": 1.4576213592647678,
+              "row_l2_max": 2.592294766697787,
+              "column_l2_min": 1.3064898421220041,
+              "column_l2_max": 1.9396031155458078
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.down": {
+          "parameter_names": [
+            "trunk.blocks.1.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.654596609676119,
+          "gradient_after_clip_norm": 0.02718311403150868,
+          "ambient_delta_norm": 0.011031398935787596,
+          "retracted_delta_norm": 0.011031398935787596,
+          "actual_relative_weight_motion": 0.0014411469994176946,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00012954291369868514,
+          "negative_clipped_loss_gradient_dot_actual": 0.00012954291369868514,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.down.weight": {
+              "frobenius": 7.654596609676119,
+              "row_l2_min": 0.7276340968118143,
+              "row_l2_max": 1.2283275330962262,
+              "column_l2_min": 0.6874533004187631,
+              "column_l2_max": 1.6671246771448875
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.0": {
+          "parameter_names": [
+            "trunk.block_gates.0"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.0": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.081101545746552,
+          "gradient_after_clip_norm": 0.0029504595347471783,
+          "ambient_delta_norm": 0.0016070135662115462,
+          "retracted_delta_norm": 0.0016070135662115462,
+          "actual_relative_weight_motion": 0.00017696240462857136,
+          "negative_clipped_loss_gradient_dot_ambient": 1.5492606510226245e-06,
+          "negative_clipped_loss_gradient_dot_actual": 1.5492606510226245e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.1": {
+          "parameter_names": [
+            "trunk.block_gates.1"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.1": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.842559456839863,
+          "gradient_after_clip_norm": 0.0031868475786643174,
+          "ambient_delta_norm": 0.0012867835040711623,
+          "retracted_delta_norm": 0.0012867835040711623,
+          "actual_relative_weight_motion": 0.00016407698419792,
+          "negative_clipped_loss_gradient_dot_ambient": 1.5661156927447909e-06,
+          "negative_clipped_loss_gradient_dot_actual": 1.5661156927447909e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "head.0": {
+          "parameter_names": [
+            "head.0.weight",
+            "head.0.bias"
+          ],
+          "constraint_axes": {
+            "head.0.weight": 1,
+            "head.0.bias": null
+          },
+          "geometry": "mixed",
+          "reconstructed_weight_norm": 3.5104317539564476,
+          "gradient_after_clip_norm": 0.06218703193846701,
+          "ambient_delta_norm": 0.00411546642646274,
+          "retracted_delta_norm": 0.003880863098034662,
+          "actual_relative_weight_motion": 0.0011055230154127674,
+          "negative_clipped_loss_gradient_dot_ambient": 7.318091123260783e-05,
+          "negative_clipped_loss_gradient_dot_actual": 7.170110178658695e-05,
+          "normalization_correction_norm": 0.0013679814171813722,
+          "matrix_weight_norms": {
+            "head.0.weight": {
+              "frobenius": 3.464101612394446,
+              "row_l2_min": 0.9999999409143042,
+              "row_l2_max": 1.0000000554542665,
+              "column_l2_min": 0.2470916896615989,
+              "column_l2_max": 0.6427843727707093
+            }
+          },
+          "constrained_decomposition": {
+            "head.0.weight": {
+              "axis": 1,
+              "clipped_gradient_normal_norm": 0.013402327212497643,
+              "clipped_gradient_tangent_norm": 0.0607030184238673,
+              "reconstructed_axis_unit_max_abs_error": 5.9085695780503045e-08
+            }
+          }
+        }
+      },
+      "matrix_geometry": "ambient",
+      "matrix_delta_stage": "ambient proposal before global normalization"
+    },
+    {
+      "epoch": 4,
+      "update": 4,
+      "layers": {
+        "readout_gain": {
+          "parameter_names": [
+            "readout_gain"
+          ],
+          "constraint_axes": {
+            "readout_gain": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 5.0763117258429675,
+          "gradient_after_clip_norm": 0.01331775371958089,
+          "ambient_delta_norm": 0.0004835836023272229,
+          "retracted_delta_norm": 0.0004835836023272229,
+          "actual_relative_weight_motion": 9.52627869296028e-05,
+          "negative_clipped_loss_gradient_dot_ambient": 4.700780198423071e-06,
+          "negative_clipped_loss_gradient_dot_actual": 4.700780198423071e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.in_proj": {
+          "parameter_names": [
+            "trunk.in_proj.weight",
+            "trunk.in_proj.bias"
+          ],
+          "constraint_axes": {
+            "trunk.in_proj.weight": null,
+            "trunk.in_proj.bias": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.951725664402776,
+          "gradient_after_clip_norm": 0.04460905169217034,
+          "ambient_delta_norm": 0.02046876073538861,
+          "retracted_delta_norm": 0.02046876073538861,
+          "actual_relative_weight_motion": 0.0020568051638124598,
+          "negative_clipped_loss_gradient_dot_ambient": 0.0003859228262067405,
+          "negative_clipped_loss_gradient_dot_actual": 0.0003859228262067405,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.in_proj.weight": {
+              "frobenius": 9.872012817796909,
+              "row_l2_min": 0.7519166768607863,
+              "row_l2_max": 1.6906624340075116,
+              "column_l2_min": 1.229737108022836,
+              "column_l2_max": 3.568288897015929
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.gate": {
+          "parameter_names": [
+            "trunk.blocks.0.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.452252260565924,
+          "gradient_after_clip_norm": 0.023166886573882356,
+          "ambient_delta_norm": 0.011234029367290557,
+          "retracted_delta_norm": 0.011234029367290557,
+          "actual_relative_weight_motion": 0.0013291166686662968,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00013246454553019578,
+          "negative_clipped_loss_gradient_dot_actual": 0.00013246454553019578,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.gate.weight": {
+              "frobenius": 8.452252260565924,
+              "row_l2_min": 1.1206304874355446,
+              "row_l2_max": 1.546578548840362,
+              "column_l2_min": 0.7704779747602697,
+              "column_l2_max": 1.3855652365347968
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.up": {
+          "parameter_names": [
+            "trunk.blocks.0.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.356124793359681,
+          "gradient_after_clip_norm": 0.027452024774431982,
+          "ambient_delta_norm": 0.011398731962070639,
+          "retracted_delta_norm": 0.011398731962070639,
+          "actual_relative_weight_motion": 0.0012183176490079158,
+          "negative_clipped_loss_gradient_dot_ambient": 0.0001489761337897328,
+          "negative_clipped_loss_gradient_dot_actual": 0.0001489761337897328,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.up.weight": {
+              "frobenius": 9.356124793359681,
+              "row_l2_min": 1.183790968117969,
+              "row_l2_max": 1.6205164890009698,
+              "column_l2_min": 0.8662800436361691,
+              "column_l2_max": 1.4579518530942392
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.down": {
+          "parameter_names": [
+            "trunk.blocks.0.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.706901926130255,
+          "gradient_after_clip_norm": 0.039286807589915804,
+          "ambient_delta_norm": 0.02032064351922376,
+          "retracted_delta_norm": 0.02032064351922376,
+          "actual_relative_weight_motion": 0.002333854646764717,
+          "negative_clipped_loss_gradient_dot_ambient": 0.0002387611722530811,
+          "negative_clipped_loss_gradient_dot_actual": 0.0002387611722530811,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.down.weight": {
+              "frobenius": 8.706901926130255,
+              "row_l2_min": 0.7285562870947243,
+              "row_l2_max": 1.3780855523936302,
+              "column_l2_min": 1.1081751153898693,
+              "column_l2_max": 1.5406178636005592
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.gate": {
+          "parameter_names": [
+            "trunk.blocks.1.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.007076293009488,
+          "gradient_after_clip_norm": 0.013978080459966935,
+          "ambient_delta_norm": 0.016682246161911354,
+          "retracted_delta_norm": 0.016682246161911354,
+          "actual_relative_weight_motion": 0.001389367882306515,
+          "negative_clipped_loss_gradient_dot_ambient": 8.077857669776695e-05,
+          "negative_clipped_loss_gradient_dot_actual": 8.077857669776695e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.gate.weight": {
+              "frobenius": 12.007076293009488,
+              "row_l2_min": 1.4757799944006238,
+              "row_l2_max": 2.1770528805960474,
+              "column_l2_min": 1.0467976620765993,
+              "column_l2_max": 1.8480702840039283
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.up": {
+          "parameter_names": [
+            "trunk.blocks.1.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.980252682735438,
+          "gradient_after_clip_norm": 0.020659829170075427,
+          "ambient_delta_norm": 0.01600825955747962,
+          "retracted_delta_norm": 0.01600825955747962,
+          "actual_relative_weight_motion": 0.001233277960664943,
+          "negative_clipped_loss_gradient_dot_ambient": 9.08442193409409e-05,
+          "negative_clipped_loss_gradient_dot_actual": 9.08442193409409e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.up.weight": {
+              "frobenius": 12.980252682735438,
+              "row_l2_min": 1.4575557674114719,
+              "row_l2_max": 2.592425408721421,
+              "column_l2_min": 1.3065436400059784,
+              "column_l2_max": 1.9400376561396522
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.down": {
+          "parameter_names": [
+            "trunk.blocks.1.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.655503708646677,
+          "gradient_after_clip_norm": 0.04911132847077793,
+          "ambient_delta_norm": 0.011217852202036976,
+          "retracted_delta_norm": 0.011217852202036976,
+          "actual_relative_weight_motion": 0.001465331691939059,
+          "negative_clipped_loss_gradient_dot_ambient": 0.0002084463923762361,
+          "negative_clipped_loss_gradient_dot_actual": 0.0002084463923762361,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.down.weight": {
+              "frobenius": 7.655503708646677,
+              "row_l2_min": 0.7277130468270622,
+              "row_l2_max": 1.2282999795594602,
+              "column_l2_min": 0.6875022976156536,
+              "column_l2_max": 1.6665554602161243
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.0": {
+          "parameter_names": [
+            "trunk.block_gates.0"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.0": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.080849630201568,
+          "gradient_after_clip_norm": 0.005037551129946254,
+          "ambient_delta_norm": 0.0017706976942038135,
+          "retracted_delta_norm": 0.0017706976942038135,
+          "actual_relative_weight_motion": 0.00019499251351049067,
+          "negative_clipped_loss_gradient_dot_ambient": 3.6648791883014096e-06,
+          "negative_clipped_loss_gradient_dot_actual": 3.6648791883014096e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.1": {
+          "parameter_names": [
+            "trunk.block_gates.1"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.1": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.841726721147766,
+          "gradient_after_clip_norm": 0.006459672981006284,
+          "ambient_delta_norm": 0.0012555418810584788,
+          "retracted_delta_norm": 0.0012555418810584788,
+          "actual_relative_weight_motion": 0.00016011038457544073,
+          "negative_clipped_loss_gradient_dot_ambient": 3.3714600517430714e-06,
+          "negative_clipped_loss_gradient_dot_actual": 3.3714600517430714e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "head.0": {
+          "parameter_names": [
+            "head.0.weight",
+            "head.0.bias"
+          ],
+          "constraint_axes": {
+            "head.0.weight": 1,
+            "head.0.bias": null
+          },
+          "geometry": "mixed",
+          "reconstructed_weight_norm": 3.5104263816226915,
+          "gradient_after_clip_norm": 0.10551806696863798,
+          "ambient_delta_norm": 0.004289805100366018,
+          "retracted_delta_norm": 0.0040522431136452,
+          "actual_relative_weight_motion": 0.0011543449920667626,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00017077491118763218,
+          "negative_clipped_loss_gradient_dot_actual": 0.0001586439890895252,
+          "normalization_correction_norm": 0.0014066514796822658,
+          "matrix_weight_norms": {
+            "head.0.weight": {
+              "frobenius": 3.464101653744678,
+              "row_l2_min": 0.9999999486515345,
+              "row_l2_max": 1.0000000821708552,
+              "column_l2_min": 0.24719919374502577,
+              "column_l2_max": 0.6429850453484776
+            }
+          },
+          "constrained_decomposition": {
+            "head.0.weight": {
+              "axis": 1,
+              "clipped_gradient_normal_norm": 0.018825894529509623,
+              "clipped_gradient_tangent_norm": 0.10379059921186401,
+              "reconstructed_axis_unit_max_abs_error": 8.21708552312117e-08
+            }
+          }
+        }
+      },
+      "matrix_geometry": "ambient",
+      "matrix_delta_stage": "ambient proposal before global normalization"
+    },
+    {
+      "epoch": 5,
+      "update": 5,
+      "layers": {
+        "readout_gain": {
+          "parameter_names": [
+            "readout_gain"
+          ],
+          "constraint_axes": {
+            "readout_gain": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 5.076543964719569,
+          "gradient_after_clip_norm": 0.01374023803046378,
+          "ambient_delta_norm": 0.0002982867744508763,
+          "retracted_delta_norm": 0.0002982867744508763,
+          "actual_relative_weight_motion": 5.875784323427086e-05,
+          "negative_clipped_loss_gradient_dot_ambient": 1.1206470645550026e-06,
+          "negative_clipped_loss_gradient_dot_actual": 1.1206470645550026e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.in_proj": {
+          "parameter_names": [
+            "trunk.in_proj.weight",
+            "trunk.in_proj.bias"
+          ],
+          "constraint_axes": {
+            "trunk.in_proj.weight": null,
+            "trunk.in_proj.bias": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.952329343807298,
+          "gradient_after_clip_norm": 0.04303813531594324,
+          "ambient_delta_norm": 0.020555035182774198,
+          "retracted_delta_norm": 0.020555035182774198,
+          "actual_relative_weight_motion": 0.0020653491733133096,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00035880214240217244,
+          "negative_clipped_loss_gradient_dot_actual": 0.00035880214240217244,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.in_proj.weight": {
+              "frobenius": 9.872664691218953,
+              "row_l2_min": 0.7505912837426602,
+              "row_l2_max": 1.6909619888007377,
+              "column_l2_min": 1.2311560666753685,
+              "column_l2_max": 3.5681052723861386
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.gate": {
+          "parameter_names": [
+            "trunk.blocks.0.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.45177063377419,
+          "gradient_after_clip_norm": 0.024792627585139185,
+          "ambient_delta_norm": 0.011258362757190575,
+          "retracted_delta_norm": 0.011258362757190575,
+          "actual_relative_weight_motion": 0.0013320714966164532,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00013388896391824422,
+          "negative_clipped_loss_gradient_dot_actual": 0.00013388896391824422,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.gate.weight": {
+              "frobenius": 8.45177063377419,
+              "row_l2_min": 1.1197836273821484,
+              "row_l2_max": 1.546473600767074,
+              "column_l2_min": 0.770695813186791,
+              "column_l2_max": 1.3854707027820927
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.up": {
+          "parameter_names": [
+            "trunk.blocks.0.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.355919392209223,
+          "gradient_after_clip_norm": 0.026233035317437918,
+          "ambient_delta_norm": 0.01150668138392767,
+          "retracted_delta_norm": 0.01150668138392767,
+          "actual_relative_weight_motion": 0.0012298824841852967,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00014133042742142454,
+          "negative_clipped_loss_gradient_dot_actual": 0.00014133042742142454,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.up.weight": {
+              "frobenius": 9.355919392209223,
+              "row_l2_min": 1.1837253654257835,
+              "row_l2_max": 1.620180642067691,
+              "column_l2_min": 0.8664679225628598,
+              "column_l2_max": 1.4577941386802586
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.down": {
+          "parameter_names": [
+            "trunk.blocks.0.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.706890023152233,
+          "gradient_after_clip_norm": 0.03846492690966766,
+          "ambient_delta_norm": 0.020300220077743073,
+          "retracted_delta_norm": 0.020300220077743073,
+          "actual_relative_weight_motion": 0.0023315121729760406,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00023271495177969715,
+          "negative_clipped_loss_gradient_dot_actual": 0.00023271495177969715,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.down.weight": {
+              "frobenius": 8.706890023152233,
+              "row_l2_min": 0.7286655057250636,
+              "row_l2_max": 1.3779573736770736,
+              "column_l2_min": 1.10841781477589,
+              "column_l2_max": 1.541139182710949
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.gate": {
+          "parameter_names": [
+            "trunk.blocks.1.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.007757301117499,
+          "gradient_after_clip_norm": 0.013902532956251499,
+          "ambient_delta_norm": 0.016565575351940663,
+          "retracted_delta_norm": 0.016565575351940663,
+          "actual_relative_weight_motion": 0.0013795727991936506,
+          "negative_clipped_loss_gradient_dot_ambient": 6.787914490963788e-05,
+          "negative_clipped_loss_gradient_dot_actual": 6.787914490963788e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.gate.weight": {
+              "frobenius": 12.007757301117499,
+              "row_l2_min": 1.4759461379941285,
+              "row_l2_max": 2.1772744175702243,
+              "column_l2_min": 1.046307448889954,
+              "column_l2_max": 1.8475278922319158
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.up": {
+          "parameter_names": [
+            "trunk.blocks.1.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.98098263316552,
+          "gradient_after_clip_norm": 0.01905411809455576,
+          "ambient_delta_norm": 0.016243558523635994,
+          "retracted_delta_norm": 0.016243558523635994,
+          "actual_relative_weight_motion": 0.0012513350477902049,
+          "negative_clipped_loss_gradient_dot_ambient": 8.151838030079472e-05,
+          "negative_clipped_loss_gradient_dot_actual": 8.151838030079472e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.up.weight": {
+              "frobenius": 12.98098263316552,
+              "row_l2_min": 1.4574093499882774,
+              "row_l2_max": 2.5923911564862303,
+              "column_l2_min": 1.3066379377647241,
+              "column_l2_max": 1.9404875188525919
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.down": {
+          "parameter_names": [
+            "trunk.blocks.1.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.656316760443156,
+          "gradient_after_clip_norm": 0.04464086902474187,
+          "ambient_delta_norm": 0.010933672355407823,
+          "retracted_delta_norm": 0.010933672355407823,
+          "actual_relative_weight_motion": 0.0014280590390273991,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00020222124604546022,
+          "negative_clipped_loss_gradient_dot_actual": 0.00020222124604546022,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.down.weight": {
+              "frobenius": 7.656316760443156,
+              "row_l2_min": 0.7277432932342965,
+              "row_l2_max": 1.2285620532440387,
+              "column_l2_min": 0.6876428883523852,
+              "column_l2_max": 1.66655953321914
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.0": {
+          "parameter_names": [
+            "trunk.block_gates.0"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.0": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.08062568757131,
+          "gradient_after_clip_norm": 0.004412964250038299,
+          "ambient_delta_norm": 0.0016248472661687088,
+          "retracted_delta_norm": 0.0016248472661687088,
+          "actual_relative_weight_motion": 0.00017893560665017215,
+          "negative_clipped_loss_gradient_dot_ambient": 1.8813149823050136e-06,
+          "negative_clipped_loss_gradient_dot_actual": 1.8813149823050136e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.1": {
+          "parameter_names": [
+            "trunk.block_gates.1"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.1": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.841032959458311,
+          "gradient_after_clip_norm": 0.005733092443407898,
+          "ambient_delta_norm": 0.0011502104053575134,
+          "retracted_delta_norm": 0.0011502104053575134,
+          "actual_relative_weight_motion": 0.00014669118358571145,
+          "negative_clipped_loss_gradient_dot_ambient": 2.2100294844256373e-06,
+          "negative_clipped_loss_gradient_dot_actual": 2.2100294844256373e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "head.0": {
+          "parameter_names": [
+            "head.0.weight",
+            "head.0.bias"
+          ],
+          "constraint_axes": {
+            "head.0.weight": 1,
+            "head.0.bias": null
+          },
+          "geometry": "mixed",
+          "reconstructed_weight_norm": 3.510429674923492,
+          "gradient_after_clip_norm": 0.09832538065098727,
+          "ambient_delta_norm": 0.003890638362465347,
+          "retracted_delta_norm": 0.003729774960316198,
+          "actual_relative_weight_motion": 0.001062483885365824,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00011434874631789766,
+          "negative_clipped_loss_gradient_dot_actual": 0.0001112429711522824,
+          "normalization_correction_norm": 0.0011056793973200604,
+          "matrix_weight_norms": {
+            "head.0.weight": {
+              "frobenius": 3.464101687354657,
+              "row_l2_min": 0.9999999538769345,
+              "row_l2_max": 1.0000001047811817,
+              "column_l2_min": 0.24731691138699607,
+              "column_l2_max": 0.6431869901309527
+            }
+          },
+          "constrained_decomposition": {
+            "head.0.weight": {
+              "axis": 1,
+              "clipped_gradient_normal_norm": 0.019766260521324817,
+              "clipped_gradient_tangent_norm": 0.09628454782497231,
+              "reconstructed_axis_unit_max_abs_error": 1.0478118173118389e-07
+            }
+          }
+        }
+      },
+      "matrix_geometry": "ambient",
+      "matrix_delta_stage": "ambient proposal before global normalization"
+    },
+    {
+      "epoch": 6,
+      "update": 6,
+      "layers": {
+        "readout_gain": {
+          "parameter_names": [
+            "readout_gain"
+          ],
+          "constraint_axes": {
+            "readout_gain": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 5.0767791418614365,
+          "gradient_after_clip_norm": 0.012963292210579774,
+          "ambient_delta_norm": 0.0003997563860771448,
+          "retracted_delta_norm": 0.0003997563860771448,
+          "actual_relative_weight_motion": 7.874212663318092e-05,
+          "negative_clipped_loss_gradient_dot_ambient": 3.6760320493711696e-06,
+          "negative_clipped_loss_gradient_dot_actual": 3.6760320493711696e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.in_proj": {
+          "parameter_names": [
+            "trunk.in_proj.weight",
+            "trunk.in_proj.bias"
+          ],
+          "constraint_axes": {
+            "trunk.in_proj.weight": null,
+            "trunk.in_proj.bias": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.952525819953483,
+          "gradient_after_clip_norm": 0.04057076640525454,
+          "ambient_delta_norm": 0.01980224976800231,
+          "retracted_delta_norm": 0.01980224976800231,
+          "actual_relative_weight_motion": 0.0019896707756639474,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00033475903494085735,
+          "negative_clipped_loss_gradient_dot_actual": 0.00033475903494085735,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.in_proj.weight": {
+              "frobenius": 9.872883626973666,
+              "row_l2_min": 0.7492833253282153,
+              "row_l2_max": 1.6907488205731458,
+              "column_l2_min": 1.2320246408742515,
+              "column_l2_max": 3.5669298717301277
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.gate": {
+          "parameter_names": [
+            "trunk.blocks.0.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.451655460677307,
+          "gradient_after_clip_norm": 0.021619973888186976,
+          "ambient_delta_norm": 0.011378418124423887,
+          "retracted_delta_norm": 0.011378418124423887,
+          "actual_relative_weight_motion": 0.0013462946019704445,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00010755471445863516,
+          "negative_clipped_loss_gradient_dot_actual": 0.00010755471445863516,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.gate.weight": {
+              "frobenius": 8.451655460677307,
+              "row_l2_min": 1.1194705988804012,
+              "row_l2_max": 1.5468956466974908,
+              "column_l2_min": 0.7708791042145784,
+              "column_l2_max": 1.3852555365619308
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.up": {
+          "parameter_names": [
+            "trunk.blocks.0.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.35562296929162,
+          "gradient_after_clip_norm": 0.02459667826146013,
+          "ambient_delta_norm": 0.011279940619104832,
+          "retracted_delta_norm": 0.011279940619104832,
+          "actual_relative_weight_motion": 0.001205685677600464,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00013244552157480686,
+          "negative_clipped_loss_gradient_dot_actual": 0.00013244552157480686,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.up.weight": {
+              "frobenius": 9.35562296929162,
+              "row_l2_min": 1.1832224334206376,
+              "row_l2_max": 1.6203360325335505,
+              "column_l2_min": 0.8666013903669363,
+              "column_l2_max": 1.4580019348796929
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.down": {
+          "parameter_names": [
+            "trunk.blocks.0.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.70732140096563,
+          "gradient_after_clip_norm": 0.03616356465457555,
+          "ambient_delta_norm": 0.020178095275482106,
+          "retracted_delta_norm": 0.020178095275482106,
+          "actual_relative_weight_motion": 0.00231737113473776,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00021276532713844357,
+          "negative_clipped_loss_gradient_dot_actual": 0.00021276532713844357,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.down.weight": {
+              "frobenius": 8.70732140096563,
+              "row_l2_min": 0.7284580369554263,
+              "row_l2_max": 1.3775857898996542,
+              "column_l2_min": 1.1087301133876182,
+              "column_l2_max": 1.541598311301117
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.gate": {
+          "parameter_names": [
+            "trunk.blocks.1.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.008217931882292,
+          "gradient_after_clip_norm": 0.011907497341206231,
+          "ambient_delta_norm": 0.01660613294501803,
+          "retracted_delta_norm": 0.01660613294501803,
+          "actual_relative_weight_motion": 0.0013828973657221938,
+          "negative_clipped_loss_gradient_dot_ambient": 6.39478492748674e-05,
+          "negative_clipped_loss_gradient_dot_actual": 6.39478492748674e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.gate.weight": {
+              "frobenius": 12.008217931882292,
+              "row_l2_min": 1.475944783984814,
+              "row_l2_max": 2.1771826285285627,
+              "column_l2_min": 1.0458331861730235,
+              "column_l2_max": 1.8477686555365977
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.up": {
+          "parameter_names": [
+            "trunk.blocks.1.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.982260203192114,
+          "gradient_after_clip_norm": 0.018918972986192138,
+          "ambient_delta_norm": 0.016320291400869855,
+          "retracted_delta_norm": 0.016320291400869855,
+          "actual_relative_weight_motion": 0.0012571224998908109,
+          "negative_clipped_loss_gradient_dot_ambient": 8.94982371306932e-05,
+          "negative_clipped_loss_gradient_dot_actual": 8.94982371306932e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.up.weight": {
+              "frobenius": 12.982260203192114,
+              "row_l2_min": 1.457260245435297,
+              "row_l2_max": 2.5924332041737794,
+              "column_l2_min": 1.3068380918665128,
+              "column_l2_max": 1.9410496136176447
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.down": {
+          "parameter_names": [
+            "trunk.blocks.1.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.657163050417609,
+          "gradient_after_clip_norm": 0.04270187023335165,
+          "ambient_delta_norm": 0.010990734607267651,
+          "retracted_delta_norm": 0.010990734607267651,
+          "actual_relative_weight_motion": 0.0014353533462589953,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00019482191372024635,
+          "negative_clipped_loss_gradient_dot_actual": 0.00019482191372024635,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.down.weight": {
+              "frobenius": 7.657163050417609,
+              "row_l2_min": 0.7277882644791904,
+              "row_l2_max": 1.2286508077779716,
+              "column_l2_min": 0.687763980910998,
+              "column_l2_max": 1.6661274612347974
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.0": {
+          "parameter_names": [
+            "trunk.block_gates.0"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.0": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.080441451797295,
+          "gradient_after_clip_norm": 0.004261188463797299,
+          "ambient_delta_norm": 0.0017411149391624767,
+          "retracted_delta_norm": 0.0017411149391624767,
+          "actual_relative_weight_motion": 0.00019174342441444377,
+          "negative_clipped_loss_gradient_dot_ambient": 3.0527613360513016e-06,
+          "negative_clipped_loss_gradient_dot_actual": 3.0527613360513016e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.1": {
+          "parameter_names": [
+            "trunk.block_gates.1"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.1": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.840219681621098,
+          "gradient_after_clip_norm": 0.005106223724653164,
+          "ambient_delta_norm": 0.001073929990012668,
+          "retracted_delta_norm": 0.001073929990012668,
+          "actual_relative_weight_motion": 0.00013697702789249074,
+          "negative_clipped_loss_gradient_dot_ambient": 2.189953846488013e-06,
+          "negative_clipped_loss_gradient_dot_actual": 2.189953846488013e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "head.0": {
+          "parameter_names": [
+            "head.0.weight",
+            "head.0.bias"
+          ],
+          "constraint_axes": {
+            "head.0.weight": 1,
+            "head.0.bias": null
+          },
+          "geometry": "mixed",
+          "reconstructed_weight_norm": 3.5104292424408077,
+          "gradient_after_clip_norm": 0.09249598028503052,
+          "ambient_delta_norm": 0.003857265741167212,
+          "retracted_delta_norm": 0.0036835828649279044,
+          "actual_relative_weight_motion": 0.001049325484300804,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00012212715380297443,
+          "negative_clipped_loss_gradient_dot_actual": 0.00011388173793301613,
+          "normalization_correction_norm": 0.0011433673420635357,
+          "matrix_weight_norms": {
+            "head.0.weight": {
+              "frobenius": 3.4641015882080617,
+              "row_l2_min": 0.9999999286322291,
+              "row_l2_max": 1.0000000656238706,
+              "column_l2_min": 0.2473967176207658,
+              "column_l2_max": 0.6433559695319166
+            }
+          },
+          "constrained_decomposition": {
+            "head.0.weight": {
+              "axis": 1,
+              "clipped_gradient_normal_norm": 0.018644573849129358,
+              "clipped_gradient_tangent_norm": 0.09056571693430789,
+              "reconstructed_axis_unit_max_abs_error": 7.13677709152094e-08
+            }
+          }
+        }
+      },
+      "matrix_geometry": "ambient",
+      "matrix_delta_stage": "ambient proposal before global normalization"
+    },
+    {
+      "epoch": 7,
+      "update": 7,
+      "layers": {
+        "readout_gain": {
+          "parameter_names": [
+            "readout_gain"
+          ],
+          "constraint_axes": {
+            "readout_gain": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 5.076995773774714,
+          "gradient_after_clip_norm": 0.015216713824139765,
+          "ambient_delta_norm": 0.0003623791427092613,
+          "retracted_delta_norm": 0.0003623791427092613,
+          "actual_relative_weight_motion": 7.137668787930362e-05,
+          "negative_clipped_loss_gradient_dot_ambient": 3.165674565472343e-06,
+          "negative_clipped_loss_gradient_dot_actual": 3.165674565472343e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.in_proj": {
+          "parameter_names": [
+            "trunk.in_proj.weight",
+            "trunk.in_proj.bias"
+          ],
+          "constraint_axes": {
+            "trunk.in_proj.weight": null,
+            "trunk.in_proj.bias": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.953331163752335,
+          "gradient_after_clip_norm": 0.047151861966518493,
+          "ambient_delta_norm": 0.020236347924704263,
+          "retracted_delta_norm": 0.020236347924704263,
+          "actual_relative_weight_motion": 0.002033123141566939,
+          "negative_clipped_loss_gradient_dot_ambient": 0.0003889673355334957,
+          "negative_clipped_loss_gradient_dot_actual": 0.0003889673355334957,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.in_proj.weight": {
+              "frobenius": 9.873742605595886,
+              "row_l2_min": 0.7482048554288192,
+              "row_l2_max": 1.6912172339527525,
+              "column_l2_min": 1.2330637869348189,
+              "column_l2_max": 3.566233522651356
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.gate": {
+          "parameter_names": [
+            "trunk.blocks.0.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.4511148898716,
+          "gradient_after_clip_norm": 0.02491583320421498,
+          "ambient_delta_norm": 0.011122369906604663,
+          "retracted_delta_norm": 0.011122369906604663,
+          "actual_relative_weight_motion": 0.0013160831501574399,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00013322426218510252,
+          "negative_clipped_loss_gradient_dot_actual": 0.00013322426218510252,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.gate.weight": {
+              "frobenius": 8.4511148898716,
+              "row_l2_min": 1.1187200994229585,
+              "row_l2_max": 1.5465979562965346,
+              "column_l2_min": 0.771174137318346,
+              "column_l2_max": 1.38536180206245
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.up": {
+          "parameter_names": [
+            "trunk.blocks.0.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.355543955698456,
+          "gradient_after_clip_norm": 0.029023357953885602,
+          "ambient_delta_norm": 0.010937929510281703,
+          "retracted_delta_norm": 0.010937929510281703,
+          "actual_relative_weight_motion": 0.0011691388081843618,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00015109931739427866,
+          "negative_clipped_loss_gradient_dot_actual": 0.00015109931739427866,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.up.weight": {
+              "frobenius": 9.355543955698456,
+              "row_l2_min": 1.1832629037993083,
+              "row_l2_max": 1.619905397617798,
+              "column_l2_min": 0.8666579793895861,
+              "column_l2_max": 1.4579823053216177
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.down": {
+          "parameter_names": [
+            "trunk.blocks.0.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.707520864440946,
+          "gradient_after_clip_norm": 0.04001679942636272,
+          "ambient_delta_norm": 0.02019279445243499,
+          "retracted_delta_norm": 0.02019279445243499,
+          "actual_relative_weight_motion": 0.0023190061518998657,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00023245842655198455,
+          "negative_clipped_loss_gradient_dot_actual": 0.00023245842655198455,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.down.weight": {
+              "frobenius": 8.707520864440946,
+              "row_l2_min": 0.7286859533489841,
+              "row_l2_max": 1.3772831382633905,
+              "column_l2_min": 1.1091538447944358,
+              "column_l2_max": 1.5423517123393486
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.gate": {
+          "parameter_names": [
+            "trunk.blocks.1.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.00899086565323,
+          "gradient_after_clip_norm": 0.014019352905092883,
+          "ambient_delta_norm": 0.0164037774510962,
+          "retracted_delta_norm": 0.0164037774510962,
+          "actual_relative_weight_motion": 0.0013659580255000814,
+          "negative_clipped_loss_gradient_dot_ambient": 7.305770895992176e-05,
+          "negative_clipped_loss_gradient_dot_actual": 7.305770895992176e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.gate.weight": {
+              "frobenius": 12.00899086565323,
+              "row_l2_min": 1.4763230804123177,
+              "row_l2_max": 2.177436542036669,
+              "column_l2_min": 1.045192746850768,
+              "column_l2_max": 1.84729172012967
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.up": {
+          "parameter_names": [
+            "trunk.blocks.1.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.983237609684938,
+          "gradient_after_clip_norm": 0.0204263192846962,
+          "ambient_delta_norm": 0.016704763608783462,
+          "retracted_delta_norm": 0.016704763608783462,
+          "actual_relative_weight_motion": 0.0012866408295818621,
+          "negative_clipped_loss_gradient_dot_ambient": 9.394864777501457e-05,
+          "negative_clipped_loss_gradient_dot_actual": 9.394864777501457e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.up.weight": {
+              "frobenius": 12.983237609684938,
+              "row_l2_min": 1.457310726980814,
+              "row_l2_max": 2.5926159832732556,
+              "column_l2_min": 1.3068514888029656,
+              "column_l2_max": 1.9415816984432754
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.down": {
+          "parameter_names": [
+            "trunk.blocks.1.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.657708568968209,
+          "gradient_after_clip_norm": 0.0451824756129669,
+          "ambient_delta_norm": 0.011070182899665309,
+          "retracted_delta_norm": 0.011070182899665309,
+          "actual_relative_weight_motion": 0.0014456260381239467,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00020123769079543206,
+          "negative_clipped_loss_gradient_dot_actual": 0.00020123769079543206,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.down.weight": {
+              "frobenius": 7.657708568968209,
+              "row_l2_min": 0.727903447114725,
+              "row_l2_max": 1.2289953100885533,
+              "column_l2_min": 0.6879156732120966,
+              "column_l2_max": 1.6659881258817517
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.0": {
+          "parameter_names": [
+            "trunk.block_gates.0"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.0": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.08028492411061,
+          "gradient_after_clip_norm": 0.004591229987676871,
+          "ambient_delta_norm": 0.0015012776327393215,
+          "retracted_delta_norm": 0.0015012776327393215,
+          "actual_relative_weight_motion": 0.00016533375827811568,
+          "negative_clipped_loss_gradient_dot_ambient": 2.113277025694849e-06,
+          "negative_clipped_loss_gradient_dot_actual": 2.113277025694849e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.1": {
+          "parameter_names": [
+            "trunk.block_gates.1"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.1": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.8395562008693735,
+          "gradient_after_clip_norm": 0.005864183306778875,
+          "ambient_delta_norm": 0.001087184559153761,
+          "retracted_delta_norm": 0.001087184559153761,
+          "actual_relative_weight_motion": 0.00013867935011846675,
+          "negative_clipped_loss_gradient_dot_ambient": 3.0023168500137786e-06,
+          "negative_clipped_loss_gradient_dot_actual": 3.0023168500137786e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "head.0": {
+          "parameter_names": [
+            "head.0.weight",
+            "head.0.bias"
+          ],
+          "constraint_axes": {
+            "head.0.weight": 1,
+            "head.0.bias": null
+          },
+          "geometry": "mixed",
+          "reconstructed_weight_norm": 3.5104325890546995,
+          "gradient_after_clip_norm": 0.10155652070440985,
+          "ambient_delta_norm": 0.0037356494946805315,
+          "retracted_delta_norm": 0.003527798712433746,
+          "actual_relative_weight_motion": 0.0010049470038060817,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00014416350239047085,
+          "negative_clipped_loss_gradient_dot_actual": 0.00013354029587398623,
+          "normalization_correction_norm": 0.0012274428086132205,
+          "matrix_weight_norms": {
+            "head.0.weight": {
+              "frobenius": 3.464101606170936,
+              "row_l2_min": 0.9999999171923009,
+              "row_l2_max": 1.000000049018131,
+              "column_l2_min": 0.24749009627348972,
+              "column_l2_max": 0.6435487262814678
+            }
+          },
+          "constrained_decomposition": {
+            "head.0.weight": {
+              "axis": 1,
+              "clipped_gradient_normal_norm": 0.021907180836604048,
+              "clipped_gradient_tangent_norm": 0.09913119630576082,
+              "reconstructed_axis_unit_max_abs_error": 8.280769914215114e-08
+            }
+          }
+        }
+      },
+      "matrix_geometry": "ambient",
+      "matrix_delta_stage": "ambient proposal before global normalization"
+    },
+    {
+      "epoch": 8,
+      "update": 8,
+      "layers": {
+        "readout_gain": {
+          "parameter_names": [
+            "readout_gain"
+          ],
+          "constraint_axes": {
+            "readout_gain": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 5.077207515475786,
+          "gradient_after_clip_norm": 0.014659097698139287,
+          "ambient_delta_norm": 0.0003883721747667441,
+          "retracted_delta_norm": 0.0003883721747667441,
+          "actual_relative_weight_motion": 7.649326398083016e-05,
+          "negative_clipped_loss_gradient_dot_ambient": 3.953084736343926e-06,
+          "negative_clipped_loss_gradient_dot_actual": 3.953084736343926e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.in_proj": {
+          "parameter_names": [
+            "trunk.in_proj.weight",
+            "trunk.in_proj.bias"
+          ],
+          "constraint_axes": {
+            "trunk.in_proj.weight": null,
+            "trunk.in_proj.bias": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.953694215208019,
+          "gradient_after_clip_norm": 0.043104098825997944,
+          "ambient_delta_norm": 0.020252842864565232,
+          "retracted_delta_norm": 0.020252842864565232,
+          "actual_relative_weight_motion": 0.0020347061529800044,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00037803431256249473,
+          "negative_clipped_loss_gradient_dot_actual": 0.00037803431256249473,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.in_proj.weight": {
+              "frobenius": 9.874133737301895,
+              "row_l2_min": 0.7471662963154744,
+              "row_l2_max": 1.6904451219417709,
+              "column_l2_min": 1.2334723852058702,
+              "column_l2_max": 3.564327257091597
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.gate": {
+          "parameter_names": [
+            "trunk.blocks.0.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.450757349772818,
+          "gradient_after_clip_norm": 0.022130972650894348,
+          "ambient_delta_norm": 0.011365546146805034,
+          "retracted_delta_norm": 0.011365546146805034,
+          "actual_relative_weight_motion": 0.0013449145060484518,
+          "negative_clipped_loss_gradient_dot_ambient": 0.000121779920892665,
+          "negative_clipped_loss_gradient_dot_actual": 0.000121779920892665,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.gate.weight": {
+              "frobenius": 8.450757349772818,
+              "row_l2_min": 1.1186107812825972,
+              "row_l2_max": 1.5468853095176485,
+              "column_l2_min": 0.7713983872262782,
+              "column_l2_max": 1.3851399219002067
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.up": {
+          "parameter_names": [
+            "trunk.blocks.0.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.35544378533056,
+          "gradient_after_clip_norm": 0.027674837974974855,
+          "ambient_delta_norm": 0.011523785660323896,
+          "retracted_delta_norm": 0.011523785660323896,
+          "actual_relative_weight_motion": 0.001231773278184122,
+          "negative_clipped_loss_gradient_dot_ambient": 0.0001438850810649631,
+          "negative_clipped_loss_gradient_dot_actual": 0.0001438850810649631,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.up.weight": {
+              "frobenius": 9.35544378533056,
+              "row_l2_min": 1.1828041664489595,
+              "row_l2_max": 1.6199660015033939,
+              "column_l2_min": 0.8667750127310876,
+              "column_l2_max": 1.4581389219069545
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.down": {
+          "parameter_names": [
+            "trunk.blocks.0.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.707900354406782,
+          "gradient_after_clip_norm": 0.03718890419836584,
+          "ambient_delta_norm": 0.020240278488061272,
+          "retracted_delta_norm": 0.020240278488061272,
+          "actual_relative_weight_motion": 0.002324358073047808,
+          "negative_clipped_loss_gradient_dot_ambient": 0.0002102091133063336,
+          "negative_clipped_loss_gradient_dot_actual": 0.0002102091133063336,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.down.weight": {
+              "frobenius": 8.707900354406782,
+              "row_l2_min": 0.7284912475735713,
+              "row_l2_max": 1.3766886274511967,
+              "column_l2_min": 1.1092589005229483,
+              "column_l2_max": 1.5424456667154218
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.gate": {
+          "parameter_names": [
+            "trunk.blocks.1.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.009396012235193,
+          "gradient_after_clip_norm": 0.012283694460761748,
+          "ambient_delta_norm": 0.016218058448645704,
+          "retracted_delta_norm": 0.016218058448645704,
+          "actual_relative_weight_motion": 0.001350447468975352,
+          "negative_clipped_loss_gradient_dot_ambient": 6.494597559744599e-05,
+          "negative_clipped_loss_gradient_dot_actual": 6.494597559744599e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.gate.weight": {
+              "frobenius": 12.009396012235193,
+              "row_l2_min": 1.4764833958515107,
+              "row_l2_max": 2.1772391672427194,
+              "column_l2_min": 1.0447826928191466,
+              "column_l2_max": 1.8477346002292419
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.up": {
+          "parameter_names": [
+            "trunk.blocks.1.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.984275973602266,
+          "gradient_after_clip_norm": 0.018706057003670434,
+          "ambient_delta_norm": 0.01638398002971701,
+          "retracted_delta_norm": 0.01638398002971701,
+          "actual_relative_weight_motion": 0.0012618323935063092,
+          "negative_clipped_loss_gradient_dot_ambient": 8.81403817076869e-05,
+          "negative_clipped_loss_gradient_dot_actual": 8.81403817076869e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.up.weight": {
+              "frobenius": 12.984275973602266,
+              "row_l2_min": 1.457108009573228,
+              "row_l2_max": 2.5924299502627584,
+              "column_l2_min": 1.3071703368473655,
+              "column_l2_max": 1.942018476276969
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.down": {
+          "parameter_names": [
+            "trunk.blocks.1.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.658126541509711,
+          "gradient_after_clip_norm": 0.04016836670255952,
+          "ambient_delta_norm": 0.011413700609490257,
+          "retracted_delta_norm": 0.011413700609490257,
+          "actual_relative_weight_motion": 0.0014904037622810262,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00019120991099560292,
+          "negative_clipped_loss_gradient_dot_actual": 0.00019120991099560292,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.down.weight": {
+              "frobenius": 7.658126541509711,
+              "row_l2_min": 0.7279926162974564,
+              "row_l2_max": 1.2290117560553027,
+              "column_l2_min": 0.6880580988133673,
+              "column_l2_max": 1.6655853927633966
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.0": {
+          "parameter_names": [
+            "trunk.block_gates.0"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.0": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.080159397993906,
+          "gradient_after_clip_norm": 0.004249923912317186,
+          "ambient_delta_norm": 0.0015966587919415555,
+          "retracted_delta_norm": 0.0015966587919415555,
+          "actual_relative_weight_motion": 0.00017584039243785828,
+          "negative_clipped_loss_gradient_dot_ambient": 2.633558768159929e-06,
+          "negative_clipped_loss_gradient_dot_actual": 2.633558768159929e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.1": {
+          "parameter_names": [
+            "trunk.block_gates.1"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.1": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.83882627928039,
+          "gradient_after_clip_norm": 0.005132390589566115,
+          "ambient_delta_norm": 0.0010146279664032434,
+          "retracted_delta_norm": 0.0010146279664032434,
+          "actual_relative_weight_motion": 0.00012943621025064827,
+          "negative_clipped_loss_gradient_dot_ambient": 2.014216427499455e-06,
+          "negative_clipped_loss_gradient_dot_actual": 2.014216427499455e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "head.0": {
+          "parameter_names": [
+            "head.0.weight",
+            "head.0.bias"
+          ],
+          "constraint_axes": {
+            "head.0.weight": 1,
+            "head.0.bias": null
+          },
+          "geometry": "mixed",
+          "reconstructed_weight_norm": 3.5104315293147725,
+          "gradient_after_clip_norm": 0.0940361863276819,
+          "ambient_delta_norm": 0.0034598265231016345,
+          "retracted_delta_norm": 0.003273722689334628,
+          "actual_relative_weight_motion": 0.0009325698741013902,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00011692468246035209,
+          "negative_clipped_loss_gradient_dot_actual": 0.00010756987159905897,
+          "normalization_correction_norm": 0.0011184639085962678,
+          "matrix_weight_norms": {
+            "head.0.weight": {
+              "frobenius": 3.4641015841181364,
+              "row_l2_min": 0.9999999097916764,
+              "row_l2_max": 1.0000000533096671,
+              "column_l2_min": 0.24755417179590414,
+              "column_l2_max": 0.6437048051984534
+            }
+          },
+          "constrained_decomposition": {
+            "head.0.weight": {
+              "axis": 1,
+              "clipped_gradient_normal_norm": 0.021101776447415975,
+              "clipped_gradient_tangent_norm": 0.09160420037251127,
+              "reconstructed_axis_unit_max_abs_error": 9.020832358874742e-08
+            }
+          }
+        }
+      },
+      "matrix_geometry": "ambient",
+      "matrix_delta_stage": "ambient proposal before global normalization"
+    },
+    {
+      "epoch": 9,
+      "update": 9,
+      "layers": {
+        "readout_gain": {
+          "parameter_names": [
+            "readout_gain"
+          ],
+          "constraint_axes": {
+            "readout_gain": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 5.077405365564666,
+          "gradient_after_clip_norm": 0.0152354062848046,
+          "ambient_delta_norm": 0.0003661599246334621,
+          "retracted_delta_norm": 0.0003661599246334621,
+          "actual_relative_weight_motion": 7.2115558690032e-05,
+          "negative_clipped_loss_gradient_dot_ambient": 3.262327931047304e-06,
+          "negative_clipped_loss_gradient_dot_actual": 3.262327931047304e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.in_proj": {
+          "parameter_names": [
+            "trunk.in_proj.weight",
+            "trunk.in_proj.bias"
+          ],
+          "constraint_axes": {
+            "trunk.in_proj.weight": null,
+            "trunk.in_proj.bias": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.954875518450809,
+          "gradient_after_clip_norm": 0.04772433891828793,
+          "ambient_delta_norm": 0.020030498700345713,
+          "retracted_delta_norm": 0.020030498700345713,
+          "actual_relative_weight_motion": 0.002012129500084687,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00042818531746894716,
+          "negative_clipped_loss_gradient_dot_actual": 0.00042818531746894716,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.in_proj.weight": {
+              "frobenius": 9.875365727974136,
+              "row_l2_min": 0.745817042685653,
+              "row_l2_max": 1.6911449883102458,
+              "column_l2_min": 1.2354458352771258,
+              "column_l2_max": 3.5636817618471333
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.gate": {
+          "parameter_names": [
+            "trunk.blocks.0.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.450248436025134,
+          "gradient_after_clip_norm": 0.02456170785928137,
+          "ambient_delta_norm": 0.01121887506246826,
+          "retracted_delta_norm": 0.01121887506246826,
+          "actual_relative_weight_motion": 0.0013276384886673751,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00013206427783650254,
+          "negative_clipped_loss_gradient_dot_actual": 0.00013206427783650254,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.gate.weight": {
+              "frobenius": 8.450248436025134,
+              "row_l2_min": 1.1179155939844405,
+              "row_l2_max": 1.5463978086635388,
+              "column_l2_min": 0.7716135492746233,
+              "column_l2_max": 1.3853671859360783
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.up": {
+          "parameter_names": [
+            "trunk.blocks.0.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.355432394096686,
+          "gradient_after_clip_norm": 0.030773342025745533,
+          "ambient_delta_norm": 0.01091727043269471,
+          "retracted_delta_norm": 0.01091727043269471,
+          "actual_relative_weight_motion": 0.0011669445059090534,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00015210560881968394,
+          "negative_clipped_loss_gradient_dot_actual": 0.00015210560881968394,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.up.weight": {
+              "frobenius": 9.355432394096686,
+              "row_l2_min": 1.183011986356134,
+              "row_l2_max": 1.6193409422735372,
+              "column_l2_min": 0.8667820252488972,
+              "column_l2_max": 1.4581104133830098
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.0.down": {
+          "parameter_names": [
+            "trunk.blocks.0.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.0.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 8.707985514189637,
+          "gradient_after_clip_norm": 0.04129237967244789,
+          "ambient_delta_norm": 0.02063066286877344,
+          "retracted_delta_norm": 0.02063066286877344,
+          "actual_relative_weight_motion": 0.0023691659609625937,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00024410531896300748,
+          "negative_clipped_loss_gradient_dot_actual": 0.00024410531896300748,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.0.down.weight": {
+              "frobenius": 8.707985514189637,
+              "row_l2_min": 0.7284940909900947,
+              "row_l2_max": 1.3766093772186165,
+              "column_l2_min": 1.1097514241452648,
+              "column_l2_max": 1.542683556131477
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.gate": {
+          "parameter_names": [
+            "trunk.blocks.1.gate.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.gate.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.009956246214436,
+          "gradient_after_clip_norm": 0.014758944433614411,
+          "ambient_delta_norm": 0.016580618145736137,
+          "retracted_delta_norm": 0.016580618145736137,
+          "actual_relative_weight_motion": 0.0013805727353055413,
+          "negative_clipped_loss_gradient_dot_ambient": 8.301058567436115e-05,
+          "negative_clipped_loss_gradient_dot_actual": 8.301058567436115e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.gate.weight": {
+              "frobenius": 12.009956246214436,
+              "row_l2_min": 1.4768493835875924,
+              "row_l2_max": 2.1773404610712803,
+              "column_l2_min": 1.0441033457746276,
+              "column_l2_max": 1.8473082603504463
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.up": {
+          "parameter_names": [
+            "trunk.blocks.1.up.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.up.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 12.985167908799001,
+          "gradient_after_clip_norm": 0.020900725300790464,
+          "ambient_delta_norm": 0.016495803033602523,
+          "retracted_delta_norm": 0.016495803033602523,
+          "actual_relative_weight_motion": 0.0012703573145499835,
+          "negative_clipped_loss_gradient_dot_ambient": 9.289120956205476e-05,
+          "negative_clipped_loss_gradient_dot_actual": 9.289120956205476e-05,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.up.weight": {
+              "frobenius": 12.985167908799001,
+              "row_l2_min": 1.4574295975827465,
+              "row_l2_max": 2.5923482124069754,
+              "column_l2_min": 1.307175214996649,
+              "column_l2_max": 1.9422811755975387
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.blocks.1.down": {
+          "parameter_names": [
+            "trunk.blocks.1.down.weight"
+          ],
+          "constraint_axes": {
+            "trunk.blocks.1.down.weight": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.658573777514785,
+          "gradient_after_clip_norm": 0.044638287662386616,
+          "ambient_delta_norm": 0.010892348680388702,
+          "retracted_delta_norm": 0.010892348680388702,
+          "actual_relative_weight_motion": 0.001422242443151508,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00019917813726598563,
+          "negative_clipped_loss_gradient_dot_actual": 0.00019917813726598563,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {
+            "trunk.blocks.1.down.weight": {
+              "frobenius": 7.658573777514785,
+              "row_l2_min": 0.7281953334856257,
+              "row_l2_max": 1.2291754222182643,
+              "column_l2_min": 0.6881288054725929,
+              "column_l2_max": 1.6659624945332057
+            }
+          },
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.0": {
+          "parameter_names": [
+            "trunk.block_gates.0"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.0": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 9.080047249104192,
+          "gradient_after_clip_norm": 0.004900231585615102,
+          "ambient_delta_norm": 0.0014704913461890733,
+          "retracted_delta_norm": 0.0014704913461890733,
+          "actual_relative_weight_motion": 0.00016194754342651105,
+          "negative_clipped_loss_gradient_dot_ambient": 3.0221677620437715e-06,
+          "negative_clipped_loss_gradient_dot_actual": 3.0221677620437715e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "trunk.block_gates.1": {
+          "parameter_names": [
+            "trunk.block_gates.1"
+          ],
+          "constraint_axes": {
+            "trunk.block_gates.1": null
+          },
+          "geometry": "free_euclidean",
+          "reconstructed_weight_norm": 7.838172603252418,
+          "gradient_after_clip_norm": 0.005833192675344245,
+          "ambient_delta_norm": 0.0010634947999840828,
+          "retracted_delta_norm": 0.0010634947999840828,
+          "actual_relative_weight_motion": 0.0001356814724318255,
+          "negative_clipped_loss_gradient_dot_ambient": 3.468240888948262e-06,
+          "negative_clipped_loss_gradient_dot_actual": 3.468240888948262e-06,
+          "normalization_correction_norm": 0.0,
+          "matrix_weight_norms": {},
+          "constrained_decomposition": {}
+        },
+        "head.0": {
+          "parameter_names": [
+            "head.0.weight",
+            "head.0.bias"
+          ],
+          "constraint_axes": {
+            "head.0.weight": 1,
+            "head.0.bias": null
+          },
+          "geometry": "mixed",
+          "reconstructed_weight_norm": 3.5104324748365454,
+          "gradient_after_clip_norm": 0.10687932104262449,
+          "ambient_delta_norm": 0.0034506588906731846,
+          "retracted_delta_norm": 0.0032383716286948734,
+          "actual_relative_weight_motion": 0.0009224993364516035,
+          "negative_clipped_loss_gradient_dot_ambient": 0.00016929923576500125,
+          "negative_clipped_loss_gradient_dot_actual": 0.0001603220784695821,
+          "normalization_correction_norm": 0.0011904070753261,
+          "matrix_weight_norms": {
+            "head.0.weight": {
+              "frobenius": 3.4641016192807017,
+              "row_l2_min": 0.99999994818777,
+              "row_l2_max": 1.000000051605401,
+              "column_l2_min": 0.24762949620163477,
+              "column_l2_max": 0.6438935551066095
+            }
+          },
+          "constrained_decomposition": {
+            "head.0.weight": {
+              "axis": 1,
+              "clipped_gradient_normal_norm": 0.022189318034029838,
+              "clipped_gradient_tangent_norm": 0.10451315238731652,
+              "reconstructed_axis_unit_max_abs_error": 5.181222995087609e-08
+            }
+          }
+        }
+      },
+      "matrix_geometry": "ambient",
+      "matrix_delta_stage": "ambient proposal before global normalization"
+    }
+  ],
+  "stage_diagnostics": {
+    "architecture": "additive_prerms",
+    "banks": {
+      "old": {
+        "activations": {
+          "signed_projection": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.1091727555134137,
+            "min": -11.50798511505127,
+            "max": 8.894107818603516,
+            "mean": -0.02742415721638558,
+            "state_rms_quantiles": [
+              0.5147518848576941,
+              0.7679915952962727,
+              0.9551281590467113,
+              1.2551253977280319,
+              3.7366607627259856
+            ]
+          },
+          "block0.stream_before": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.1091727555134137,
+            "min": -11.50798511505127,
+            "max": 8.894107818603516,
+            "mean": -0.02742415721638558,
+            "state_rms_quantiles": [
+              0.5147518848576941,
+              0.7679915952962727,
+              0.9551281590467113,
+              1.2551253977280319,
+              3.7366607627259856
+            ]
+          },
+          "block0.normalized_branch_input": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 0.9999943550455217,
+            "min": -3.9569296836853027,
+            "max": 3.876230478286743,
+            "mean": -0.02155151685578198,
+            "state_rms_quantiles": [
+              0.9999810152046502,
+              0.9999914959971674,
+              0.9999945039828366,
+              0.9999968151929245,
+              0.9999996864960878
+            ]
+          },
+          "block0.gate_preactivation": {
+            "shape": [
+              16384,
+              43
+            ],
+            "rms": 2.3845146843178213,
+            "min": -7.685783863067627,
+            "max": 8.509544372558594,
+            "mean": 0.6283745032439139,
+            "state_rms_quantiles": [
+              1.6897874511931967,
+              2.2198683065600653,
+              2.3792024881132834,
+              2.5436477601388314,
+              2.8411833266074282
+            ],
+            "full_situ_gate_factor_derivative": {
+              "min": -0.10538924275321124,
+              "max": 0.9263897686576562,
+              "mean": 0.4342694082158135,
+              "negative_fraction": 0.2246349246002907,
+              "absolute_quantiles": [
+                1.539638938896637e-06,
+                0.057925489959307845,
+                0.474684334405332,
+                0.9042708016745539,
+                0.9263897686576562
+              ]
+            }
+          },
+          "block0.up_preactivation": {
+            "shape": [
+              16384,
+              43
+            ],
+            "rms": 2.5624948583088285,
+            "min": -9.348447799682617,
+            "max": 9.361604690551758,
+            "mean": 0.1172668183320547,
+            "state_rms_quantiles": [
+              1.7245060797001952,
+              2.286559428477626,
+              2.554695817759865,
+              2.8282936067045608,
+              3.088450034982926
+            ]
+          },
+          "block0.raw_branch": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 6.171160647994353,
+            "min": -22.372873306274414,
+            "max": 29.5730037689209,
+            "mean": 0.16060773606806872,
+            "state_rms_quantiles": [
+              1.3216349631232094,
+              4.471790751373747,
+              5.974747338481094,
+              7.738784168476915,
+              9.730078292678083
+            ]
+          },
+          "block0.weighted_branch": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.5269245848842958,
+            "min": -5.960336685180664,
+            "max": 8.1646089553833,
+            "mean": 0.051632023343173586,
+            "state_rms_quantiles": [
+              0.3271315749627652,
+              1.1111074498985596,
+              1.4780499070916366,
+              1.917280229323417,
+              2.4041076902353504
+            ]
+          },
+          "block0.sigmoid_amplitude": {
+            "shape": [
+              64
+            ],
+            "rms": 0.2471417969282712,
+            "min": 0.1678810566663742,
+            "max": 0.29668986797332764,
+            "mean": 0.2458012190181762
+          },
+          "block0.stream_after": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.9420389049759852,
+            "min": -11.515961647033691,
+            "max": 9.67074203491211,
+            "mean": 0.02420786615753275,
+            "state_rms_quantiles": [
+              0.7346835634454947,
+              1.4968890898408118,
+              1.891189882578499,
+              2.32260620873764,
+              4.047521948000009
+            ]
+          },
+          "block1.stream_before": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.9420389049759852,
+            "min": -11.515961647033691,
+            "max": 9.67074203491211,
+            "mean": 0.02420786615753275,
+            "state_rms_quantiles": [
+              0.7346835634454947,
+              1.4968890898408118,
+              1.891189882578499,
+              2.32260620873764,
+              4.047521948000009
+            ]
+          },
+          "block1.normalized_branch_input": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 0.9999984827712177,
+            "min": -4.065813064575195,
+            "max": 4.140378952026367,
+            "mean": 0.013425051361307117,
+            "state_rms_quantiles": [
+              0.9999907249938932,
+              0.9999977466773299,
+              0.9999985937255325,
+              0.9999990680856286,
+              0.9999997186316844
+            ]
+          },
+          "block1.gate_preactivation": {
+            "shape": [
+              16384,
+              43
+            ],
+            "rms": 2.758359717674405,
+            "min": -7.758871078491211,
+            "max": 11.230884552001953,
+            "mean": 1.141564300906363,
+            "state_rms_quantiles": [
+              1.6137593019862861,
+              2.395234840015253,
+              2.785348221301305,
+              3.0143126423641564,
+              3.30820019966754
+            ],
+            "full_situ_gate_factor_derivative": {
+              "min": -0.10538924275235977,
+              "max": 0.9263897686528884,
+              "mean": 0.46876939096747244,
+              "negative_fraction": 0.16652803642805233,
+              "absolute_quantiles": [
+                1.9827890573864693e-07,
+                0.06823252515396211,
+                0.5260926463580196,
+                0.9088317785919728,
+                0.9263897686528884
+              ]
+            }
+          },
+          "block1.up_preactivation": {
+            "shape": [
+              16384,
+              43
+            ],
+            "rms": 3.490788064372351,
+            "min": -17.677776336669922,
+            "max": 16.613340377807617,
+            "mean": -0.2921442961856914,
+            "state_rms_quantiles": [
+              1.8205204208334005,
+              2.9623442932272304,
+              3.482434483949268,
+              4.0128651854817585,
+              4.2025719551088825
+            ]
+          },
+          "block1.raw_branch": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 16.237472372242006,
+            "min": -59.41560745239258,
+            "max": 66.91918182373047,
+            "mean": 1.598571278560744,
+            "state_rms_quantiles": [
+              1.6993404285963434,
+              10.459485562348629,
+              16.46654333780205,
+              19.814835279224543,
+              22.455595745505534
+            ]
+          },
+          "block1.weighted_branch": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 4.681504083718557,
+            "min": -21.03492546081543,
+            "max": 19.087440490722656,
+            "mean": 0.3664880474579051,
+            "state_rms_quantiles": [
+              0.4893984920168481,
+              2.9844711135821984,
+              4.683963039820537,
+              5.810349432428106,
+              6.705329910586396
+            ]
+          },
+          "block1.sigmoid_amplitude": {
+            "shape": [
+              64
+            ],
+            "rms": 0.27889668392890266,
+            "min": 0.19746030867099762,
+            "max": 0.3540303111076355,
+            "mean": 0.2769178608432412
+          },
+          "block1.stream_after": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 5.862131761361328,
+            "min": -23.035987854003906,
+            "max": 22.298059463500977,
+            "mean": 0.3906959137869568,
+            "state_rms_quantiles": [
+              1.2085649493054735,
+              3.8704244947889856,
+              5.875627872676103,
+              7.274700088689215,
+              8.119703265864235
+            ]
+          },
+          "head_features": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 5.862131761361328,
+            "min": -23.035987854003906,
+            "max": 22.298059463500977,
+            "mean": 0.3906959137869568,
+            "state_rms_quantiles": [
+              1.2085649493054735,
+              3.8704244947889856,
+              5.875627872676103,
+              7.274700088689215,
+              8.119703265864235
+            ]
+          },
+          "head_before_gain": {
+            "shape": [
+              16384,
+              12
+            ],
+            "rms": 20.2764284299625,
+            "min": -16.31322479248047,
+            "max": 55.97040557861328,
+            "mean": 16.258262215522752,
+            "state_rms_quantiles": [
+              1.4159655388392036,
+              10.677278502143368,
+              20.98002976618235,
+              24.79383375251249,
+              28.794716990332397
+            ]
+          },
+          "readout_gain": {
+            "shape": [
+              12
+            ],
+            "rms": 1.4650952068848586,
+            "min": 1.2132941484451294,
+            "max": 1.6721149682998657,
+            "mean": 1.4579934775829315
+          }
+        },
+        "residual_ratios": {
+          "block0.": {
+            "raw_branch_to_stream_rms_ratio": 5.563750657703315,
+            "weighted_branch_to_stream_rms_ratio": 1.3766336914554969,
+            "stream_weighted_branch_cosine": 0.06192411165353099,
+            "summed_stream_second_moment_identity_residual": 0.0009996306616812944
+          },
+          "block1.": {
+            "raw_branch_to_stream_rms_ratio": 8.361043813611342,
+            "weighted_branch_to_stream_rms_ratio": 2.4106129242433725,
+            "stream_weighted_branch_cosine": 0.4771730500148324,
+            "summed_stream_second_moment_identity_residual": 0.0052087754011154175
+          }
+        },
+        "actual_forward_max_abs_error": 0.0
+      },
+      "first": {
+        "activations": {
+          "signed_projection": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.1090220358254224,
+            "min": -11.50844955444336,
+            "max": 8.8955659866333,
+            "mean": -0.027488762506049397,
+            "state_rms_quantiles": [
+              0.5142986379642827,
+              0.7681718970804817,
+              0.9548009135869913,
+              1.2551398538858354,
+              3.7372065216010766
+            ]
+          },
+          "block0.stream_before": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.1090220358254224,
+            "min": -11.50844955444336,
+            "max": 8.8955659866333,
+            "mean": -0.027488762506049397,
+            "state_rms_quantiles": [
+              0.5142986379642827,
+              0.7681718970804817,
+              0.9548009135869913,
+              1.2551398538858354,
+              3.7372065216010766
+            ]
+          },
+          "block0.normalized_branch_input": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 0.9999943544248007,
+            "min": -3.954777479171753,
+            "max": 3.875063180923462,
+            "mean": -0.02163466480063752,
+            "state_rms_quantiles": [
+              0.9999810405084416,
+              0.9999915077421999,
+              0.9999944999027814,
+              0.9999968132317522,
+              0.9999996037338174
+            ]
+          },
+          "block0.gate_preactivation": {
+            "shape": [
+              16384,
+              43
+            ],
+            "rms": 2.384214401606796,
+            "min": -7.695247173309326,
+            "max": 8.515186309814453,
+            "mean": 0.6275897982008126,
+            "state_rms_quantiles": [
+              1.6894641324093358,
+              2.219735040895007,
+              2.378842756307752,
+              2.5432070358335785,
+              2.8416967955493213
+            ],
+            "full_situ_gate_factor_derivative": {
+              "min": -0.10538924274838926,
+              "max": 0.9263897686650114,
+              "mean": 0.4341796020941015,
+              "negative_fraction": 0.2247413812681686,
+              "absolute_quantiles": [
+                2.9643763943543178e-08,
+                0.05792872585644334,
+                0.4744783829551141,
+                0.9042624393004308,
+                0.9263897686650114
+              ]
+            }
+          },
+          "block0.up_preactivation": {
+            "shape": [
+              16384,
+              43
+            ],
+            "rms": 2.5620611480246924,
+            "min": -9.337421417236328,
+            "max": 9.365389823913574,
+            "mean": 0.11734916146212178,
+            "state_rms_quantiles": [
+              1.726156555834598,
+              2.28541230439472,
+              2.554183913532464,
+              2.8278154795469663,
+              3.088526272407313
+            ]
+          },
+          "block0.raw_branch": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 6.164462994687717,
+            "min": -22.3347225189209,
+            "max": 29.579410552978516,
+            "mean": 0.15536502662701243,
+            "state_rms_quantiles": [
+              1.3236335845705949,
+              4.4718491239101406,
+              5.967252678494479,
+              7.7270739338541565,
+              9.72118031065109
+            ]
+          },
+          "block0.weighted_branch": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.5253010910846363,
+            "min": -5.958379745483398,
+            "max": 8.16645336151123,
+            "mean": 0.050258680987239686,
+            "state_rms_quantiles": [
+              0.3277457623508994,
+              1.1106467724520104,
+              1.476139976969863,
+              1.9147643785725732,
+              2.401837625888625
+            ]
+          },
+          "block0.sigmoid_amplitude": {
+            "shape": [
+              64
+            ],
+            "rms": 0.24714642637481937,
+            "min": 0.1679084151983261,
+            "max": 0.2966972589492798,
+            "mean": 0.24580601160414517
+          },
+          "block0.stream_after": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.940648959041365,
+            "min": -11.503357887268066,
+            "max": 9.672199249267578,
+            "mean": 0.022769918443497215,
+            "state_rms_quantiles": [
+              0.7329573873435105,
+              1.496729882351764,
+              1.8897912787893492,
+              2.3205577763988443,
+              4.045887189387194
+            ]
+          },
+          "block1.stream_before": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.940648959041365,
+            "min": -11.503357887268066,
+            "max": 9.672199249267578,
+            "mean": 0.022769918443497215,
+            "state_rms_quantiles": [
+              0.7329573873435105,
+              1.496729882351764,
+              1.8897912787893492,
+              2.3205577763988443,
+              4.045887189387194
+            ]
+          },
+          "block1.normalized_branch_input": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 0.9999984810398707,
+            "min": -4.06450891494751,
+            "max": 4.1406707763671875,
+            "mean": 0.012641488058364632,
+            "state_rms_quantiles": [
+              0.9999906367098353,
+              0.9999977557526268,
+              0.999998592981076,
+              0.9999990659648197,
+              0.9999996906023002
+            ]
+          },
+          "block1.gate_preactivation": {
+            "shape": [
+              16384,
+              43
+            ],
+            "rms": 2.759171136955815,
+            "min": -7.768340587615967,
+            "max": 11.232789993286133,
+            "mean": 1.1434842051867455,
+            "state_rms_quantiles": [
+              1.6144430227650477,
+              2.394929852169464,
+              2.7870988136337753,
+              3.015450205521856,
+              3.308437136775608
+            ],
+            "full_situ_gate_factor_derivative": {
+              "min": -0.1053892427079354,
+              "max": 0.926389768661486,
+              "mean": 0.46902864075063283,
+              "negative_fraction": 0.16626686273619184,
+              "absolute_quantiles": [
+                1.153414030952149e-09,
+                0.06827454167885476,
+                0.5266769849834054,
+                0.9087965121645102,
+                0.926389768661486
+              ]
+            }
+          },
+          "block1.up_preactivation": {
+            "shape": [
+              16384,
+              43
+            ],
+            "rms": 3.4898154539817736,
+            "min": -17.68979263305664,
+            "max": 16.609580993652344,
+            "mean": -0.2953726736718627,
+            "state_rms_quantiles": [
+              1.8213011313628644,
+              2.960858001339846,
+              3.481548677587342,
+              4.010646204733599,
+              4.201710265338002
+            ]
+          },
+          "block1.raw_branch": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 16.22111271404339,
+            "min": -59.449913024902344,
+            "max": 66.97270202636719,
+            "mean": 1.5894797470950555,
+            "state_rms_quantiles": [
+              1.6989309433822035,
+              10.459601874440473,
+              16.45698908496548,
+              19.790581048314944,
+              22.444930809768497
+            ]
+          },
+          "block1.weighted_branch": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 4.676675618713507,
+            "min": -21.046850204467773,
+            "max": 19.103893280029297,
+            "mean": 0.36392557683282545,
+            "state_rms_quantiles": [
+              0.4893627715830185,
+              2.983117300204327,
+              4.682233869772635,
+              5.801268262355604,
+              6.702245937620563
+            ]
+          },
+          "block1.sigmoid_amplitude": {
+            "shape": [
+              64
+            ],
+            "rms": 0.2789150648207217,
+            "min": 0.1974925994873047,
+            "max": 0.35402658581733704,
+            "mean": 0.2769358444493264
+          },
+          "block1.stream_after": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 5.856347469265238,
+            "min": -23.04337501525879,
+            "max": 22.313343048095703,
+            "mean": 0.38669549534396497,
+            "state_rms_quantiles": [
+              1.2237363212728636,
+              3.8679365058585113,
+              5.870311163838363,
+              7.259934053951812,
+              8.112230752830923
+            ]
+          },
+          "head_features": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 5.856347469265238,
+            "min": -23.04337501525879,
+            "max": 22.313343048095703,
+            "mean": 0.38669549534396497,
+            "state_rms_quantiles": [
+              1.2237363212728636,
+              3.8679365058585113,
+              5.870311163838363,
+              7.259934053951812,
+              8.112230752830923
+            ]
+          },
+          "head_before_gain": {
+            "shape": [
+              16384,
+              12
+            ],
+            "rms": 20.264853193155528,
+            "min": -16.33704376220703,
+            "max": 55.869747161865234,
+            "mean": 16.268060763557152,
+            "state_rms_quantiles": [
+              1.4113134233239009,
+              10.681636564869233,
+              20.965342740456784,
+              24.78264449261117,
+              28.79788422497736
+            ]
+          },
+          "readout_gain": {
+            "shape": [
+              12
+            ],
+            "rms": 1.4651766098444425,
+            "min": 1.2133405208587646,
+            "max": 1.6722359657287598,
+            "mean": 1.45807683467865
+          }
+        },
+        "residual_ratios": {
+          "block0.": {
+            "raw_branch_to_stream_rms_ratio": 5.558467546679209,
+            "weighted_branch_to_stream_rms_ratio": 1.3753568836433316,
+            "stream_weighted_branch_cosine": 0.061966781436145466,
+            "summed_stream_second_moment_identity_residual": -0.0002857804065570235
+          },
+          "block1.": {
+            "raw_branch_to_stream_rms_ratio": 8.358602228636054,
+            "weighted_branch_to_stream_rms_ratio": 2.4098514040497436,
+            "stream_weighted_branch_cosine": 0.4770602113282037,
+            "summed_stream_second_moment_identity_residual": -0.0049301330000162125
+          }
+        },
+        "actual_forward_max_abs_error": 0.0
+      },
+      "endpoint": {
+        "activations": {
+          "signed_projection": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.1087032154877128,
+            "min": -11.50679874420166,
+            "max": 8.908367156982422,
+            "mean": -0.027179808525262278,
+            "state_rms_quantiles": [
+              0.5140777860066026,
+              0.7682655011200015,
+              0.9538351083349683,
+              1.254708543838899,
+              3.7341266981350167
+            ]
+          },
+          "block0.stream_before": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.1087032154877128,
+            "min": -11.50679874420166,
+            "max": 8.908367156982422,
+            "mean": -0.027179808525262278,
+            "state_rms_quantiles": [
+              0.5140777860066026,
+              0.7682655011200015,
+              0.9538351083349683,
+              1.254708543838899,
+              3.7341266981350167
+            ]
+          },
+          "block0.normalized_branch_input": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 0.9999943486547257,
+            "min": -3.9395663738250732,
+            "max": 3.8785831928253174,
+            "mean": -0.021252334134649636,
+            "state_rms_quantiles": [
+              0.9999810358892862,
+              0.9999915106287692,
+              0.9999944919905046,
+              0.9999968118991215,
+              0.999999597310542
+            ]
+          },
+          "block0.gate_preactivation": {
+            "shape": [
+              16384,
+              43
+            ],
+            "rms": 2.3836804482789153,
+            "min": -7.714984893798828,
+            "max": 8.507434844970703,
+            "mean": 0.6248696892932749,
+            "state_rms_quantiles": [
+              1.689361362922741,
+              2.2187590166722595,
+              2.3780783545766724,
+              2.5455996908586376,
+              2.84206837209462
+            ],
+            "full_situ_gate_factor_derivative": {
+              "min": -0.10538924275358182,
+              "max": 0.9263897686429156,
+              "mean": 0.4338288320801058,
+              "negative_fraction": 0.22526656749636628,
+              "absolute_quantiles": [
+                2.005859607856486e-07,
+                0.05789757129854555,
+                0.4739046500412595,
+                0.9043145412029374,
+                0.9263897686429156
+              ]
+            }
+          },
+          "block0.up_preactivation": {
+            "shape": [
+              16384,
+              43
+            ],
+            "rms": 2.562390995856812,
+            "min": -9.355852127075195,
+            "max": 9.339430809020996,
+            "mean": 0.11667070381961053,
+            "state_rms_quantiles": [
+              1.7191960736615044,
+              2.286052497076434,
+              2.5547253804146464,
+              2.8287586396318933,
+              3.0907738517819885
+            ]
+          },
+          "block0.raw_branch": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 6.169031173605752,
+            "min": -22.200407028198242,
+            "max": 29.543935775756836,
+            "mean": 0.16361025682174987,
+            "state_rms_quantiles": [
+              1.3319700814133948,
+              4.47475913692672,
+              5.971999459349783,
+              7.732635241780065,
+              9.719164893634925
+            ]
+          },
+          "block0.weighted_branch": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.5264273547528697,
+            "min": -5.9256978034973145,
+            "max": 8.159159660339355,
+            "mean": 0.052593516126276545,
+            "state_rms_quantiles": [
+              0.3305321343979225,
+              1.1116279589893248,
+              1.4777772211812557,
+              1.9167514757295592,
+              2.400669950068433
+            ]
+          },
+          "block0.sigmoid_amplitude": {
+            "shape": [
+              64
+            ],
+            "rms": 0.24718512998260164,
+            "min": 0.16809330880641937,
+            "max": 0.29656606912612915,
+            "mean": 0.24584402260370553
+          },
+          "block0.stream_after": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.9395507205353906,
+            "min": -11.51931381225586,
+            "max": 9.661721229553223,
+            "mean": 0.025413707586722848,
+            "state_rms_quantiles": [
+              0.7308758786829331,
+              1.496445732010462,
+              1.8890234274590583,
+              2.3186586017598394,
+              4.037164044393765
+            ]
+          },
+          "block1.stream_before": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 1.9395507205353906,
+            "min": -11.51931381225586,
+            "max": 9.661721229553223,
+            "mean": 0.025413707586722848,
+            "state_rms_quantiles": [
+              0.7308758786829331,
+              1.496445732010462,
+              1.8890234274590583,
+              2.3186586017598394,
+              4.037164044393765
+            ]
+          },
+          "block1.normalized_branch_input": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 0.9999984802344548,
+            "min": -4.068933486938477,
+            "max": 4.138586044311523,
+            "mean": 0.01398551539189169,
+            "state_rms_quantiles": [
+              0.9999905990547108,
+              0.9999977529490055,
+              0.9999985855049296,
+              0.9999990662866793,
+              0.9999996619545446
+            ]
+          },
+          "block1.gate_preactivation": {
+            "shape": [
+              16384,
+              43
+            ],
+            "rms": 2.7598378530473546,
+            "min": -7.82245397567749,
+            "max": 11.192744255065918,
+            "mean": 1.1428311365797073,
+            "state_rms_quantiles": [
+              1.6249436560226178,
+              2.392611105443837,
+              2.7883204629877474,
+              3.0174280890681593,
+              3.315717485035393
+            ],
+            "full_situ_gate_factor_derivative": {
+              "min": -0.10538924274302214,
+              "max": 0.9263897686633988,
+              "mean": 0.468975203562679,
+              "negative_fraction": 0.16625266851380813,
+              "absolute_quantiles": [
+                2.9643763943543178e-08,
+                0.06820183648796543,
+                0.5263279073322639,
+                0.9087840554586574,
+                0.9263897686633988
+              ]
+            }
+          },
+          "block1.up_preactivation": {
+            "shape": [
+              16384,
+              43
+            ],
+            "rms": 3.493892751271796,
+            "min": -17.650983810424805,
+            "max": 16.61475372314453,
+            "mean": -0.29159086801329037,
+            "state_rms_quantiles": [
+              1.8170595587315854,
+              2.964244992936379,
+              3.484716881485987,
+              4.0164754097844835,
+              4.202940485005763
+            ]
+          },
+          "block1.raw_branch": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 16.264955420044075,
+            "min": -59.58088684082031,
+            "max": 67.0573501586914,
+            "mean": 1.600217442757324,
+            "state_rms_quantiles": [
+              1.6808608029853696,
+              10.509481974788303,
+              16.520799895521318,
+              19.850083502152472,
+              22.50093401592428
+            ]
+          },
+          "block1.weighted_branch": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 4.691460631735392,
+            "min": -21.10904312133789,
+            "max": 19.129436492919922,
+            "mean": 0.36727552494188315,
+            "state_rms_quantiles": [
+              0.4846198499900414,
+              2.9966803367739914,
+              4.702132778315594,
+              5.822736076715583,
+              6.719617185091849
+            ]
+          },
+          "block1.sigmoid_amplitude": {
+            "shape": [
+              64
+            ],
+            "rms": 0.27908372122512426,
+            "min": 0.1975850909948349,
+            "max": 0.3542921841144562,
+            "mean": 0.2771039882209152
+          },
+          "block1.stream_after": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 5.868735121520483,
+            "min": -23.033018112182617,
+            "max": 22.27394676208496,
+            "mean": 0.39268923256222593,
+            "state_rms_quantiles": [
+              1.2380919865408575,
+              3.8843362690451393,
+              5.881759139438918,
+              7.283690036053551,
+              8.118373122575308
+            ]
+          },
+          "head_features": {
+            "shape": [
+              16384,
+              64
+            ],
+            "rms": 5.868735121520483,
+            "min": -23.033018112182617,
+            "max": 22.27394676208496,
+            "mean": 0.39268923256222593,
+            "state_rms_quantiles": [
+              1.2380919865408575,
+              3.8843362690451393,
+              5.881759139438918,
+              7.283690036053551,
+              8.118373122575308
+            ]
+          },
+          "head_before_gain": {
+            "shape": [
+              16384,
+              12
+            ],
+            "rms": 20.317896404096373,
+            "min": -16.64438247680664,
+            "max": 56.05449295043945,
+            "mean": 16.277972308344562,
+            "state_rms_quantiles": [
+              1.4111253889459696,
+              10.732836486238359,
+              21.020178958559583,
+              24.877757749000118,
+              28.919143031761703
+            ]
+          },
+          "readout_gain": {
+            "shape": [
+              12
+            ],
+            "rms": 1.4657784122347324,
+            "min": 1.214306116104126,
+            "max": 1.6730393171310425,
+            "mean": 1.4586810072263081
+          }
+        },
+        "residual_ratios": {
+          "block0.": {
+            "raw_branch_to_stream_rms_ratio": 5.564186237966332,
+            "weighted_branch_to_stream_rms_ratio": 1.3767682220362303,
+            "stream_weighted_branch_cosine": 0.05987328863279672,
+            "summed_stream_second_moment_identity_residual": -0.0006307473522610962
+          },
+          "block1.": {
+            "raw_branch_to_stream_rms_ratio": 8.385939716778493,
+            "weighted_branch_to_stream_rms_ratio": 2.4188388486382912,
+            "stream_weighted_branch_cosine": 0.47643046394044414,
+            "summed_stream_second_moment_identity_residual": -0.001379452645778656
+          }
+        },
+        "actual_forward_max_abs_error": 0.0
+      }
+    },
+    "scope": "All three banks evaluated on the same saved old-policy observations and frozen per-row normalization; not their own future occupancy. RMS ratios and mix/gain changes do not alone establish a cause of return collapse."
+  },
+  "optimizer_metadata": {
+    "actor_optimizer": "anvil2",
+    "matrix_method": "normuon",
+    "normuon_network": "actor",
+    "matrix_precision": "bf16",
+    "slow_clock": "rollout",
+    "matrix_geometry": "ambient",
+    "saved_auxiliary_optimizer_present": true,
+    "saved_matrix_optimizer_present": true,
+    "history_scope": "Actual Args and checkpoint-state presence only; no optimizer moments are decoded, matched to layers, transported or used to propose new steps."
+  },
+  "scope": "Full saved old batch, action-summed/state-mean Fisher; actual compiled smooth shape JVP at old weights and finite FP32 bank shapes. All cross terms retained; no physical PG or return-efficiency inference.",
+  "limitations": [
+    "First bank is reconstructed old+stored delta; endpoint bank is independently recorded exact model_after_update.",
+    "Compiled JVP numerical certification requires the separate full captured chord audit; finite-vs-linear discrepancy mixes curvature and rounding.",
+    "Stored PPO ascent credit uses exact sign-conditioned clipped surrogate on fixed old rollout and its saved GAE; it is not physical PG.",
+    "Epoch pairings use each recorded clipped loss gradient at reconstructed preceding weights, not the old-policy score or a decomposition of finite returns.",
+    "No hypothetical optimizer updates, tangent projection of free body weights, physical-field fitting, optimizer-state reconstruction or candidate selection."
+  ],
+  "replay_validation": {
+    "module": "cleanrl.ppo_continuous_action_sepclip_additive_prerms_anvil_v14",
+    "architecture": "additive_prerms",
+    "snapshot_sha256": "becd8aab82e91f2faf7f78aeb7c982ceed66acfa30638e471409ddc0efeb60bc",
+    "trace_sha256": "08c58b67db6f390f73eb50d73189c8f7a9ebfd3d9ce53791c9e8de679d0a317d",
+    "source_manifest_sha256": "80b4adf1e5301573084b28b3183d1f32dd96b8ed745785f0741c3932b249bbe2",
+    "execution_sha256": "b13583ffefada73030a474a11172b054b62bc9c2e81ad248c6a02b0f4f2c18ea",
+    "exp_name": "sepclip_prescription_v14_additive_normuon",
+    "independently_recorded_logits": false,
+    "logits_source": "Actual pinned compiled actor forward; snapshot has no independently saved latent logits; no inversion or floor-latent certification.",
+    "recorded_forward_max_abs_errors": {
+      "alpha": 0.0,
+      "beta": 0.0,
+      "values": 0.0,
+      "logprob": 0.0
+    },
+    "frozen_row_normalization_max_abs_error": 0.0,
+    "native_physical_action_max_abs_error": 0.0,
+    "floor_shape_count": 576,
+    "reconstruction": {
+      "update_count": 10,
+      "cumulative_endpoint_max_abs_error": 4.656612873077393e-10,
+      "constrained_axis_unit_max_abs_errors": {
+        "old": 1.1920928955078125e-07,
+        "first": 1.1920928955078125e-07,
+        "endpoint": 1.7881393432617188e-07
+      },
+      "first_policy_source": "Old FP32 state plus stored first retracted delta; original first endpoint was not independently saved; subtraction/addition roundoff remains.",
+      "endpoint_policy_source": "Exact full model_after_update; actor banks use its exact recorded actor tensors."
+    }
+  },
+  "independently_recorded_logits": false,
+  "source_sha256": {
+    "/home/marvin/Documents/repositories/cleanrl/scripts/audit_sepclip_prescription_layer_geometry_v2.py": "c1455aae7ebb5c54cde98d0eca5cf198617e07cf86ba398276544245b83b2bcb",
+    "/home/marvin/Documents/repositories/cleanrl/scripts/sepclip_prescription_replay.py": "7edfc432775a0098a60d63cb3c8642c65a599c3e8ae8fa2cc2f3354885d1dcf9"
+  },
+  "full_saved_batch": true
+}

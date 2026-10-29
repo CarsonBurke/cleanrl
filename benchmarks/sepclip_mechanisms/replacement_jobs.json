@@ -1,0 +1,54 @@
+{
+  "reason": "11655 strict compiled moment equality failed at FP32 rounding scale; 11658,11664,11665 permanently skipped. Revised moments-only tolerance with recorded deviations, exact parameters and eager contracts retained.",
+  "contract_job": 11676,
+  "replacements": [
+    {
+      "id": 11677,
+      "name": "sepclip_mechanisms_diagnostic_recheck",
+      "maxParallelRuns": 1,
+      "dependencies": [
+        11676,
+        11656,
+        11657
+      ]
+    },
+    {
+      "id": 11678,
+      "name": "sepclip_mechanisms_rollout_clock",
+      "maxParallelRuns": 1,
+      "dependencies": [
+        11676
+      ]
+    },
+    {
+      "id": 11679,
+      "name": "sepclip_mechanisms_rollout_clock_full",
+      "maxParallelRuns": 1,
+      "dependencies": [
+        11676
+      ]
+    }
+  ],
+  "evidence_job": 11680,
+  "analyzed_ids": [
+    11655,
+    11656,
+    11657,
+    11658,
+    11659,
+    11660,
+    11661,
+    11662,
+    11663,
+    11664,
+    11665,
+    11666,
+    11667,
+    11668,
+    11669,
+    11676,
+    11677,
+    11678,
+    11679
+  ]
+}

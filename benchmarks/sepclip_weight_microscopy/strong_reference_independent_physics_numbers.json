@@ -1,0 +1,523 @@
+{
+  "artifact": "benchmarks/sepclip_weight_microscopy/strong_reference_physics.json",
+  "artifact_sha256": "c82012104073e6c039d71001b71b225348ff223f6078cdbb28ee91bf74a7d3b4",
+  "execution_manifest_sha256": "205f980cc2bd947f682bed6674f8e96c89e6b4dfb79bfc2cf61a198927736afa",
+  "contract_manifest_sha256": "51d0b5a9301e0bc315763205b83707eee8ce9abd52780a9ef04447d8a4aa21d0",
+  "checkpoint_sha256": "1f09a49740f656482f4e01a71f1070cfe13ebd1e44a52210eca8db73f0089532",
+  "checkpoint_matches_current_bytes": true,
+  "source_matches_current_execution": {
+    "scripts/audit_sepclip_strong_reference.py": true,
+    "cleanrl/ppo_continuous_action_prerms_adamh_v22.py": true,
+    "scripts/audit_sepclip_physics.py": true,
+    "scripts/audit_sepclip_gait.py": true,
+    "cleanrl/shared/host_graph.py": true,
+    "cleanrl/shared/host_actor.py": true,
+    "cleanrl/shared/host_kernel.c": true,
+    "cleanrl/shared/norm_residual.py": true,
+    "cleanrl/shared/pre_rms.py": true,
+    "cleanrl/shared/vector_norm.py": true,
+    "cleanrl/shared/mujoco_env.py": true,
+    "cleanrl/shared/runtime.py": true,
+    "cleanrl/shared/sampling.py": true
+  },
+  "contract_same_source_matches": {
+    "scripts/audit_sepclip_strong_reference.py": true,
+    "cleanrl/ppo_continuous_action_prerms_adamh_v22.py": true,
+    "scripts/audit_sepclip_physics.py": true,
+    "scripts/audit_sepclip_gait.py": true,
+    "cleanrl/shared/host_graph.py": true,
+    "cleanrl/shared/host_actor.py": true,
+    "cleanrl/shared/host_kernel.c": true,
+    "cleanrl/shared/norm_residual.py": true,
+    "cleanrl/shared/pre_rms.py": true,
+    "cleanrl/shared/vector_norm.py": true,
+    "cleanrl/shared/mujoco_env.py": true,
+    "cleanrl/shared/runtime.py": true,
+    "cleanrl/shared/sampling.py": true
+  },
+  "contract_exit": 0,
+  "execution_exit": 0,
+  "max_parallel_runs": 1,
+  "protocol": {
+    "episodes": 16,
+    "seed": 1,
+    "steps_per_episode": 1000,
+    "modes": [
+      "sample",
+      "mean",
+      "mode"
+    ],
+    "paired_reset_seeds": true,
+    "normalization": "frozen exact rows"
+  },
+  "normalizer": {
+    "arrays": {
+      "means": {
+        "shape": [
+          16,
+          17
+        ],
+        "dtype": "float64",
+        "sha256": "29834203f2d11c2d2128b770c47910b735af17d2180b42006ef3c902eda2663c"
+      },
+      "variances": {
+        "shape": [
+          16,
+          17
+        ],
+        "dtype": "float64",
+        "sha256": "0b4311c66cea50503e92ccfd976652d7ebdf66dca90f247806b26fad7edb5b8e"
+      },
+      "counts": {
+        "shape": [
+          16
+        ],
+        "dtype": "float64",
+        "sha256": "30ea475c9209a730533fb311fbc78d6e7c0b371baf40e0648c462f4cbe09841f"
+      }
+    },
+    "epsilon": 1e-08,
+    "clip": 10.0,
+    "rows": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ]
+  },
+  "rows": [
+    {
+      "mode": "sample",
+      "trace_sha256": "491a6779d04ac045213dd1007a9eb51f12d637496c3fc4995f9ba3104a1b7101",
+      "trace_shapes": {
+        "velocity": [
+          1000,
+          16
+        ],
+        "control_cost": [
+          1000,
+          16
+        ],
+        "action": [
+          1000,
+          16,
+          6
+        ],
+        "concentration": [
+          1000,
+          16,
+          6
+        ],
+        "mean": [
+          1000,
+          16,
+          6
+        ],
+        "mode": [
+          1000,
+          16,
+          6
+        ],
+        "ground_contact": [
+          1000,
+          16,
+          8
+        ],
+        "ground_normal_force": [
+          1000,
+          16,
+          8
+        ],
+        "qpos": [
+          1000,
+          16,
+          9
+        ],
+        "qvel": [
+          1000,
+          16,
+          9
+        ],
+        "normalization_rows": [
+          16
+        ],
+        "dt": []
+      },
+      "all_trace_finite": true,
+      "return_reconstruction_max_abs_error": 0.0,
+      "native_cost_vs_stored_cost_max_abs_error": 3.5762786843029915e-08,
+      "preaction_qpos_displacement_velocity_max_abs_error": 3.5762788286319847e-08,
+      "return_mean": 14925.928426654109,
+      "return_sd_sample": 278.1246343477232,
+      "return_se": 69.5311585869308,
+      "velocity_mean": 15.329600681501294,
+      "cost_mean": 0.403672254847188,
+      "concentration_mean": 30.79863808446129,
+      "per_joint_mean_abs_action": [
+        0.9175577163696289,
+        0.6838160753250122,
+        0.8310337662696838,
+        0.7289167642593384,
+        0.7409756183624268,
+        0.7766023278236389
+      ],
+      "high_action_fraction": 0.30383333333333334,
+      "mean_action_change_squared": 5.684735298156738,
+      "ground_contact_nonzero_counts": [
+        0,
+        0,
+        139,
+        0,
+        0,
+        59,
+        0,
+        0
+      ],
+      "ground_duty_fraction": [
+        0.0,
+        0.0,
+        0.0086875,
+        0.0,
+        0.0,
+        0.0036875,
+        0.0,
+        0.0
+      ],
+      "ground_force_mean": [
+        0.0,
+        0.0,
+        10.660386351783256,
+        0.0,
+        0.0,
+        3.6131862276700715,
+        0.0,
+        0.0
+      ],
+      "host_cuda_max_abs_error": {
+        "logits": 6.103515625e-05,
+        "alpha": 4.863739013671875e-05,
+        "beta": 6.103515625e-05
+      },
+      "shape_diagnostics": {
+        "alpha_equal_one": 243,
+        "beta_equal_one": 1622,
+        "both_equal_one": 0,
+        "intended_mode_nonfinite_dimensions": 0,
+        "intended_vs_rounded_native_mode_max_abs_error": 6.3213519752025604e-06
+      },
+      "root_vertical_position_stats": {
+        "mean": -0.02924994163069283,
+        "min": -0.22712072675120512,
+        "max": 0.1743744448637749
+      },
+      "root_pitch_stats": {
+        "mean": 0.1426364773864734,
+        "min": -0.335854239001227,
+        "max": 0.48792600678839526
+      },
+      "native_cost_mean_recomputed": 0.4036722483783961
+    },
+    {
+      "mode": "mean",
+      "trace_sha256": "b89ad05dac7f7b69f4daabc0d679f306c78a41457b1fa105a67795f0fe2a1feb",
+      "trace_shapes": {
+        "velocity": [
+          1000,
+          16
+        ],
+        "control_cost": [
+          1000,
+          16
+        ],
+        "action": [
+          1000,
+          16,
+          6
+        ],
+        "concentration": [
+          1000,
+          16,
+          6
+        ],
+        "mean": [
+          1000,
+          16,
+          6
+        ],
+        "mode": [
+          1000,
+          16,
+          6
+        ],
+        "ground_contact": [
+          1000,
+          16,
+          8
+        ],
+        "ground_normal_force": [
+          1000,
+          16,
+          8
+        ],
+        "qpos": [
+          1000,
+          16,
+          9
+        ],
+        "qvel": [
+          1000,
+          16,
+          9
+        ],
+        "normalization_rows": [
+          16
+        ],
+        "dt": []
+      },
+      "all_trace_finite": true,
+      "return_reconstruction_max_abs_error": 0.0,
+      "native_cost_vs_stored_cost_max_abs_error": 3.5762786843029915e-08,
+      "preaction_qpos_displacement_velocity_max_abs_error": 3.576278650996301e-08,
+      "return_mean": 15769.630299413006,
+      "return_sd_sample": 111.18550187437175,
+      "return_se": 27.796375468592938,
+      "velocity_mean": 16.15360940278078,
+      "cost_mean": 0.3839791033677757,
+      "concentration_mean": 32.098479748812814,
+      "per_joint_mean_abs_action": [
+        0.9408268332481384,
+        0.5966899991035461,
+        0.8319317102432251,
+        0.7000136971473694,
+        0.7109609246253967,
+        0.7748891711235046
+      ],
+      "high_action_fraction": 0.05996875,
+      "mean_action_change_squared": 5.356334686279297,
+      "ground_contact_nonzero_counts": [
+        0,
+        0,
+        95,
+        0,
+        0,
+        34,
+        0,
+        0
+      ],
+      "ground_duty_fraction": [
+        0.0,
+        0.0,
+        0.0059375,
+        0.0,
+        0.0,
+        0.002125,
+        0.0,
+        0.0
+      ],
+      "ground_force_mean": [
+        0.0,
+        0.0,
+        6.865980150641794,
+        0.0,
+        0.0,
+        2.02274374775658,
+        0.0,
+        0.0
+      ],
+      "host_cuda_max_abs_error": {
+        "logits": 4.9591064453125e-05,
+        "alpha": 4.9591064453125e-05,
+        "beta": 4.38690185546875e-05
+      },
+      "shape_diagnostics": {
+        "alpha_equal_one": 169,
+        "beta_equal_one": 287,
+        "both_equal_one": 0,
+        "intended_mode_nonfinite_dimensions": 0,
+        "intended_vs_rounded_native_mode_max_abs_error": 7.338821887969971e-07
+      },
+      "root_vertical_position_stats": {
+        "mean": -0.03210861342968569,
+        "min": -0.16912211385275552,
+        "max": 0.10834840110151382
+      },
+      "root_pitch_stats": {
+        "mean": 0.1319333332999048,
+        "min": -0.20679852405181023,
+        "max": 0.381792346726924
+      },
+      "native_cost_mean_recomputed": 0.3839790977239609
+    },
+    {
+      "mode": "mode",
+      "trace_sha256": "48b545437bc5cb9f158004193bd99af2d4011302743ac84b0e63c747730d10ae",
+      "trace_shapes": {
+        "velocity": [
+          1000,
+          16
+        ],
+        "control_cost": [
+          1000,
+          16
+        ],
+        "action": [
+          1000,
+          16,
+          6
+        ],
+        "concentration": [
+          1000,
+          16,
+          6
+        ],
+        "mean": [
+          1000,
+          16,
+          6
+        ],
+        "mode": [
+          1000,
+          16,
+          6
+        ],
+        "ground_contact": [
+          1000,
+          16,
+          8
+        ],
+        "ground_normal_force": [
+          1000,
+          16,
+          8
+        ],
+        "qpos": [
+          1000,
+          16,
+          9
+        ],
+        "qvel": [
+          1000,
+          16,
+          9
+        ],
+        "normalization_rows": [
+          16
+        ],
+        "dt": []
+      },
+      "all_trace_finite": true,
+      "return_reconstruction_max_abs_error": 0.0,
+      "native_cost_vs_stored_cost_max_abs_error": 3.5762786843029915e-08,
+      "preaction_qpos_displacement_velocity_max_abs_error": 3.5762788286319847e-08,
+      "return_mean": 16173.898766989441,
+      "return_sd_sample": 195.03117568349214,
+      "return_se": 48.757793920873034,
+      "velocity_mean": 16.603848911692943,
+      "cost_mean": 0.42995014470349996,
+      "concentration_mean": 31.82735810598483,
+      "per_joint_mean_abs_action": [
+        0.9887920618057251,
+        0.6196620464324951,
+        0.8617870211601257,
+        0.7023286819458008,
+        0.7351440787315369,
+        0.8355080485343933
+      ],
+      "high_action_fraction": 0.57553125,
+      "mean_action_change_squared": 6.398663520812988,
+      "ground_contact_nonzero_counts": [
+        0,
+        0,
+        89,
+        0,
+        0,
+        39,
+        0,
+        0
+      ],
+      "ground_duty_fraction": [
+        0.0,
+        0.0,
+        0.0055625,
+        0.0,
+        0.0,
+        0.0024375,
+        0.0,
+        0.0
+      ],
+      "ground_force_mean": [
+        0.0,
+        0.0,
+        7.85479739901537,
+        0.0,
+        0.0,
+        2.423399968894976,
+        0.0,
+        0.0
+      ],
+      "host_cuda_max_abs_error": {
+        "logits": 8.249282836914062e-05,
+        "alpha": 5.340576171875e-05,
+        "beta": 4.9591064453125e-05
+      },
+      "shape_diagnostics": {
+        "alpha_equal_one": 142,
+        "beta_equal_one": 243,
+        "both_equal_one": 0,
+        "intended_mode_nonfinite_dimensions": 0,
+        "intended_vs_rounded_native_mode_max_abs_error": 1.4640390872955322e-06
+      },
+      "root_vertical_position_stats": {
+        "mean": -0.03270850472109606,
+        "min": -0.15673373208407693,
+        "max": 0.0999501361610035
+      },
+      "root_pitch_stats": {
+        "mean": 0.13021606204634237,
+        "min": -0.20771149481934872,
+        "max": 0.4745450629754633
+      },
+      "native_cost_mean_recomputed": 0.4299501378417015
+    }
+  ],
+  "paired_differences": {
+    "mean": {
+      "mean": 843.7018727588963,
+      "conditional_reset_row_se": 55.29347743621498,
+      "min": 577.2471429827237,
+      "max": 1419.6611090590814,
+      "positive_count": 16,
+      "pointwise_95_interval": [
+        725.8466154050813,
+        961.5571301127114
+      ],
+      "scope": "Paired reset seeds/normalization rows, one sampled episode per row, no independent training seed replication or familywise guarantee"
+    },
+    "mode": {
+      "mean": 1247.9703403353324,
+      "conditional_reset_row_se": 42.31490001206982,
+      "min": 987.6748819553795,
+      "max": 1501.5573457030368,
+      "positive_count": 16,
+      "pointwise_95_interval": [
+        1157.7782659342179,
+        1338.1624147364469
+      ],
+      "scope": "Paired reset seeds/normalization rows, one sampled episode per row, no independent training seed replication or familywise guarantee"
+    }
+  },
+  "historical_execution_source_pinned": false,
+  "method": "JSON+savedNPZ only; NumPy/SciPy CPU algebra, no torch/model/GPU/test execution"
+}

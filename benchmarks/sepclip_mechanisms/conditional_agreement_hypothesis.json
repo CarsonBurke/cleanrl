@@ -1,0 +1,41 @@
+{
+  "status": "theoretical_conditional_hypothesis_not_implemented_or_trained",
+  "reviewed_at": 1791239188.5138643,
+  "reviewer": "/root/mechanism_review",
+  "motivation": "Adding estimated covariance regularizes the polar direction but need not eliminate substantial zero-population-signal update variance.",
+  "construction": {
+    "T": "M M.T + C",
+    "S": "M M.T - C",
+    "R": "positive_part(T^(-1/2) S T^(-1/2))",
+    "direction": "T^(-1/4) R T^(-1/4) M",
+    "reason_for_sandwich": "PSD preconditioner guarantees nonnegative alignment with M before normalization; naive nonsymmetric products do not."
+  },
+  "limitations": [
+    "Positive-part selection keeps accidental agreement in pure Gaussian fold noise; signed mean is zero but update variance persists.",
+    "Scale normalization prevents larger batches alone from eliminating noise-only false agreement.",
+    "Sixteen trajectories and shared online normalization weaken equal-mean/independent-fold assumptions.",
+    "Momentum agreement can preserve stale historical directions.",
+    "Loewner-order contraction of the preconditioner does not guarantee smaller actual update norm.",
+    "Row/column normalization can remove reliable radial movement or alter alignment.",
+    "Numerical floors change zero-covariance tail behavior; a matched control is necessary."
+  ],
+  "decision_gate": "Implement only if measured v6 failures concern unreliable spectral directions and independent-heldout gain per policy displacement is improved consistently across partition checks. Do not blindly combine with failed mechanisms.",
+  "validation_plan": [
+    "Queued pure-noise/known-signal synthetic checks of retained RMS and false agreement.",
+    "Repeated fixed-batch partition sensitivity, with no independence claim.",
+    "Independent-heldout first-order gain per sample Fisher cost versus v6 and zero-noise control.",
+    "Radial/tangent update fractions and current-gradient/momentum alignment.",
+    "Covariance drift and floor occupancy."
+  ],
+  "benchmark_requirement": "Any proposed trainer gets v9+ descriptive version, fresh HalfCheetah-v4 seed1 8M, CUDA through mlq, explicit max-parallel-runs1, matched control, and prefix-scoped autocull.",
+  "analytic_scalar_pure_noise": {
+    "assumptions": "M,N independent centered Gaussian with equal variance; no spectral floor or momentum",
+    "update": "D=M/sqrt(M^2+N^2)*max((M^2-N^2)/(M^2+N^2),0)",
+    "mean": 0,
+    "second_moment": "1/8 + 1/(3*pi)",
+    "ungated_second_moment": "1/2",
+    "retained_variance_fraction": "1/4 + 2/(3*pi), approximately 0.4622",
+    "interpretation": "Half the draws are suppressed, but normalized noise variance remains independent of Gaussian scale. This is a scalar analytic counterexample to calibrated confidence, not a matrix-training result.",
+    "review": "Independent mechanism reviewer verified angular integration."
+  }
+}

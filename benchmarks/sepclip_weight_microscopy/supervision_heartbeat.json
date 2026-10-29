@@ -1,0 +1,181 @@
+{
+  "updated_at": 1791347585.2896435,
+  "status": "Active read-only supervision of both owned prefixes",
+  "owned_pending": [
+    {
+      "id": 11912,
+      "name": "sepclip_microscopy_v14_normuon4m_chord_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11913,
+      "name": "sepclip_microscopy_v14_normuon4m_closedloop_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11914,
+      "name": "sepclip_microscopy_v14_normuon8m_chord_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11915,
+      "name": "sepclip_microscopy_v14_normuon8m_closedloop_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11926,
+      "name": "sepclip_prescription_layer_geometry_contracts_v2",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11928,
+      "name": "sepclip_microscopy_v14_adam4m_layers_v2",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11929,
+      "name": "sepclip_microscopy_v14_adam8m_layers_v2",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11930,
+      "name": "sepclip_microscopy_v14_anvil4m_layers_v2",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11933,
+      "name": "sepclip_microscopy_v14_normuon4m_layers_v2",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11934,
+      "name": "sepclip_microscopy_v14_normuon8m_layers_v2",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11937,
+      "name": "sepclip_prescription_optimizer_forensics_contracts_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11938,
+      "name": "sepclip_microscopy_v14_adam4m_optimizer_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11939,
+      "name": "sepclip_microscopy_v14_adam8m_optimizer_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11940,
+      "name": "sepclip_microscopy_v14_anvil4m_optimizer_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11941,
+      "name": "sepclip_microscopy_v14_normuon4m_optimizer_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11942,
+      "name": "sepclip_microscopy_v14_normuon8m_optimizer_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11948,
+      "name": "sepclip_prescription_first_gradient_contracts_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11949,
+      "name": "sepclip_microscopy_v14_adam4m_first_gradient_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11950,
+      "name": "sepclip_microscopy_v14_adam8m_first_gradient_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11951,
+      "name": "sepclip_microscopy_v14_anvil4m_first_gradient_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11952,
+      "name": "sepclip_microscopy_v14_normuon4m_first_gradient_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11953,
+      "name": "sepclip_microscopy_v14_normuon8m_first_gradient_v1",
+      "state": "queued",
+      "attemptCount": 0,
+      "maxParallelRuns": 1
+    }
+  ],
+  "active_job_ids": [
+    11947
+  ],
+  "reservation_job_id": 11956,
+  "new_causal_results": false,
+  "last_completed_measurement": 11757,
+  "unrelated_jobs_controlled": [],
+  "observed_prefixes": [
+    "sepclip_microscopy_",
+    "sepclip_prescription_"
+  ],
+  "last_explicit_queue_poll_at": 1791338426.4189017,
+  "explicit_queue_poll": {
+    "owned_pending_count": 20,
+    "active_job_ids": [
+      11894
+    ],
+    "owned_active_job_ids": [],
+    "unrelated_jobs_controlled": []
+  },
+  "timestamp_semantics": "updated_at is the last subscription snapshot; last_explicit_queue_poll_at records a fresh read-only status check between events"
+}

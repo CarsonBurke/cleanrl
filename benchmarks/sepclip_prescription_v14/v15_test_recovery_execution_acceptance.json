@@ -1,0 +1,14 @@
+{
+  "captured_at": 1791340606.4223177,
+  "job_id": 11895,
+  "state": "succeeded",
+  "exit_code": 0,
+  "cases": 11,
+  "failed": 0,
+  "junit_sha256": "486af10178eee59929c1698863257da5ace28fe3ffb2033332a968bcac267fce",
+  "source_checked": 54,
+  "source_discrepancies": [],
+  "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v15_contracts_recovered_v2_1791340576278039779.json",
+  "execution_sha256": "41a0285f1bfa75a562348b976bd76dd8fb1ee2152408680f75bdef296b7187d4",
+  "scope": "Test-only missing dim repaired; original failed attempt preserved, trainer unchanged."
+}

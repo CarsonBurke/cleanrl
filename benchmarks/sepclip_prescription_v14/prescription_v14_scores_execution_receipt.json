@@ -1,0 +1,77 @@
+{
+  "captured_at": 1791340641.871761,
+  "score_contract": "Inclusive[7.7M,7.9M] sampled training episodes, seed1; final100 separate; same-seed compound package comparison not isolatedcause/seedgeneralization.",
+  "rows": [
+    {
+      "job_id": 11878,
+      "name": "sepclip_prescription_v14_additive_adam",
+      "state": "succeeded",
+      "attempt_id": 9474,
+      "max_parallel_runs": 1,
+      "run": "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_adam__1__1791340312",
+      "last_step": 7995008,
+      "return_events": 7964,
+      "primary_trailing200k_at7_9M": 8376.899767519822,
+      "primary_episode_count": 201,
+      "final100": 8495.269858398438,
+      "incomplete_tail100_descriptive": null,
+      "incomplete_scope": null,
+      "matched_4M_trailing200k": 7297.906634430387,
+      "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v14_additive_adam_1791340311519606926.json",
+      "execution_sha256": "00baaa618c949961736fccdd617dce045ed8abc94f42076dc9280357ecfed11f",
+      "source_checked": 50,
+      "source_discrepancies": [],
+      "event_file_sha256": {
+        "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_adam__1__1791340312/events.out.tfevents.1791340312.cachyos-x8664-desktop.3668802.0": "4b45a5eed224dc193b0dd5fb0e36c9fc9aa70c9b507779904d0cfcbeeaba1e75"
+      }
+    },
+    {
+      "job_id": 11879,
+      "name": "sepclip_prescription_v14_additive_anvil",
+      "state": "cancelled",
+      "attempt_id": 9475,
+      "max_parallel_runs": 1,
+      "run": "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_anvil__1__1791340406",
+      "last_step": 6056000,
+      "return_events": 6025,
+      "primary_trailing200k_at7_9M": null,
+      "primary_episode_count": null,
+      "final100": null,
+      "incomplete_tail100_descriptive": 5165.955104980469,
+      "incomplete_scope": "Culled; no late score extrapolation. Preserve4M snapshot/trace.",
+      "matched_4M_trailing200k": 4026.6146185576026,
+      "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v14_additive_anvil_1791340404968080943.json",
+      "execution_sha256": "788e68ebf1bc464c75e3af569bd8e4782b7406c98f63d9e193b3162a664cac93",
+      "source_checked": 50,
+      "source_discrepancies": [],
+      "event_file_sha256": {
+        "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_anvil__1__1791340406/events.out.tfevents.1791340406.cachyos-x8664-desktop.3672534.0": "460face64a7f299fa1155444037d932233e4b756c768ac62e28244ec5834ebc4"
+      }
+    },
+    {
+      "job_id": 11880,
+      "name": "sepclip_prescription_v14_additive_normuon",
+      "state": "succeeded",
+      "attempt_id": 9476,
+      "max_parallel_runs": 1,
+      "run": "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_normuon__1__1791340481",
+      "last_step": 7995008,
+      "return_events": 7964,
+      "primary_trailing200k_at7_9M": 4972.433546986746,
+      "primary_episode_count": 201,
+      "final100": 4976.175275268554,
+      "incomplete_tail100_descriptive": null,
+      "incomplete_scope": null,
+      "matched_4M_trailing200k": 3539.9759649328926,
+      "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_v14_additive_normuon_1791340480720551304.json",
+      "execution_sha256": "b13583ffefada73030a474a11172b054b62bc9c2e81ad248c6a02b0f4f2c18ea",
+      "source_checked": 50,
+      "source_discrepancies": [],
+      "event_file_sha256": {
+        "runs/HalfCheetah-v4__sepclip_prescription_v14_additive_normuon__1__1791340481/events.out.tfevents.1791340481.cachyos-x8664-desktop.3674751.0": "3b7417772e068af07073fa236921f2d51c1e76a4f5dece9b328b92dd98f090fa"
+      }
+    }
+  ],
+  "v15_status": "Recovered11896complete; exactscore/source receipt prescription_v15_scores_execution_receipt.json",
+  "updated_at": 1791341125.2869613
+}

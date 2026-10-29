@@ -1,0 +1,10 @@
+{
+  "captured_at": 1791340708.7204704,
+  "job_id": 11888,
+  "inventory": "benchmarks/sepclip_weight_microscopy/historical_figures_v2/figure_inventory.json",
+  "inventory_sha256": "dc54bf3b2bd2bbad4cf0de7a1e46447152e5bb199acd7f6a0cc605b5c3d9d88d",
+  "figure_count": 16,
+  "caption_scope": "New captions label replayed full-batch proposal, FP64 Fisher on512storedstates, not actualfirst/epoch or physicalPG. Original11783artifacts preserved.",
+  "visual_inspection": "layer_geometry_3.png inspected; labels/layout/legend readable and scope explicit.",
+  "new_measurement": false
+}

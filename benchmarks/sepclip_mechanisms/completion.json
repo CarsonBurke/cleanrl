@@ -1,0 +1,36 @@
+{
+  "status": "complete",
+  "all_owned_jobs_terminal": true,
+  "owned_job_count": 37,
+  "states": {
+    "failed": 3,
+    "succeeded": 28,
+    "skipped": 5,
+    "cancelled": 1
+  },
+  "declared_limit": 1,
+  "cleanup": {
+    "all_37_owned_jobs_terminal": true,
+    "owned_autocull_remaining": 0,
+    "read_only_observer_pids_terminated": [
+      371144,
+      371120
+    ],
+    "other_project_jobs_untouched": true,
+    "observer_child_note": "Terminated observer child PID 371144 is a zombie with empty cmdline awaiting external parent reaping; it executes no code and owns no active supervisor."
+  },
+  "frozen_sources_match": true,
+  "updated_at": "2026-10-05T23:59:37.530076+00:00",
+  "independent_final_review": "passed",
+  "large_advantage_demonstrated": false,
+  "report_sha256": "0f2eb801318e72556051cd9b9839c487e2e6a8785fed3c37069451057284a591",
+  "artifact_sha256": {
+    "scores.json": "b249f482d7752dcaab9a016fced4913f4735e7b5ab5a3a856867a035d8e4655f",
+    "learning_curves.png": "8e149864602ccfb687856a5294d437acbae349402de99d6e51c882c4f693dbf3",
+    "comparison_curves.png": "6549b62ce731050591f8fa984b4b61e7d3f75422b91d52c5a9b7cc8cdebad28d",
+    "diagnostic.json": "ec5a1805e4426ebe59498f6e58a5feea033d9ecb407af5094d00157458dee841",
+    "fractional_diagnostic.json": "016adeb835162c961980940562be9e2af9a700f43ff9ce5cc9206e476e8e4e0c",
+    "policy_budget_diagnostic.json": "8521403eb39ca16abc3d1b6af367e4b000303771c5d47b12e3006773641957c2",
+    "terminal_jobs.json": "a3ef554b6443a5081c8eaa920a9cc3bb6d86269fdef713b10dc27202f010947d"
+  }
+}

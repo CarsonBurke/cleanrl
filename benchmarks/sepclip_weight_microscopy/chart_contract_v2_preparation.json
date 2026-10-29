@@ -1,0 +1,19 @@
+{
+  "status": "prepared_independently_static_reviewed_unexecuted",
+  "preserved_failed_job": 11770,
+  "preserved_attempt_result": {"passed": 26, "failed": 2},
+  "new_test": "tests/test_sepclip_anchored_precision_chart_v2.py",
+  "new_test_sha256": "e6693ef5416d0b894fda7a344106e1cddbac46997a4ceda2815a8bc342997949",
+  "prepared_initial_sha256": "5eda9a4ba29369f7c3e51e73e7dea2b035c23bcbcb502ff901bf168217fb9fc9",
+  "static_case_count": 9,
+  "preserved_original_test_sha256": "d5e8e3f8a95a3fb2e18c5ea4f855a7430d0b81141f1a4c066276fcb469ca5e95",
+  "preserved_frozen_v13_sha256": "35e9d4d704c4c5bb2a9a6706b84507d6d6f0e867fdb10bf43c5323f4d0cdd68e",
+  "independent_review": "benchmarks/sepclip_weight_microscopy/chart_contract_v2_architecture_review.md",
+  "math_and_failure_receipt": "benchmarks/sepclip_weight_microscopy/chart_contract_v2_preparation.md",
+  "compilation_change": "NEW test only: dynamic=False fullgraph compiled paths, including unchanged full input jacrev; workaround unproven until queued execution",
+  "numerical_expectation_change": "NEW test only: independently derived outer-softplus threshold shape deficit and smooth-chain surplus, tiny inverse series error bounds, separate explicitly conditional FP64 numerical budget",
+  "new_meaningful_coverage": ["Independent inverse/outer-threshold boundary value and gradient references", "Both alpha/beta r/ell gradient signs and factors via fresh graphs", "Full initial input Jacobian contracted against three independent centered primal differences"],
+  "execution": "No models/tests/jobs executed or submitted during preparation or independent review; future CUDA execution through mlq maxParallelRuns1 with immutable pins",
+  "candidate_selected": false,
+  "frozen_files_changed": false
+}

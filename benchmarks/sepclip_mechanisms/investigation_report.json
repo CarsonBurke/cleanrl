@@ -1,0 +1,1804 @@
+{
+  "status": "complete",
+  "updated_at": "2026-10-05T23:59:37.530076+00:00",
+  "objective": "Investigate and resolve why NorMuon/Anvil only match Adam; seek a substantial measured improvement through mechanism-driven PPO optimizer innovations.",
+  "declared_concurrency_limit": 1,
+  "jobs": [
+    {
+      "id": 11655,
+      "name": "sepclip_mechanisms_rollout_clock_contracts_v7",
+      "state": "failed",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": null,
+      "attemptCount": 1
+    },
+    {
+      "id": 11656,
+      "name": "sepclip_mechanisms_noise_polar_contracts_v6",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": null,
+      "attemptCount": 1
+    },
+    {
+      "id": 11657,
+      "name": "sepclip_mechanisms_fisher_head_contracts_v8",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": null,
+      "attemptCount": 1
+    },
+    {
+      "id": 11658,
+      "name": "sepclip_mechanisms_diagnostic",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11655,
+          "condition": "succeeded",
+          "parentState": "failed",
+          "resolution": "violated",
+          "parentOutcome": "failed",
+          "resolvedAt": 1791240595544
+        },
+        {
+          "parent": 11656,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240602444
+        },
+        {
+          "parent": 11657,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240608444
+        }
+      ],
+      "attemptCount": 0
+    },
+    {
+      "id": 11659,
+      "name": "sepclip_mechanisms_noise_full",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11656,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240602444
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11660,
+      "name": "sepclip_mechanisms_noise_low",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11656,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240602444
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11661,
+      "name": "sepclip_mechanisms_noise_large_step",
+      "state": "cancelled",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11656,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240602444
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11662,
+      "name": "sepclip_mechanisms_noise_zero_control",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11656,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240602444
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11663,
+      "name": "sepclip_mechanisms_noise_equalizer",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11656,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240602444
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11664,
+      "name": "sepclip_mechanisms_rollout_clock",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11655,
+          "condition": "succeeded",
+          "parentState": "failed",
+          "resolution": "violated",
+          "parentOutcome": "failed",
+          "resolvedAt": 1791240595544
+        }
+      ],
+      "attemptCount": 0
+    },
+    {
+      "id": 11665,
+      "name": "sepclip_mechanisms_rollout_clock_full",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11655,
+          "condition": "succeeded",
+          "parentState": "failed",
+          "resolution": "violated",
+          "parentOutcome": "failed",
+          "resolvedAt": 1791240595544
+        }
+      ],
+      "attemptCount": 0
+    },
+    {
+      "id": 11666,
+      "name": "sepclip_mechanisms_fisher_anvil",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11657,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240608444
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11667,
+      "name": "sepclip_mechanisms_fisher_anvil_small",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11657,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240608444
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11668,
+      "name": "sepclip_mechanisms_fisher_adam_control",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11657,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240608444
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11669,
+      "name": "sepclip_mechanisms_adam_reference",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": null,
+      "attemptCount": 1
+    },
+    {
+      "id": 11670,
+      "name": "sepclip_mechanisms_evidence",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11655,
+          "condition": "terminal",
+          "parentState": "failed",
+          "resolution": "satisfied",
+          "parentOutcome": "failed",
+          "resolvedAt": 1791240595544
+        },
+        {
+          "parent": 11656,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240602444
+        },
+        {
+          "parent": 11657,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240608444
+        },
+        {
+          "parent": 11658,
+          "condition": "terminal",
+          "parentState": "skipped",
+          "resolution": "satisfied",
+          "parentOutcome": "skipped",
+          "resolvedAt": 1791240595544
+        },
+        {
+          "parent": 11659,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240931551
+        },
+        {
+          "parent": 11660,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241050352
+        },
+        {
+          "parent": 11661,
+          "condition": "terminal",
+          "parentState": "cancelled",
+          "resolution": "satisfied",
+          "parentOutcome": "cancelled",
+          "resolvedAt": 1791241181601
+        },
+        {
+          "parent": 11662,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241316301
+        },
+        {
+          "parent": 11663,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241457001
+        },
+        {
+          "parent": 11664,
+          "condition": "terminal",
+          "parentState": "skipped",
+          "resolution": "satisfied",
+          "parentOutcome": "skipped",
+          "resolvedAt": 1791240595544
+        },
+        {
+          "parent": 11665,
+          "condition": "terminal",
+          "parentState": "skipped",
+          "resolution": "satisfied",
+          "parentOutcome": "skipped",
+          "resolvedAt": 1791240595544
+        },
+        {
+          "parent": 11666,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241590651
+        },
+        {
+          "parent": 11667,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241712451
+        },
+        {
+          "parent": 11668,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241843251
+        },
+        {
+          "parent": 11669,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240702794
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11676,
+      "name": "sepclip_mechanisms_rollout_clock_contracts_v7_recheck",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": null,
+      "attemptCount": 1
+    },
+    {
+      "id": 11677,
+      "name": "sepclip_mechanisms_diagnostic_recheck",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11656,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240672568
+        },
+        {
+          "parent": 11657,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240672568
+        },
+        {
+          "parent": 11676,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241849101
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11678,
+      "name": "sepclip_mechanisms_rollout_clock",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11676,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241849101
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11679,
+      "name": "sepclip_mechanisms_rollout_clock_full",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11676,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241849101
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11680,
+      "name": "sepclip_mechanisms_evidence_recheck",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11655,
+          "condition": "terminal",
+          "parentState": "failed",
+          "resolution": "satisfied",
+          "parentOutcome": "failed",
+          "resolvedAt": 1791240699374
+        },
+        {
+          "parent": 11656,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240699374
+        },
+        {
+          "parent": 11657,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240699374
+        },
+        {
+          "parent": 11658,
+          "condition": "terminal",
+          "parentState": "skipped",
+          "resolution": "satisfied",
+          "parentOutcome": "skipped",
+          "resolvedAt": 1791240699374
+        },
+        {
+          "parent": 11659,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240931551
+        },
+        {
+          "parent": 11660,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241050352
+        },
+        {
+          "parent": 11661,
+          "condition": "terminal",
+          "parentState": "cancelled",
+          "resolution": "satisfied",
+          "parentOutcome": "cancelled",
+          "resolvedAt": 1791241181601
+        },
+        {
+          "parent": 11662,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241316301
+        },
+        {
+          "parent": 11663,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241457001
+        },
+        {
+          "parent": 11664,
+          "condition": "terminal",
+          "parentState": "skipped",
+          "resolution": "satisfied",
+          "parentOutcome": "skipped",
+          "resolvedAt": 1791240699374
+        },
+        {
+          "parent": 11665,
+          "condition": "terminal",
+          "parentState": "skipped",
+          "resolution": "satisfied",
+          "parentOutcome": "skipped",
+          "resolvedAt": 1791240699374
+        },
+        {
+          "parent": 11666,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241590651
+        },
+        {
+          "parent": 11667,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241712451
+        },
+        {
+          "parent": 11668,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241843251
+        },
+        {
+          "parent": 11669,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791240702794
+        },
+        {
+          "parent": 11670,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241854202
+        },
+        {
+          "parent": 11676,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241849101
+        },
+        {
+          "parent": 11677,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791241875951
+        },
+        {
+          "parent": 11678,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791242014707
+        },
+        {
+          "parent": 11679,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791242132307
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11682,
+      "name": "sepclip_mechanisms_sample_fisher_contracts_v9",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": null,
+      "attemptCount": 1
+    },
+    {
+      "id": 11683,
+      "name": "sepclip_mechanisms_sample_fisher_anvil_v9",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11682,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791242274094
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11684,
+      "name": "sepclip_mechanisms_sample_fisher_adam_v9",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11682,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791242274150
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11685,
+      "name": "sepclip_mechanisms_kfac_radius_control_v9",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11682,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791242274230
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11686,
+      "name": "sepclip_mechanisms_fractional_contracts_v10",
+      "state": "failed",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": null,
+      "attemptCount": 1
+    },
+    {
+      "id": 11687,
+      "name": "sepclip_mechanisms_fractional_diagnostic_v10",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11686,
+          "condition": "succeeded",
+          "parentState": "failed",
+          "resolution": "violated",
+          "parentOutcome": "failed",
+          "resolvedAt": 1791242710108
+        }
+      ],
+      "attemptCount": 0
+    },
+    {
+      "id": 11688,
+      "name": "sepclip_mechanisms_fractional_contracts_v10_recheck",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": null,
+      "attemptCount": 1
+    },
+    {
+      "id": 11689,
+      "name": "sepclip_mechanisms_fractional_diagnostic_v10_recheck",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11688,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791242784358
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11692,
+      "name": "sepclip_mechanisms_policy_budget_contracts_v11",
+      "state": "failed",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": null,
+      "attemptCount": 1
+    },
+    {
+      "id": 11693,
+      "name": "sepclip_mechanisms_policy_budget_diagnostic_v11",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11692,
+          "condition": "succeeded",
+          "parentState": "failed",
+          "resolution": "violated",
+          "parentOutcome": "failed",
+          "resolvedAt": 1791243346863
+        }
+      ],
+      "attemptCount": 0
+    },
+    {
+      "id": 11694,
+      "name": "sepclip_mechanisms_policy_budget_contracts_v11_recheck",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": null,
+      "attemptCount": 1
+    },
+    {
+      "id": 11695,
+      "name": "sepclip_mechanisms_policy_budget_diagnostic_v11_recheck",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11694,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243408513
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11696,
+      "name": "sepclip_mechanisms_policy_budget_diagnostic_v11_stages",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11694,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243528251
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11697,
+      "name": "sepclip_mechanisms_policy_budget_cascade_control_v11",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11694,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243604929
+        },
+        {
+          "parent": 11696,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243604929
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11698,
+      "name": "sepclip_mechanisms_policy_budget_anvil_v11",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11694,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243605040
+        },
+        {
+          "parent": 11696,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243605040
+        }
+      ],
+      "attemptCount": 1
+    },
+    {
+      "id": 11699,
+      "name": "sepclip_mechanisms_final_evidence_v11",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "dependencies": [
+        {
+          "parent": 11655,
+          "condition": "terminal",
+          "parentState": "failed",
+          "resolution": "satisfied",
+          "parentOutcome": "failed",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11656,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11657,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11658,
+          "condition": "terminal",
+          "parentState": "skipped",
+          "resolution": "satisfied",
+          "parentOutcome": "skipped",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11659,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11660,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11661,
+          "condition": "terminal",
+          "parentState": "cancelled",
+          "resolution": "satisfied",
+          "parentOutcome": "cancelled",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11662,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11663,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11664,
+          "condition": "terminal",
+          "parentState": "skipped",
+          "resolution": "satisfied",
+          "parentOutcome": "skipped",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11665,
+          "condition": "terminal",
+          "parentState": "skipped",
+          "resolution": "satisfied",
+          "parentOutcome": "skipped",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11666,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11667,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11668,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11669,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11670,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11676,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11677,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11678,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11679,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11680,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11682,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11683,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11684,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11685,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11686,
+          "condition": "terminal",
+          "parentState": "failed",
+          "resolution": "satisfied",
+          "parentOutcome": "failed",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11687,
+          "condition": "terminal",
+          "parentState": "skipped",
+          "resolution": "satisfied",
+          "parentOutcome": "skipped",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11688,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11689,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11692,
+          "condition": "terminal",
+          "parentState": "failed",
+          "resolution": "satisfied",
+          "parentOutcome": "failed",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11693,
+          "condition": "terminal",
+          "parentState": "skipped",
+          "resolution": "satisfied",
+          "parentOutcome": "skipped",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11694,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11695,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11696,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243643299
+        },
+        {
+          "parent": 11697,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791243956516
+        },
+        {
+          "parent": 11698,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791244351779
+        }
+      ],
+      "attemptCount": 1
+    }
+  ],
+  "job_state_counts": {
+    "failed": 3,
+    "succeeded": 28,
+    "skipped": 5,
+    "cancelled": 1
+  },
+  "queue_metadata": "benchmarks/sepclip_mechanisms/terminal_jobs.json",
+  "benchmark_protocol": {
+    "primary": "Return averaged over trailing 200k environment steps at common 7.9M step.",
+    "secondary": [
+      "Final 100 episode mean on succeeded >=7.9M runs.",
+      "Matched 1M, 2M, 4M, and 6M windows; reject last-window cherry picking.",
+      "Same-head Adam trunk control for natural-head attribution.",
+      "Same-floor zero-noise polar control for covariance filtering attribution."
+    ],
+    "substantial_advantage_target": "Seek roughly 10% or more over fresh Adam with consistent late-window improvement; this is an operational research target, not a statistical significance threshold or promise.",
+    "uncertainty": "One seed on one environment cannot establish robustness. Marginal differences do not resolve the user objective.",
+    "actual_successful_last_step": 7995008,
+    "fresh_training_budget": 8000000
+  },
+  "prior_evidence": {
+    "adam_final100": 8281.178,
+    "anvil_v4_final100": 8345.414,
+    "anvil_v4_matched7900000": 8271.011,
+    "adam_matched7900000": 8308.7,
+    "interpretation": "Marginal terminal-window difference does not demonstrate superiority; matching Adam is not task completion.",
+    "original_row_normuon_final100": 5873.104,
+    "long_axis_normuon_005_095_final100": 5906.57,
+    "tuned_normuon_005_085_final100": 8189.45,
+    "anvil_v4_005_final100": 8308.31,
+    "constant_fast_anvil_v5_final100": 8171.38,
+    "original_history_heldout_gains": "All 19 prior frozen-history heldout gains negative; cold optimizer replay is not fresh/warm benchmark evidence.",
+    "reference_anvil_revision": "4ea6b937337a4889b8cfe3f38a93d120048d8f71",
+    "prior_report": "benchmarks/sepclip_anvil2_v4/investigation_report.json"
+  },
+  "final_conclusion": {
+    "large_advantage_demonstrated": false,
+    "best_primary_job": 11679,
+    "best_primary_return": 8781.566726912313,
+    "fresh_adam_primary_return": 8308.72625944982,
+    "best_primary_percent_gain": 5.690889947477973,
+    "interpretation": "Rollout-clock Anvil produced a modest selected seed-1 improvement. No far-superior NorMuon/Anvil2 result demonstrated despite covariance, momentum-clock, head-geometry and policy-calibrated fractional iterations.",
+    "recommendation": "Retain v7: .0025 has more consistent early learning and .005 the best late primary window. Reject v6/v8/v9/v11 as Adam-beating improvements in these configurations. Do not blindly raise fractional LR after its matched policy-budget failure. Multi-seed confirmation needed for robustness; not run under seed-1 constraint."
+  },
+  "final_benchmark_results": [
+    {
+      "job": 11669,
+      "variant": "sepclip_mechanisms_adam_reference",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 8281.17818359375,
+      "matched_returns": {
+        "1000000": 2615.7108629520853,
+        "2000000": 4630.7030106729535,
+        "4000000": 6506.113193796642,
+        "6000000": 7580.259187461132,
+        "7900000": 8308.72625944982
+      },
+      "primary_return": 8308.72625944982,
+      "primary_percent_vs_adam": 0.0
+    },
+    {
+      "job": 11668,
+      "variant": "sepclip_mechanisms_fisher_adam_control",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 6731.122497558594,
+      "matched_returns": {
+        "1000000": 1905.2648178783816,
+        "2000000": 4063.206259959966,
+        "4000000": 5441.672836986941,
+        "6000000": 6334.353991152635,
+        "7900000": 6837.529440201337
+      },
+      "primary_return": 6837.529440201337,
+      "primary_percent_vs_adam": -17.706646883151766
+    },
+    {
+      "job": 11666,
+      "variant": "sepclip_mechanisms_fisher_anvil",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 7173.145070648194,
+      "matched_returns": {
+        "1000000": 1641.1855726858869,
+        "2000000": 4626.564144305329,
+        "4000000": 5821.5463648554105,
+        "6000000": 6424.381480658232,
+        "7900000": 7200.846430688355
+      },
+      "primary_return": 7200.846430688355,
+      "primary_percent_vs_adam": -13.333931028253975
+    },
+    {
+      "job": 11667,
+      "variant": "sepclip_mechanisms_fisher_anvil_small",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 7730.82165058136,
+      "matched_returns": {
+        "1000000": 1419.0205375709345,
+        "2000000": 4375.165530114625,
+        "4000000": 5796.03122031748,
+        "6000000": 7034.158382890237,
+        "7900000": 7771.995853708751
+      },
+      "primary_return": 7771.995853708751,
+      "primary_percent_vs_adam": -6.459839799519518
+    },
+    {
+      "job": 11685,
+      "variant": "sepclip_mechanisms_kfac_radius_control_v9",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 7185.170766601563,
+      "matched_returns": {
+        "1000000": 1909.2112927792678,
+        "2000000": 4838.266088229507,
+        "4000000": 5774.88233636505,
+        "6000000": 6501.257523418066,
+        "7900000": 7103.306199714319
+      },
+      "primary_return": 7103.306199714319,
+      "primary_percent_vs_adam": -14.507880294702613
+    },
+    {
+      "job": 11663,
+      "variant": "sepclip_mechanisms_noise_equalizer",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 6553.097202148438,
+      "matched_returns": {
+        "1000000": 2004.9078500852063,
+        "2000000": 3738.0331218586634,
+        "4000000": 4964.037279423196,
+        "6000000": 6025.99857645367,
+        "7900000": 6520.882474832867
+      },
+      "primary_return": 6520.882474832867,
+      "primary_percent_vs_adam": -21.51766382462743
+    },
+    {
+      "job": 11659,
+      "variant": "sepclip_mechanisms_noise_full",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 6932.200215148926,
+      "matched_returns": {
+        "1000000": 2146.322701069846,
+        "2000000": 4196.47567862895,
+        "4000000": 4966.3328010217465,
+        "6000000": 6221.515102709111,
+        "7900000": 6985.275306056388
+      },
+      "primary_return": 6985.275306056388,
+      "primary_percent_vs_adam": -15.92844573364326
+    },
+    {
+      "job": 11661,
+      "variant": "sepclip_mechanisms_noise_large_step",
+      "state": "cancelled",
+      "completed_8m": false,
+      "last_step": 7995008,
+      "final_100_return": null,
+      "matched_returns": {
+        "1000000": 1833.3308056883552,
+        "2000000": 4012.9270319108346,
+        "4000000": 4479.7062332381065,
+        "6000000": 4196.563687452629,
+        "7900000": 5175.944479263837
+      },
+      "primary_return": null,
+      "primary_percent_vs_adam": null
+    },
+    {
+      "job": 11660,
+      "variant": "sepclip_mechanisms_noise_low",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 7598.3878564453125,
+      "matched_returns": {
+        "1000000": 1944.6414920939735,
+        "2000000": 4094.8518010229614,
+        "4000000": 5066.381486124067,
+        "6000000": 6511.158018197586,
+        "7900000": 7475.710552538212
+      },
+      "primary_return": 7475.710552538212,
+      "primary_percent_vs_adam": -10.025793134828442
+    },
+    {
+      "job": 11662,
+      "variant": "sepclip_mechanisms_noise_zero_control",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 5434.006079101562,
+      "matched_returns": {
+        "1000000": 2182.0257370982004,
+        "2000000": 3697.7173620385315,
+        "4000000": 4034.629653247435,
+        "6000000": 4563.105125009717,
+        "7900000": 5385.611847986629
+      },
+      "primary_return": 5385.611847986629,
+      "primary_percent_vs_adam": -35.18125787497964
+    },
+    {
+      "job": 11698,
+      "variant": "sepclip_mechanisms_policy_budget_anvil_v11",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 8142.3875390625,
+      "matched_returns": {
+        "1000000": 1649.1670709866196,
+        "2000000": 4769.951116002021,
+        "4000000": 6190.898828914509,
+        "6000000": 7440.722934779837,
+        "7900000": 8074.09911137671
+      },
+      "primary_return": 8074.09911137671,
+      "primary_percent_vs_adam": -2.823864221140515
+    },
+    {
+      "job": 11697,
+      "variant": "sepclip_mechanisms_policy_budget_cascade_control_v11",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 8729.246918945313,
+      "matched_returns": {
+        "1000000": 2606.431343040656,
+        "2000000": 4842.501855347287,
+        "4000000": 6534.204132535564,
+        "6000000": 8071.882848938899,
+        "7900000": 8632.022201006685
+      },
+      "primary_return": 8632.022201006685,
+      "primary_percent_vs_adam": 3.8910409545526603
+    },
+    {
+      "job": 11678,
+      "variant": "sepclip_mechanisms_rollout_clock",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 8729.246918945313,
+      "matched_returns": {
+        "1000000": 2606.431343040656,
+        "2000000": 4842.501855347287,
+        "4000000": 6534.204132535564,
+        "6000000": 8071.882848938899,
+        "7900000": 8632.022201006685
+      },
+      "primary_return": 8632.022201006685,
+      "primary_percent_vs_adam": 3.8910409545526603
+    },
+    {
+      "job": 11679,
+      "variant": "sepclip_mechanisms_rollout_clock_full",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 8600.528287353516,
+      "matched_returns": {
+        "1000000": 2304.730564705768,
+        "2000000": 4582.268252244637,
+        "4000000": 5866.250148801661,
+        "6000000": 7603.437260414237,
+        "7900000": 8781.566726912313
+      },
+      "primary_return": 8781.566726912313,
+      "primary_percent_vs_adam": 5.690889947477973
+    },
+    {
+      "job": 11684,
+      "variant": "sepclip_mechanisms_sample_fisher_adam_v9",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 6600.90314453125,
+      "matched_returns": {
+        "1000000": 1978.6768914217973,
+        "2000000": 3932.970827776401,
+        "4000000": 5468.127072158738,
+        "6000000": 6226.803832400497,
+        "7900000": 6570.9459416783275
+      },
+      "primary_return": 6570.9459416783275,
+      "primary_percent_vs_adam": -20.91512301052224
+    },
+    {
+      "job": 11683,
+      "variant": "sepclip_mechanisms_sample_fisher_anvil_v9",
+      "state": "succeeded",
+      "completed_8m": true,
+      "last_step": 7995008,
+      "final_100_return": 6442.705053710937,
+      "matched_returns": {
+        "1000000": 1557.8686893899642,
+        "2000000": 4360.304348618237,
+        "4000000": 5248.454563121891,
+        "6000000": 5969.5054812455055,
+        "7900000": 6382.328307649983
+      },
+      "primary_return": 6382.328307649983,
+      "primary_percent_vs_adam": -23.185237925113668
+    }
+  ],
+  "final_mechanism_findings": [
+    {
+      "version": 6,
+      "outcome": "Covariance filtering helps floored zero-noise polar control but fails Adam; lower multiplier better, larger LR cancelled. Raw held-gradient alignment greater than polar; covariance drifts. Fixed-rollout covariance and independence approximate; zero control not ideal exact polar."
+    },
+    {
+      "version": 7,
+      "outcome": "Fresh-rollout slow rail gives +3.89% (.0025) or +5.69% (.005) on primary window. .005 lags at earlier windows. V11 zero-power entire 7964-episode curve exactly reproduces half rate, not independent replication."
+    },
+    {
+      "version": 8,
+      "outcome": "Natural fixed-radius Beta heads fail stock Adam. Anvil beats equally harmful same-head Adam; smaller radius helps but insufficient. Head curvature approximate, attribution not stock optimizer superiority."
+    },
+    {
+      "version": 9,
+      "outcome": "Sample-Fisher head amplitude matches local finite exact KL, resolving KFAC underestimation, but fresh returns worsen: Anvil 6382, Adam 6571, constant radius control 7103 primary. Calibration error real but remedy insufficient; head-only not total policy trust region."
+    },
+    {
+      "version": 10,
+      "outcome": "Fractional spectral weighting improves selected tangent alignment but roughly quadruples first policy quadratic at equal parameter norm; no full training submitted, insufficient geometric gate."
+    },
+    {
+      "version": 11,
+      "outcome": "Two GPU correction rounds match matrix-only expected-score Fisher budget before Adam auxiliaries. Fresh candidate 8074.10 below matched control 8632.02 (-6.46%) and Adam 8308.73 (-2.82%). Training logged 2M-4M q: reference .006745, scaled .006741, unscaled .027907. Thus amplitude correction works locally, benchmark hypothesis fails.",
+      "qualification": "Three diagnostic chunks, first-order efficiency mean +9.5% but mixed; all finite heldout clipped-surrogate gains negative. Initial strict all-chunk gate explicitly relaxed for fresh falsification run, not met. Reference budget not exact or whole-policy KL. Rejected parameter steps still advance momentum intentionally."
+    }
+  ],
+  "contract_final": {
+    "passing_cases": 36,
+    "passing_jobs": {
+      "11656": 10,
+      "11676": 5,
+      "11657": 7,
+      "11682": 4,
+      "11688": 7,
+      "11694": 3
+    },
+    "failures_preserved": [
+      11655,
+      11686,
+      11692
+    ],
+    "dependency_skips_preserved": [
+      11658,
+      11664,
+      11665,
+      11687,
+      11693
+    ],
+    "repairs": [
+      "Compiled FP32 moment tolerance only; exact parameters retained, original max abs 4.6566e-10 preserved.",
+      "Compiler cache reset per independent test/diagnostic candidate after specialization-limit failure.",
+      "Test actor matrix manifold initialized like Agent after rejected step correctly restored original unnormalized fixture."
+    ],
+    "scope": "Optimizer continuation and buffer ownership, not full trainer resume. No universal bitwise compile guarantee.",
+    "logs": "benchmarks/sepclip_mechanisms/contract_logs"
+  },
+  "source_hashes": {
+    "cleanrl/ppo_continuous_action_sepclip_fisher_head_v8.py": "18415290f80ac5a52cefc8e532b3141ccbb32fd9d03388fb39617f7a0a8a9536",
+    "cleanrl/ppo_continuous_action_sepclip_fractional_rollout_anvil_v10.py": "3ecf150d5d97741fe98e4cc75f3d05bb5a4549da216039282b10cc0992e9f7c3",
+    "cleanrl/ppo_continuous_action_sepclip_noise_polar_v6.py": "1bf3837152176fd5c522f8fac4835dd78d72540e54851ea3de32cbe28c12074d",
+    "cleanrl/ppo_continuous_action_sepclip_policy_budget_anvil_v11.py": "9df820c8d89a62c62cb6abf7319d31e07af6f00c2767585f33159758a4c79a30",
+    "cleanrl/ppo_continuous_action_sepclip_rollout_clock_anvil_v7.py": "07f5f9636103dd5fdc9896de3eb781078df8bb1cb9b3ad87bcb79907fc619c8d",
+    "cleanrl/ppo_continuous_action_sepclip_sample_fisher_head_v9.py": "3098ca6b907409f1264edcf44b5af9074d03dd190c6413ca22e8811aeba86c48",
+    "scripts/analyze_sepclip_mechanisms.py": "7cff233c00e3c741d7c8d33022bee40c6cbf964b5709df3d4e98ff9164b3ce08",
+    "scripts/audit_sepclip_anvil2.py": "d94b24f23be9ec17c186855170a31ed72457ca7ca112381412e1cd4a74fb6743",
+    "scripts/audit_sepclip_fractional_polar.py": "ee3a1860fe75fb5b5fb5f4c5edcc3b29f4b48b8f84dff062805ccc2f12989cd4",
+    "scripts/audit_sepclip_mechanisms.py": "340cf96e709b025d99a30a664450fd69ebf9900264d6de62a2f0edd95d669b6e",
+    "scripts/audit_sepclip_normuon.py": "c897aff244183df22b6c014efbe6e45c0ba06cce2fb0784ecd41caaf113a0550",
+    "scripts/audit_sepclip_policy_budget.py": "4c75f32f3abcdf105bf49cf90f5d7e9473e295426ee998cf04c135b0b7b78c66",
+    "scripts/run_sepclip_mechanisms.sh": "64bce72e9f0d7c08ebc64507a1fa708946700c4084ea092e8ea7666acfcde6c0",
+    "tests/test_sepclip_anvil2.py": "2c4eb74a672c8abdd13926c2c2f533c9e2f847fd3cf85eb9894947192a06f3e8",
+    "tests/test_sepclip_anvil2_fasttracking_v5.py": "9404eebf51a2a9212998cbd4298a680657491ac10d193c9bb1c4fd293bc5f540",
+    "tests/test_sepclip_fisher_head.py": "e6f51b6176115a0448b411895c04038e6fcd13f4a59f4791a06c4319a1c9036e",
+    "tests/test_sepclip_fractional_rollout.py": "3788fa730a6f7d0d322359b9e9bc9b3ecf322014b867643a61504e35b7a40b52",
+    "tests/test_sepclip_longaxis_normuon.py": "4e28631cce46b871695a53dca783c743f18f9c816ed0921f72cc7f682c2078b3",
+    "tests/test_sepclip_noise_polar.py": "7b1ea602d9c0809dc943706c70ed63285e20ff118c3107532eb755defa46afdf",
+    "tests/test_sepclip_polar_express_normuon.py": "15d33c57d670a48fcb979209972c49cb248dc48c692550e73c7eeb23888bf72c",
+    "tests/test_sepclip_policy_budget.py": "7aeb70c6d5d819388dc66e132e39e7b578fd7f9f5f39d7f898d40141cc3fc34d",
+    "tests/test_sepclip_rollout_clock.py": "8b96fa17cda20ee96c45f69551f5370ab06d1422f89f7cbc9c442d0e03441740",
+    "tests/test_sepclip_sample_fisher_head.py": "87216041213ae1c4c7137e23ba9cce5b85366185875cc38690b6067000914d36"
+  },
+  "frozen_source_hashes": {
+    "cleanrl/ppo_continuous_action_sepclip_anvil2_fasttracking_v5.py": "bc03d3928cc90a402c651f2b5d1a31af001af16b8450c99c1a8fdd7f90bf321e",
+    "cleanrl/ppo_continuous_action_sepclip_anvil2_v4.py": "1bf4cb185907e87409d466d130081e99951b99b8ef5ce8ed01e361703efb99de",
+    "cleanrl/ppo_continuous_action_sepclip_longaxis_normuon_v3.py": "f18cb36688b9a2736459f7f4b312df54701c5298e28db0d560f9c8fa416bf0bc",
+    "cleanrl/ppo_continuous_action_sepclip_normuon_split_diagnostic_v2.py": "5b31ff1390378f2de737db8ba9eb9cb19e17250ce758e6e8e19f32a48f696c78",
+    "cleanrl/ppo_continuous_action_sepclip_polar_express_normuon_v1.py": "f16ae989c3fe2675b7567dbcdb56dc008dbb978e799b6f10bf8f8e913c60bd64",
+    "cleanrl/awr/ppo_continuous_action_ppo_sepclip_control_v1.py": "bcc863675ba087eaf37e026362a618f6352a7a7e474822ad3c9a8c9f13756e34"
+  },
+  "frozen_sources_verified": {
+    "cleanrl/ppo_continuous_action_sepclip_anvil2_fasttracking_v5.py": true,
+    "cleanrl/ppo_continuous_action_sepclip_anvil2_v4.py": true,
+    "cleanrl/ppo_continuous_action_sepclip_longaxis_normuon_v3.py": true,
+    "cleanrl/ppo_continuous_action_sepclip_normuon_split_diagnostic_v2.py": true,
+    "cleanrl/ppo_continuous_action_sepclip_polar_express_normuon_v1.py": true,
+    "cleanrl/awr/ppo_continuous_action_ppo_sepclip_control_v1.py": true
+  },
+  "execution_source_audit": [
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_adam_reference_1791240608713554141.json",
+      "run_name": "sepclip_mechanisms_adam_reference",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_fisher_adam_control_1791241723985020869.json",
+      "run_name": "sepclip_mechanisms_fisher_adam_control",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_fisher_anvil_1791241457266448166.json",
+      "run_name": "sepclip_mechanisms_fisher_anvil",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_fisher_anvil_small_1791241590922728677.json",
+      "run_name": "sepclip_mechanisms_fisher_anvil_small",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_kfac_radius_control_v9_1791242546736923044.json",
+      "run_name": "sepclip_mechanisms_kfac_radius_control_v9",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_noise_equalizer_1791241316606321356.json",
+      "run_name": "sepclip_mechanisms_noise_equalizer",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_noise_full_1791240807331509834.json",
+      "run_name": "sepclip_mechanisms_noise_full",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_noise_large_step_1791241050650854693.json",
+      "run_name": "sepclip_mechanisms_noise_large_step",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_noise_low_1791240932302256625.json",
+      "run_name": "sepclip_mechanisms_noise_low",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_noise_zero_control_1791241181889897987.json",
+      "run_name": "sepclip_mechanisms_noise_zero_control",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_policy_budget_anvil_v11_1791243956897298801.json",
+      "run_name": "sepclip_mechanisms_policy_budget_anvil_v11",
+      "current_source_differences": []
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_policy_budget_cascade_control_v11_1791243605160932885.json",
+      "run_name": "sepclip_mechanisms_policy_budget_cascade_control_v11",
+      "current_source_differences": []
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_rollout_clock_1791241876241650737.json",
+      "run_name": "sepclip_mechanisms_rollout_clock",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_rollout_clock_full_1791242014985400583.json",
+      "run_name": "sepclip_mechanisms_rollout_clock_full",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_sample_fisher_adam_v9_1791242416806163074.json",
+      "run_name": "sepclip_mechanisms_sample_fisher_adam_v9",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    },
+    {
+      "manifest": "benchmarks/sepclip_mechanisms/execution_sources/sepclip_mechanisms_sample_fisher_anvil_v9_1791242274284246383.json",
+      "run_name": "sepclip_mechanisms_sample_fisher_anvil_v9",
+      "current_source_differences": [
+        "scripts/run_sepclip_mechanisms.sh"
+      ]
+    }
+  ],
+  "cleanup": {
+    "all_37_owned_jobs_terminal": true,
+    "owned_autocull_remaining": 0,
+    "read_only_observer_pids_terminated": [
+      371144,
+      371120
+    ],
+    "other_project_jobs_untouched": true,
+    "observer_child_note": "Terminated observer child PID 371144 is a zombie with empty cmdline awaiting external parent reaping; it executes no code and owns no active supervisor."
+  },
+  "completion_limits": [
+    "One selected seed and environment, multiple candidates, correlated episode windows; no statistical or universal superiority claim.",
+    "Exact repeated controls verify reproduction, not independent seeds.",
+    "Warm critic-bootstrap heldout diagnostics are local evidence, not unbiased MC returns or environment evaluation.",
+    "No gross algebra bug established does not prove flawless implementation.",
+    "No full trainer resume test; checkpoints omit complete RNG/environment/iteration state.",
+    "Cancelled large-noise job has late observations from cancellation race but final score remains null.",
+    "No Hopper, Walker2d or multi-seed runs under this protocol."
+  ],
+  "final_artifacts": {
+    "scores": "benchmarks/sepclip_mechanisms/scores.json",
+    "all_curves": "benchmarks/sepclip_mechanisms/learning_curves.png",
+    "focused_curves": "benchmarks/sepclip_mechanisms/comparison_curves.png",
+    "main_diagnostic": "benchmarks/sepclip_mechanisms/diagnostic.json",
+    "fractional_diagnostic": "benchmarks/sepclip_mechanisms/fractional_diagnostic.json",
+    "policy_budget_diagnostic": "benchmarks/sepclip_mechanisms/policy_budget_diagnostic.json",
+    "preserved_stage_mismatch": "benchmarks/sepclip_mechanisms/policy_budget_diagnostic_initial_stage_mismatch.json",
+    "historical_progress": "benchmarks/sepclip_mechanisms/investigation_progress_archive.json",
+    "completion": "benchmarks/sepclip_mechanisms/completion.json"
+  },
+  "implementation_findings": {
+    "gross_algebra_bug_established": false,
+    "not_proof_of_flawless_implementation": true,
+    "corrections": [
+      "Prior stale checkpoint references fixed in v3; v4 gradient ownership and rounding reviewed against hardware-adapted upstream.",
+      "Diagnostic action affine Jacobian corrected; GAE training replay mislabeled MC gain removed.",
+      "Analyzer formerly used centered window; primary now explicit trailing 200k. Legacy centered results retained separately.",
+      "V11 initial diagnostic matrix stages incomparable; corrected post-retraction diagnostic replaces it, original artifact preserved."
+    ],
+    "frozen_trainers_unchanged": true,
+    "same_head_and_zero_noise_controls": "Compare against matched controls as well as stock Adam; no attribution of a head-only change to optimizer superiority.",
+    "state_scope": "Serialized optimizer continuation checked, not full trainer resume."
+  },
+  "independent_review": {
+    "agents": [
+      "/root/mechanism_review",
+      "/root/final_investigation_review"
+    ],
+    "final_status": "passed",
+    "final_reviewer": "Final investigation review agent",
+    "findings": "No blocking code/evidence inconsistency. Verified score rows, 37 terminal jobs, frozen and execution trainer/shared hashes, six passing CUDA contract logs (36 cases), control attribution and limitations. Clarity corrections applied."
+  },
+  "execution_source_audit_note": "All trainer/shared hashes match current files. Earlier wrapper hashes differ because later version cases were appended; execution-time manifests retain exact hashes. No claim that wrapper content was constant.",
+  "protocol_details": {
+    "env": "HalfCheetah-v4",
+    "seed": 1,
+    "num_envs": 16,
+    "env_threads": 2,
+    "learning_rate": 0.0024,
+    "norm_adv": false,
+    "clip_vloss": false,
+    "upper_clip": 0.2,
+    "compile_mode": "reduce-overhead",
+    "matrix_rates_and_head_radii": "Per-job case names in terminal_jobs.json; resolved rates/radii in scripts/run_sepclip_mechanisms.sh and logged trainer hyperparameters.",
+    "cuda_jobs_limit": 1,
+    "priority": 0,
+    "fresh_8m_budget": true,
+    "no_wandb": true,
+    "no_finetuning": true,
+    "no_commits": true
+  },
+  "diagnostic_provenance": {
+    "main_job": 11677,
+    "source": "v4 good 4M snapshot",
+    "fractional_job": 11689,
+    "policy_budget_corrected_job": 11696,
+    "source_fractional_and_budget": "v7 .0025 good 4M snapshot",
+    "held_chunks": 3,
+    "labels": "Warm actual Anvil versus switched rollout clock, cold noise or Adam, new Fisher. Do not treat cold replay as fresh or warmed benchmark.",
+    "collection": "Copied source normalizers reset per chunk and updated within chunk; not frozen-normalization collection.",
+    "gain_definition": "Held lambda=1 critic-bootstrap estimate, not unbiased MC; replay not finetuning benchmark.",
+    "primary_artifacts": {
+      "scores": "benchmarks/sepclip_mechanisms/scores.json",
+      "all_curves": "benchmarks/sepclip_mechanisms/learning_curves.png",
+      "focused_curves": "benchmarks/sepclip_mechanisms/comparison_curves.png",
+      "main_diagnostic": "benchmarks/sepclip_mechanisms/diagnostic.json",
+      "fractional_diagnostic": "benchmarks/sepclip_mechanisms/fractional_diagnostic.json",
+      "policy_budget_diagnostic": "benchmarks/sepclip_mechanisms/policy_budget_diagnostic.json",
+      "preserved_stage_mismatch": "benchmarks/sepclip_mechanisms/policy_budget_diagnostic_initial_stage_mismatch.json",
+      "historical_progress": "benchmarks/sepclip_mechanisms/investigation_progress_archive.json",
+      "completion": "benchmarks/sepclip_mechanisms/completion.json"
+    }
+  },
+  "evidence_job": {
+    "id": 11699,
+    "state": "succeeded",
+    "maxParallelRuns": 1,
+    "analyzer_inputs": 36,
+    "total_owned_jobs": 37,
+    "explanation": "scores.json enumerates 36 prerequisite inputs; producing evidence job 11699 is included in terminal_jobs.json and final report.",
+    "ranking_note": "scores.ranked_completed uses final-100 returns. Final conclusion uses the declared primary trailing-200k window at 7.9M."
+  }
+}

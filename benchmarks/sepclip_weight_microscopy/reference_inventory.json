@@ -1,0 +1,368 @@
+{
+  "status": "read-only inventory; no physical evaluations or model execution",
+  "strong_local_scalar_reference": true,
+  "strong_td7_reusable_artifact_found": false,
+  "runs": [
+    {
+      "run_path": "runs/HalfCheetah-v4__td7_v1__1__1783448814",
+      "event_paths": [
+        "runs/HalfCheetah-v4__td7_v1__1__1783448814/events.out.tfevents.1783448814.cachyos-x8664-desktop.505039.0"
+      ],
+      "metrics": [
+        {
+          "tag": "charts/episodic_return",
+          "points_in_trailing_window": 20,
+          "window": "last 20 scalar observations, not matched steps or independent seeds",
+          "window_first_step": 1025999,
+          "window_last_step": 1044999,
+          "trailing_mean": 16043.52353515625,
+          "last_value": 15797.19921875,
+          "maximum_scalar": 16458.18359375
+        },
+        {
+          "tag": "eval/episodic_return",
+          "points_in_trailing_window": 20,
+          "window": "last 20 scalar observations, not matched steps or independent seeds",
+          "window_first_step": 945000,
+          "window_last_step": 1040000,
+          "trailing_mean": 17217.22314453125,
+          "last_value": 17157.068359375,
+          "maximum_scalar": 17431.60546875
+        }
+      ],
+      "tensorboard_args": {
+        "exp_name": "td7_v1",
+        "seed": "1",
+        "torch_deterministic": "True",
+        "cuda": "True",
+        "track": "False",
+        "wandb_project_name": "cleanRL",
+        "wandb_entity": "None",
+        "capture_video": "False",
+        "save_model": "False",
+        "env_id": "HalfCheetah-v4",
+        "total_timesteps": "8000000",
+        "num_envs": "1",
+        "learning_starts": "25000",
+        "use_checkpoints": "True",
+        "eval_freq": "5000",
+        "eval_eps": "10",
+        "buffer_size": "1000000",
+        "batch_size": "256",
+        "gamma": "0.99",
+        "target_update_rate": "250",
+        "exploration_noise": "0.1",
+        "target_policy_noise": "0.2",
+        "noise_clip": "0.5",
+        "policy_freq": "2",
+        "lap_alpha": "0.4",
+        "min_priority": "1.0",
+        "max_eps_when_checkpointing": "20",
+        "steps_before_checkpointing": "750000",
+        "reset_weight": "0.9",
+        "zs_dim": "256",
+        "hidden_dim": "256",
+        "encoder_lr": "0.0003",
+        "critic_lr": "0.0003",
+        "actor_lr": "0.0003"
+      },
+      "non_event_artifacts": [],
+      "current_source_path": "cleanrl/td7_continuous_action.py",
+      "current_source_sha256": "04febf20c5857444dfa5ed2365a73b5ae3b83433a0aa64661eb6edd79fa35454",
+      "execution_source_pinned": false,
+      "source_compatibility": "Source selected by run family; exact historical source content is not established by TensorBoard args."
+    },
+    {
+      "run_path": "runs/HalfCheetah-v4__td7_v1b__1__1783458120",
+      "event_paths": [
+        "runs/HalfCheetah-v4__td7_v1b__1__1783458120/events.out.tfevents.1783458120.cachyos-x8664-desktop.858516.0"
+      ],
+      "metrics": [
+        {
+          "tag": "charts/episodic_return",
+          "points_in_trailing_window": 20,
+          "window": "last 20 scalar observations, not matched steps or independent seeds",
+          "window_first_step": 607999,
+          "window_last_step": 626999,
+          "trailing_mean": 14512.6154296875,
+          "last_value": 14682.078125,
+          "maximum_scalar": 14864.640625
+        },
+        {
+          "tag": "eval/episodic_return",
+          "points_in_trailing_window": 20,
+          "window": "last 20 scalar observations, not matched steps or independent seeds",
+          "window_first_step": 530000,
+          "window_last_step": 625000,
+          "trailing_mean": 15847.9017578125,
+          "last_value": 16095.5849609375,
+          "maximum_scalar": 16357.5673828125
+        }
+      ],
+      "tensorboard_args": {
+        "exp_name": "td7_v1b",
+        "seed": "1",
+        "torch_deterministic": "True",
+        "cuda": "True",
+        "track": "False",
+        "wandb_project_name": "cleanRL",
+        "wandb_entity": "None",
+        "capture_video": "False",
+        "save_model": "False",
+        "env_id": "HalfCheetah-v4",
+        "total_timesteps": "8000000",
+        "num_envs": "1",
+        "learning_starts": "25000",
+        "use_checkpoints": "True",
+        "eval_freq": "5000",
+        "eval_eps": "10",
+        "buffer_size": "1000000",
+        "batch_size": "256",
+        "gamma": "0.99",
+        "target_update_rate": "250",
+        "exploration_noise": "0.1",
+        "target_policy_noise": "0.2",
+        "noise_clip": "0.5",
+        "policy_freq": "2",
+        "lap_alpha": "0.4",
+        "min_priority": "1.0",
+        "max_eps_when_checkpointing": "20",
+        "steps_before_checkpointing": "750000",
+        "reset_weight": "0.9",
+        "zs_dim": "256",
+        "hidden_dim": "256",
+        "encoder_lr": "0.0003",
+        "critic_lr": "0.0003",
+        "actor_lr": "0.0003"
+      },
+      "non_event_artifacts": [],
+      "current_source_path": "cleanrl/td7_continuous_action.py",
+      "current_source_sha256": "04febf20c5857444dfa5ed2365a73b5ae3b83433a0aa64661eb6edd79fa35454",
+      "execution_source_pinned": false,
+      "source_compatibility": "Source selected by run family; exact historical source content is not established by TensorBoard args."
+    },
+    {
+      "run_path": "runs/HalfCheetah-v4__td7_sdnoise_v2_oudg_8m__1__1784180849",
+      "event_paths": [
+        "runs/HalfCheetah-v4__td7_sdnoise_v2_oudg_8m__1__1784180849/events.out.tfevents.1784180849.cachyos-x8664-desktop.3473766.0"
+      ],
+      "metrics": [
+        {
+          "tag": "charts/episodic_return",
+          "points_in_trailing_window": 20,
+          "window": "last 20 scalar observations, not matched steps or independent seeds",
+          "window_first_step": 2140999,
+          "window_last_step": 2159999,
+          "trailing_mean": 17289.3876953125,
+          "last_value": 17431.1796875,
+          "maximum_scalar": 17550.904296875
+        },
+        {
+          "tag": "eval/episodic_return",
+          "points_in_trailing_window": 20,
+          "window": "last 20 scalar observations, not matched steps or independent seeds",
+          "window_first_step": 2060000,
+          "window_last_step": 2155000,
+          "trailing_mean": 18141.96416015625,
+          "last_value": 18134.609375,
+          "maximum_scalar": 18160.53515625
+        }
+      ],
+      "tensorboard_args": {
+        "exp_name": "td7_sdnoise_v2_oudg_8m",
+        "seed": "1",
+        "torch_deterministic": "True",
+        "cuda": "True",
+        "track": "False",
+        "wandb_project_name": "cleanRL",
+        "wandb_entity": "None",
+        "capture_video": "False",
+        "save_model": "False",
+        "env_id": "HalfCheetah-v4",
+        "total_timesteps": "8000000",
+        "num_envs": "1",
+        "learning_starts": "25000",
+        "use_checkpoints": "True",
+        "eval_freq": "5000",
+        "eval_eps": "10",
+        "buffer_size": "1000000",
+        "batch_size": "256",
+        "gamma": "0.99",
+        "target_update_rate": "250",
+        "exploration_noise": "0.1",
+        "sd_noise": "True",
+        "target_sigma": "0.1",
+        "alpha": "0.2",
+        "alpha_autotune": "True",
+        "alpha_lr": "0.001",
+        "noise_corr": "0.8",
+        "decouple_greedy": "True",
+        "target_policy_noise": "0.2",
+        "noise_clip": "0.5",
+        "policy_freq": "2",
+        "lap_alpha": "0.4",
+        "min_priority": "1.0",
+        "max_eps_when_checkpointing": "20",
+        "steps_before_checkpointing": "750000",
+        "reset_weight": "0.9",
+        "zs_dim": "256",
+        "hidden_dim": "256",
+        "encoder_lr": "0.0003",
+        "critic_lr": "0.0003",
+        "actor_lr": "0.0003"
+      },
+      "non_event_artifacts": [],
+      "current_source_path": "cleanrl/td7/noise/td7_sdnoise_v2.py",
+      "current_source_sha256": "2d02d78fa041d4e4d21ec1ab80f16a8fba87eeeff1e32a965fcdd30812115634",
+      "execution_source_pinned": false,
+      "source_compatibility": "Source selected by run family; exact historical source content is not established by TensorBoard args."
+    }
+  ],
+  "td7_artifact_inventory": {
+    "runs_matching_halfcheetah_td7": 99,
+    "runs_invalid_matching_halfcheetah_td7": 5,
+    "non_event_files_found": 0
+  },
+  "current_source_evaluation_protocol": {
+    "env": "gym.make(args.env_id), no observation normalization wrapper",
+    "state": "raw MuJoCo observation; encoder uses learned AvgL1 normalization internally",
+    "checkpoint_policy": "checkpoint_encoder and checkpoint_actor when use_checkpoints=True",
+    "noise": "use_exploration=False at evaluation; sdnoise decouple_greedy=True uses greedy readout",
+    "episode_count": 10,
+    "initial_evaluation_seed": "seed+100 once; subsequent episodes advance environment RNG",
+    "score": "mean raw full-episode return, deterministic policy actions",
+    "training_score": "noisy behavior-policy training episodes, separate metric"
+  },
+  "limitations": [
+    "No actor/encoder checkpoint exists in inventoried TD7 directories; save_model=False in args confirms expected absence.",
+    "No frozen source hash or MuJoCo/package execution versions in these artifacts.",
+    "TD7 uses raw observations, so missing external normalizer is not the issue; missing actor/encoder weights prevents gait replay.",
+    "Finite-window correlated evaluations are not independent replication; run end does not prove intended 8M completion.",
+    "No optimizer, architecture or PG causal attribution follows from these cross-algorithm scores."
+  ],
+  "non_td7_saved_policy_search": {
+    "scope": "Selective saved-policy candidates plus filename inventory; broad event sweep interrupted to keep status reads lightweight, not an exhaustive score ranking.",
+    "candidate": {
+      "run_path": "runs/HalfCheetah-v4__prerms_adamh_v22_control_50M__1__1788906876",
+      "event_paths": [
+        "runs/HalfCheetah-v4__prerms_adamh_v22_control_50M__1__1788906876/events.out.tfevents.1788906876.cachyos-x8664-desktop.3816449.0"
+      ],
+      "model_path": "runs/HalfCheetah-v4__prerms_adamh_v22_control_50M__1__1788906876/prerms_adamh_v22_control_50M.cleanrl_model",
+      "checkpoint_sha256": "1f09a49740f656482f4e01a71f1070cfe13ebd1e44a52210eca8db73f0089532",
+      "checkpoint_keys": [
+        "args",
+        "hyperball_optimizer",
+        "model",
+        "obs_norm",
+        "optimizer"
+      ],
+      "metric": {
+        "tag": "charts/episodic_return",
+        "window": "last20 training episodic-return scalars",
+        "trailing_mean": 14522.668774414062,
+        "last_step": 49987008
+      },
+      "checkpoint_args": {
+        "exp_name": "prerms_adamh_v22_control_50M",
+        "seed": 1,
+        "torch_deterministic": true,
+        "cuda": true,
+        "track": false,
+        "wandb_project_name": "cleanRL",
+        "wandb_entity": null,
+        "capture_video": false,
+        "save_model": true,
+        "env_id": "HalfCheetah-v4",
+        "total_timesteps": 50000000,
+        "learning_rate": 0.0096,
+        "optimizer_kind": "adam",
+        "hyperball_learning_rate": 0.018,
+        "hyperball_beta2": 0.999,
+        "num_envs": 16,
+        "num_steps": 2048,
+        "anneal_lr": true,
+        "gamma": 0.99,
+        "gae_lambda": 0.95,
+        "num_minibatches": 1,
+        "update_epochs": 10,
+        "norm_adv": false,
+        "clip_coef": 0.2,
+        "clip_vloss": true,
+        "ent_coef": 0.0,
+        "vf_coef": 0.5,
+        "max_grad_norm": 0.5,
+        "grad_clip": false,
+        "clip_heads": true,
+        "target_kl": null,
+        "reward_norm": true,
+        "placement": "pre",
+        "norm_kind": "rms",
+        "activation": "stiglu",
+        "env_backend": "auto",
+        "env_threads": 2,
+        "compile": true,
+        "compile_mode": "reduce-overhead",
+        "non_blocking_transfers": false,
+        "staggered_starts": true,
+        "batch_size": 32768,
+        "minibatch_size": 32768,
+        "num_iterations": 1525
+      },
+      "observation_normalizer": {
+        "means": {
+          "shape": [
+            16,
+            17
+          ],
+          "dtype": "torch.float64",
+          "sha256": "29834203f2d11c2d2128b770c47910b735af17d2180b42006ef3c902eda2663c"
+        },
+        "variances": {
+          "shape": [
+            16,
+            17
+          ],
+          "dtype": "torch.float64",
+          "sha256": "0b4311c66cea50503e92ccfd976652d7ebdf66dca90f247806b26fad7edb5b8e"
+        },
+        "counts": {
+          "shape": [
+            16
+          ],
+          "dtype": "torch.float64",
+          "sha256": "30ea475c9209a730533fb311fbc78d6e7c0b371baf40e0648c462f4cbe09841f"
+        },
+        "epsilon": 1e-08,
+        "clip": 10.0
+      },
+      "current_source_path": "cleanrl/ppo_continuous_action_prerms_adamh_v22.py",
+      "current_source_sha256": "514cfd7c4b65ab891fa421ddd784c27f346502cf34e0eca0206b0d0c422478a3",
+      "execution_source_pinned": false,
+      "compatibility": "Complete per-row observation normalizer and actor state exist; requires this different trainer Agent/Args and its trained Beta law, not v12 Agent. Current source matches family by filename/args but historical source is not pinned. No measured frozen evaluation or contact/gait artifact exists in this inventory.",
+      "selection": "Potential stronger physical reference around14.5k training return; no measured>15k reusable candidate established."
+    },
+    "other_selective_scores": [
+      {
+        "variant": "ppo_normres_d3twohot_v3_raw_symexp_b20000_50M",
+        "tag": "charts/episodic_return",
+        "last20_mean": 10723.900183105468,
+        "last_step": 49987008,
+        "saved_model": true
+      },
+      {
+        "variant": "ppo_scalar_peri_sphere_v10_noclip_1epoch_no_final_50M",
+        "tag": "charts/episodic_return",
+        "last20_mean": 2297.154229736328,
+        "last_step": 49987008,
+        "saved_model": true
+      },
+      {
+        "variant": "awr_ce_ppo_sepclip_control_v1_50M",
+        "tag": "charts/episodic_return",
+        "last20_mean": 13576.322143554688,
+        "last_step": 49987008,
+        "saved_model": false
+      }
+    ]
+  }
+}

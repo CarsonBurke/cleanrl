@@ -1,0 +1,1436 @@
+{
+  "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_4013696.pt",
+  "cases": [
+    {
+      "power": 0.0,
+      "epochs": [
+        {
+          "epoch": 1,
+          "matrices": [
+            {
+              "parameter": "actor.first.0.gate.weight",
+              "radial_fraction": 0.0006305605638772249,
+              "parameter_step_norm": 0.007913204841315746,
+              "base_heldout_cosine": -0.01631724089384079,
+              "tangent_base_heldout_cosine": -0.016336651518940926
+            },
+            {
+              "parameter": "actor.first.0.up.weight",
+              "radial_fraction": 0.0006145971128717065,
+              "parameter_step_norm": 0.007923034019768238,
+              "base_heldout_cosine": 0.0644272118806839,
+              "tangent_base_heldout_cosine": 0.06443548947572708
+            },
+            {
+              "parameter": "actor.first.0.down.weight",
+              "radial_fraction": 0.000743888842407614,
+              "parameter_step_norm": 0.00988783873617649,
+              "base_heldout_cosine": 0.057436905801296234,
+              "tangent_base_heldout_cosine": 0.057439517229795456
+            },
+            {
+              "parameter": "actor.second.0.gate.weight",
+              "radial_fraction": 0.0006169140688143671,
+              "parameter_step_norm": 0.008043019101023674,
+              "base_heldout_cosine": 0.06600835174322128,
+              "tangent_base_heldout_cosine": 0.0660068690776825
+            },
+            {
+              "parameter": "actor.second.0.up.weight",
+              "radial_fraction": 0.0006166545208543539,
+              "parameter_step_norm": 0.008042296394705772,
+              "base_heldout_cosine": 0.05364670604467392,
+              "tangent_base_heldout_cosine": 0.053645744919776917
+            },
+            {
+              "parameter": "actor.second.0.down.weight",
+              "radial_fraction": 0.0007462048670277,
+              "parameter_step_norm": 0.009643476456403732,
+              "base_heldout_cosine": 0.017049923539161682,
+              "tangent_base_heldout_cosine": 0.017049796879291534
+            }
+          ],
+          "chunks": [
+            {
+              "chunk": 0,
+              "geometry": {
+                "first_order_gae_gain": 3.138994725304656e-05,
+                "first_order_clipped_gae_gain": 3.138994725304656e-05,
+                "first_order_lambda1_gain": 6.875445978948846e-05,
+                "sample_fisher_quadratic": 0.0031703938730061054,
+                "exact_incremental_kl": 0.003165746107697487,
+                "directional_efficiency": 0.0003942021404350515
+              },
+              "total_from_old": {
+                "exact_kl": 0.003165746107697487,
+                "surrogate_gain": 2.060962469840888e-05,
+                "clipfrac": 0.031494140625,
+                "value_mse": 0.002913237549364567,
+                "entropy_delta": 3.298719093436375e-05,
+                "clipped_surrogate_gain": -1.650280501053203e-05,
+                "critic_bootstrapped_lambda1_gain": 5.768695700680837e-05
+              }
+            },
+            {
+              "chunk": 1,
+              "geometry": {
+                "first_order_gae_gain": 1.8719680156209506e-05,
+                "first_order_clipped_gae_gain": 1.8719680156209506e-05,
+                "first_order_lambda1_gain": 6.854732782812789e-05,
+                "sample_fisher_quadratic": 0.003169832518324256,
+                "exact_incremental_kl": 0.0031650124583393335,
+                "directional_efficiency": 0.0002351068420543697
+              },
+              "total_from_old": {
+                "exact_kl": 0.0031650124583393335,
+                "surrogate_gain": 1.1636233466560952e-05,
+                "clipfrac": 0.03179931640625,
+                "value_mse": 0.005712368059903383,
+                "entropy_delta": 0.00026511959731578827,
+                "clipped_surrogate_gain": -2.151877743017394e-05,
+                "critic_bootstrapped_lambda1_gain": 4.9251415475737303e-05
+              }
+            },
+            {
+              "chunk": 2,
+              "geometry": {
+                "first_order_gae_gain": 3.921699317288585e-06,
+                "first_order_clipped_gae_gain": 3.921699317288585e-06,
+                "first_order_lambda1_gain": 6.291928002610803e-05,
+                "sample_fisher_quadratic": 0.0032503148540854454,
+                "exact_incremental_kl": 0.0032454822212457657,
+                "directional_efficiency": 4.864033735923541e-05
+              },
+              "total_from_old": {
+                "exact_kl": 0.0032454822212457657,
+                "surrogate_gain": -7.044068752293242e-06,
+                "clipfrac": 0.03045654296875,
+                "value_mse": 0.002742384560406208,
+                "entropy_delta": -6.547762313857675e-05,
+                "clipped_surrogate_gain": -4.071603689226322e-05,
+                "critic_bootstrapped_lambda1_gain": 4.97281362186186e-05
+              }
+            }
+          ],
+          "policy_budget_metrics": null
+        },
+        {
+          "epoch": 2,
+          "matrices": [
+            {
+              "parameter": "actor.first.0.gate.weight",
+              "radial_fraction": 0.0006184520316310227,
+              "parameter_step_norm": 0.00791283417493105,
+              "base_heldout_cosine": -0.07650993764400482,
+              "tangent_base_heldout_cosine": -0.07651688903570175
+            },
+            {
+              "parameter": "actor.first.0.up.weight",
+              "radial_fraction": 0.0006309272721409798,
+              "parameter_step_norm": 0.00789764616638422,
+              "base_heldout_cosine": -0.06496956944465637,
+              "tangent_base_heldout_cosine": -0.06496824324131012
+            },
+            {
+              "parameter": "actor.first.0.down.weight",
+              "radial_fraction": 0.0007601043325848877,
+              "parameter_step_norm": 0.009891055524349213,
+              "base_heldout_cosine": 0.020951002836227417,
+              "tangent_base_heldout_cosine": 0.02095027267932892
+            },
+            {
+              "parameter": "actor.second.0.gate.weight",
+              "radial_fraction": 0.0006198935443535447,
+              "parameter_step_norm": 0.008084811270236969,
+              "base_heldout_cosine": 0.0387672521173954,
+              "tangent_base_heldout_cosine": 0.03876548260450363
+            },
+            {
+              "parameter": "actor.second.0.up.weight",
+              "radial_fraction": 0.0006216177134774625,
+              "parameter_step_norm": 0.00803564302623272,
+              "base_heldout_cosine": 0.025898413732647896,
+              "tangent_base_heldout_cosine": 0.025898166000843048
+            },
+            {
+              "parameter": "actor.second.0.down.weight",
+              "radial_fraction": 0.0007312966044992208,
+              "parameter_step_norm": 0.009649842046201229,
+              "base_heldout_cosine": 0.021670153364539146,
+              "tangent_base_heldout_cosine": 0.02166748233139515
+            }
+          ],
+          "chunks": [
+            {
+              "chunk": 0,
+              "geometry": {
+                "first_order_gae_gain": 1.094072013074765e-05,
+                "first_order_clipped_gae_gain": 2.1896066755289212e-05,
+                "first_order_lambda1_gain": -2.075786869681906e-05,
+                "sample_fisher_quadratic": 0.0023599122650921345,
+                "exact_incremental_kl": 0.0023574549704790115,
+                "directional_efficiency": 0.00015925129849745018
+              },
+              "total_from_old": {
+                "exact_kl": 0.006234222091734409,
+                "surrogate_gain": 2.979264172608964e-05,
+                "clipfrac": 0.0791015625,
+                "value_mse": 0.002913237549364567,
+                "entropy_delta": -0.004130082670599222,
+                "clipped_surrogate_gain": -9.253099415218458e-05,
+                "critic_bootstrapped_lambda1_gain": 4.233412619214505e-05
+              }
+            },
+            {
+              "chunk": 1,
+              "geometry": {
+                "first_order_gae_gain": 1.1467430340417195e-05,
+                "first_order_clipped_gae_gain": 2.1555701096076518e-05,
+                "first_order_lambda1_gain": 2.0442417735466734e-05,
+                "sample_fisher_quadratic": 0.002342749387025833,
+                "exact_incremental_kl": 0.0023408890701830387,
+                "directional_efficiency": 0.00016752830573864275
+              },
+              "total_from_old": {
+                "exact_kl": 0.006241134367883205,
+                "surrogate_gain": 2.9119533792254515e-05,
+                "clipfrac": 0.076171875,
+                "value_mse": 0.005712368059903383,
+                "entropy_delta": -0.0038712997920811176,
+                "clipped_surrogate_gain": -8.872547914506868e-05,
+                "critic_bootstrapped_lambda1_gain": 7.381120667560026e-05
+              }
+            },
+            {
+              "chunk": 2,
+              "geometry": {
+                "first_order_gae_gain": -2.4733621103223413e-05,
+                "first_order_clipped_gae_gain": -1.3404060155153275e-05,
+                "first_order_lambda1_gain": -4.20602154918015e-05,
+                "sample_fisher_quadratic": 0.0023931770119816065,
+                "exact_incremental_kl": 0.0023901951499283314,
+                "directional_efficiency": -0.00035750761302581204
+              },
+              "total_from_old": {
+                "exact_kl": 0.006377763114869595,
+                "surrogate_gain": -3.2689422369003296e-05,
+                "clipfrac": 0.07958984375,
+                "value_mse": 0.002742384560406208,
+                "entropy_delta": -0.004407559055835009,
+                "clipped_surrogate_gain": -0.0001469080161768943,
+                "critic_bootstrapped_lambda1_gain": 5.55528822587803e-06
+              }
+            }
+          ],
+          "policy_budget_metrics": null
+        },
+        {
+          "epoch": 3,
+          "matrices": [
+            {
+              "parameter": "actor.first.0.gate.weight",
+              "radial_fraction": 0.0006134876748546958,
+              "parameter_step_norm": 0.007905986160039902,
+              "base_heldout_cosine": -0.006498400587588549,
+              "tangent_base_heldout_cosine": -0.006501492112874985
+            },
+            {
+              "parameter": "actor.first.0.up.weight",
+              "radial_fraction": 0.000606544257607311,
+              "parameter_step_norm": 0.007914435118436813,
+              "base_heldout_cosine": 0.04944143444299698,
+              "tangent_base_heldout_cosine": 0.04944463074207306
+            },
+            {
+              "parameter": "actor.first.0.down.weight",
+              "radial_fraction": 0.0007521539810113609,
+              "parameter_step_norm": 0.009894285351037979,
+              "base_heldout_cosine": 0.06299474090337753,
+              "tangent_base_heldout_cosine": 0.06299569457769394
+            },
+            {
+              "parameter": "actor.second.0.gate.weight",
+              "radial_fraction": 0.000618926074821502,
+              "parameter_step_norm": 0.00808442011475563,
+              "base_heldout_cosine": 0.07221012562513351,
+              "tangent_base_heldout_cosine": 0.07220730930566788
+            },
+            {
+              "parameter": "actor.second.0.up.weight",
+              "radial_fraction": 0.0006138355238363147,
+              "parameter_step_norm": 0.008061928674578667,
+              "base_heldout_cosine": 0.04600490257143974,
+              "tangent_base_heldout_cosine": 0.046003106981515884
+            },
+            {
+              "parameter": "actor.second.0.down.weight",
+              "radial_fraction": 0.000745929719414562,
+              "parameter_step_norm": 0.009694325737655163,
+              "base_heldout_cosine": 0.005167950876057148,
+              "tangent_base_heldout_cosine": 0.005171022843569517
+            }
+          ],
+          "chunks": [
+            {
+              "chunk": 0,
+              "geometry": {
+                "first_order_gae_gain": 1.4080116670811549e-05,
+                "first_order_clipped_gae_gain": -3.0189579774742015e-05,
+                "first_order_lambda1_gain": -6.065638444852084e-06,
+                "sample_fisher_quadratic": 0.001511839684098959,
+                "exact_incremental_kl": 0.0015136010479182005,
+                "directional_efficiency": 0.000256058021334073
+              },
+              "total_from_old": {
+                "exact_kl": 0.00928817130625248,
+                "surrogate_gain": 4.0566032112110406e-05,
+                "clipfrac": 0.1224365234375,
+                "value_mse": 0.002913237549364567,
+                "entropy_delta": -0.0017954707145690918,
+                "clipped_surrogate_gain": -0.00018489094509277493,
+                "critic_bootstrapped_lambda1_gain": 3.666740303742699e-05
+              }
+            },
+            {
+              "chunk": 1,
+              "geometry": {
+                "first_order_gae_gain": 2.0900843082927167e-06,
+                "first_order_clipped_gae_gain": -3.732214099727571e-05,
+                "first_order_lambda1_gain": 4.5201861212262884e-05,
+                "sample_fisher_quadratic": 0.0015341989928856492,
+                "exact_incremental_kl": 0.0015360601246356964,
+                "directional_efficiency": 3.773183791999783e-05
+              },
+              "total_from_old": {
+                "exact_kl": 0.009464848786592484,
+                "surrogate_gain": 2.7612288249656558e-05,
+                "clipfrac": 0.1260986328125,
+                "value_mse": 0.005712368059903383,
+                "entropy_delta": -0.0017481623217463493,
+                "clipped_surrogate_gain": -0.00020240567391738296,
+                "critic_bootstrapped_lambda1_gain": 0.00010832466796273366
+              }
+            },
+            {
+              "chunk": 2,
+              "geometry": {
+                "first_order_gae_gain": 2.789584505080711e-05,
+                "first_order_clipped_gae_gain": -1.0177071089856327e-05,
+                "first_order_lambda1_gain": 9.643290832173079e-05,
+                "sample_fisher_quadratic": 0.0015100401360541582,
+                "exact_incremental_kl": 0.0015119249001145363,
+                "directional_efficiency": 0.0005076101281813951
+              },
+              "total_from_old": {
+                "exact_kl": 0.009464913979172707,
+                "surrogate_gain": -8.472079571220092e-06,
+                "clipfrac": 0.12359619140625,
+                "value_mse": 0.002742384560406208,
+                "entropy_delta": -0.0019956016913056374,
+                "clipped_surrogate_gain": -0.00022394172265194356,
+                "critic_bootstrapped_lambda1_gain": 9.466352639719844e-05
+              }
+            }
+          ],
+          "policy_budget_metrics": null
+        },
+        {
+          "epoch": 4,
+          "matrices": [
+            {
+              "parameter": "actor.first.0.gate.weight",
+              "radial_fraction": 0.0006223702221177518,
+              "parameter_step_norm": 0.00794073473662138,
+              "base_heldout_cosine": -0.07728105783462524,
+              "tangent_base_heldout_cosine": -0.0772884413599968
+            },
+            {
+              "parameter": "actor.first.0.up.weight",
+              "radial_fraction": 0.0006210756255313754,
+              "parameter_step_norm": 0.007952848449349403,
+              "base_heldout_cosine": -0.048455290496349335,
+              "tangent_base_heldout_cosine": -0.04845017194747925
+            },
+            {
+              "parameter": "actor.first.0.down.weight",
+              "radial_fraction": 0.0007546747219748795,
+              "parameter_step_norm": 0.009898645803332329,
+              "base_heldout_cosine": -0.008953649550676346,
+              "tangent_base_heldout_cosine": -0.00895254872739315
+            },
+            {
+              "parameter": "actor.second.0.gate.weight",
+              "radial_fraction": 0.0006128851673565805,
+              "parameter_step_norm": 0.008081303909420967,
+              "base_heldout_cosine": 0.005970759782940149,
+              "tangent_base_heldout_cosine": 0.00596978235989809
+            },
+            {
+              "parameter": "actor.second.0.up.weight",
+              "radial_fraction": 0.0006158366450108588,
+              "parameter_step_norm": 0.00807185284793377,
+              "base_heldout_cosine": -0.0033328367862850428,
+              "tangent_base_heldout_cosine": -0.003333278000354767
+            },
+            {
+              "parameter": "actor.second.0.down.weight",
+              "radial_fraction": 0.0007496163598261774,
+              "parameter_step_norm": 0.00975994672626257,
+              "base_heldout_cosine": -0.011920313350856304,
+              "tangent_base_heldout_cosine": -0.011925886385142803
+            }
+          ],
+          "chunks": [
+            {
+              "chunk": 0,
+              "geometry": {
+                "first_order_gae_gain": 2.7079111532657407e-05,
+                "first_order_clipped_gae_gain": 8.814808097667992e-05,
+                "first_order_lambda1_gain": 3.6780882510356605e-05,
+                "sample_fisher_quadratic": 0.0034332736395299435,
+                "exact_incremental_kl": 0.003418749663978815,
+                "directional_efficiency": 0.000326787325245446
+              },
+              "total_from_old": {
+                "exact_kl": 0.010492526926100254,
+                "surrogate_gain": 5.3597555961459875e-05,
+                "clipfrac": 0.13543701171875,
+                "value_mse": 0.002913237549364567,
+                "entropy_delta": -0.00598593894392252,
+                "clipped_surrogate_gain": -0.000234980572713539,
+                "critic_bootstrapped_lambda1_gain": 5.854680057382211e-05
+              }
+            },
+            {
+              "chunk": 1,
+              "geometry": {
+                "first_order_gae_gain": 2.083005711028818e-06,
+                "first_order_clipped_gae_gain": 7.871598063502461e-05,
+                "first_order_lambda1_gain": -5.91829557379242e-05,
+                "sample_fisher_quadratic": 0.003395889885723591,
+                "exact_incremental_kl": 0.0033810471650213003,
+                "directional_efficiency": 2.527543641960361e-05
+              },
+              "total_from_old": {
+                "exact_kl": 0.01070338487625122,
+                "surrogate_gain": 2.3355391022050753e-05,
+                "clipfrac": 0.138671875,
+                "value_mse": 0.005712368059903383,
+                "entropy_delta": -0.006170289590954781,
+                "clipped_surrogate_gain": -0.00027082080487161875,
+                "critic_bootstrapped_lambda1_gain": 2.6918140065390617e-05
+              }
+            },
+            {
+              "chunk": 2,
+              "geometry": {
+                "first_order_gae_gain": 9.741971553012263e-06,
+                "first_order_clipped_gae_gain": 6.34606767562218e-05,
+                "first_order_lambda1_gain": -5.6780096201691777e-05,
+                "sample_fisher_quadratic": 0.0034714273642748594,
+                "exact_incremental_kl": 0.0034561543725430965,
+                "directional_efficiency": 0.00011691704167342406
+              },
+              "total_from_old": {
+                "exact_kl": 0.010722611099481583,
+                "surrogate_gain": -6.974667485337704e-06,
+                "clipfrac": 0.1378173828125,
+                "value_mse": 0.002742384560406208,
+                "entropy_delta": -0.006282431073486805,
+                "clipped_surrogate_gain": -0.0002917122910730541,
+                "critic_bootstrapped_lambda1_gain": 2.8629659936996177e-05
+              }
+            }
+          ],
+          "policy_budget_metrics": null
+        }
+      ]
+    },
+    {
+      "power": 0.5,
+      "epochs": [
+        {
+          "epoch": 1,
+          "matrices": [
+            {
+              "parameter": "actor.first.0.gate.weight",
+              "radial_fraction": 0.000303138280287385,
+              "parameter_step_norm": 0.0039918310940265656,
+              "base_heldout_cosine": -0.015078404918313026,
+              "tangent_base_heldout_cosine": -0.015087608247995377
+            },
+            {
+              "parameter": "actor.first.0.up.weight",
+              "radial_fraction": 0.0003007018531206995,
+              "parameter_step_norm": 0.003999644424766302,
+              "base_heldout_cosine": 0.13665664196014404,
+              "tangent_base_heldout_cosine": 0.1366710066795349
+            },
+            {
+              "parameter": "actor.first.0.down.weight",
+              "radial_fraction": 0.000389560911571607,
+              "parameter_step_norm": 0.004990078043192625,
+              "base_heldout_cosine": 0.11911487579345703,
+              "tangent_base_heldout_cosine": 0.11912581324577332
+            },
+            {
+              "parameter": "actor.second.0.gate.weight",
+              "radial_fraction": 0.000361142068868503,
+              "parameter_step_norm": 0.004066139459609985,
+              "base_heldout_cosine": 0.12394499033689499,
+              "tangent_base_heldout_cosine": 0.1239418014883995
+            },
+            {
+              "parameter": "actor.second.0.up.weight",
+              "radial_fraction": 0.0003302156983409077,
+              "parameter_step_norm": 0.004059875849634409,
+              "base_heldout_cosine": 0.1253742277622223,
+              "tangent_base_heldout_cosine": 0.1253754198551178
+            },
+            {
+              "parameter": "actor.second.0.down.weight",
+              "radial_fraction": 0.00044057719060219824,
+              "parameter_step_norm": 0.004812681116163731,
+              "base_heldout_cosine": 0.042395785450935364,
+              "tangent_base_heldout_cosine": 0.042391229420900345
+            }
+          ],
+          "chunks": [
+            {
+              "chunk": 0,
+              "geometry": {
+                "first_order_gae_gain": 3.550304245436564e-05,
+                "first_order_clipped_gae_gain": 3.550304245436564e-05,
+                "first_order_lambda1_gain": 7.099430513335392e-05,
+                "sample_fisher_quadratic": 0.003172139637172222,
+                "exact_incremental_kl": 0.0031664110720157623,
+                "directional_efficiency": 0.00044573262763854705
+              },
+              "total_from_old": {
+                "exact_kl": 0.0031664110720157623,
+                "surrogate_gain": 2.398112883383874e-05,
+                "clipfrac": 0.03314208984375,
+                "value_mse": 0.002913237549364567,
+                "entropy_delta": 0.00023933954071253538,
+                "clipped_surrogate_gain": -1.6524278180440888e-05,
+                "critic_bootstrapped_lambda1_gain": 5.892062108614482e-05
+              }
+            },
+            {
+              "chunk": 1,
+              "geometry": {
+                "first_order_gae_gain": 2.1533047402044758e-05,
+                "first_order_clipped_gae_gain": 2.1533047402044758e-05,
+                "first_order_lambda1_gain": 6.761276017641649e-05,
+                "sample_fisher_quadratic": 0.0031646823044866323,
+                "exact_incremental_kl": 0.003158744890242815,
+                "directional_efficiency": 0.00027066084869308487
+              },
+              "total_from_old": {
+                "exact_kl": 0.003158744890242815,
+                "surrogate_gain": 1.302494274568744e-05,
+                "clipfrac": 0.031494140625,
+                "value_mse": 0.005712368059903383,
+                "entropy_delta": 0.0004854041035287082,
+                "clipped_surrogate_gain": -2.146569750038907e-05,
+                "critic_bootstrapped_lambda1_gain": 4.832788908970542e-05
+              }
+            },
+            {
+              "chunk": 2,
+              "geometry": {
+                "first_order_gae_gain": 2.082817445625551e-06,
+                "first_order_clipped_gae_gain": 2.082817445625551e-06,
+                "first_order_lambda1_gain": 6.513301923405379e-05,
+                "sample_fisher_quadratic": 0.0032439683564007282,
+                "exact_incremental_kl": 0.00323803280480206,
+                "directional_efficiency": 2.5858177020393402e-05
+              },
+              "total_from_old": {
+                "exact_kl": 0.00323803280480206,
+                "surrogate_gain": -9.54437109612627e-06,
+                "clipfrac": 0.03167724609375,
+                "value_mse": 0.002742384560406208,
+                "entropy_delta": 0.00015998460003174841,
+                "clipped_surrogate_gain": -4.549676668830216e-05,
+                "critic_bootstrapped_lambda1_gain": 5.036122092860751e-05
+              }
+            }
+          ],
+          "policy_budget_metrics": [
+            0.003209249349310994,
+            0.012522753328084946,
+            0.003209255635738373,
+            0.5056148767471313,
+            1.0
+          ]
+        },
+        {
+          "epoch": 2,
+          "matrices": [
+            {
+              "parameter": "actor.first.0.gate.weight",
+              "radial_fraction": 0.0003339341492392123,
+              "parameter_step_norm": 0.0040989527478814125,
+              "base_heldout_cosine": -0.14242331683635712,
+              "tangent_base_heldout_cosine": -0.14243163168430328
+            },
+            {
+              "parameter": "actor.first.0.up.weight",
+              "radial_fraction": 0.0003333495697006583,
+              "parameter_step_norm": 0.004100249148905277,
+              "base_heldout_cosine": -0.11980205029249191,
+              "tangent_base_heldout_cosine": -0.11980532854795456
+            },
+            {
+              "parameter": "actor.first.0.down.weight",
+              "radial_fraction": 0.0004388787492644042,
+              "parameter_step_norm": 0.005119103938341141,
+              "base_heldout_cosine": -0.008196623995900154,
+              "tangent_base_heldout_cosine": -0.008189048618078232
+            },
+            {
+              "parameter": "actor.second.0.gate.weight",
+              "radial_fraction": 0.0003919257433153689,
+              "parameter_step_norm": 0.00419827364385128,
+              "base_heldout_cosine": 0.03789898380637169,
+              "tangent_base_heldout_cosine": 0.03789697587490082
+            },
+            {
+              "parameter": "actor.second.0.up.weight",
+              "radial_fraction": 0.00036982912570238113,
+              "parameter_step_norm": 0.0041659059934318066,
+              "base_heldout_cosine": -0.00022904838260728866,
+              "tangent_base_heldout_cosine": -0.00022956400061957538
+            },
+            {
+              "parameter": "actor.second.0.down.weight",
+              "radial_fraction": 0.00046442708116956055,
+              "parameter_step_norm": 0.004969299770891666,
+              "base_heldout_cosine": 0.030502481386065483,
+              "tangent_base_heldout_cosine": 0.030490875244140625
+            }
+          ],
+          "chunks": [
+            {
+              "chunk": 0,
+              "geometry": {
+                "first_order_gae_gain": 4.018435902253259e-06,
+                "first_order_clipped_gae_gain": 4.551007805275731e-05,
+                "first_order_lambda1_gain": -3.7945210351608694e-05,
+                "sample_fisher_quadratic": 0.0028492072597146034,
+                "exact_incremental_kl": 0.0028468919917941093,
+                "directional_efficiency": 5.323288777143363e-05
+              },
+              "total_from_old": {
+                "exact_kl": 0.005720064043998718,
+                "surrogate_gain": 2.4737706553423777e-05,
+                "clipfrac": 0.0701904296875,
+                "value_mse": 0.002913237549364567,
+                "entropy_delta": -0.0028319554403424263,
+                "clipped_surrogate_gain": -8.18203334347345e-05,
+                "critic_bootstrapped_lambda1_gain": 2.7768863219534978e-05
+              }
+            },
+            {
+              "chunk": 1,
+              "geometry": {
+                "first_order_gae_gain": 7.62947638577316e-06,
+                "first_order_clipped_gae_gain": 4.354359407443553e-05,
+                "first_order_lambda1_gain": 6.925038178451359e-06,
+                "sample_fisher_quadratic": 0.0028328236658126116,
+                "exact_incremental_kl": 0.002831369871273637,
+                "directional_efficiency": 0.00010136078477528067
+              },
+              "total_from_old": {
+                "exact_kl": 0.005701909307390451,
+                "surrogate_gain": 2.7672645956045017e-05,
+                "clipfrac": 0.06866455078125,
+                "value_mse": 0.005712368059903383,
+                "entropy_delta": -0.002515339758247137,
+                "clipped_surrogate_gain": -7.581029785797e-05,
+                "critic_bootstrapped_lambda1_gain": 6.285198469413444e-05
+              }
+            },
+            {
+              "chunk": 2,
+              "geometry": {
+                "first_order_gae_gain": -2.841007153620012e-05,
+                "first_order_clipped_gae_gain": 1.2107287147955503e-05,
+                "first_order_lambda1_gain": -5.802966552437283e-05,
+                "sample_fisher_quadratic": 0.00288523081690073,
+                "exact_incremental_kl": 0.0028823665343225002,
+                "directional_efficiency": -0.00037399607838529384
+              },
+              "total_from_old": {
+                "exact_kl": 0.0058226087130606174,
+                "surrogate_gain": -3.916183050023392e-05,
+                "clipfrac": 0.0714111328125,
+                "value_mse": 0.002742384560406208,
+                "entropy_delta": -0.003120042383670807,
+                "clipped_surrogate_gain": -0.0001344718039035797,
+                "critic_bootstrapped_lambda1_gain": -1.0656130143615883e-05
+              }
+            }
+          ],
+          "policy_budget_metrics": [
+            0.0028721748385578394,
+            0.010617072694003582,
+            0.002872197888791561,
+            0.5193372368812561,
+            1.0
+          ]
+        },
+        {
+          "epoch": 3,
+          "matrices": [
+            {
+              "parameter": "actor.first.0.gate.weight",
+              "radial_fraction": 0.0003649322025012225,
+              "parameter_step_norm": 0.0044016544707119465,
+              "base_heldout_cosine": 0.008237832225859165,
+              "tangent_base_heldout_cosine": 0.0082297557964921
+            },
+            {
+              "parameter": "actor.first.0.up.weight",
+              "radial_fraction": 0.00035465677501633763,
+              "parameter_step_norm": 0.0044371807016432285,
+              "base_heldout_cosine": 0.1276898831129074,
+              "tangent_base_heldout_cosine": 0.1276981085538864
+            },
+            {
+              "parameter": "actor.first.0.down.weight",
+              "radial_fraction": 0.00045069048064760864,
+              "parameter_step_norm": 0.005503872875124216,
+              "base_heldout_cosine": 0.13133807480335236,
+              "tangent_base_heldout_cosine": 0.13134457170963287
+            },
+            {
+              "parameter": "actor.second.0.gate.weight",
+              "radial_fraction": 0.00036862140404991806,
+              "parameter_step_norm": 0.004489818587899208,
+              "base_heldout_cosine": 0.1429104059934616,
+              "tangent_base_heldout_cosine": 0.1429090052843094
+            },
+            {
+              "parameter": "actor.second.0.up.weight",
+              "radial_fraction": 0.0003779544495046139,
+              "parameter_step_norm": 0.00447311345487833,
+              "base_heldout_cosine": 0.12855926156044006,
+              "tangent_base_heldout_cosine": 0.1285625696182251
+            },
+            {
+              "parameter": "actor.second.0.down.weight",
+              "radial_fraction": 0.00047173426719382405,
+              "parameter_step_norm": 0.00528287049382925,
+              "base_heldout_cosine": 0.03931153565645218,
+              "tangent_base_heldout_cosine": 0.03930402547121048
+            }
+          ],
+          "chunks": [
+            {
+              "chunk": 0,
+              "geometry": {
+                "first_order_gae_gain": 2.7644524379866198e-05,
+                "first_order_clipped_gae_gain": -1.098238499253057e-06,
+                "first_order_lambda1_gain": 1.2603313734871335e-06,
+                "sample_fisher_quadratic": 0.0018534413538873196,
+                "exact_incremental_kl": 0.0018568334635347128,
+                "directional_efficiency": 0.0004540510665514385
+              },
+              "total_from_old": {
+                "exact_kl": 0.00874438788741827,
+                "surrogate_gain": 4.630926559912041e-05,
+                "clipfrac": 0.11376953125,
+                "value_mse": 0.002913237549364567,
+                "entropy_delta": -0.0033707809634506702,
+                "clipped_surrogate_gain": -0.00015927728964015841,
+                "critic_bootstrapped_lambda1_gain": 2.6706253265729174e-05
+              }
+            },
+            {
+              "chunk": 1,
+              "geometry": {
+                "first_order_gae_gain": 9.367047823616304e-06,
+                "first_order_clipped_gae_gain": -9.44614384934539e-06,
+                "first_order_lambda1_gain": 7.790456584189087e-05,
+                "sample_fisher_quadratic": 0.0018969292286783457,
+                "exact_incremental_kl": 0.0018999716266989708,
+                "directional_efficiency": 0.00015207652336072248
+              },
+              "total_from_old": {
+                "exact_kl": 0.00887107290327549,
+                "surrogate_gain": 3.3585718483664095e-05,
+                "clipfrac": 0.11663818359375,
+                "value_mse": 0.005712368059903383,
+                "entropy_delta": -0.003178028855472803,
+                "clipped_surrogate_gain": -0.00016695365775376558,
+                "critic_bootstrapped_lambda1_gain": 0.00013573101023212075
+              }
+            },
+            {
+              "chunk": 2,
+              "geometry": {
+                "first_order_gae_gain": 1.507123488408979e-05,
+                "first_order_clipped_gae_gain": -8.87961778062163e-06,
+                "first_order_lambda1_gain": 9.769637108547613e-05,
+                "sample_fisher_quadratic": 0.001873617758974433,
+                "exact_incremental_kl": 0.0018769680755212903,
+                "directional_efficiency": 0.000246203001632807
+              },
+              "total_from_old": {
+                "exact_kl": 0.008912375196814537,
+                "surrogate_gain": -2.8396190828061663e-05,
+                "clipfrac": 0.11676025390625,
+                "value_mse": 0.002742384560406208,
+                "entropy_delta": -0.003550902009010315,
+                "clipped_surrogate_gain": -0.00021809953614138067,
+                "critic_bootstrapped_lambda1_gain": 7.928023842396215e-05
+              }
+            }
+          ],
+          "policy_budget_metrics": [
+            0.0018760445527732372,
+            0.006039527244865894,
+            0.0018742778338491917,
+            0.5573398470878601,
+            1.0
+          ]
+        },
+        {
+          "epoch": 4,
+          "matrices": [
+            {
+              "parameter": "actor.first.0.gate.weight",
+              "radial_fraction": 0.0003330596082378179,
+              "parameter_step_norm": 0.004062830936163664,
+              "base_heldout_cosine": -0.10555412620306015,
+              "tangent_base_heldout_cosine": -0.10555971413850784
+            },
+            {
+              "parameter": "actor.first.0.up.weight",
+              "radial_fraction": 0.00036034657387062907,
+              "parameter_step_norm": 0.004117881879210472,
+              "base_heldout_cosine": -0.1251389980316162,
+              "tangent_base_heldout_cosine": -0.1251361221075058
+            },
+            {
+              "parameter": "actor.first.0.down.weight",
+              "radial_fraction": 0.0004151033645030111,
+              "parameter_step_norm": 0.005069672595709562,
+              "base_heldout_cosine": -0.040139004588127136,
+              "tangent_base_heldout_cosine": -0.04013402387499809
+            },
+            {
+              "parameter": "actor.second.0.gate.weight",
+              "radial_fraction": 0.0003464206529315561,
+              "parameter_step_norm": 0.004150730557739735,
+              "base_heldout_cosine": -0.005724645219743252,
+              "tangent_base_heldout_cosine": -0.005725317634642124
+            },
+            {
+              "parameter": "actor.second.0.up.weight",
+              "radial_fraction": 0.0003566226805560291,
+              "parameter_step_norm": 0.0041354019194841385,
+              "base_heldout_cosine": -0.05416512116789818,
+              "tangent_base_heldout_cosine": -0.054167937487363815
+            },
+            {
+              "parameter": "actor.second.0.down.weight",
+              "radial_fraction": 0.00042900603148154914,
+              "parameter_step_norm": 0.004888712894171476,
+              "base_heldout_cosine": -0.010063176043331623,
+              "tangent_base_heldout_cosine": -0.010071265511214733
+            }
+          ],
+          "chunks": [
+            {
+              "chunk": 0,
+              "geometry": {
+                "first_order_gae_gain": 1.4098942301643547e-05,
+                "first_order_clipped_gae_gain": 0.00011418289795983583,
+                "first_order_lambda1_gain": 2.7368150767870247e-06,
+                "sample_fisher_quadratic": 0.0035487792920321226,
+                "exact_incremental_kl": 0.003539566183462739,
+                "directional_efficiency": 0.00016735243673069193
+              },
+              "total_from_old": {
+                "exact_kl": 0.009337538853287697,
+                "surrogate_gain": 4.867587631451897e-05,
+                "clipfrac": 0.12213134765625,
+                "value_mse": 0.002913237549364567,
+                "entropy_delta": -0.0069696540012955666,
+                "clipped_surrogate_gain": -0.00019574188627302647,
+                "critic_bootstrapped_lambda1_gain": 2.252859849249944e-05
+              }
+            },
+            {
+              "chunk": 1,
+              "geometry": {
+                "first_order_gae_gain": -3.1220042728818953e-07,
+                "first_order_clipped_gae_gain": 0.00011486687435535714,
+                "first_order_lambda1_gain": -6.385410961229354e-05,
+                "sample_fisher_quadratic": 0.0035463511012494564,
+                "exact_incremental_kl": 0.0035377470776438713,
+                "directional_efficiency": -3.707043056088389e-06
+              },
+              "total_from_old": {
+                "exact_kl": 0.009435239247977734,
+                "surrogate_gain": 3.189838389516808e-05,
+                "clipfrac": 0.122802734375,
+                "value_mse": 0.005712368059903383,
+                "entropy_delta": -0.00699031725525856,
+                "clipped_surrogate_gain": -0.00019535176397766918,
+                "critic_bootstrapped_lambda1_gain": 7.033342262730002e-05
+              }
+            },
+            {
+              "chunk": 2,
+              "geometry": {
+                "first_order_gae_gain": 2.150226464436855e-05,
+                "first_order_clipped_gae_gain": 0.00012535802670754492,
+                "first_order_lambda1_gain": -4.2603525798767805e-05,
+                "sample_fisher_quadratic": 0.0035933670587837696,
+                "exact_incremental_kl": 0.0035842284560203552,
+                "directional_efficiency": 0.0002536403908841482
+              },
+              "total_from_old": {
+                "exact_kl": 0.009488502517342567,
+                "surrogate_gain": -1.4095146980253048e-05,
+                "clipfrac": 0.122314453125,
+                "value_mse": 0.002742384560406208,
+                "entropy_delta": -0.007292413152754307,
+                "clipped_surrogate_gain": -0.00024598505115136504,
+                "critic_bootstrapped_lambda1_gain": 2.606226917123422e-05
+              }
+            }
+          ],
+          "policy_budget_metrics": [
+            0.00358059024438262,
+            0.013485066592693329,
+            0.003580555785447359,
+            0.5144739747047424,
+            1.0
+          ]
+        }
+      ]
+    },
+    {
+      "power": 1.0,
+      "epochs": [
+        {
+          "epoch": 1,
+          "matrices": [
+            {
+              "parameter": "actor.first.0.gate.weight",
+              "radial_fraction": 0.000272583682090044,
+              "parameter_step_norm": 0.002945240819826722,
+              "base_heldout_cosine": -0.0109336469322443,
+              "tangent_base_heldout_cosine": -0.010949911549687386
+            },
+            {
+              "parameter": "actor.first.0.up.weight",
+              "radial_fraction": 0.0002703074715100229,
+              "parameter_step_norm": 0.0029577198438346386,
+              "base_heldout_cosine": 0.20509614050388336,
+              "tangent_base_heldout_cosine": 0.20511071383953094
+            },
+            {
+              "parameter": "actor.first.0.down.weight",
+              "radial_fraction": 0.00036493397783488035,
+              "parameter_step_norm": 0.0036842431873083115,
+              "base_heldout_cosine": 0.17310361564159393,
+              "tangent_base_heldout_cosine": 0.1731172353029251
+            },
+            {
+              "parameter": "actor.second.0.gate.weight",
+              "radial_fraction": 0.00035083730472251773,
+              "parameter_step_norm": 0.003010280430316925,
+              "base_heldout_cosine": 0.15483838319778442,
+              "tangent_base_heldout_cosine": 0.15483514964580536
+            },
+            {
+              "parameter": "actor.second.0.up.weight",
+              "radial_fraction": 0.000285924703348428,
+              "parameter_step_norm": 0.002998436102643609,
+              "base_heldout_cosine": 0.17700736224651337,
+              "tangent_base_heldout_cosine": 0.17701072990894318
+            },
+            {
+              "parameter": "actor.second.0.down.weight",
+              "radial_fraction": 0.00033917586551979184,
+              "parameter_step_norm": 0.0035343021154403687,
+              "base_heldout_cosine": 0.04124850779771805,
+              "tangent_base_heldout_cosine": 0.0412474125623703
+            }
+          ],
+          "chunks": [
+            {
+              "chunk": 0,
+              "geometry": {
+                "first_order_gae_gain": 3.716480568982661e-05,
+                "first_order_clipped_gae_gain": 3.716480568982661e-05,
+                "first_order_lambda1_gain": 7.435979932779446e-05,
+                "sample_fisher_quadratic": 0.0031705885194242,
+                "exact_incremental_kl": 0.0031649975571781397,
+                "directional_efficiency": 0.0004667098075102402
+              },
+              "total_from_old": {
+                "exact_kl": 0.0031649975571781397,
+                "surrogate_gain": 2.513932849979028e-05,
+                "clipfrac": 0.033203125,
+                "value_mse": 0.002913237549364567,
+                "entropy_delta": 0.0006912518292665482,
+                "clipped_surrogate_gain": -1.8641956557985395e-05,
+                "critic_bootstrapped_lambda1_gain": 6.189056148286909e-05
+              }
+            },
+            {
+              "chunk": 1,
+              "geometry": {
+                "first_order_gae_gain": 2.1864812879357487e-05,
+                "first_order_clipped_gae_gain": 2.1864812879357487e-05,
+                "first_order_lambda1_gain": 6.339296669466421e-05,
+                "sample_fisher_quadratic": 0.003162161447107792,
+                "exact_incremental_kl": 0.0031563877128064632,
+                "directional_efficiency": 0.0002749405185331341
+              },
+              "total_from_old": {
+                "exact_kl": 0.0031563877128064632,
+                "surrogate_gain": 1.282394805457443e-05,
+                "clipfrac": 0.03204345703125,
+                "value_mse": 0.005712368059903383,
+                "entropy_delta": 0.0009343010606244206,
+                "clipped_surrogate_gain": -2.3876395061961375e-05,
+                "critic_bootstrapped_lambda1_gain": 4.490504215937108e-05
+              }
+            },
+            {
+              "chunk": 2,
+              "geometry": {
+                "first_order_gae_gain": 2.8042645681125578e-06,
+                "first_order_clipped_gae_gain": 2.8042645681125578e-06,
+                "first_order_lambda1_gain": 6.902971654199064e-05,
+                "sample_fisher_quadratic": 0.0032388903200626373,
+                "exact_incremental_kl": 0.0032332129776477814,
+                "directional_efficiency": 3.484222380722154e-05
+              },
+              "total_from_old": {
+                "exact_kl": 0.0032332129776477814,
+                "surrogate_gain": -9.052494533534627e-06,
+                "clipfrac": 0.0323486328125,
+                "value_mse": 0.002742384560406208,
+                "entropy_delta": 0.0006328821182250977,
+                "clipped_surrogate_gain": -4.748604987980798e-05,
+                "critic_bootstrapped_lambda1_gain": 5.3530144214164466e-05
+              }
+            }
+          ],
+          "policy_budget_metrics": [
+            0.003209249349310994,
+            0.022917509078979492,
+            0.003209274262189865,
+            0.37333616614341736,
+            1.0
+          ]
+        },
+        {
+          "epoch": 2,
+          "matrices": [
+            {
+              "parameter": "actor.first.0.gate.weight",
+              "radial_fraction": 0.0002934100921265781,
+              "parameter_step_norm": 0.0029635729733854532,
+              "base_heldout_cosine": -0.19996127486228943,
+              "tangent_base_heldout_cosine": -0.19996805489063263
+            },
+            {
+              "parameter": "actor.first.0.up.weight",
+              "radial_fraction": 0.00025266941520385444,
+              "parameter_step_norm": 0.0029704016633331776,
+              "base_heldout_cosine": -0.17328013479709625,
+              "tangent_base_heldout_cosine": -0.17327812314033508
+            },
+            {
+              "parameter": "actor.first.0.down.weight",
+              "radial_fraction": 0.0003617806069087237,
+              "parameter_step_norm": 0.0037099190521985292,
+              "base_heldout_cosine": -0.04654565081000328,
+              "tangent_base_heldout_cosine": -0.046536918729543686
+            },
+            {
+              "parameter": "actor.second.0.gate.weight",
+              "radial_fraction": 0.0003356073866598308,
+              "parameter_step_norm": 0.0030477321706712246,
+              "base_heldout_cosine": 0.02487969398498535,
+              "tangent_base_heldout_cosine": 0.024878714233636856
+            },
+            {
+              "parameter": "actor.second.0.up.weight",
+              "radial_fraction": 0.0003260894736740738,
+              "parameter_step_norm": 0.0030239580664783716,
+              "base_heldout_cosine": -0.037662893533706665,
+              "tangent_base_heldout_cosine": -0.03766346350312233
+            },
+            {
+              "parameter": "actor.second.0.down.weight",
+              "radial_fraction": 0.00037613543099723756,
+              "parameter_step_norm": 0.0035777438897639513,
+              "base_heldout_cosine": 0.01608581468462944,
+              "tangent_base_heldout_cosine": 0.016080033034086227
+            }
+          ],
+          "chunks": [
+            {
+              "chunk": 0,
+              "geometry": {
+                "first_order_gae_gain": -2.397791831754148e-07,
+                "first_order_clipped_gae_gain": 7.244263542816043e-05,
+                "first_order_lambda1_gain": -4.6313998609548435e-05,
+                "sample_fisher_quadratic": 0.003060508519411087,
+                "exact_incremental_kl": 0.003058593487367034,
+                "directional_efficiency": -3.0647826626413774e-06
+              },
+              "total_from_old": {
+                "exact_kl": 0.005110225640237331,
+                "surrogate_gain": 2.1207080862950534e-05,
+                "clipfrac": 0.06103515625,
+                "value_mse": 0.002913237549364567,
+                "entropy_delta": -0.0017712588887661695,
+                "clipped_surrogate_gain": -6.620847125304863e-05,
+                "critic_bootstrapped_lambda1_gain": 2.3993234208319336e-05
+              }
+            },
+            {
+              "chunk": 1,
+              "geometry": {
+                "first_order_gae_gain": 2.7570868041948415e-06,
+                "first_order_clipped_gae_gain": 6.339473475236446e-05,
+                "first_order_lambda1_gain": -5.6599092204123735e-06,
+                "sample_fisher_quadratic": 0.0030433698557317257,
+                "exact_incremental_kl": 0.0030422243289649487,
+                "directional_efficiency": 3.533931071967889e-05
+              },
+              "total_from_old": {
+                "exact_kl": 0.005085468292236328,
+                "surrogate_gain": 2.3524138669017702e-05,
+                "clipfrac": 0.0594482421875,
+                "value_mse": 0.005712368059903383,
+                "entropy_delta": -0.0014512536581605673,
+                "clipped_surrogate_gain": -6.348130409605801e-05,
+                "critic_bootstrapped_lambda1_gain": 5.0020491471514106e-05
+              }
+            },
+            {
+              "chunk": 2,
+              "geometry": {
+                "first_order_gae_gain": -2.932989809778519e-05,
+                "first_order_clipped_gae_gain": 3.3059841371141374e-05,
+                "first_order_lambda1_gain": -6.529259553644806e-05,
+                "sample_fisher_quadratic": 0.0030943898018449545,
+                "exact_incremental_kl": 0.003091749968007207,
+                "directional_efficiency": -0.0003728275918572333
+              },
+              "total_from_old": {
+                "exact_kl": 0.00518731027841568,
+                "surrogate_gain": -3.977157757617533e-05,
+                "clipfrac": 0.05987548828125,
+                "value_mse": 0.002742384560406208,
+                "entropy_delta": -0.002047148300334811,
+                "clipped_surrogate_gain": -0.00011528148024808615,
+                "critic_bootstrapped_lambda1_gain": -1.5914649338810705e-05
+              }
+            }
+          ],
+          "policy_budget_metrics": [
+            0.003084509400650859,
+            0.021616341546177864,
+            0.0030845333822071552,
+            0.3767935037612915,
+            1.0
+          ]
+        },
+        {
+          "epoch": 3,
+          "matrices": [
+            {
+              "parameter": "actor.first.0.gate.weight",
+              "radial_fraction": 0.00028534673037938774,
+              "parameter_step_norm": 0.0034729489125311375,
+              "base_heldout_cosine": -0.0009857661789283156,
+              "tangent_base_heldout_cosine": -0.0009892419911921024
+            },
+            {
+              "parameter": "actor.first.0.up.weight",
+              "radial_fraction": 0.0003132997371722013,
+              "parameter_step_norm": 0.003507540561258793,
+              "base_heldout_cosine": 0.17090468108654022,
+              "tangent_base_heldout_cosine": 0.17090505361557007
+            },
+            {
+              "parameter": "actor.first.0.down.weight",
+              "radial_fraction": 0.0003999008040409535,
+              "parameter_step_norm": 0.004349140450358391,
+              "base_heldout_cosine": 0.17432472109794617,
+              "tangent_base_heldout_cosine": 0.17433619499206543
+            },
+            {
+              "parameter": "actor.second.0.gate.weight",
+              "radial_fraction": 0.00034247947041876614,
+              "parameter_step_norm": 0.003556497860699892,
+              "base_heldout_cosine": 0.18827539682388306,
+              "tangent_base_heldout_cosine": 0.1882743388414383
+            },
+            {
+              "parameter": "actor.second.0.up.weight",
+              "radial_fraction": 0.00036234461003914475,
+              "parameter_step_norm": 0.003529123729094863,
+              "base_heldout_cosine": 0.18530961871147156,
+              "tangent_base_heldout_cosine": 0.18531674146652222
+            },
+            {
+              "parameter": "actor.second.0.down.weight",
+              "radial_fraction": 0.00042589259101077914,
+              "parameter_step_norm": 0.004143874626606703,
+              "base_heldout_cosine": 0.0490029901266098,
+              "tangent_base_heldout_cosine": 0.0489920899271965
+            }
+          ],
+          "chunks": [
+            {
+              "chunk": 0,
+              "geometry": {
+                "first_order_gae_gain": 3.225966065656394e-05,
+                "first_order_clipped_gae_gain": 1.2400487321428955e-06,
+                "first_order_lambda1_gain": 2.000524546019733e-08,
+                "sample_fisher_quadratic": 0.0018088740762323141,
+                "exact_incremental_kl": 0.0018113881815224886,
+                "directional_efficiency": 0.0005363405456269225
+              },
+              "total_from_old": {
+                "exact_kl": 0.008244430646300316,
+                "surrogate_gain": 4.804621130460873e-05,
+                "clipfrac": 0.1092529296875,
+                "value_mse": 0.002913237549364567,
+                "entropy_delta": -0.00428403727710247,
+                "clipped_surrogate_gain": -0.00013876293087378144,
+                "critic_bootstrapped_lambda1_gain": 2.2784957764088176e-05
+              }
+            },
+            {
+              "chunk": 1,
+              "geometry": {
+                "first_order_gae_gain": 1.3695414963876829e-05,
+                "first_order_clipped_gae_gain": -6.735559509252198e-06,
+                "first_order_lambda1_gain": 8.717388118384406e-05,
+                "sample_fisher_quadratic": 0.0018501800950616598,
+                "exact_incremental_kl": 0.0018520706798881292,
+                "directional_efficiency": 0.00022514027679088302
+              },
+              "total_from_old": {
+                "exact_kl": 0.008334510959684849,
+                "surrogate_gain": 3.5082397516816854e-05,
+                "clipfrac": 0.10986328125,
+                "value_mse": 0.005712368059903383,
+                "entropy_delta": -0.004057846497744322,
+                "clipped_surrogate_gain": -0.0001448705734219402,
+                "critic_bootstrapped_lambda1_gain": 0.00013496007886715233
+              }
+            },
+            {
+              "chunk": 2,
+              "geometry": {
+                "first_order_gae_gain": 9.136920198216103e-06,
+                "first_order_clipped_gae_gain": -1.4253207154979464e-05,
+                "first_order_lambda1_gain": 8.906604489311576e-05,
+                "sample_fisher_quadratic": 0.0018387386808171868,
+                "exact_incremental_kl": 0.0018409780459478498,
+                "directional_efficiency": 0.00015066931987106491
+              },
+              "total_from_old": {
+                "exact_kl": 0.008407726883888245,
+                "surrogate_gain": -3.436650149524212e-05,
+                "clipfrac": 0.1083984375,
+                "value_mse": 0.002742384560406208,
+                "entropy_delta": -0.004451657645404339,
+                "clipped_surrogate_gain": -0.00020625392789952457,
+                "critic_bootstrapped_lambda1_gain": 6.667802517767996e-05
+              }
+            }
+          ],
+          "policy_budget_metrics": [
+            0.0018312886822968721,
+            0.009457271546125412,
+            0.0018301503732800484,
+            0.4400433599948883,
+            1.0
+          ]
+        },
+        {
+          "epoch": 4,
+          "matrices": [
+            {
+              "parameter": "actor.first.0.gate.weight",
+              "radial_fraction": 0.00026655729743652046,
+              "parameter_step_norm": 0.00292939692735672,
+              "base_heldout_cosine": -0.122169129550457,
+              "tangent_base_heldout_cosine": -0.12217003107070923
+            },
+            {
+              "parameter": "actor.first.0.up.weight",
+              "radial_fraction": 0.00027061309083364904,
+              "parameter_step_norm": 0.0029778454918414354,
+              "base_heldout_cosine": -0.20257939398288727,
+              "tangent_base_heldout_cosine": -0.20257002115249634
+            },
+            {
+              "parameter": "actor.first.0.down.weight",
+              "radial_fraction": 0.0003608286497183144,
+              "parameter_step_norm": 0.003666266333311796,
+              "base_heldout_cosine": -0.06867768615484238,
+              "tangent_base_heldout_cosine": -0.06866966933012009
+            },
+            {
+              "parameter": "actor.second.0.gate.weight",
+              "radial_fraction": 0.00029120524413883686,
+              "parameter_step_norm": 0.0029981459956616163,
+              "base_heldout_cosine": -0.005091953556984663,
+              "tangent_base_heldout_cosine": -0.005091600585728884
+            },
+            {
+              "parameter": "actor.second.0.up.weight",
+              "radial_fraction": 0.0003081666072830558,
+              "parameter_step_norm": 0.0029839586932212114,
+              "base_heldout_cosine": -0.07995295524597168,
+              "tangent_base_heldout_cosine": -0.07995139807462692
+            },
+            {
+              "parameter": "actor.second.0.down.weight",
+              "radial_fraction": 0.0003531032125465572,
+              "parameter_step_norm": 0.0035020315553992987,
+              "base_heldout_cosine": -0.016219494864344597,
+              "tangent_base_heldout_cosine": -0.01623120717704296
+            }
+          ],
+          "chunks": [
+            {
+              "chunk": 0,
+              "geometry": {
+                "first_order_gae_gain": 2.9810644264216535e-06,
+                "first_order_clipped_gae_gain": 7.872414425946772e-05,
+                "first_order_lambda1_gain": -1.9961840735049918e-05,
+                "sample_fisher_quadratic": 0.0027105435729026794,
+                "exact_incremental_kl": 0.00270789279602468,
+                "directional_efficiency": 4.048817185254527e-05
+              },
+              "total_from_old": {
+                "exact_kl": 0.008738843724131584,
+                "surrogate_gain": 4.4124022679170594e-05,
+                "clipfrac": 0.1134033203125,
+                "value_mse": 0.002913237549364567,
+                "entropy_delta": -0.006114853546023369,
+                "clipped_surrogate_gain": -0.00017558167746756226,
+                "critic_bootstrapped_lambda1_gain": 2.8587746783159673e-06
+              }
+            },
+            {
+              "chunk": 1,
+              "geometry": {
+                "first_order_gae_gain": -5.810052243759856e-06,
+                "first_order_clipped_gae_gain": 7.980658847372979e-05,
+                "first_order_lambda1_gain": -5.837910430273041e-05,
+                "sample_fisher_quadratic": 0.002706168917939067,
+                "exact_incremental_kl": 0.0027045272290706635,
+                "directional_efficiency": -7.897462800864951e-05
+              },
+              "total_from_old": {
+                "exact_kl": 0.008794587105512619,
+                "surrogate_gain": 3.058233778574504e-05,
+                "clipfrac": 0.1141357421875,
+                "value_mse": 0.005712368059903383,
+                "entropy_delta": -0.00607816968113184,
+                "clipped_surrogate_gain": -0.00017206682241521776,
+                "critic_bootstrapped_lambda1_gain": 8.35275714052841e-05
+              }
+            },
+            {
+              "chunk": 2,
+              "geometry": {
+                "first_order_gae_gain": 2.174818655475974e-05,
+                "first_order_clipped_gae_gain": 0.00010576780186966062,
+                "first_order_lambda1_gain": -3.322464908706024e-05,
+                "sample_fisher_quadratic": 0.0027351013850420713,
+                "exact_incremental_kl": 0.002732722321525216,
+                "directional_efficiency": 0.0002940501038687928
+              },
+              "total_from_old": {
+                "exact_kl": 0.00885223038494587,
+                "surrogate_gain": -1.770756352925673e-05,
+                "clipfrac": 0.113525390625,
+                "value_mse": 0.002742384560406208,
+                "entropy_delta": -0.00639649573713541,
+                "clipped_surrogate_gain": -0.00022439367603510618,
+                "critic_bootstrapped_lambda1_gain": 2.4336353817488998e-05
+              }
+            }
+          ],
+          "policy_budget_metrics": [
+            0.002735372632741928,
+            0.01966988667845726,
+            0.0027353947516530752,
+            0.3719835877418518,
+            1.0
+          ]
+        }
+      ]
+    }
+  ],
+  "rollout_returns": [
+    6897.314453125,
+    6506.92138671875,
+    6617.32861328125,
+    6854.34326171875,
+    7064.18994140625,
+    6992.1806640625,
+    6975.96875,
+    6646.09619140625,
+    6210.18994140625,
+    7271.47314453125,
+    6852.9287109375,
+    6812.5732421875,
+    6743.12939453125,
+    6858.30615234375,
+    6491.31396484375,
+    6772.693359375,
+    6924.98681640625,
+    6275.98486328125,
+    6810.32373046875,
+    6666.17041015625,
+    7153.5322265625,
+    7062.9697265625,
+    6586.1103515625,
+    6634.34716796875,
+    6689.49267578125,
+    6773.177734375,
+    6981.8720703125,
+    6689.34521484375,
+    6793.017578125,
+    7030.359375,
+    6454.3916015625,
+    7048.62744140625,
+    6788.8740234375,
+    6712.61083984375
+  ],
+  "limitations": [
+    "Warm identical rails/lane moments; matrix-only replay, head and auxiliary parameters frozen.",
+    "Three correlated heldout chunks at one selected checkpoint, not seeds.",
+    "Collection resets normalizers per chunk and updates within each chunk.",
+    "Matrix cosines in all epochs reference the base heldout gradient; policy-space geometry is current.",
+    "Matrix changes/cosines/radial fractions are measured after the same common retraction stage.",
+    "Lambda1 gain bootstraps critic at boundaries; not environment benchmark return.",
+    "Equal parameter Frobenius norms do not guarantee equal policy Fisher displacement.",
+    "Policy-budget calibration uses training states only and matrix-only displacement, not full actor trust region.",
+    "Shadow rails/lane moments are copied from the good rollout-clock checkpoint; new histories evolve per candidate.",
+    "Positive Gram reweighting retains baseline cascade numerical shape; power1 is only approximately raw."
+  ]
+}

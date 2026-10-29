@@ -1,0 +1,33 @@
+{
+  "status": "prepared; AST-only; no numerical execution or submission",
+  "source_sha256": {
+    "scripts/audit_sepclip_prescription_closed_loop.py": "9bb20ffde6c2e3aa3c73572f38edd960658e49fe9f3278f6875f79b0a4d8e493",
+    "tests/test_sepclip_prescription_closed_loop.py": "b2bbd1bdacf3d4a6bf858a3a0f2923c5393ab157b377562d23268fbb896d8052"
+  },
+  "contract_cases": 12,
+  "contracts_command": ".venv/bin/python -m pytest -q tests/test_sepclip_prescription_closed_loop.py --junitxml benchmarks/sepclip_prescription_v14/physical_closed_loop_contracts.xml",
+  "execution_requirement": "All models and tests must be submitted through mlq --max-parallel-runs 1; no submission made",
+  "loader_dependency": "scripts/sepclip_prescription_replay.py owned by architecture reviewer; actual v14/v15 source and execution pins required",
+  "physical_cli": "Required snapshot/trace/module-name/manifest/manifest-sha256/execution/execution-sha256/exp-name/snapshot-sha256/trace-sha256/output; optional states32 max-age400 horizons64,256,512 replicates4 modes sample,mean,mode. gamma comes only from validated actual Args; seed fixed1.",
+  "trial_jobs": [
+    11876,
+    11877,
+    11878,
+    11879,
+    11880,
+    11881
+  ],
+  "scope": "Actual seven-arm finite closed-loop update effects only; no score-PG, projection, optimizer replay, or causal training conclusion. Old fixed critic tail separated. No independently saved old logits or first model.",
+  "helper_source_sha256": {
+    "scripts/audit_sepclip_physics.py": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114",
+    "scripts/audit_sepclip_dense_pg.py": "e7c6fd46e185e158bc7b00b11b9f86f94d3dbd885d6bc6bfea80146f57f2ddac",
+    "scripts/audit_sepclip_closed_loop_update.py": "761e5ffd86d7432cdc47c21c9ad3a77a8c9d0f50ea39c40b608defdd812cef65"
+  },
+  "independent_static_review": "Geometry reviewer approved physical algebra/dispatch; latest explicit sampler-law and source-hash fixes incorporated; no numerical pass claim",
+  "reward_decomposition": "Input action dtype preserved through square/sum exactly as nativeenv/Gym contract; scalar promotion matches nativeenv. Strict 1e-10 parity to info x_velocity, reward_ctrl, reward_run before accumulation.",
+  "reward_decomposition_source_anchors": [
+    "cleanrl/shared/mujoco_env.py:398 input action dtype preserved through square/sum; scalar cost multiplication dtype is explicitly probed",
+    "gymnasium/envs/mujoco/half_cheetah_v4.py:191 control_cost squares the provided action dtype"
+  ],
+  "accumulation_dtype": "Native control cost uses input action square/sum law; raw returns and discounted sums accumulate FP64. Frozen normalized rewards clip then individually round FP32 before FP64 accumulation."
+}

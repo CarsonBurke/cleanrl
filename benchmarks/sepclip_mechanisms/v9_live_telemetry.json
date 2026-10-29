@@ -1,0 +1,29 @@
+[
+  {
+    "variant": "sepclip_mechanisms_kfac_radius_control_v9",
+    "last_step": 3357008,
+    "final100_if_8M": null,
+    "head/sample_predicted_kl": 0.0007933294315092995,
+    "head/exact_head_only_kl": 0.0007951094449816884,
+    "head/sample_to_kronecker_ratio": 2.7614035831464756,
+    "head/target_kl": 0.0002978551153694377
+  },
+  {
+    "variant": "sepclip_mechanisms_sample_fisher_adam_v9",
+    "last_step": 7995008,
+    "final100_if_8M": 6600.90314453125,
+    "head/sample_predicted_kl": 0.0004877815691975602,
+    "head/exact_head_only_kl": 0.0004874398962714165,
+    "head/sample_to_kronecker_ratio": 1.9741845867021488,
+    "head/target_kl": 0.0004877815685614109
+  },
+  {
+    "variant": "sepclip_mechanisms_sample_fisher_anvil_v9",
+    "last_step": 7995008,
+    "final100_if_8M": 6442.705053710937,
+    "head/sample_predicted_kl": 0.0004877815750819412,
+    "head/exact_head_only_kl": 0.00048745321914619804,
+    "head/sample_to_kronecker_ratio": 2.409549195258344,
+    "head/target_kl": 0.0004877815685614109
+  }
+]

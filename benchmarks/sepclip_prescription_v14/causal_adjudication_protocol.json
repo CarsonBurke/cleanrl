@@ -1,0 +1,75 @@
+{
+  "registered_at": 1791333039.6539752,
+  "status": "Prospective adjudication; no new trial results",
+  "authorization": "Parent/user selected exploratory prescription packages despite unresolved historical physical PG reliability; this does not resolve or supersede oracle reliability gates.",
+  "primary_score": {
+    "metric": "Sampled training episodic return averaged over trailing 200000 environment steps at common 7900000 steps",
+    "matches": "Existing mechanism investigation primary contract",
+    "secondary": "Final100 completed training episodes, separately labeled",
+    "incomplete": "Culled/failed runs retain matched early windows; no late score extrapolation",
+    "seed": 1,
+    "replication_limit": "No multi-seed statistical superiority claim; same-seed reproduced controls are execution parity, not independent replicates"
+  },
+  "comparisons": [
+    {
+      "trial": 11878,
+      "control": "Instrumented v12 Adam, original actor",
+      "question": "Does the complete additive actor package improve fresh learning under Adam?",
+      "limits": "Changed projection, residual mixing, body constraints and actor parameter count; no individual-component attribution."
+    },
+    {
+      "trial": 11879,
+      "control": "v7 full rollout-clock Anvil .005, original actor",
+      "question": "Does the same additive actor package improve learning under Anvil?",
+      "limits": "Matched optimizer settings do not isolate actor normalization from all other architecture changes."
+    },
+    {
+      "trial": 11880,
+      "control": 11811,
+      "question": "Does the additive actor package improve fresh NorMuon learning after original-control parity gate11810?",
+      "limits": "Fresh control and both source/compiled contracts required; historical score alone does not substitute for this parity-gated comparison."
+    },
+    {
+      "trial": 11881,
+      "control": "v7 full rollout-clock Anvil .005; v15 ambient parity gate11877",
+      "question": "Does intrinsic constraint-aware Anvil improve the original actor?",
+      "limits": "Direction, retained amplitude and history geometry change together; this is not a pure isolated parallel-transport intervention."
+    },
+    {
+      "trials": [
+        11878,
+        11879,
+        11880
+      ],
+      "question": "Within the same additive architecture, how do Adam/Anvil/NorMuon differ?",
+      "limits": "Conditional architecture-by-optimizer outcome evidence; cannot extrapolate universal optimizer superiority."
+    }
+  ],
+  "replay_selection": "After contracts and real snapshots exist, prioritize informative winner/control or collapse/control checkpoints at matched4M/end8M. Preserve unsuccessful runs and finite update measurements where available; do not duplicate training.",
+  "required_replay_evidence": [
+    "Pinned actual trainer/Args/architecture and shared sources",
+    "Compiled recorded alpha/beta/logprob/old-value agreement on identical observations",
+    "Per-state frozen normalizer checks",
+    "Complete update trace and exact stored final model",
+    "Reconstructed first-bank rounding limitation",
+    "Saved physical transition restoration agreement",
+    "Independent gradient/JVP contracts before derivative claims"
+  ],
+  "local_oracle_limits": [
+    "Historical dense physical PG replicate agreement remains unresolved until actual measurements pass reliability gates",
+    "Shared inverse-CDF finite forks use a labeled diagnostic sampling law",
+    "Finite raw and clip-then-FP32 normalized returns are different objectives",
+    "Old fixed critic terminal tails are estimates rather than unbiased infinite-return credit",
+    "Conditional replica uncertainty omits state-population and training-seed variability",
+    "Old pre-softplus logits and independently saved first model are absent; do not invent them"
+  ],
+  "iteration_rule": "Compare scores and matched physical/update evidence before selecting a further new version. Compound score gains motivate targeted isolation; they do not retrospectively certify the proposed microscopic cause.",
+  "frozen_trainers_modified": false,
+  "duplicate_submissions": false,
+  "recovered_job_mapping": {
+    "11881": 11896,
+    "11882": 11897,
+    "11883": 11898
+  },
+  "recovery_reason": "Original v15 test-only missing dim; unchanged trainer algorithm/settings, failed/skipped provenance retained."
+}

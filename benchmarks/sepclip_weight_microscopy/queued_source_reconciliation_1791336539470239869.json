@@ -1,0 +1,48 @@
+{
+  "captured_at": 1791336539.4702463,
+  "scope": "Read-only byte reconciliation before queued executions; not an execution receipt or empirical validation",
+  "manifests": [
+    {
+      "manifest": "benchmarks/sepclip_prescription_v14/source_manifest_v14.json",
+      "manifest_sha256": "80b4adf1e5301573084b28b3183d1f32dd96b8ed745785f0741c3932b249bbe2",
+      "checked_source_count": 49,
+      "discrepancies": []
+    },
+    {
+      "manifest": "benchmarks/sepclip_prescription_v14/source_manifest_v15.json",
+      "manifest_sha256": "25c229c57ceed4376084fea0b25dd7722e898dfc15edeeae02a845eddb40fc17",
+      "checked_source_count": 49,
+      "discrepancies": []
+    },
+    {
+      "manifest": "benchmarks/sepclip_prescription_v14/source_manifest_replay_contracts_v1.json",
+      "manifest_sha256": "25131f145e45cfecff564fae68288401155281786ef80f269e9b59a5bb69ae83",
+      "checked_source_count": 60,
+      "discrepancies": []
+    },
+    {
+      "manifest": "benchmarks/sepclip_prescription_v14/source_manifest_chord_contracts_v1.json",
+      "manifest_sha256": "4fe9683aa68bec04914b77132a253ecdaf766434720cd60ddd54f738680eff68",
+      "checked_source_count": 63,
+      "discrepancies": []
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/source_manifest_gait_actual_split_v2.json",
+      "manifest_sha256": "3c4fa2543c57cdb67d2ce9512f6edfdcb6c7901e55772186ac892e6f918cf7d2",
+      "checked_source_count": 65,
+      "discrepancies": []
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/source_manifest_chart_contracts_v2.json",
+      "manifest_sha256": "cfd9182c6fb2402399a575748a374d84ecb14a7aafe7fc6d168bd1420d79d26f",
+      "checked_source_count": 63,
+      "discrepancies": []
+    },
+    {
+      "manifest": "benchmarks/sepclip_weight_microscopy/source_manifest_closed_loop_contracts_v2.json",
+      "manifest_sha256": "54ff72fde9b4914826c4bd9ca9dbcd192f4ba35461fcb9a64c37ebc51d69bc30",
+      "checked_source_count": 63,
+      "discrepancies": []
+    }
+  ]
+}

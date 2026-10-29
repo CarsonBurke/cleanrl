@@ -1,0 +1,62 @@
+{
+  "revision": "fail_closed_nonfinite_trajectory_validation",
+  "created_at": 1791318390.5324605,
+  "queued_contract_gates": [
+    11764,
+    11795
+  ],
+  "old_sha256": {
+    "scripts/audit_sepclip_dense_pg.py": "1f4053ebe4854063ce19e36b05be37dc3e036d94e368b9b424595c5b98b4c058",
+    "scripts/audit_sepclip_closed_loop_update.py": "59dec8199edcadb6d02264ad3a8f9545d7a4d5785ad98a25660b1ed05619c208",
+    "tests/test_sepclip_dense_pg.py": "cf54ad6684999b49b1683028892201a36f7126b48648d9eb8e27984368421086",
+    "tests/test_sepclip_closed_loop_update.py": "c3482ab7c4a7fd33be10c629438467aa7b7f7a9308b5ce548a9649b68082c72e"
+  },
+  "execution": "No model/tests/jobs executed; queued attempts0 gates will validate revised diagnostics; no new submissions",
+  "new_sha256": {
+    "scripts/audit_sepclip_dense_pg.py": "e7c6fd46e185e158bc7b00b11b9f86f94d3dbd885d6bc6bfea80146f57f2ddac",
+    "scripts/audit_sepclip_closed_loop_update.py": "761e5ffd86d7432cdc47c21c9ad3a77a8c9d0f50ea39c40b608defdd812cef65",
+    "tests/test_sepclip_dense_pg.py": "c5d61ba145df32a0e9b1fc2e6a86345ae3be87f820607874af73b8e03d987d98",
+    "tests/test_sepclip_closed_loop_update.py": "58f02e6bb956b0f08c1a385838e29fb8a4b7a6012352901cf039a1e62c166808"
+  },
+  "updated_at": 1791318806.8330472,
+  "scope": "Fail-closed required finite fields before trajectory accumulation/credit and strict allow_nan=False JSON; no trainers changed",
+  "numeric_laws_preserved": "Dense normalized reward accumulation remains clipped FP64; closed-loop remains clipped then FP32 per reward and FP64 accumulated; no normalization-law alignment silently introduced",
+  "independent_review": "Approved by geometry reviewer; see objective_pairing_and_finite_guard_independent_review.md. Static only, queued contract execution remains pending.",
+  "unchanged_normalized_rounding_return_bounds": {
+    "assumption": "Same trajectory/fixed scale/clip10; only per-reward FP32 rounding differs",
+    "per_reward_abs_bound": 4.76837158203125e-07,
+    "H256_discounted_abs_bound": 4.404473381487876e-05,
+    "H512_discounted_abs_bound": 4.740600696713144e-05,
+    "directional_limit": "PG requires measured score/JVP magnitude; return bound alone gives no sign certificate"
+  },
+  "pre_execution_revisions": [
+    {
+      "previous_new_sha256": {
+        "scripts/audit_sepclip_dense_pg.py": "fc7e8aabd19d6abb48e0f740d15746614d6a9fed443c8d19ffb55b1942738113",
+        "scripts/audit_sepclip_closed_loop_update.py": "761e5ffd86d7432cdc47c21c9ad3a77a8c9d0f50ea39c40b608defdd812cef65",
+        "tests/test_sepclip_dense_pg.py": "13da9f8c76885c4eaf0fa45bbe9a7e396804ff61e39662fee700fb7684d8676b",
+        "tests/test_sepclip_closed_loop_update.py": "58f02e6bb956b0f08c1a385838e29fb8a4b7a6012352901cf039a1e62c166808"
+      },
+      "reason": "Independent geometry review closed saved replay-input NaN comparison bypass and preclip normalization domain holes"
+    },
+    {
+      "previous_new_sha256": {
+        "scripts/audit_sepclip_dense_pg.py": "b04db2a56fb3fe921080d8185be8e7579a4b9af43ff2d7d9ce439ec6c8b9283d",
+        "scripts/audit_sepclip_closed_loop_update.py": "761e5ffd86d7432cdc47c21c9ad3a77a8c9d0f50ea39c40b608defdd812cef65",
+        "tests/test_sepclip_dense_pg.py": "718eff4735260dda233d05da8ea2f6eca7db7efbe7a1e23b5e6bc739d9e94a28",
+        "tests/test_sepclip_closed_loop_update.py": "58f02e6bb956b0f08c1a385838e29fb8a4b7a6012352901cf039a1e62c166808"
+      },
+      "reason": "Historical reward replay also rejects preclip division overflow; numeric law unchanged"
+    },
+    {
+      "previous_new_sha256": {
+        "scripts/audit_sepclip_dense_pg.py": "e7c6fd46e185e158bc7b00b11b9f86f94d3dbd885d6bc6bfea80146f57f2ddac",
+        "scripts/audit_sepclip_closed_loop_update.py": "761e5ffd86d7432cdc47c21c9ad3a77a8c9d0f50ea39c40b608defdd812cef65",
+        "tests/test_sepclip_dense_pg.py": "718eff4735260dda233d05da8ea2f6eca7db7efbe7a1e23b5e6bc739d9e94a28",
+        "tests/test_sepclip_closed_loop_update.py": "58f02e6bb956b0f08c1a385838e29fb8a4b7a6012352901cf039a1e62c166808"
+      },
+      "reason": "Independent review requested dedicated finite-input historical preclip reward overflow contract"
+    }
+  ],
+  "reviewed_at": 1791318878.6101575
+}

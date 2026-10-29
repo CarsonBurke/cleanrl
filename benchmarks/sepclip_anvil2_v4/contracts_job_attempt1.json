@@ -1,0 +1,38 @@
+{
+  "id": 11518,
+  "name": "sepclip_anvil2_contracts_v4",
+  "state": "failed",
+  "stateReason": "command exited with code 1",
+  "maxParallelRuns": 1,
+  "priority": 0,
+  "cwd": "/home/marvin/Documents/repositories/cleanrl",
+  "args": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_sepclip_anvil2.py"
+  ],
+  "maxAttempts": 1,
+  "retryDelayMs": 0,
+  "timeLimitMs": 1200000,
+  "readySequence": 10592,
+  "attemptCount": 1,
+  "createdAt": 1791165796160,
+  "updatedAt": 1791173158196,
+  "finishedAt": 1791173158196,
+  "attempts": [
+    {
+      "id": 9216,
+      "jobId": 11518,
+      "number": 1,
+      "state": "failed",
+      "maxParallelRuns": 1,
+      "exitCode": 1,
+      "message": "command exited with code 1",
+      "createdAt": 1791173133303,
+      "finishedAt": 1791173158196,
+      "logDir": "/home/marvin/.local/state/mlqueue/attempts/9216"
+    }
+  ]
+}

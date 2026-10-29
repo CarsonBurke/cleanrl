@@ -1,0 +1,466 @@
+{
+  "captured_at": 1791340101.4635198,
+  "job_id": 11765,
+  "attempt_id": 9462,
+  "exit_code": 0,
+  "declared_limit": 1,
+  "artifact": "benchmarks/sepclip_weight_microscopy/dense_pg_controls.json",
+  "artifact_sha256": "4928741aade1d67d125f765186c397ef7a3560e3d94999c2ffd8e0a10e1531e5",
+  "execution_manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_dense_pg_controls_1791339981091961481.json",
+  "execution_manifest_sha256": "3a5db95807c26729ee3cc7e4297b1b16f60fbab66ddffa80df9ad378dc039f56",
+  "source_pins_checked": 82,
+  "source_discrepancies": [],
+  "protocol": {
+    "snapshot": [
+      "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_4013696.pt",
+      "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_7995008.pt",
+      "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_4013696.pt",
+      "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_7995008.pt"
+    ],
+    "out": "benchmarks/sepclip_weight_microscopy/dense_pg_controls.json",
+    "states": 32,
+    "max_age": 400,
+    "pg_samples": 16,
+    "horizons": [
+      1,
+      16,
+      64,
+      256,
+      512
+    ],
+    "continuation_replicates": 2,
+    "gamma": 0.99,
+    "seed": 1
+  },
+  "rows": [
+    {
+      "snapshot": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_4013696.pt",
+      "snapshot_sha256": "8b17da17c1a4d6ed31e62076f76debfc01763e6f0a8b95f401674e55415d6197",
+      "snapshot_current_hash_match": true,
+      "states": 32,
+      "first_action_only": true,
+      "physical_restore_max_abs_error": 0.0,
+      "observed_transition_replay": [
+        {
+          "raw_reward_max_abs_error": 0.0,
+          "raw_next_obs_max_abs_error": 0.0
+        },
+        {
+          "raw_reward_max_abs_error": 0.0,
+          "raw_next_obs_max_abs_error": 0.0
+        }
+      ],
+      "boundary_replay": {
+        "gae_replay_max_abs_error": 0.0,
+        "applied_reward_replay_max_abs_error": 0.0,
+        "truncation_bootstrap_replay_max_abs_error": 7.152557373046875e-07,
+        "terminations": 0,
+        "truncations": 16,
+        "truncated_final_vs_reset_observation_rms": 1.272403597831726,
+        "final_observation_semantics": "normalized_transition_obs is pre-reset; normalized_next_obs may be autoreset",
+        "gamma": 0.99,
+        "gae_lambda": 0.95
+      },
+      "analytic_score_pg_replay_relative_error": 4.7436344630114036e-07,
+      "replica_mean_checks": [
+        {
+          "horizon": 1,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 1,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 1,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 16,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 16,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 16,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 64,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 64,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 64,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 256,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 256,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 256,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 512,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 512,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 512,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        }
+      ]
+    },
+    {
+      "snapshot": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_7995008.pt",
+      "snapshot_sha256": "5d7979136fb15329c9bd6d0e6340cde6206d8b0956c21f273f223bbb851b3f30",
+      "snapshot_current_hash_match": true,
+      "states": 32,
+      "first_action_only": true,
+      "physical_restore_max_abs_error": 0.0,
+      "observed_transition_replay": [
+        {
+          "raw_reward_max_abs_error": 0.0,
+          "raw_next_obs_max_abs_error": 0.0
+        },
+        {
+          "raw_reward_max_abs_error": 0.0,
+          "raw_next_obs_max_abs_error": 0.0
+        }
+      ],
+      "boundary_replay": {
+        "gae_replay_max_abs_error": 0.0,
+        "applied_reward_replay_max_abs_error": 0.0,
+        "truncation_bootstrap_replay_max_abs_error": 7.152557373046875e-07,
+        "terminations": 0,
+        "truncations": 17,
+        "truncated_final_vs_reset_observation_rms": 1.3202985525131226,
+        "final_observation_semantics": "normalized_transition_obs is pre-reset; normalized_next_obs may be autoreset",
+        "gamma": 0.99,
+        "gae_lambda": 0.95
+      },
+      "analytic_score_pg_replay_relative_error": 3.864219308979955e-07,
+      "replica_mean_checks": [
+        {
+          "horizon": 1,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 1,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 1,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 16,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 16,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 16,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 64,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 64,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 64,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 256,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 256,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 256,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 512,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 512,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 512,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        }
+      ]
+    },
+    {
+      "snapshot": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_4013696.pt",
+      "snapshot_sha256": "18d6879248fb472d9d84c4254b5052918f2432bf731c398f0f87ad8138ae56cb",
+      "snapshot_current_hash_match": true,
+      "states": 32,
+      "first_action_only": true,
+      "physical_restore_max_abs_error": 0.0,
+      "observed_transition_replay": [
+        {
+          "raw_reward_max_abs_error": 0.0,
+          "raw_next_obs_max_abs_error": 0.0
+        },
+        {
+          "raw_reward_max_abs_error": 0.0,
+          "raw_next_obs_max_abs_error": 0.0
+        }
+      ],
+      "boundary_replay": {
+        "gae_replay_max_abs_error": 0.0,
+        "applied_reward_replay_max_abs_error": 0.0,
+        "truncation_bootstrap_replay_max_abs_error": 4.76837158203125e-07,
+        "terminations": 0,
+        "truncations": 16,
+        "truncated_final_vs_reset_observation_rms": 1.3716493844985962,
+        "final_observation_semantics": "normalized_transition_obs is pre-reset; normalized_next_obs may be autoreset",
+        "gamma": 0.99,
+        "gae_lambda": 0.95
+      },
+      "analytic_score_pg_replay_relative_error": 6.910684646754817e-07,
+      "replica_mean_checks": [
+        {
+          "horizon": 1,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 1,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 1,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 16,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 16,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 16,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 64,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 64,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 64,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 256,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 256,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 256,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 512,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 512,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 512,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        }
+      ]
+    },
+    {
+      "snapshot": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_7995008.pt",
+      "snapshot_sha256": "06819047d869a87baa62ea4d4f4e4a18044f0c52c71fa3beea2b9a66cab7c587",
+      "snapshot_current_hash_match": true,
+      "states": 32,
+      "first_action_only": true,
+      "physical_restore_max_abs_error": 0.0,
+      "observed_transition_replay": [
+        {
+          "raw_reward_max_abs_error": 0.0,
+          "raw_next_obs_max_abs_error": 0.0
+        },
+        {
+          "raw_reward_max_abs_error": 0.0,
+          "raw_next_obs_max_abs_error": 0.0
+        }
+      ],
+      "boundary_replay": {
+        "gae_replay_max_abs_error": 0.0,
+        "applied_reward_replay_max_abs_error": 0.0,
+        "truncation_bootstrap_replay_max_abs_error": 4.76837158203125e-07,
+        "terminations": 0,
+        "truncations": 17,
+        "truncated_final_vs_reset_observation_rms": 1.3146178722381592,
+        "final_observation_semantics": "normalized_transition_obs is pre-reset; normalized_next_obs may be autoreset",
+        "gamma": 0.99,
+        "gae_lambda": 0.95
+      },
+      "analytic_score_pg_replay_relative_error": 1.222876448991883e-06,
+      "replica_mean_checks": [
+        {
+          "horizon": 1,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 1,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 1,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 16,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 16,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 16,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 64,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 64,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 64,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 256,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 256,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 256,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 512,
+          "objective": "finite_raw",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 512,
+          "objective": "finite_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        },
+        {
+          "horizon": 512,
+          "objective": "bootstrap_normalized",
+          "recorded_mean_max_abs_error": 0.0
+        }
+      ]
+    }
+  ],
+  "acceptance_scope": "Numerical replay/source/artifact acceptance, not field reliability, true action-law derivative, optimizer efficiency, or causal benchmark evidence. Snapshot hashes are artifact-recorded and reconciled now; execution manifest did not prepin input bytes. Analytic score gradient replay is approximate FP32/FP64 agreement, with no preregistered standalone threshold. Independent empirical review pending."
+}

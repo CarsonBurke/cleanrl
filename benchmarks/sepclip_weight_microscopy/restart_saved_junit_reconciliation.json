@@ -1,0 +1,99 @@
+{
+  "captured_at": 1791343162.03215,
+  "scope": "Saved JUnit parsing only, no test/model execution; clean XML is not alone provenance or scientific validation.",
+  "reports": [
+    {
+      "path": "benchmarks/sepclip_weight_microscopy/chart_contracts_v2.xml",
+      "sha256": "d074932e8e7aa6609f2484399b8d829a20c575a1cb78562c0c9863d6e83d29f8",
+      "cases": 9,
+      "failure": 0,
+      "error": 0,
+      "skipped": 0,
+      "status": "executed_report_clean"
+    },
+    {
+      "path": "benchmarks/sepclip_weight_microscopy/closed_loop_contracts_v2.xml",
+      "sha256": "fbdfff7a6b6d5679496a0982e15d7c62a7dfaacf0cb67b72dce2c7ff912ceaec",
+      "cases": 23,
+      "failure": 0,
+      "error": 0,
+      "skipped": 0,
+      "status": "executed_report_clean"
+    },
+    {
+      "path": "benchmarks/sepclip_weight_microscopy/gait_actual_split_v2.xml",
+      "sha256": "2b492c949c927af646750bc32d7e3b7b708cd331d77682b32dbc14183fac9f46",
+      "cases": 21,
+      "failure": 0,
+      "error": 0,
+      "skipped": 0,
+      "status": "executed_report_clean"
+    },
+    {
+      "path": "benchmarks/sepclip_prescription_v14/chord_contracts_recovered_v2.xml",
+      "sha256": "7dd8f1d290d798b6777076f615b0cc5fe0f6dcefd51a09683b6149dea2dba9b4",
+      "cases": 16,
+      "failure": 0,
+      "error": 0,
+      "skipped": 0,
+      "status": "executed_report_clean"
+    },
+    {
+      "path": "benchmarks/sepclip_prescription_v14/contracts_v14.xml",
+      "sha256": "66c47139aa3f02ea33c6d09edd95559162ba266e71a0f070ed6ea24177772f7b",
+      "cases": 9,
+      "failure": 0,
+      "error": 0,
+      "skipped": 0,
+      "status": "executed_report_clean"
+    },
+    {
+      "path": "benchmarks/sepclip_prescription_v14/contracts_v15.xml",
+      "sha256": "32f70dd3899f63456748da55ebc32d2bc394b66b0d3ec3cf27d8e061889330aa",
+      "cases": 11,
+      "failure": 2,
+      "error": 0,
+      "skipped": 0,
+      "status": "preserved_failed_report"
+    },
+    {
+      "path": "benchmarks/sepclip_prescription_v14/contracts_v15_recovered_v2.xml",
+      "sha256": "486af10178eee59929c1698863257da5ace28fe3ffb2033332a968bcac267fce",
+      "cases": 11,
+      "failure": 0,
+      "error": 0,
+      "skipped": 0,
+      "status": "executed_report_clean"
+    },
+    {
+      "path": "benchmarks/sepclip_prescription_v14/layer_geometry_contracts_v1.xml",
+      "sha256": "4cf5a8b4ed9d2441d899ad9bb8207202981bf6d3e9553bb31863bd173bd7b6d7",
+      "cases": 18,
+      "failure": 1,
+      "error": 0,
+      "skipped": 0,
+      "status": "preserved_failed_report"
+    },
+    {
+      "path": "benchmarks/sepclip_prescription_v14/replay_contracts_recovered_v2.xml",
+      "sha256": "f2fbafec0d8400fadde1d0412e07fc0f95be838f3e2004d37f7cc9e6ade93b50",
+      "cases": 49,
+      "failure": 0,
+      "error": 0,
+      "skipped": 0,
+      "status": "executed_report_clean"
+    }
+  ],
+  "pending": [
+    {
+      "job_id": 11926,
+      "path": "benchmarks/sepclip_prescription_v14/layer_geometry_contracts_v2.xml",
+      "expected": 44
+    },
+    {
+      "job_id": 11937,
+      "path": "benchmarks/sepclip_prescription_v14/optimizer_forensics_contracts_v1.xml",
+      "expected": 24
+    }
+  ]
+}

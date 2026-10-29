@@ -1,0 +1,36 @@
+{
+  "contracts": 11688,
+  "diagnostic": 11689,
+  "all_declared_limits": 1,
+  "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_4013696.pt",
+  "status": "pre_training_contracts_and_diagnostic_only",
+  "hypothesis": "Retain stronger singular magnitudes to recover heldout alignment lost by full polarization; preserve successful fresh-rollout slow rail.",
+  "training_gate": "Do not submit fulltraining absent favorable matrix-only policy-space diagnostic and independent review.",
+  "powers": [
+    0,
+    0.5,
+    1
+  ],
+  "review": {
+    "result": "No blocking algebra/ownership issue. Diagnostic runtime mismatch repaired before execution: highest precision, TF32 disabled, matching trainer. Base-gradient cosines labeled explicitly.",
+    "source_sha256": {
+      "cleanrl/ppo_continuous_action_sepclip_fractional_rollout_anvil_v10.py": "3ecf150d5d97741fe98e4cc75f3d05bb5a4549da216039282b10cc0992e9f7c3",
+      "scripts/audit_sepclip_fractional_polar.py": "07ed6657d4f7ef066f0492021d852ae35e4208e3d663423c215177824678abd7",
+      "tests/test_sepclip_fractional_rollout.py": "f6c0a30d36108638573490c906ab238f27d2479359845fcf5a3481d82e46e404"
+    }
+  },
+  "failed_attempts": [
+    {
+      "id": 11686,
+      "passed": 5,
+      "failed": 2,
+      "reason": "Dynamo per-code eight-specialization cache limit across independent testpowers/shapes; compiler cache isolated between testcases/candidates, no trainer change.",
+      "log": "benchmarks/sepclip_mechanisms/contract_logs/11686.txt"
+    },
+    {
+      "id": 11687,
+      "state": "skipped",
+      "reason": "failed11686dependency"
+    }
+  ]
+}

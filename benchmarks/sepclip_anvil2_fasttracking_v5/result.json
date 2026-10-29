@@ -1,0 +1,80 @@
+{
+  "status": "complete",
+  "training": {
+    "variant": "sepclip_anvil2_fasttracking_v5_half",
+    "run": "runs/HalfCheetah-v4__sepclip_anvil2_fasttracking_v5_half__1__1791179593",
+    "job_id": 11593,
+    "state": "succeeded",
+    "final_step": 7995008,
+    "completed_8m": true,
+    "final_100_return": 8171.383403320313,
+    "latest_observed_100_return": 8171.383403320313,
+    "matched_step_return": {
+      "1000000": 1211.27113452361,
+      "2000000": 4379.711281240283,
+      "4000000": 6009.3187753857665,
+      "6000000": 7149.695402382618,
+      "7900000": 8106.640802943291
+    },
+    "latest_metrics": {
+      "charts/interval_SPS": 68664.2890625,
+      "grad/actor_preclip_norm": 0.05122392252087593,
+      "grad/critic_preclip_norm": 0.014411156065762043,
+      "losses/clipfrac": 0.0,
+      "losses/entropy": -4.200806617736816,
+      "losses/post_final_epoch_exact_kl": 1.6130459698615596e-05,
+      "matrix_last/bank0_epsilon_fraction": 8.438849181402475e-05,
+      "matrix_last/bank0_grad_momentum_cosine": 0.8730400204658508,
+      "matrix_last/bank0_nesterov_norm": 0.011900040321052074,
+      "matrix_last/bank1_epsilon_fraction": 0.0001551361638121307,
+      "matrix_last/bank1_grad_momentum_cosine": 0.8665253520011902,
+      "matrix_last/bank1_nesterov_norm": 0.010435276664793491,
+      "matrix_last/bank2_epsilon_fraction": 8.528222679160535e-05,
+      "matrix_last/bank2_grad_momentum_cosine": 0.9022955894470215,
+      "matrix_last/bank2_nesterov_norm": 0.011732060462236404,
+      "policy/concentration": 20.07362937927246,
+      "policy/log_concentration_step": -1.6799567674752325e-05,
+      "policy/mean_step_rms": 0.00020530565234366804
+    }
+  },
+  "control": {
+    "variant": "sepclip_anvil2_v4_anvil_half",
+    "run": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146",
+    "job_id": 11568,
+    "state": "succeeded",
+    "final_step": 7995008,
+    "completed_8m": true,
+    "final_100_return": 8345.413642578125,
+    "latest_observed_100_return": 8345.413642578125,
+    "matched_step_return": {
+      "1000000": 1948.666670006899,
+      "2000000": 4641.722929541745,
+      "4000000": 6291.4578729885725,
+      "6000000": 7698.153777013371,
+      "7900000": 8271.011124795943
+    },
+    "latest_metrics": {
+      "charts/interval_SPS": 68313.515625,
+      "grad/actor_preclip_norm": 0.051762498915195465,
+      "grad/critic_preclip_norm": 0.0059666987508535385,
+      "losses/clipfrac": 0.0,
+      "losses/entropy": -4.377636909484863,
+      "losses/post_final_epoch_exact_kl": 1.76839494088199e-05,
+      "matrix_last/bank0_epsilon_fraction": 8.081881969701499e-05,
+      "matrix_last/bank0_grad_momentum_cosine": 0.8882328271865845,
+      "matrix_last/bank0_nesterov_norm": 0.012376993894577026,
+      "matrix_last/bank1_epsilon_fraction": 0.000135855792905204,
+      "matrix_last/bank1_grad_momentum_cosine": 0.9369508624076843,
+      "matrix_last/bank1_nesterov_norm": 0.010856619104743004,
+      "matrix_last/bank2_epsilon_fraction": 8.298437023768201e-05,
+      "matrix_last/bank2_grad_momentum_cosine": 0.9430824518203735,
+      "matrix_last/bank2_nesterov_norm": 0.012084279209375381,
+      "policy/concentration": 19.861549377441406,
+      "policy/log_concentration_step": 4.844014620175585e-05,
+      "policy/mean_step_rms": 0.00022169513977132738
+    }
+  },
+  "difference": -174.03023925781235,
+  "decision": "Constant .85 Anvil fast EMA/lookahead reaches 8171.4, 174.0 below v4 half and below it at every recorded matched step. Reject this schedule as an improvement for this configuration and seed; retain v4 as best tested.",
+  "full_report": "../sepclip_anvil2_v4/investigation_report.json"
+}

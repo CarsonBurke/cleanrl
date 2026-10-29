@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="11" time="26.414" timestamp="2026-10-06T19:28:17.485475" hostname="cachyos-x8664-desktop"><testcase classname="tests.test_sepclip_constraint_transport_v15" name="test_finite_endpoint_parallel_transport_is_tangent_isometric_and_reversible[0]" time="2.594"><failure message="TypeError: tangent_projection() missing 1 required positional argument: 'dim'">dim = 0
+
+    @pytest.mark.parametrize('dim', [0, 1])
+    def test_finite_endpoint_parallel_transport_is_tangent_isometric_and_reversible(dim):
+        torch.manual_seed(37)
+        old = normalized((7, 5), dim)
+        raw_a, raw_b = torch.randn_like(old), torch.randn_like(old)
+        tangent = compiled(lambda p, v: trial.tangent_projection(p, v, dim))
+        transport = compiled(lambda p, q, v: trial.sphere_parallel_transport(p, q, v, dim))
+        a, b = tangent(old, raw_a), tangent(old, raw_b)
+        # A real finite retraction, sufficiently far from old for projection alone
+        # to lose norm, but in the non-antipodal hemisphere.
+        new = torch.nn.functional.normalize(old + .7*a, dim=dim)
+        saved_old, saved_new, saved_a = old.clone(), new.clone(), a.clone()
+        ta, tb = transport(old, new, a), transport(old, new, b)
+        torch.testing.assert_close((ta*new).sum(dim), torch.zeros_like((ta*new).sum(dim)), atol=8e-7, rtol=0)
+        torch.testing.assert_close(ta.square().sum(dim), a.square().sum(dim), atol=3e-6, rtol=2e-6)
+        torch.testing.assert_close((ta*tb).sum(dim), (a*b).sum(dim), atol=3e-6, rtol=2e-6)
+        torch.testing.assert_close(transport(new, old, ta), a, atol=2e-6, rtol=2e-6)
+&gt;       assert float((trial.tangent_projection(new, a).square().sum(dim)-a.square().sum(dim)).abs().max()) &gt; .01
+E       TypeError: tangent_projection() missing 1 required positional argument: 'dim'
+
+tests/test_sepclip_constraint_transport_v15.py:45: TypeError</failure></testcase><testcase classname="tests.test_sepclip_constraint_transport_v15" name="test_finite_endpoint_parallel_transport_is_tangent_isometric_and_reversible[1]" time="0.266"><failure message="TypeError: tangent_projection() missing 1 required positional argument: 'dim'">dim = 1
+
+    @pytest.mark.parametrize('dim', [0, 1])
+    def test_finite_endpoint_parallel_transport_is_tangent_isometric_and_reversible(dim):
+        torch.manual_seed(37)
+        old = normalized((7, 5), dim)
+        raw_a, raw_b = torch.randn_like(old), torch.randn_like(old)
+        tangent = compiled(lambda p, v: trial.tangent_projection(p, v, dim))
+        transport = compiled(lambda p, q, v: trial.sphere_parallel_transport(p, q, v, dim))
+        a, b = tangent(old, raw_a), tangent(old, raw_b)
+        # A real finite retraction, sufficiently far from old for projection alone
+        # to lose norm, but in the non-antipodal hemisphere.
+        new = torch.nn.functional.normalize(old + .7*a, dim=dim)
+        saved_old, saved_new, saved_a = old.clone(), new.clone(), a.clone()
+        ta, tb = transport(old, new, a), transport(old, new, b)
+        torch.testing.assert_close((ta*new).sum(dim), torch.zeros_like((ta*new).sum(dim)), atol=8e-7, rtol=0)
+        torch.testing.assert_close(ta.square().sum(dim), a.square().sum(dim), atol=3e-6, rtol=2e-6)
+        torch.testing.assert_close((ta*tb).sum(dim), (a*b).sum(dim), atol=3e-6, rtol=2e-6)
+        torch.testing.assert_close(transport(new, old, ta), a, atol=2e-6, rtol=2e-6)
+&gt;       assert float((trial.tangent_projection(new, a).square().sum(dim)-a.square().sum(dim)).abs().max()) &gt; .01
+E       TypeError: tangent_projection() missing 1 required positional argument: 'dim'
+
+tests/test_sepclip_constraint_transport_v15.py:45: TypeError</failure></testcase><testcase classname="tests.test_sepclip_constraint_transport_v15" name="test_pure_normal_force_cannot_generate_intrinsic_rotation[0]" time="2.859" /><testcase classname="tests.test_sepclip_constraint_transport_v15" name="test_pure_normal_force_cannot_generate_intrinsic_rotation[1]" time="1.394" /><testcase classname="tests.test_sepclip_constraint_transport_v15" name="test_compiled_checkpoint_preserves_previous_point_banks_and_rollout_phase[False]" time="5.006" /><testcase classname="tests.test_sepclip_constraint_transport_v15" name="test_compiled_checkpoint_preserves_previous_point_banks_and_rollout_phase[True]" time="0.006" /><testcase classname="tests.test_sepclip_constraint_transport_v15" name="test_rollout_slow_rail_ignores_later_epoch_credit_at_fixed_endpoint" time="2.058" /><testcase classname="tests.test_sepclip_constraint_transport_v15" name="test_ambient_same_source_control_preserves_legacy_matrix_updates" time="1.666" /><testcase classname="tests.test_sepclip_constraint_transport_v15" name="test_geometry_mismatch_cannot_silently_reinterpret_checkpoint" time="0.001" /><testcase classname="tests.test_sepclip_constraint_transport_v15" name="test_intrinsic_actor_matrix_step_preserves_head_critic_and_gradient_ownership" time="10.359" /><testcase classname="tests.test_sepclip_constraint_transport_v15" name="test_checkpoint_axis_metadata_is_not_inferred_from_matrix_shape" time="0.001" /></testsuite></testsuites>

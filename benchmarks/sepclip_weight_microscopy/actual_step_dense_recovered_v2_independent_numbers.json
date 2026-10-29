@@ -1,0 +1,4846 @@
+{
+  "artifact_sha256": "cb5d01beb923b46dc810633cf6a0c1a84cc4a165bd51eb03acaad04abc4d98ef",
+  "manifest_sha256": "a8360c1f9b581f31acc4f8123a59df54d107819d33776d09b799d434e4b371c0",
+  "source_sha256": "0d23d4b61059a255b7c566fd8088ebea629f357905a3fd7b35928cbb5b848953",
+  "imported_source_sha256": {
+    "/home/marvin/Documents/repositories/cleanrl/scripts/audit_sepclip_oracle_geometry.py": "03bca505a2e00e1b7ca2d93b8982beb4343dc8b24bcd7287100b593611fbc678",
+    "/home/marvin/Documents/repositories/cleanrl/scripts/audit_sepclip_closed_loop_update.py": "761e5ffd86d7432cdc47c21c9ad3a77a8c9d0f50ea39c40b608defdd812cef65",
+    "/home/marvin/Documents/repositories/cleanrl/scripts/audit_sepclip_dense_pg.py": "e7c6fd46e185e158bc7b00b11b9f86f94d3dbd885d6bc6bfea80146f57f2ddac",
+    "/home/marvin/Documents/repositories/cleanrl/scripts/audit_sepclip_physics.py": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114",
+    "/home/marvin/Documents/repositories/cleanrl/cleanrl/ppo_continuous_action_sepclip_rollout_clock_anvil_v7.py": "07f5f9636103dd5fdc9896de3eb781078df8bb1cb9b3ad87bcb79907fc619c8d",
+    "/home/marvin/Documents/repositories/cleanrl/cleanrl/ppo_continuous_action_sepclip_transition_microscopy_v12.py": "b8063ba4c3806d7812d6422c1b4c531d11def5ed58e1a85ccd10cd4591d66867",
+    "/home/marvin/Documents/repositories/cleanrl/cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+  },
+  "oracle_sha256": "4928741aade1d67d125f765186c397ef7a3560e3d94999c2ffd8e0a10e1531e5",
+  "snapshot_trace_pins": [
+    {
+      "snapshot": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_4013696.pt",
+      "snapshot_sha256": "8b17da17c1a4d6ed31e62076f76debfc01763e6f0a8b95f401674e55415d6197",
+      "trace": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_updates_4013696.pt",
+      "trace_sha256": "762e1629a4d2b547fa3d5442c081c2ff99ea62c05c3f97a46477304b14f9fa6b",
+      "trace_validation": {
+        "update_count": 10,
+        "epochs": 10,
+        "cumulative_delta_vs_exact_endpoint_max_abs_error": 2.3283064365386963e-10,
+        "unit_axis_norm_max_abs_errors": {
+          "old": 1.7881393432617188e-07,
+          "first_update": 1.1920928955078125e-07,
+          "endpoint": 1.1920928955078125e-07
+        },
+        "first_policy_source": "saved old FP32 weights plus first actual retracted FP32 delta; subtraction/addition roundoff remains",
+        "endpoint_policy_source": "exact model_after_update state_dict, not cumulative deltas"
+      }
+    },
+    {
+      "snapshot": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_7995008.pt",
+      "snapshot_sha256": "5d7979136fb15329c9bd6d0e6340cde6206d8b0956c21f273f223bbb851b3f30",
+      "trace": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_updates_7995008.pt",
+      "trace_sha256": "7cdb678b6a24b260f543cca4771c234e6338bdf2de8d6fd4c428d7a18cd38926",
+      "trace_validation": {
+        "update_count": 10,
+        "epochs": 10,
+        "cumulative_delta_vs_exact_endpoint_max_abs_error": 8.526512829121202e-14,
+        "unit_axis_norm_max_abs_errors": {
+          "old": 1.1920928955078125e-07,
+          "first_update": 1.1920928955078125e-07,
+          "endpoint": 1.1920928955078125e-07
+        },
+        "first_policy_source": "saved old FP32 weights plus first actual retracted FP32 delta; subtraction/addition roundoff remains",
+        "endpoint_policy_source": "exact model_after_update state_dict, not cumulative deltas"
+      }
+    },
+    {
+      "snapshot": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_4013696.pt",
+      "snapshot_sha256": "18d6879248fb472d9d84c4254b5052918f2432bf731c398f0f87ad8138ae56cb",
+      "trace": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_updates_4013696.pt",
+      "trace_sha256": "25709629234dc4f8bd43f9c6597247d25557be071702d8bfdb66895c2c2ffbde",
+      "trace_validation": {
+        "update_count": 10,
+        "epochs": 10,
+        "cumulative_delta_vs_exact_endpoint_max_abs_error": 2.3283064365386963e-10,
+        "unit_axis_norm_max_abs_errors": {
+          "old": 1.7881393432617188e-07,
+          "first_update": 1.1920928955078125e-07,
+          "endpoint": 1.1920928955078125e-07
+        },
+        "first_policy_source": "saved old FP32 weights plus first actual retracted FP32 delta; subtraction/addition roundoff remains",
+        "endpoint_policy_source": "exact model_after_update state_dict, not cumulative deltas"
+      }
+    },
+    {
+      "snapshot": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_7995008.pt",
+      "snapshot_sha256": "06819047d869a87baa62ea4d4f4e4a18044f0c52c71fa3beea2b9a66cab7c587",
+      "trace": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_updates_7995008.pt",
+      "trace_sha256": "1bb42d0cc7faa006422f055f5f43264a0782356d8703b6b340618b5a455efe1b",
+      "trace_validation": {
+        "update_count": 10,
+        "epochs": 10,
+        "cumulative_delta_vs_exact_endpoint_max_abs_error": 0.0,
+        "unit_axis_norm_max_abs_errors": {
+          "old": 1.1920928955078125e-07,
+          "first_update": 1.1920928955078125e-07,
+          "endpoint": 1.1920928955078125e-07
+        },
+        "first_policy_source": "saved old FP32 weights plus first actual retracted FP32 delta; subtraction/addition roundoff remains",
+        "endpoint_policy_source": "exact model_after_update state_dict, not cumulative deltas"
+      }
+    }
+  ],
+  "descriptive_gate": "R=2 conditional t95 excludes zero AND halfwidth <= .5*abs(mean); no multiplicity or law certification",
+  "summary_counts": {
+    "finite_raw": {
+      "total": 48,
+      "gate": 0,
+      "excludes_zero": 3
+    },
+    "finite_normalized": {
+      "total": 48,
+      "gate": 3,
+      "excludes_zero": 3
+    },
+    "bootstrap_normalized": {
+      "total": 48,
+      "gate": 3,
+      "excludes_zero": 3
+    },
+    "paired_estimated_tail_increment": {
+      "total": 48,
+      "gate": 0,
+      "excludes_zero": 3
+    }
+  },
+  "independent_summary_max_abs_error": 8.881784197001252e-16,
+  "layer_gram_aggregate_max_abs_error": 1.734723475976807e-18,
+  "contrasts": [
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -0.05102139245188108,
+        -0.0015906602948705245
+      ],
+      "mean": -0.026306026373375802,
+      "conditional_mc_standard_error": 0.024715366078505274,
+      "conditional_student_t95_interval": [
+        -0.3403445279027327,
+        0.28773247515598105
+      ],
+      "mean_field_pairing": -0.026306026373375813,
+      "halfwidth_to_abs_mean": 11.937891989920367,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -0.051038194372700685,
+        -0.0015826327611251773
+      ],
+      "mean": -0.02631041356691293,
+      "conditional_mc_standard_error": 0.02472778080578775,
+      "conditional_student_t95_interval": [
+        -0.34050665916286793,
+        0.28788583202904205
+      ],
+      "mean_field_pairing": -0.026310413566912924,
+      "halfwidth_to_abs_mean": 11.941896876568956,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -0.046460971362367674,
+        -0.003609987339244683
+      ],
+      "mean": -0.02503547935080618,
+      "conditional_mc_standard_error": 0.021425492011561496,
+      "conditional_student_t95_interval": [
+        -0.2972721674284969,
+        0.2472012087268845
+      ],
+      "mean_field_pairing": -0.025035479350806175,
+      "halfwidth_to_abs_mean": 10.874035374478431,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.3334864171564822,
+        -0.06348527782324381
+      ],
+      "mean": 0.1350005696666192,
+      "conditional_mc_standard_error": 0.198485847489863,
+      "conditional_student_t95_interval": [
+        -2.387001245823817,
+        2.657002385157055
+      ],
+      "mean_field_pairing": 0.13500056966661916,
+      "halfwidth_to_abs_mean": 18.681416098602114,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.3334082519224978,
+        -0.0632535459678342
+      ],
+      "mean": 0.1350773529773318,
+      "conditional_mc_standard_error": 0.19833089894516595,
+      "conditional_student_t95_interval": [
+        -2.3849556545805712,
+        2.6551103605352346
+      ],
+      "mean_field_pairing": 0.13507735297733178,
+      "halfwidth_to_abs_mean": 18.656221431736274,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.34987945964756495,
+        -0.08026352427825399
+      ],
+      "mean": 0.13480796768465547,
+      "conditional_mc_standard_error": 0.21507149196290945,
+      "conditional_student_t95_interval": [
+        -2.597934442165982,
+        2.867550377535293
+      ],
+      "mean_field_pairing": 0.1348079676846555,
+      "halfwidth_to_abs_mean": 20.27137161686989,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -0.0002503194376048308,
+        -2.717828016960506e-06
+      ],
+      "mean": -0.00012651863281089564,
+      "conditional_mc_standard_error": 0.00012380080479393514,
+      "conditional_student_t95_interval": [
+        -0.0016995570050576995,
+        0.0014465197394359082
+      ],
+      "mean_field_pairing": -0.0001265186328108956,
+      "halfwidth_to_abs_mean": 12.433254591029185,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -0.0002503958760461999,
+        -2.679775007821542e-06
+      ],
+      "mean": -0.0001265378255270107,
+      "conditional_mc_standard_error": 0.00012385805051918914,
+      "conditional_student_t95_interval": [
+        -0.0017003035736791773,
+        0.0014472279226251561
+      ],
+      "mean_field_pairing": -0.00012653782552701068,
+      "halfwidth_to_abs_mean": 12.437117056482307,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -0.0002291691548912934,
+        -1.2073030973147906e-05
+      ],
+      "mean": -0.00012062109293222066,
+      "conditional_mc_standard_error": 0.00010854806195907275,
+      "conditional_student_t95_interval": [
+        -0.0014998549919271154,
+        0.001258612806062674
+      ],
+      "mean_field_pairing": -0.00012062109293222068,
+      "halfwidth_to_abs_mean": 11.434433774944429,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.0015557941586861284,
+        -0.0003049639348302693
+      ],
+      "mean": 0.0006254151119279295,
+      "conditional_mc_standard_error": 0.0009303790467581987,
+      "conditional_student_t95_interval": [
+        -0.011196171538668273,
+        0.012447001762524132
+      ],
+      "mean_field_pairing": 0.0006254151119279296,
+      "halfwidth_to_abs_mean": 18.901984338297343,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0015555599431058848,
+        -0.00030383852437303004
+      ],
+      "mean": 0.0006258607093664274,
+      "conditional_mc_standard_error": 0.0009296992337394573,
+      "conditional_student_t95_interval": [
+        -0.011187088097831156,
+        0.01243880951656401
+      ],
+      "mean_field_pairing": 0.0006258607093664273,
+      "halfwidth_to_abs_mean": 18.874725047297012,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.001630500018623161,
+        -0.0003826602154251627
+      ],
+      "mean": 0.0006239199015989991,
+      "conditional_mc_standard_error": 0.0010065801170241618,
+      "conditional_student_t95_interval": [
+        -0.012165893148931779,
+        0.013413732952129777
+      ],
+      "mean_field_pairing": 0.0006239199015989991,
+      "halfwidth_to_abs_mean": 20.499126599027683,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -0.0001608951430736354,
+        3.681189949644801e-05
+      ],
+      "mean": -6.204162178859369e-05,
+      "conditional_mc_standard_error": 9.885352128504169e-05,
+      "conditional_student_t95_interval": [
+        -0.0013180947021535815,
+        0.001194011458576394
+      ],
+      "mean_field_pairing": -6.204162178859369e-05,
+      "halfwidth_to_abs_mean": 20.24532957318521,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -0.00016096746642481056,
+        3.686071886888434e-05
+      ],
+      "mean": -6.205337377796311e-05,
+      "conditional_mc_standard_error": 9.891409264684744e-05,
+      "conditional_student_t95_interval": [
+        -0.0013188760862672191,
+        0.001194769338711293
+      ],
+      "mean_field_pairing": -6.205337377796329e-05,
+      "halfwidth_to_abs_mean": 20.25389815203874,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -0.00014041768214830385,
+        2.7042735833320616e-05
+      ],
+      "mean": -5.6687473157491616e-05,
+      "conditional_mc_standard_error": 8.373020899081222e-05,
+      "conditional_student_t95_interval": [
+        -0.001120580651218999,
+        0.0010072057049040157
+      ],
+      "mean_field_pairing": -5.668747315749171e-05,
+      "halfwidth_to_abs_mean": 18.76769449761419,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.0017207623878825423,
+        -0.00030377385059807333
+      ],
+      "mean": 0.0007084942686422345,
+      "conditional_mc_standard_error": 0.001012268119240308,
+      "conditional_student_t95_interval": [
+        -0.012153591702588175,
+        0.013570580239872643
+      ],
+      "mean_field_pairing": 0.0007084942686422345,
+      "halfwidth_to_abs_mean": 18.154114352794185,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0017207061328553632,
+        -0.0003015669688981783
+      ],
+      "mean": 0.0007095695819785924,
+      "conditional_mc_standard_error": 0.0010111365508767706,
+      "conditional_student_t95_interval": [
+        -0.012138138449951442,
+        0.013557277613908627
+      ],
+      "mean_field_pairing": 0.0007095695819785924,
+      "halfwidth_to_abs_mean": 18.10633989707531,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.0017924599210148774,
+        -0.00039028582275566143
+      ],
+      "mean": 0.0007010870491296079,
+      "conditional_mc_standard_error": 0.0010913728718852692,
+      "conditional_student_t95_interval": [
+        -0.013166120104832498,
+        0.014568294203091714
+      ],
+      "mean_field_pairing": 0.0007010870491296078,
+      "halfwidth_to_abs_mean": 19.7795796844031,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        8.942429453119539e-05,
+        3.952972751340852e-05
+      ],
+      "mean": 6.447701102230195e-05,
+      "conditional_mc_standard_error": 2.4947283508893435e-05,
+      "conditional_student_t95_interval": [
+        -0.0002525082808595141,
+        0.000381462302904118
+      ],
+      "mean_field_pairing": 6.44770110223019e-05,
+      "halfwidth_to_abs_mean": 4.916252891626351,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        8.942840962138931e-05,
+        3.954049387670588e-05
+      ],
+      "mean": 6.44844517490476e-05,
+      "conditional_mc_standard_error": 2.4943957872341712e-05,
+      "conditional_student_t95_interval": [
+        -0.00025245858391386333,
+        0.0003814274874119585
+      ],
+      "mean_field_pairing": 6.448445174904739e-05,
+      "halfwidth_to_abs_mean": 4.915030322291483,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        8.875147274298956e-05,
+        3.911576680646852e-05
+      ],
+      "mean": 6.393361977472904e-05,
+      "conditional_mc_standard_error": 2.481785296826052e-05,
+      "conditional_student_t95_interval": [
+        -0.0002514071011586581,
+        0.0003792743407081162
+      ],
+      "mean_field_pairing": 6.393361977472897e-05,
+      "halfwidth_to_abs_mean": 4.93231451690823,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.00016496822919641395,
+        1.1900842321959596e-06
+      ],
+      "mean": 8.307915671430495e-05,
+      "conditional_mc_standard_error": 8.1889072482109e-05,
+      "conditional_student_t95_interval": [
+        -0.0009574201639198994,
+        0.0011235784773485093
+      ],
+      "mean_field_pairing": 8.307915671430484e-05,
+      "halfwidth_to_abs_mean": 12.524192129348448,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0001651461897494784,
+        2.2715554748517497e-06
+      ],
+      "mean": 8.370887261216508e-05,
+      "conditional_mc_standard_error": 8.143731713731333e-05,
+      "conditional_student_t95_interval": [
+        -0.0009510503521202882,
+        0.0011184680973446183
+      ],
+      "mean_field_pairing": 8.370887261216519e-05,
+      "halfwidth_to_abs_mean": 12.361404382145217,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.0001619599023917164,
+        -7.625607330498754e-06
+      ],
+      "mean": 7.716714753060882e-05,
+      "conditional_mc_standard_error": 8.479275486110758e-05,
+      "conditional_student_t95_interval": [
+        -0.001000226955900722,
+        0.0011545612509619395
+      ],
+      "mean_field_pairing": 7.716714753060866e-05,
+      "halfwidth_to_abs_mean": 13.961823624541463,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -0.03529947166176687,
+        -0.004477619663404778
+      ],
+      "mean": -0.019888545662585824,
+      "conditional_mc_standard_error": 0.015410925999181044,
+      "conditional_student_t95_interval": [
+        -0.21570292658618453,
+        0.17592583526101288
+      ],
+      "mean_field_pairing": -0.019888545662585827,
+      "halfwidth_to_abs_mean": 9.845585707755555,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -0.03531543306317311,
+        -0.00446708592084373
+      ],
+      "mean": -0.01989125949200842,
+      "conditional_mc_standard_error": 0.01542417357116469,
+      "conditional_student_t95_interval": [
+        -0.21587396677749196,
+        0.1760914477934751
+      ],
+      "mean_field_pairing": -0.01989125949200843,
+      "halfwidth_to_abs_mean": 9.852704770365206,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -0.030766419176708727,
+        -0.006848051306561867
+      ],
+      "mean": -0.018807235241635297,
+      "conditional_mc_standard_error": 0.011959183935073428,
+      "conditional_student_t95_interval": [
+        -0.1707630748013279,
+        0.1331486043180573
+      ],
+      "mean_field_pairing": -0.01880723524163526,
+      "halfwidth_to_abs_mean": 8.079647944387599,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.3683427769334124,
+        -0.06325085618622682
+      ],
+      "mean": 0.15254596037359278,
+      "conditional_mc_standard_error": 0.2157968165598196,
+      "conditional_student_t95_interval": [
+        -2.5894125723057555,
+        2.8945044930529407
+      ],
+      "mean_field_pairing": 0.1525459603735928,
+      "halfwidth_to_abs_mean": 17.97463876437077,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.36825813609741936,
+        -0.06273800779077687
+      ],
+      "mean": 0.15276006415332125,
+      "conditional_mc_standard_error": 0.21549807194409812,
+      "conditional_student_t95_interval": [
+        -2.585402558274763,
+        2.8909226865814053
+      ],
+      "mean_field_pairing": 0.15276006415332122,
+      "halfwidth_to_abs_mean": 17.924597227714322,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.3858780228900351,
+        -0.0816056553197742
+      ],
+      "mean": 0.15213618378513044,
+      "conditional_mc_standard_error": 0.23374183910490462,
+      "conditional_student_t95_interval": [
+        -2.8178354793519578,
+        3.1221078469222183
+      ],
+      "mean_field_pairing": 0.15213618378513044,
+      "halfwidth_to_abs_mean": 19.521796782622914,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -0.00017731988316817976,
+        -1.6746753651583732e-05
+      ],
+      "mean": -9.703331840988174e-05,
+      "conditional_mc_standard_error": 8.0286564758298e-05,
+      "conditional_student_t95_interval": [
+        -0.0011171708478136299,
+        0.0009231042109938665
+      ],
+      "mean_field_pairing": -9.703331840988188e-05,
+      "halfwidth_to_abs_mean": 10.51327055614599,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -0.0001773924263345929,
+        -1.6697205723965186e-05
+      ],
+      "mean": -9.704481602927905e-05,
+      "conditional_mc_standard_error": 8.034761030531385e-05,
+      "conditional_student_t95_interval": [
+        -0.001117958002651658,
+        0.0009238683705931
+      ],
+      "mean_field_pairing": -9.704481602927913e-05,
+      "halfwidth_to_abs_mean": 10.520017744320965,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -0.00015631358425349863,
+        -2.773754541955328e-05
+      ],
+      "mean": -9.202556483652595e-05,
+      "conditional_mc_standard_error": 6.428801941697266e-05,
+      "conditional_student_t95_interval": [
+        -0.0009088823016483025,
+        0.0007248311719752506
+      ],
+      "mean_field_pairing": -9.202556483652605e-05,
+      "halfwidth_to_abs_mean": 8.87641100886302,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.0017168310539500556,
+        -0.0003042174023428951
+      ],
+      "mean": 0.0007063068258035803,
+      "conditional_mc_standard_error": 0.0010105242281464753,
+      "conditional_student_t95_interval": [
+        -0.01213362090815055,
+        0.013546234559757711
+      ],
+      "mean_field_pairing": 0.0007063068258035803,
+      "halfwidth_to_abs_mean": 18.178965946344736,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0017165614550524741,
+        -0.00030179174546107106
+      ],
+      "mean": 0.0007073848547957016,
+      "conditional_mc_standard_error": 0.0010091766002567723,
+      "conditional_student_t95_interval": [
+        -0.012115419643283339,
+        0.013530189352874741
+      ],
+      "mean_field_pairing": 0.0007073848547957016,
+      "halfwidth_to_abs_mean": 18.127055465136262,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.0017968817574134934,
+        -0.0003892854464864745
+      ],
+      "mean": 0.0007037981554635095,
+      "conditional_mc_standard_error": 0.001093083601949984,
+      "conditional_student_t95_interval": [
+        -0.01318514588494963,
+        0.01459274219587665
+      ],
+      "mean_field_pairing": 0.0007037981554635095,
+      "halfwidth_to_abs_mean": 19.73427172633909,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -0.0001852889708147739,
+        -1.4449358736234983e-05
+      ],
+      "mean": -9.986916477550444e-05,
+      "conditional_mc_standard_error": 8.541980603926944e-05,
+      "conditional_student_t95_interval": [
+        -0.0011852307088567808,
+        0.0009854923793057718
+      ],
+      "mean_field_pairing": -9.986916477550437e-05,
+      "halfwidth_to_abs_mean": 10.867834396343026,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -0.00018536328459746692,
+        -1.43991715068749e-05
+      ],
+      "mean": -9.988122805217091e-05,
+      "conditional_mc_standard_error": 8.5482056545296e-05,
+      "conditional_student_t95_interval": [
+        -0.001186033739807967,
+        0.0009862712837036252
+      ],
+      "mean_field_pairing": -9.98812280521708e-05,
+      "halfwidth_to_abs_mean": 10.874440902833783,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -0.0001643359079523383,
+        -2.5426937998094504e-05
+      ],
+      "mean": -9.48814229752164e-05,
+      "conditional_mc_standard_error": 6.94544849771219e-05,
+      "conditional_student_t95_interval": [
+        -0.0009773843289579746,
+        0.0007876214830075417
+      ],
+      "mean_field_pairing": -9.488142297521643e-05,
+      "halfwidth_to_abs_mean": 9.301113730274398,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.0017116462407174712,
+        -0.0003021060274292829
+      ],
+      "mean": 0.0007047701066440941,
+      "conditional_mc_standard_error": 0.001006876134073377,
+      "conditional_student_t95_interval": [
+        -0.012088804197119486,
+        0.013498344410407676
+      ],
+      "mean_field_pairing": 0.0007047701066440943,
+      "halfwidth_to_abs_mean": 18.15283336105554,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0017112100704748988,
+        -0.0002996342184498279
+      ],
+      "mean": 0.0007057879260125355,
+      "conditional_mc_standard_error": 0.001005422144462363,
+      "conditional_student_t95_interval": [
+        -0.012069311688068856,
+        0.013480887540093927
+      ],
+      "mean_field_pairing": 0.0007057879260125356,
+      "halfwidth_to_abs_mean": 18.10047911453574,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.001791952756272144,
+        -0.00038730711109246583
+      ],
+      "mean": 0.000702322822589839,
+      "conditional_mc_standard_error": 0.0010896299336823048,
+      "conditional_student_t95_interval": [
+        -0.013142738201722452,
+        0.014547383846902129
+      ],
+      "mean_field_pairing": 0.0007023228225898387,
+      "halfwidth_to_abs_mean": 19.713243794724143,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -7.969087646594143e-06,
+        2.2973949153487494e-06
+      ],
+      "mean": -2.8358463656226967e-06,
+      "conditional_mc_standard_error": 5.133241280971445e-06,
+      "conditional_student_t95_interval": [
+        -6.805986104315084e-05,
+        6.238816831190544e-05
+      ],
+      "mean_field_pairing": -2.8358463656224934e-06,
+      "halfwidth_to_abs_mean": 22.999840706534965,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -7.970858262874012e-06,
+        2.298034217090286e-06
+      ],
+      "mean": -2.8364120228918633e-06,
+      "conditional_mc_standard_error": 5.134446239982149e-06,
+      "conditional_student_t95_interval": [
+        -6.8075737156309e-05,
+        6.240291311052528e-05
+      ],
+      "mean_field_pairing": -2.8364120228916735e-06,
+      "halfwidth_to_abs_mean": 23.000651741315917,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -8.022323698839677e-06,
+        2.310607421458777e-06
+      ],
+      "mean": -2.85585813869045e-06,
+      "conditional_mc_standard_error": 5.166465560149227e-06,
+      "conditional_student_t95_interval": [
+        -6.850202730967186e-05,
+        6.279031103229096e-05
+      ],
+      "mean_field_pairing": -2.8558581386903823e-06,
+      "halfwidth_to_abs_mean": 22.986495120896787,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -5.184813232584446e-06,
+        2.111374913612153e-06
+      ],
+      "mean": -1.5367191594861467e-06,
+      "conditional_mc_standard_error": 3.6480940730982997e-06,
+      "conditional_student_t95_interval": [
+        -4.789014935003762e-05,
+        4.4816711031065324e-05
+      ],
+      "mean_field_pairing": -1.536719159485984e-06,
+      "halfwidth_to_abs_mean": 30.1638916287419,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -5.351384577575308e-06,
+        2.1575270112431577e-06
+      ],
+      "mean": -1.596928783166075e-06,
+      "conditional_mc_standard_error": 3.7544557944092327e-06,
+      "conditional_student_t95_interval": [
+        -4.9301812780813594e-05,
+        4.6107955214481444e-05
+      ],
+      "mean_field_pairing": -1.5969287831660208e-06,
+      "halfwidth_to_abs_mean": 29.872893832540043,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -4.929001141349473e-06,
+        1.9783353940086546e-06
+      ],
+      "mean": -1.475332873670409e-06,
+      "conditional_mc_standard_error": 3.453668267679063e-06,
+      "conditional_student_t95_interval": [
+        -4.5358348974519355e-05,
+        4.240768322717854e-05
+      ],
+      "mean_field_pairing": -1.4753328736708156e-06,
+      "halfwidth_to_abs_mean": 29.744484708508203,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.005364525223218729,
+        -0.0033809065060085297
+      ],
+      "mean": 0.0009918093586050998,
+      "conditional_mc_standard_error": 0.00437271586461363,
+      "conditional_student_t95_interval": [
+        -0.05456881367142037,
+        0.05655243238863057
+      ],
+      "mean_field_pairing": 0.0009918093586051,
+      "halfwidth_to_abs_mean": 56.01945832429634,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.005363885165225876,
+        -0.003382797141028596
+      ],
+      "mean": 0.0009905440120986401,
+      "conditional_mc_standard_error": 0.004373341153127236,
+      "conditional_student_t95_interval": [
+        -0.05457802406180005,
+        0.05655911208599732
+      ],
+      "mean_field_pairing": 0.0009905440120986401,
+      "halfwidth_to_abs_mean": 56.09903991662823,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.005361235003327252,
+        -0.003379783222113363
+      ],
+      "mean": 0.0009907258906069446,
+      "conditional_mc_standard_error": 0.004370509112720308,
+      "conditional_student_t95_interval": [
+        -0.054541857698059464,
+        0.05652330947927336
+      ],
+      "mean_field_pairing": 0.0009907258906069446,
+      "halfwidth_to_abs_mean": 56.05241986221406,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.03497388828836229,
+        -0.010215192211889088
+      ],
+      "mean": 0.0123793480382366,
+      "conditional_mc_standard_error": 0.022594540250125687,
+      "conditional_student_t95_interval": [
+        -0.274711506305416,
+        0.2994702023818892
+      ],
+      "mean_field_pairing": 0.0123793480382366,
+      "halfwidth_to_abs_mean": 23.19111260600343,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.03497451771065206,
+        -0.01021369619856597
+      ],
+      "mean": 0.012380410756043046,
+      "conditional_mc_standard_error": 0.022594106954609016,
+      "conditional_student_t95_interval": [
+        -0.27470493804606333,
+        0.29946575955814947
+      ],
+      "mean_field_pairing": 0.012380410756043046,
+      "halfwidth_to_abs_mean": 23.188677214281938,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.03498739792410629,
+        -0.010200886923011757
+      ],
+      "mean": 0.012393255500547266,
+      "conditional_mc_standard_error": 0.02259414242355902,
+      "conditional_student_t95_interval": [
+        -0.2746925439772997,
+        0.2994790549783942
+      ],
+      "mean_field_pairing": 0.012393255500547273,
+      "halfwidth_to_abs_mean": 23.164680133090922,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        2.2243958095710838e-05,
+        -1.4383166708623025e-05
+      ],
+      "mean": 3.930395693543906e-06,
+      "conditional_mc_standard_error": 1.831356240216693e-05,
+      "conditional_student_t95_interval": [
+        -0.00022876547764181428,
+        0.00023662626902890208
+      ],
+      "mean_field_pairing": 3.930395693543905e-06,
+      "halfwidth_to_abs_mean": 59.204184890998626,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        2.2241132608929906e-05,
+        -1.439131637818709e-05
+      ],
+      "mean": 3.924908115371408e-06,
+      "conditional_mc_standard_error": 1.8316224493558497e-05,
+      "conditional_student_t95_interval": [
+        -0.00022880479029823512,
+        0.00023665460652897794
+      ],
+      "mean_field_pairing": 3.924908115371408e-06,
+      "halfwidth_to_abs_mean": 59.295578793844875,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        2.2230530358096337e-05,
+        -1.4377602443042987e-05
+      ],
+      "mean": 3.926463957526675e-06,
+      "conditional_mc_standard_error": 1.8304066400569657e-05,
+      "conditional_student_t95_interval": [
+        -0.00022864875123735907,
+        0.00023650167915241244
+      ],
+      "mean_field_pairing": 3.926463957526677e-06,
+      "halfwidth_to_abs_mean": 59.23273910335028,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.000146156265259082,
+        -4.3584984818851226e-05
+      ],
+      "mean": 5.128564022011539e-05,
+      "conditional_mc_standard_error": 9.48706250389666e-05,
+      "conditional_student_t95_interval": [
+        -0.0011541599449982755,
+        0.001256731225438506
+      ],
+      "mean_field_pairing": 5.12856402201154e-05,
+      "halfwidth_to_abs_mean": 23.504543962884718,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.00014615910734344097,
+        -4.357882931067577e-05
+      ],
+      "mean": 5.12901390163826e-05,
+      "conditional_mc_standard_error": 9.486896832705838e-05,
+      "conditional_student_t95_interval": [
+        -0.0011541343956813128,
+        0.0012567146737140782
+      ],
+      "mean_field_pairing": 5.12901390163826e-05,
+      "halfwidth_to_abs_mean": 23.502071895587385,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.00014621094263861468,
+        -4.352059186415166e-05
+      ],
+      "mean": 5.134517538723151e-05,
+      "conditional_mc_standard_error": 9.486576725138316e-05,
+      "conditional_student_t95_interval": [
+        -0.0011540386857875578,
+        0.001256729036562021
+      ],
+      "mean_field_pairing": 5.13451753872315e-05,
+      "halfwidth_to_abs_mean": 23.47608810534015,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        2.4313121012258166e-05,
+        -1.3239818549594525e-05
+      ],
+      "mean": 5.536651231331821e-06,
+      "conditional_mc_standard_error": 1.8776469780926343e-05,
+      "conditional_student_t95_interval": [
+        -0.0002330410180325486,
+        0.00024411432049521224
+      ],
+      "mean_field_pairing": 5.53665123133182e-06,
+      "halfwidth_to_abs_mean": 43.09060825680571,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        2.4310093819009222e-05,
+        -1.3247962350344942e-05
+      ],
+      "mean": 5.53106573433214e-06,
+      "conditional_mc_standard_error": 1.8779028084677078e-05,
+      "conditional_student_t95_interval": [
+        -0.0002330791098607831,
+        0.0002441412413294474
+      ],
+      "mean_field_pairing": 5.531065734332142e-06,
+      "halfwidth_to_abs_mean": 43.13999996673819,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        2.429753584022307e-05,
+        -1.3235618791848868e-05
+      ],
+      "mean": 5.530958524187102e-06,
+      "conditional_mc_standard_error": 1.8766577316035966e-05,
+      "conditional_student_t95_interval": [
+        -0.00023292101505544824,
+        0.0002439829321038224
+      ],
+      "mean_field_pairing": 5.5309585241871045e-06,
+      "halfwidth_to_abs_mean": 43.11223317565579,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.00016838393442367519,
+        -3.840184975619231e-05
+      ],
+      "mean": 6.499104233374144e-05,
+      "conditional_mc_standard_error": 0.00010339289208993373,
+      "conditional_student_t95_interval": [
+        -0.001248740212852787,
+        0.00137872229752027
+      ],
+      "mean_field_pairing": 6.499104233374144e-05,
+      "halfwidth_to_abs_mean": 20.214035781119915,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.00016838690808405863,
+        -3.839525205202885e-05
+      ],
+      "mean": 6.49958280160149e-05,
+      "conditional_mc_standard_error": 0.00010339108006804372,
+      "conditional_student_t95_interval": [
+        -0.0012487124032493923,
+        0.0013787040592814221
+      ],
+      "mean_field_pairing": 6.499582801601488e-05,
+      "halfwidth_to_abs_mean": 20.212193172486565,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.000168440372990197,
+        -3.833499759470719e-05
+      ],
+      "mean": 6.50526876977449e-05,
+      "conditional_mc_standard_error": 0.0001033876852924521,
+      "conditional_student_t95_interval": [
+        -0.0012486124088539607,
+        0.0013787177842494508
+      ],
+      "mean_field_pairing": 6.50526876977449e-05,
+      "halfwidth_to_abs_mean": 20.193863513455494,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        2.0691629165473283e-06,
+        1.1433481590285006e-06
+      ],
+      "mean": 1.6062555377879144e-06,
+      "conditional_mc_standard_error": 4.629073787594138e-07,
+      "conditional_student_t95_interval": [
+        -4.275540390734315e-06,
+        7.488051466310144e-06
+      ],
+      "mean_field_pairing": 1.6062555377879144e-06,
+      "halfwidth_to_abs_mean": 3.6618058522758203,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        2.068961210079316e-06,
+        1.1433540278421482e-06
+      ],
+      "mean": 1.606157618960732e-06,
+      "conditional_mc_standard_error": 4.628035911185838e-07,
+      "conditional_student_t95_interval": [
+        -4.274319562548e-06,
+        7.486634800469464e-06
+      ],
+      "mean_field_pairing": 1.6061576189607337e-06,
+      "halfwidth_to_abs_mean": 3.661208035929692,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        2.067005482126735e-06,
+        1.1419836511941191e-06
+      ],
+      "mean": 1.604494566660427e-06,
+      "conditional_mc_standard_error": 4.6251091546630785e-07,
+      "conditional_student_t95_interval": [
+        -4.2722638180891184e-06,
+        7.481252951409972e-06
+      ],
+      "mean_field_pairing": 1.6044945666604278e-06,
+      "halfwidth_to_abs_mean": 3.662685126432899,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        2.2227669164593192e-05,
+        5.183135062658914e-06
+      ],
+      "mean": 1.3705402113626053e-05,
+      "conditional_mc_standard_error": 8.522267050967137e-06,
+      "conditional_student_t95_interval": [
+        -9.458026785451177e-05,
+        0.00012199107208176388
+      ],
+      "mean_field_pairing": 1.3705402113626039e-05,
+      "halfwidth_to_abs_mean": 7.900948040078235,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        2.2227800740617654e-05,
+        5.183577258646917e-06
+      ],
+      "mean": 1.3705688999632286e-05,
+      "conditional_mc_standard_error": 8.522111740985369e-06,
+      "conditional_student_t95_interval": [
+        -9.457800756807957e-05,
+        0.00012198938556734414
+      ],
+      "mean_field_pairing": 1.3705688999632282e-05,
+      "halfwidth_to_abs_mean": 7.900638674248119,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        2.2229430351582326e-05,
+        5.185594269444471e-06
+      ],
+      "mean": 1.3707512310513398e-05,
+      "conditional_mc_standard_error": 8.521918041068928e-06,
+      "conditional_student_t95_interval": [
+        -9.457372306640274e-05,
+        0.00012198874768742953
+      ],
+      "mean_field_pairing": 1.3707512310513398e-05,
+      "halfwidth_to_abs_mean": 7.89940821675327,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.005529295348617843,
+        -0.0028730217590863987
+      ],
+      "mean": 0.0013281367947657221,
+      "conditional_mc_standard_error": 0.00420115855385212,
+      "conditional_student_t95_interval": [
+        -0.0520526439206923,
+        0.05470891751022374
+      ],
+      "mean_field_pairing": 0.0013281367947657217,
+      "halfwidth_to_abs_mean": 40.19223089506693,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.005528627669503143,
+        -0.0028748600309455217
+      ],
+      "mean": 0.0013268838192788109,
+      "conditional_mc_standard_error": 0.004201743850224332,
+      "conditional_student_t95_interval": [
+        -0.05206133379171602,
+        0.054715101430273645
+      ],
+      "mean_field_pairing": 0.0013268838192788109,
+      "halfwidth_to_abs_mean": 40.23578917407589,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.00552581221541045,
+        -0.002872137015897892
+      ],
+      "mean": 0.001326837599756279,
+      "conditional_mc_standard_error": 0.00419897461565417,
+      "conditional_student_t95_interval": [
+        -0.05202619354982688,
+        0.05467986874933943
+      ],
+      "mean_field_pairing": 0.00132683759975628,
+      "halfwidth_to_abs_mean": 40.21067172002313,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.03897392845246115,
+        -0.009281299917386882
+      ],
+      "mean": 0.014846314267537134,
+      "conditional_mc_standard_error": 0.024127614184924016,
+      "conditional_student_t95_interval": [
+        -0.2917240913677506,
+        0.3214167199028249
+      ],
+      "mean_field_pairing": 0.014846314267537136,
+      "halfwidth_to_abs_mean": 20.649596937714893,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0389746300097805,
+        -0.009279702858299717
+      ],
+      "mean": 0.014847463575740391,
+      "conditional_mc_standard_error": 0.024127166434040108,
+      "conditional_student_t95_interval": [
+        -0.2917172528451455,
+        0.3214121799966263
+      ],
+      "mean_field_pairing": 0.01484746357574039,
+      "halfwidth_to_abs_mean": 20.647615322107203,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.03898620596855712,
+        -0.00926508200493928
+      ],
+      "mean": 0.01486056198180892,
+      "conditional_mc_standard_error": 0.0241256439867482,
+      "conditional_student_t95_interval": [
+        -0.29168480991208556,
+        0.3214059338757034
+      ],
+      "mean_field_pairing": 0.014860561981808918,
+      "halfwidth_to_abs_mean": 20.628114351875936,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        2.290472748993484e-05,
+        -1.22160055120172e-05
+      ],
+      "mean": 5.34436098895882e-06,
+      "conditional_mc_standard_error": 1.7560366500976016e-05,
+      "conditional_student_t95_interval": [
+        -0.00021778125101922614,
+        0.00022846997299714376
+      ],
+      "mean_field_pairing": 5.344360988958817e-06,
+      "halfwidth_to_abs_mean": 41.74972694942412,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        2.2901797953929823e-05,
+        -1.222393098319102e-05
+      ],
+      "mean": 5.338933485369401e-06,
+      "conditional_mc_standard_error": 1.756286446856042e-05,
+      "conditional_student_t95_interval": [
+        -0.00021781841821036797,
+        0.00022849628518110677
+      ],
+      "mean_field_pairing": 5.338933485369404e-06,
+      "halfwidth_to_abs_mean": 41.79811423147878,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        2.2890534048166573e-05,
+        -1.2211452282351281e-05
+      ],
+      "mean": 5.339540882907646e-06,
+      "conditional_mc_standard_error": 1.7550993165258926e-05,
+      "conditional_student_t95_interval": [
+        -0.00021766697160259266,
+        0.00022834605336840796
+      ],
+      "mean_field_pairing": 5.3395408829076485e-06,
+      "halfwidth_to_abs_mean": 41.76511003022083,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.00016245890616854518,
+        -3.9368687734417355e-05
+      ],
+      "mean": 6.154510921706392e-05,
+      "conditional_mc_standard_error": 0.00010091379695148125,
+      "conditional_student_t95_interval": [
+        -0.001220686255579194,
+        0.0013437764740133217
+      ],
+      "mean_field_pairing": 6.154510921706392e-05,
+      "halfwidth_to_abs_mean": 20.834009088747347,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0001624620557101775,
+        -3.9362109293670414e-05
+      ],
+      "mean": 6.154997320825354e-05,
+      "conditional_mc_standard_error": 0.00010091208250192397,
+      "conditional_student_t95_interval": [
+        -0.0012206596074409192,
+        0.0013437595538574262
+      ],
+      "mean_field_pairing": 6.154997320825359e-05,
+      "halfwidth_to_abs_mean": 20.832008753453604,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.00016250820551699417,
+        -3.929655743845314e-05
+      ],
+      "mean": 6.160582403927051e-05,
+      "conditional_mc_standard_error": 0.00010090238147772365,
+      "conditional_student_t95_interval": [
+        -0.0012204804934102598,
+        0.001343692141488801
+      ],
+      "mean_field_pairing": 6.160582403927051e-05,
+      "halfwidth_to_abs_mean": 20.81112195873343,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        2.319300758160211e-05,
+        -1.215018343033756e-05
+      ],
+      "mean": 5.521412075632275e-06,
+      "conditional_mc_standard_error": 1.767159550596983e-05,
+      "conditional_student_t95_interval": [
+        -0.00021901749844263372,
+        0.00023006032259389827
+      ],
+      "mean_field_pairing": 5.521412075632276e-06,
+      "halfwidth_to_abs_mean": 40.66693582049902,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        2.319001013298822e-05,
+        -1.2158166259346467e-05
+      ],
+      "mean": 5.515921936820876e-06,
+      "conditional_mc_standard_error": 1.7674088196167343e-05,
+      "conditional_student_t95_interval": [
+        -0.00021905466121343922,
+        0.00023008650508708097
+      ],
+      "mean_field_pairing": 5.515921936820876e-06,
+      "halfwidth_to_abs_mean": 40.71315470423286,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        2.317849364436323e-05,
+        -1.2145778215396733e-05
+      ],
+      "mean": 5.516357714483249e-06,
+      "conditional_mc_standard_error": 1.7662135929879983e-05,
+      "conditional_student_t95_interval": [
+        -0.00021890235749326528,
+        0.0002299350729222318
+      ],
+      "mean_field_pairing": 5.51635771448325e-06,
+      "halfwidth_to_abs_mean": 40.682407998766124,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.00016405907084851145,
+        -3.950643288324127e-05
+      ],
+      "mean": 6.227631898263509e-05,
+      "conditional_mc_standard_error": 0.00010178275186587634,
+      "conditional_student_t95_interval": [
+        -0.0012309961648626557,
+        0.0013555488028279257
+      ],
+      "mean_field_pairing": 6.227631898263509e-05,
+      "halfwidth_to_abs_mean": 20.76668154079406,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.00016406219257035178,
+        -3.9499840085980946e-05
+      ],
+      "mean": 6.228117624218542e-05,
+      "conditional_mc_standard_error": 0.00010178101632816635,
+      "conditional_student_t95_interval": [
+        -0.0012309692555056342,
+        0.0013555316079900052
+      ],
+      "mean_field_pairing": 6.228117624218542e-05,
+      "halfwidth_to_abs_mean": 20.764707890533575,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.00016410776769978165,
+        -3.94338094957215e-05
+      ],
+      "mean": 6.233697910203008e-05,
+      "conditional_mc_standard_error": 0.00010177078859775156,
+      "conditional_student_t95_interval": [
+        -0.0012307834970091505,
+        0.0013554574552132105
+      ],
+      "mean_field_pairing": 6.233697910203008e-05,
+      "halfwidth_to_abs_mean": 20.744034997183054,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        2.8828009166727154e-07,
+        6.582208167963999e-08
+      ],
+      "mean": 1.7705108667345576e-07,
+      "conditional_mc_standard_error": 1.1122900499381577e-07,
+      "conditional_student_t95_interval": [
+        -1.2362474234075953e-06,
+        1.5903495967545068e-06
+      ],
+      "mean_field_pairing": 1.7705108667345915e-07,
+      "halfwidth_to_abs_mean": 7.982433413061557,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        2.882121790583956e-07,
+        6.576472384455316e-08
+      ],
+      "mean": 1.7698845145147438e-07,
+      "conditional_mc_standard_error": 1.112237276069212e-07,
+      "conditional_student_t95_interval": [
+        -1.236243003071221e-06,
+        1.5902199059741698e-06
+      ],
+      "mean_field_pairing": 1.7698845145147183e-07,
+      "halfwidth_to_abs_mean": 7.984879481869283,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        2.879595961966582e-07,
+        6.567406695454833e-08
+      ],
+      "mean": 1.7681683157560326e-07,
+      "conditional_mc_standard_error": 1.1114276462105493e-07,
+      "conditional_student_t95_interval": [
+        -1.2353858906726023e-06,
+        1.5890195538238088e-06
+      ],
+      "mean_field_pairing": 1.7681683157560157e-07,
+      "halfwidth_to_abs_mean": 7.986811604213011,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        1.6001646799662628e-06,
+        -1.377451488239126e-07
+      ],
+      "mean": 7.312097655711751e-07,
+      "conditional_mc_standard_error": 8.689549143950877e-07,
+      "conditional_student_t95_interval": [
+        -1.0309909283461635e-05,
+        1.1772328814603985e-05
+      ],
+      "mean_field_pairing": 7.312097655711683e-07,
+      "halfwidth_to_abs_mean": 15.099797033493093,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        1.600136860174274e-06,
+        -1.3773079231053188e-07
+      ],
+      "mean": 7.312030339318711e-07,
+      "conditional_mc_standard_error": 8.689338262424029e-07,
+      "conditional_student_t95_interval": [
+        -1.0309648064715411e-05,
+        1.1772054132579153e-05
+      ],
+      "mean_field_pairing": 7.312030339318338e-07,
+      "halfwidth_to_abs_mean": 15.09956959461413,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        1.5995621827874875e-06,
+        -1.3725205726835654e-07
+      ],
+      "mean": 7.311550627595655e-07,
+      "conditional_mc_standard_error": 8.68407120027922e-07,
+      "conditional_student_t95_interval": [
+        -1.0303003598890572e-05,
+        1.1765313724409703e-05
+      ],
+      "mean_field_pairing": 7.311550627595655e-07,
+      "halfwidth_to_abs_mean": 15.091407040258206,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.1297801739687586,
+        0.07349645390727663
+      ],
+      "mean": 0.10163831393801762,
+      "conditional_mc_standard_error": 0.028141860030740984,
+      "conditional_student_t95_interval": [
+        -0.25593792127659254,
+        0.4592145491526278
+      ],
+      "mean_field_pairing": 0.10163831393801759,
+      "halfwidth_to_abs_mean": 3.518124429264656,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.12979120011955067,
+        0.07351582011278254
+      ],
+      "mean": 0.1016535101161666,
+      "conditional_mc_standard_error": 0.028137690003384064,
+      "conditional_student_t95_interval": [
+        -0.25586973987709005,
+        0.4591767601094232
+      ],
+      "mean_field_pairing": 0.10165351011616663,
+      "halfwidth_to_abs_mean": 3.517077271455651,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.1276934248927176,
+        0.07265955893492917
+      ],
+      "mean": 0.10017649191382338,
+      "conditional_mc_standard_error": 0.027516932978894206,
+      "conditional_student_t95_interval": [
+        -0.2494592922346867,
+        0.4498122760623335
+      ],
+      "mean_field_pairing": 0.10017649191382338,
+      "halfwidth_to_abs_mean": 3.4901979243721533,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.6600475248835869,
+        0.2903718138942235
+      ],
+      "mean": 0.4752096693889052,
+      "conditional_mc_standard_error": 0.18483785549468168,
+      "conditional_student_t95_interval": [
+        -1.8733779655695706,
+        2.823797304347381
+      ],
+      "mean_field_pairing": 0.47520966938890513,
+      "halfwidth_to_abs_mean": 4.942213482269072,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.6610677375314395,
+        0.2912744831349372
+      ],
+      "mean": 0.4761711103331884,
+      "conditional_mc_standard_error": 0.18489662719825117,
+      "conditional_student_t95_interval": [
+        -1.87316328992355,
+        2.8255055105899265
+      ],
+      "mean_field_pairing": 0.4761711103331884,
+      "halfwidth_to_abs_mean": 4.93380288991672,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.6555736823377862,
+        0.2719966949104851
+      ],
+      "mean": 0.46378518862413565,
+      "conditional_mc_standard_error": 0.19178849371365056,
+      "conditional_student_t95_interval": [
+        -1.9731186785934285,
+        2.9006890558416996
+      ],
+      "mean_field_pairing": 0.4637851886241358,
+      "halfwidth_to_abs_mean": 5.254380534330729,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.0005766281126285615,
+        0.0003313413159159729
+      ],
+      "mean": 0.00045398471427226714,
+      "conditional_mc_standard_error": 0.0001226433983562943,
+      "conditional_student_t95_interval": [
+        -0.0011043474148146077,
+        0.002012316843359142
+      ],
+      "mean_field_pairing": 0.00045398471427226714,
+      "halfwidth_to_abs_mean": 3.43256519459001,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0005766774230374036,
+        0.0003314285011864151
+      ],
+      "mean": 0.00045405296211190933,
+      "conditional_mc_standard_error": 0.00012262446092549422,
+      "conditional_student_t95_interval": [
+        -0.0011040385441020376,
+        0.0020121444683258564
+      ],
+      "mean_field_pairing": 0.0004540529621119094,
+      "halfwidth_to_abs_mean": 3.431519307718838,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.0005673050465555168,
+        0.00032758924812209756
+      ],
+      "mean": 0.0004474471473388072,
+      "conditional_mc_standard_error": 0.00011985789921670959,
+      "conditional_student_t95_interval": [
+        -0.001075491859387349,
+        0.0019703861540649632
+      ],
+      "mean_field_pairing": 0.0004474471473388072,
+      "halfwidth_to_abs_mean": 3.4036176468748076,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.0029409215089295977,
+        0.0012961099356260139
+      ],
+      "mean": 0.0021185157222778058,
+      "conditional_mc_standard_error": 0.0008224057866517918,
+      "conditional_student_t95_interval": [
+        -0.008331140579346353,
+        0.012568172023901966
+      ],
+      "mean_field_pairing": 0.0021185157222778058,
+      "halfwidth_to_abs_mean": 4.932536582918913,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0029454571352646244,
+        0.0013001721984823914
+      ],
+      "mean": 0.002122814666873508,
+      "conditional_mc_standard_error": 0.0008226424683911165,
+      "conditional_student_t95_interval": [
+        -0.008329848961387887,
+        0.012575478295134904
+      ],
+      "mean_field_pairing": 0.0021228146668735084,
+      "halfwidth_to_abs_mean": 4.923964296730684,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.002920540594607534,
+        0.0012137222660741978
+      ],
+      "mean": 0.002067131430340866,
+      "conditional_mc_standard_error": 0.000853409164266668,
+      "conditional_student_t95_interval": [
+        -0.008776460134778827,
+        0.01291072299546056
+      ],
+      "mean_field_pairing": 0.002067131430340866,
+      "halfwidth_to_abs_mean": 5.245719457389125,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.0006128695462565326,
+        0.00031685145672276344
+      ],
+      "mean": 0.000464860501489648,
+      "conditional_mc_standard_error": 0.00014800904476688456,
+      "conditional_student_t95_interval": [
+        -0.0014157727241621305,
+        0.0023454937271414266
+      ],
+      "mean_field_pairing": 0.0004648605014896481,
+      "halfwidth_to_abs_mean": 4.0455861911805355,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0006129276662099287,
+        0.00031693680114313976
+      ],
+      "mean": 0.0004649322336765342,
+      "conditional_mc_standard_error": 0.00014799543253339443,
+      "conditional_student_t95_interval": [
+        -0.0014155280321495986,
+        0.002345392499502667
+      ],
+      "mean_field_pairing": 0.00046493223367653416,
+      "halfwidth_to_abs_mean": 4.044590006066174,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.0006029145506796355,
+        0.00031317176135146397
+      ],
+      "mean": 0.00045804315601554975,
+      "conditional_mc_standard_error": 0.00014487139466408578,
+      "conditional_student_t95_interval": [
+        -0.0013827224450387804,
+        0.0022988087570698797
+      ],
+      "mean_field_pairing": 0.0004580431560155496,
+      "halfwidth_to_abs_mean": 4.0187601907795765,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.0031626104483127924,
+        0.0013840919473204838
+      ],
+      "mean": 0.002273351197816638,
+      "conditional_mc_standard_error": 0.0008892592504961543,
+      "conditional_student_t95_interval": [
+        -0.009025758902753653,
+        0.013572461298386929
+      ],
+      "mean_field_pairing": 0.002273351197816638,
+      "halfwidth_to_abs_mean": 4.970243977886978,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0031675904945683334,
+        0.0013880817785913559
+      ],
+      "mean": 0.0022778361365798448,
+      "conditional_mc_standard_error": 0.0008897543579884888,
+      "conditional_student_t95_interval": [
+        -0.009027564901154589,
+        0.013583237174314278
+      ],
+      "mean_field_pairing": 0.002277836136579845,
+      "halfwidth_to_abs_mean": 4.963219634714117,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.003145734023169893,
+        0.0012989503117825344
+      ],
+      "mean": 0.002222342167476214,
+      "conditional_mc_standard_error": 0.0009233918556936792,
+      "conditional_student_t95_interval": [
+        -0.009510463802921634,
+        0.013955148137874062
+      ],
+      "mean_field_pairing": 0.002222342167476214,
+      "halfwidth_to_abs_mean": 5.279477724945535,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        3.62414336279711e-05,
+        -1.4489859193209434e-05
+      ],
+      "mean": 1.0875787217380834e-05,
+      "conditional_mc_standard_error": 2.536564641059027e-05,
+      "conditional_student_t95_interval": [
+        -0.000311425309347523,
+        0.0003331768837822847
+      ],
+      "mean_field_pairing": 1.0875787217380943e-05,
+      "halfwidth_to_abs_mean": 29.634737249164584,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        3.6250243172525126e-05,
+        -1.449170004327535e-05
+      ],
+      "mean": 1.0879271564624888e-05,
+      "conditional_mc_standard_error": 2.5370971607900238e-05,
+      "conditional_student_t95_interval": [
+        -0.0003114894880475613,
+        0.0003332480311768111
+      ],
+      "mean_field_pairing": 1.087927156462478e-05,
+      "halfwidth_to_abs_mean": 29.631465461382785,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        3.560950412411878e-05,
+        -1.4417486770633588e-05
+      ],
+      "mean": 1.0596008676742598e-05,
+      "conditional_mc_standard_error": 2.5013495447376182e-05,
+      "conditional_student_t95_interval": [
+        -0.00030723058565143135,
+        0.0003284226030049165
+      ],
+      "mean_field_pairing": 1.0596008676742408e-05,
+      "halfwidth_to_abs_mean": 29.994935265179443,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.00022168893938319476,
+        8.798201169446995e-05
+      ],
+      "mean": 0.00015483547553883236,
+      "conditional_mc_standard_error": 6.68534638443624e-05,
+      "conditional_student_t95_interval": [
+        -0.0006946183234072971,
+        0.001004289274484962
+      ],
+      "mean_field_pairing": 0.00015483547553883214,
+      "halfwidth_to_abs_mean": 5.486170375296768,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.00022213335930370897,
+        8.79095801089645e-05
+      ],
+      "mean": 0.00015502146970633674,
+      "conditional_mc_standard_error": 6.711188959737222e-05,
+      "conditional_student_t95_interval": [
+        -0.0006977159397667021,
+        0.0010077588791793757
+      ],
+      "mean_field_pairing": 0.00015502146970633674,
+      "halfwidth_to_abs_mean": 5.500769739110415,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.00022519342856235905,
+        8.522804570833655e-05
+      ],
+      "mean": 0.0001552107371353478,
+      "conditional_mc_standard_error": 6.998269142701125e-05,
+      "conditional_student_t95_interval": [
+        -0.0007340036681428083,
+        0.001044425142413504
+      ],
+      "mean_field_pairing": 0.0001552107371353478,
+      "halfwidth_to_abs_mean": 5.729077908461565,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.13552118068042163,
+        0.07321640751459345
+      ],
+      "mean": 0.10436879409750754,
+      "conditional_mc_standard_error": 0.031152386582914086,
+      "conditional_student_t95_interval": [
+        -0.2914598078534791,
+        0.5001973960484942
+      ],
+      "mean_field_pairing": 0.1043687940975076,
+      "halfwidth_to_abs_mean": 3.7925953382308895,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.13553337618092376,
+        0.07323590546511918
+      ],
+      "mean": 0.10438464082302147,
+      "conditional_mc_standard_error": 0.031148735357902288,
+      "conditional_student_t95_interval": [
+        -0.2913975679154265,
+        0.5001668495614694
+      ],
+      "mean_field_pairing": 0.10438464082302149,
+      "halfwidth_to_abs_mean": 3.7915751361301835,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.13321166898664988,
+        0.07235604148342872
+      ],
+      "mean": 0.1027838552350393,
+      "conditional_mc_standard_error": 0.030427813751610577,
+      "conditional_student_t95_interval": [
+        -0.28383817597494865,
+        0.48940588644502725
+      ],
+      "mean_field_pairing": 0.10278385523503933,
+      "halfwidth_to_abs_mean": 3.7615054458298567,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.768005802366849,
+        0.3193316868879165
+      ],
+      "mean": 0.5436687446273828,
+      "conditional_mc_standard_error": 0.22433705773946622,
+      "conditional_student_t95_interval": [
+        -2.306803840979063,
+        3.3941413302338286
+      ],
+      "mean_field_pairing": 0.5436687446273827,
+      "halfwidth_to_abs_mean": 5.243031926656167,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.7690595630718899,
+        0.32025725257480075
+      ],
+      "mean": 0.5446584078233454,
+      "conditional_mc_standard_error": 0.22440115524854456,
+      "conditional_student_t95_interval": [
+        -2.3066286138565455,
+        3.3959454295032363
+      ],
+      "mean_field_pairing": 0.5446584078233454,
+      "halfwidth_to_abs_mean": 5.235000471349886,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.7652051146162098,
+        0.300319036346361
+      ],
+      "mean": 0.5327620754812854,
+      "conditional_mc_standard_error": 0.23244303913492437,
+      "conditional_student_t95_interval": [
+        -2.4207067693255615,
+        3.486230920288132
+      ],
+      "mean_field_pairing": 0.5327620754812854,
+      "halfwidth_to_abs_mean": 5.543691979461468,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.0006017283042493014,
+        0.00032989030673823074
+      ],
+      "mean": 0.00046580930549376605,
+      "conditional_mc_standard_error": 0.0001359189987555353,
+      "conditional_student_t95_interval": [
+        -0.0012612053202649244,
+        0.0021928239312524567
+      ],
+      "mean_field_pairing": 0.00046580930549376594,
+      "halfwidth_to_abs_mean": 3.707557159958462,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0006017827993244793,
+        0.0003299781012969902
+      ],
+      "mean": 0.0004658804503107347,
+      "conditional_mc_standard_error": 0.00013590234901374453,
+      "conditional_student_t95_interval": [
+        -0.0012609226204199537,
+        0.002192683521041423
+      ],
+      "mean_field_pairing": 0.0004658804503107348,
+      "halfwidth_to_abs_mean": 3.7065368799633873,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.0005914121483697929,
+        0.0003260328261431929
+      ],
+      "mean": 0.0004587224872564929,
+      "conditional_mc_standard_error": 0.00013268966111330003,
+      "conditional_student_t95_interval": [
+        -0.0012272595132568895,
+        0.0021447044877698756
+      ],
+      "mean_field_pairing": 0.000458722487256493,
+      "halfwidth_to_abs_mean": 3.675385548671984,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.0034212465155007746,
+        0.0014260242418042926
+      ],
+      "mean": 0.0024236353786525337,
+      "conditional_mc_standard_error": 0.0009976111368482409,
+      "conditional_student_t95_interval": [
+        -0.010252215973485992,
+        0.015099486730791058
+      ],
+      "mean_field_pairing": 0.0024236353786525337,
+      "halfwidth_to_abs_mean": 5.230098332359675,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.003425929137762334,
+        0.001430188459421688
+      ],
+      "mean": 0.002428058798592011,
+      "conditional_mc_standard_error": 0.0009978703391703228,
+      "conditional_student_t95_interval": [
+        -0.010251086031319046,
+        0.015107203628503067
+      ],
+      "mean_field_pairing": 0.0024280587985920114,
+      "halfwidth_to_abs_mean": 5.221926601309439,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.00340833096270469,
+        0.0013407480814241683
+      ],
+      "mean": 0.002374539522064429,
+      "conditional_mc_standard_error": 0.0010337914406402609,
+      "conditional_student_t95_interval": [
+        -0.010761026177481814,
+        0.01551010522161067
+      ],
+      "mean_field_pairing": 0.002374539522064429,
+      "halfwidth_to_abs_mean": 5.531837047768384,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.000606616379452337,
+        0.00033543690629246706
+      ],
+      "mean": 0.00047102664287240205,
+      "conditional_mc_standard_error": 0.00013558973657993494,
+      "conditional_student_t95_interval": [
+        -0.0012518043102711473,
+        0.0021938575960159514
+      ],
+      "mean_field_pairing": 0.00047102664287240195,
+      "halfwidth_to_abs_mean": 3.657608288646749,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.0006066710715701343,
+        0.0003355251673466979
+      ],
+      "mean": 0.0004710981194584161,
+      "conditional_mc_standard_error": 0.0001355729521117182,
+      "conditional_student_t95_interval": [
+        -0.0012515195667955792,
+        0.0021937158057124114
+      ],
+      "mean_field_pairing": 0.00047109811945841607,
+      "halfwidth_to_abs_mean": 3.6566006424189323,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.0005961954837813555,
+        0.0003315765208184005
+      ],
+      "mean": 0.000463886002299878,
+      "conditional_mc_standard_error": 0.0001323094814814775,
+      "conditional_student_t95_interval": [
+        -0.001217265357974946,
+        0.002145037362574702
+      ],
+      "mean_field_pairing": 0.000463886002299878,
+      "halfwidth_to_abs_mean": 3.6240614115104246,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.003441696518588255,
+        0.0014508958861945147
+      ],
+      "mean": 0.0024462962023913846,
+      "conditional_mc_standard_error": 0.00099540031619687,
+      "conditional_student_t95_interval": [
+        -0.010201464009915288,
+        0.015094056414698059
+      ],
+      "mean_field_pairing": 0.0024462962023913846,
+      "halfwidth_to_abs_mean": 5.17016712855247,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.003446392537028514,
+        0.001455081580550361
+      ],
+      "mean": 0.0024507370587894374,
+      "conditional_mc_standard_error": 0.0009956554782390766,
+      "conditional_student_t95_interval": [
+        -0.010200265294666482,
+        0.015101739412245355
+      ],
+      "mean_field_pairing": 0.0024507370587894374,
+      "halfwidth_to_abs_mean": 5.162121455699939,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.003428764601074772,
+        0.001365396280457424
+      ],
+      "mean": 0.002397080440766098,
+      "conditional_mc_standard_error": 0.001031684160308674,
+      "conditional_student_t95_interval": [
+        -0.010711709723449946,
+        0.015505870604982142
+      ],
+      "mean_field_pairing": 0.002397080440766098,
+      "halfwidth_to_abs_mean": 5.46864841966944,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        4.8880752030356234e-06,
+        5.546599554236327e-06
+      ],
+      "mean": 5.217337378635975e-06,
+      "conditional_mc_standard_error": 3.292621756003516e-07,
+      "conditional_student_t95_interval": [
+        1.0336647634948512e-06,
+        9.401009993777099e-06
+      ],
+      "mean_field_pairing": 5.217337378636002e-06,
+      "halfwidth_to_abs_mean": 0.8018788725974448,
+      "excludes_zero": true,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        4.8882722456550405e-06,
+        5.547066049707702e-06
+      ],
+      "mean": 5.217669147681371e-06,
+      "conditional_mc_standard_error": 3.293969020263306e-07,
+      "conditional_student_t95_interval": [
+        1.0322846709883502e-06,
+        9.403053624374392e-06
+      ],
+      "mean_field_pairing": 5.21766914768129e-06,
+      "halfwidth_to_abs_mean": 0.802155973908948,
+      "excludes_zero": true,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        4.7833354115625224e-06,
+        5.5436946752076e-06
+      ],
+      "mean": 5.163515043385061e-06,
+      "conditional_mc_standard_error": 3.8017963182253897e-07,
+      "conditional_student_t95_interval": [
+        3.3287480482650627e-07,
+        9.994155281943617e-06
+      ],
+      "mean_field_pairing": 5.16351504338498e-06,
+      "halfwidth_to_abs_mean": 0.9355332942715158,
+      "excludes_zero": true,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        2.045000308748034e-05,
+        2.487164439022205e-05
+      ],
+      "mean": 2.2660823738851195e-05,
+      "conditional_mc_standard_error": 2.2108206513708544e-06,
+      "conditional_student_t95_interval": [
+        -5.4303160929990456e-06,
+        5.0751963570701435e-05
+      ],
+      "mean_field_pairing": 2.266082373885087e-05,
+      "halfwidth_to_abs_mean": 1.2396345408966294,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        2.0463399266180092e-05,
+        2.489312112867307e-05
+      ],
+      "mean": 2.267826019742658e-05,
+      "conditional_mc_standard_error": 2.214860931246489e-06,
+      "conditional_student_t95_interval": [
+        -5.464216257715959e-06,
+        5.082073665256912e-05
+      ],
+      "mean_field_pairing": 2.267826019742604e-05,
+      "halfwidth_to_abs_mean": 1.2409451258671076,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        2.043363837008188e-05,
+        2.464819903325575e-05
+      ],
+      "mean": 2.2540918701668814e-05,
+      "conditional_mc_standard_error": 2.1072803315869354e-06,
+      "conditional_student_t95_interval": [
+        -4.2346166285313e-06,
+        4.931645403186893e-05
+      ],
+      "mean_field_pairing": 2.2540918701668706e-05,
+      "halfwidth_to_abs_mean": 1.187863533184998,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.00034462795410907464,
+        5.8676004432502344e-05
+      ],
+      "mean": 0.0002016519792707885,
+      "conditional_mc_standard_error": 0.00014297597483828615,
+      "conditional_student_t95_interval": [
+        -0.001615030029415439,
+        0.002018333987957016
+      ],
+      "mean_field_pairing": 0.00020165197927078833,
+      "halfwidth_to_abs_mean": 9.008996664727475,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.000347697979515615,
+        5.8987944884487747e-05
+      ],
+      "mean": 0.00020334296220005137,
+      "conditional_mc_standard_error": 0.00014435501731556362,
+      "conditional_student_t95_interval": [
+        -0.0016308614425427003,
+        0.002037547366942803
+      ],
+      "mean_field_pairing": 0.0002033429622000511,
+      "halfwidth_to_abs_mean": 9.020250245682162,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.00034843441804027796,
+        6.4848562235109e-05
+      ],
+      "mean": 0.00020664149013769348,
+      "conditional_mc_standard_error": 0.00014179292790258448,
+      "conditional_student_t95_interval": [
+        -0.0015950084819707,
+        0.002008291462246087
+      ],
+      "mean_field_pairing": 0.00020664149013769348,
+      "halfwidth_to_abs_mean": 8.718723286925012,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -0.0026922809524674244,
+        -0.002023738832520972
+      ],
+      "mean": -0.0023580098924941982,
+      "conditional_mc_standard_error": 0.0003342710599732261,
+      "conditional_student_t95_interval": [
+        -0.0066053264179781815,
+        0.0018893066329897846
+      ],
+      "mean_field_pairing": -0.002358009892494197,
+      "halfwidth_to_abs_mean": 1.8012293073933463,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -0.0026854640863553138,
+        -0.0020220398204008273
+      ],
+      "mean": -0.0023537519533780703,
+      "conditional_mc_standard_error": 0.0003317121329772432,
+      "conditional_student_t95_interval": [
+        -0.006568554228545511,
+        0.0018610503217893707
+      ],
+      "mean_field_pairing": -0.0023537519533780695,
+      "halfwidth_to_abs_mean": 1.7906739361887383,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -0.0026928357627452543,
+        -0.0020243450818878284
+      ],
+      "mean": -0.0023585904223165414,
+      "conditional_mc_standard_error": 0.00033424534042871294,
+      "conditional_student_t95_interval": [
+        -0.006605580150002212,
+        0.0018883993053691295
+      ],
+      "mean_field_pairing": -0.002358590422316542,
+      "halfwidth_to_abs_mean": 1.8006474068161427,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        1.1800193959436712e-06,
+        3.2763609983251504e-07
+      ],
+      "mean": 7.538277478880931e-07,
+      "conditional_mc_standard_error": 4.261916480555781e-07,
+      "conditional_student_t95_interval": [
+        -4.661450589263494e-06,
+        6.16910608503968e-06
+      ],
+      "mean_field_pairing": 7.53827747888094e-07,
+      "halfwidth_to_abs_mean": 7.183707885949952,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        1.1920267027416628e-06,
+        3.2893618899655154e-07
+      ],
+      "mean": 7.604814458691071e-07,
+      "conditional_mc_standard_error": 4.3154525687255555e-07,
+      "conditional_student_t95_interval": [
+        -4.722820940989763e-06,
+        6.243783832727978e-06
+      ],
+      "mean_field_pairing": 7.604814458691076e-07,
+      "halfwidth_to_abs_mean": 7.210303968155785,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        1.1956326078043288e-06,
+        3.520731829739095e-07
+      ],
+      "mean": 7.738528953891191e-07,
+      "conditional_mc_standard_error": 4.217797124152096e-07,
+      "conditional_student_t95_interval": [
+        -4.585366484231984e-06,
+        6.133072275010223e-06
+      ],
+      "mean_field_pairing": 7.738528953891196e-07,
+      "halfwidth_to_abs_mean": 6.925372265908897,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -1.2070648554403929e-05,
+        -7.668833530618349e-06
+      ],
+      "mean": -9.869741042511139e-06,
+      "conditional_mc_standard_error": 2.20090751189279e-06,
+      "conditional_student_t95_interval": [
+        -3.7834922494572285e-05,
+        1.8095440409550004e-05
+      ],
+      "mean_field_pairing": -9.869741042511137e-06,
+      "halfwidth_to_abs_mean": 2.8334260576451777,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -1.2043315034452308e-05,
+        -7.66182973420742e-06
+      ],
+      "mean": -9.852572384329864e-06,
+      "conditional_mc_standard_error": 2.1907426501224437e-06,
+      "conditional_student_t95_interval": [
+        -3.768859702161946e-05,
+        1.798345225295973e-05
+      ],
+      "mean_field_pairing": -9.852572384329871e-06,
+      "halfwidth_to_abs_mean": 2.8252545174457913,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -1.2073380456294254e-05,
+        -7.671325700121292e-06
+      ],
+      "mean": -9.872353078207774e-06,
+      "conditional_mc_standard_error": 2.201027378086481e-06,
+      "conditional_student_t95_interval": [
+        -3.783905757466693e-05,
+        1.8094351418251388e-05
+      ],
+      "mean_field_pairing": -9.872353078207774e-06,
+      "halfwidth_to_abs_mean": 2.8328306610298255,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        1.4506401513076523e-06,
+        4.773614687657172e-07
+      ],
+      "mean": 9.640008100366848e-07,
+      "conditional_mc_standard_error": 4.866393412709674e-07,
+      "conditional_student_t95_interval": [
+        -5.219338292954677e-06,
+        7.1473399130280465e-06
+      ],
+      "mean_field_pairing": 9.640008100366835e-07,
+      "halfwidth_to_abs_mean": 6.414246791718004,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        1.4624127655207493e-06,
+        4.788979108593988e-07
+      ],
+      "mean": 9.70655338190074e-07,
+      "conditional_mc_standard_error": 4.917574273306752e-07,
+      "conditional_student_t95_interval": [
+        -5.2777152141346145e-06,
+        7.219025890514762e-06
+      ],
+      "mean_field_pairing": 9.70655338190074e-07,
+      "halfwidth_to_abs_mean": 6.4372700653721955,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        1.4667622305472732e-06,
+        5.021877863220792e-07
+      ],
+      "mean": 9.844750084346762e-07,
+      "conditional_mc_standard_error": 4.82287222112597e-07,
+      "conditional_student_t95_interval": [
+        -5.143565177493081e-06,
+        7.112515194362434e-06
+      ],
+      "mean_field_pairing": 9.844750084346757e-07,
+      "halfwidth_to_abs_mean": 6.224678263464905,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -1.1258657465586476e-05,
+        -7.382191677367251e-06
+      ],
+      "mean": -9.320424571476863e-06,
+      "conditional_mc_standard_error": 1.938232894109612e-06,
+      "conditional_student_t95_interval": [
+        -3.3948008550920904e-05,
+        1.5307159407967174e-05
+      ],
+      "mean_field_pairing": -9.320424571476858e-06,
+      "halfwidth_to_abs_mean": 2.6423242622242147,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -1.1231722155675792e-05,
+        -7.374931970010035e-06
+      ],
+      "mean": -9.303327062842913e-06,
+      "conditional_mc_standard_error": 1.9283950928328786e-06,
+      "conditional_student_t95_interval": [
+        -3.3805909925108445e-05,
+        1.519925579942262e-05
+      ],
+      "mean_field_pairing": -9.303327062842916e-06,
+      "halfwidth_to_abs_mean": 2.6337441107631046,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -1.12626400882964e-05,
+        -7.384655372485614e-06
+      ],
+      "mean": -9.323647730391007e-06,
+      "conditional_mc_standard_error": 1.938992357905393e-06,
+      "conditional_student_t95_interval": [
+        -3.396088161231415e-05,
+        1.5313586151532138e-05
+      ],
+      "mean_field_pairing": -9.323647730391007e-06,
+      "halfwidth_to_abs_mean": 2.6424458103041104,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        2.706207553639811e-07,
+        1.4972536893320218e-07
+      ],
+      "mean": 2.1017306214859163e-07,
+      "conditional_mc_standard_error": 6.044769321538945e-08,
+      "conditional_student_t95_interval": [
+        -5.57887703691184e-07,
+        9.782338279883674e-07
+      ],
+      "mean_field_pairing": 2.101730621485895e-07,
+      "halfwidth_to_abs_mean": 3.6544205902883946,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        2.7038606277908654e-07,
+        1.4996172186284726e-07
+      ],
+      "mean": 2.101738923209669e-07,
+      "conditional_mc_standard_error": 6.021217045811964e-08,
+      "conditional_student_t95_interval": [
+        -5.548942731448496e-07,
+        9.752420577867835e-07
+      ],
+      "mean_field_pairing": 2.1017389232096648e-07,
+      "halfwidth_to_abs_mean": 3.6401674680765925,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        2.711296227429444e-07,
+        1.501146033481697e-07
+      ],
+      "mean": 2.1062211304555704e-07,
+      "conditional_mc_standard_error": 6.050750969738733e-08,
+      "conditional_student_t95_interval": [
+        -5.581986932610968e-07,
+        9.79442919352211e-07
+      ],
+      "mean_field_pairing": 2.106221130455562e-07,
+      "halfwidth_to_abs_mean": 3.650237836804723,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        8.119910888174527e-07,
+        2.8664185325109786e-07
+      ],
+      "mean": 5.493164710342753e-07,
+      "conditional_mc_standard_error": 2.6267461778317744e-07,
+      "conditional_student_t95_interval": [
+        -2.7882810015828244e-06,
+        3.886913943651375e-06
+      ],
+      "mean_field_pairing": 5.493164710342787e-07,
+      "halfwidth_to_abs_mean": 6.075910060248032,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        8.115928787765155e-07,
+        2.868977641973846e-07
+      ],
+      "mean": 5.492453214869501e-07,
+      "conditional_mc_standard_error": 2.6234755728956546e-07,
+      "conditional_student_t95_interval": [
+        -2.7841964535371173e-06,
+        3.882687096511017e-06
+      ],
+      "mean_field_pairing": 5.492453214869552e-07,
+      "halfwidth_to_abs_mean": 6.069130941342518,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        8.107403679978532e-07,
+        2.8667032763567767e-07
+      ],
+      "mean": 5.487053478167654e-07,
+      "conditional_mc_standard_error": 2.620350201810878e-07,
+      "conditional_student_t95_interval": [
+        -2.780765266719252e-06,
+        3.878175962352783e-06
+      ],
+      "mean_field_pairing": 5.487053478167671e-07,
+      "halfwidth_to_abs_mean": 6.067866164934591,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        0.0003851267331625457,
+        -8.47919661525157e-06
+      ],
+      "mean": 0.00018832376827364707,
+      "conditional_mc_standard_error": 0.00019680296488889864,
+      "conditional_student_t95_interval": [
+        -0.002312294996341556,
+        0.0026889425328888504
+      ],
+      "mean_field_pairing": 0.00018832376827364696,
+      "halfwidth_to_abs_mean": 13.278296136160765,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        0.00038805346646110235,
+        -8.102351672109034e-06
+      ],
+      "mean": 0.00018997555739449666,
+      "conditional_mc_standard_error": 0.0001980779090666057,
+      "conditional_student_t95_interval": [
+        -0.0023268429089701743,
+        0.0027067940237591676
+      ],
+      "mean_field_pairing": 0.00018997555739449644,
+      "halfwidth_to_abs_mean": 13.248117288785382,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        0.0003890744618022372,
+        -2.3616365483714e-06
+      ],
+      "mean": 0.0001933564126269329,
+      "conditional_mc_standard_error": 0.00019571804917530426,
+      "conditional_student_t95_interval": [
+        -0.0022934771908095677,
+        0.002680190016063434
+      ],
+      "mean_field_pairing": 0.00019335641262693262,
+      "halfwidth_to_abs_mean": 12.86139709384589,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -0.0026020695964165744,
+        -0.0028535347742121983
+      ],
+      "mean": -0.0027278021853143863,
+      "conditional_mc_standard_error": 0.00012573258889781195,
+      "conditional_student_t95_interval": [
+        -0.004325386201891634,
+        -0.0011302181687371385
+      ],
+      "mean_field_pairing": -0.0027278021853143868,
+      "halfwidth_to_abs_mean": 0.5856671078196685,
+      "excludes_zero": true,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -0.0025955124572965005,
+        -0.002851986177508625
+      ],
+      "mean": -0.0027237493174025627,
+      "conditional_mc_standard_error": 0.00012823686010606222,
+      "conditional_student_t95_interval": [
+        -0.00435315311666739,
+        -0.001094345518137735
+      ],
+      "mean_field_pairing": -0.002723749317402562,
+      "halfwidth_to_abs_mean": 0.5982209114672378,
+      "excludes_zero": true,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "finite_raw",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -0.002602694016294975,
+        -0.0028542081995501524
+      ],
+      "mean": -0.002728451107922564,
+      "conditional_mc_standard_error": 0.00012575709162758876,
+      "conditional_student_t95_interval": [
+        -0.004326346461200958,
+        -0.0011305557546441706
+      ],
+      "mean_field_pairing": -0.0027284511079225648,
+      "halfwidth_to_abs_mean": 0.5856419228618785,
+      "excludes_zero": true,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        1.361520654115832e-06,
+        8.005651531697519e-08
+      ],
+      "mean": 7.207885847164036e-07,
+      "conditional_mc_standard_error": 6.407320693994283e-07,
+      "conditional_student_t95_interval": [
+        -7.42048427027055e-06,
+        8.862061439703357e-06
+      ],
+      "mean_field_pairing": 7.207885847164031e-07,
+      "halfwidth_to_abs_mean": 11.294952538947552,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        1.3729702285072023e-06,
+        8.163208743064195e-08
+      ],
+      "mean": 7.273011579689221e-07,
+      "conditional_mc_standard_error": 6.456690705382802e-07,
+      "conditional_student_t95_interval": [
+        -7.476702244272282e-06,
+        8.931304560210127e-06
+      ],
+      "mean_field_pairing": 7.273011579689211e-07,
+      "halfwidth_to_abs_mean": 11.280063715492895,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        1.3776368585881393e-06,
+        1.0428521377305144e-07
+      ],
+      "mean": 7.409610361805954e-07,
+      "conditional_mc_standard_error": 6.366758224075439e-07,
+      "conditional_student_t95_interval": [
+        -7.348772314065939e-06,
+        8.83069438642713e-06
+      ],
+      "mean_field_pairing": 7.409610361805941e-07,
+      "halfwidth_to_abs_mean": 10.917893054061771,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -1.152532764753763e-05,
+        -1.0833362343024864e-05
+      ],
+      "mean": -1.1179344995281247e-05,
+      "conditional_mc_standard_error": 3.459826522563832e-07,
+      "conditional_student_t95_interval": [
+        -1.5575471410104643e-05,
+        -6.783218580457852e-06
+      ],
+      "mean_field_pairing": -1.1179344995281254e-05,
+      "halfwidth_to_abs_mean": 0.3932364925386041,
+      "excludes_zero": true,
+      "passes_descriptive_R2_gate": true
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -1.1499010448441414e-05,
+        -1.0826900735674196e-05
+      ],
+      "mean": -1.1162955592057805e-05,
+      "conditional_mc_standard_error": 3.360548563836091e-07,
+      "conditional_student_t95_interval": [
+        -1.5432937399940227e-05,
+        -6.892973784175384e-06
+      ],
+      "mean_field_pairing": -1.1162955592057817e-05,
+      "halfwidth_to_abs_mean": 0.3825135532134894,
+      "excludes_zero": true,
+      "passes_descriptive_R2_gate": true
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "finite_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -1.1528431107870863e-05,
+        -1.0836120185120122e-05
+      ],
+      "mean": -1.1182275646495493e-05,
+      "conditional_mc_standard_error": 3.461554613753705e-07,
+      "conditional_student_t95_interval": [
+        -1.5580597809365063e-05,
+        -6.783953483625922e-06
+      ],
+      "mean_field_pairing": -1.118227564649551e-05,
+      "halfwidth_to_abs_mean": 0.3933297927822051,
+      "excludes_zero": true,
+      "passes_descriptive_R2_gate": true
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        1.3945631727941916e-06,
+        7.236726360213315e-08
+      ],
+      "mean": 7.334652181981624e-07,
+      "conditional_mc_standard_error": 6.610979545960291e-07,
+      "conditional_student_t95_interval": [
+        -7.666580743735474e-06,
+        9.133511180131799e-06
+      ],
+      "mean_field_pairing": 7.334652181981609e-07,
+      "halfwidth_to_abs_mean": 11.452548469263844,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        1.4059715293601738e-06,
+        7.404725202504458e-08
+      ],
+      "mean": 7.400093906926092e-07,
+      "conditional_mc_standard_error": 6.659621386675645e-07,
+      "conditional_student_t95_interval": [
+        -7.721841889929647e-06,
+        9.201860671314866e-06
+      ],
+      "mean_field_pairing": 7.4000939069261e-07,
+      "halfwidth_to_abs_mean": 11.43478905409892,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        1.4107622948326947e-06,
+        9.630777709489096e-08
+      ],
+      "mean": 7.535350359637928e-07,
+      "conditional_mc_standard_error": 6.572272588689018e-07,
+      "conditional_student_t95_interval": [
+        -7.5973290735885295e-06,
+        9.104399145516114e-06
+      ],
+      "mean_field_pairing": 7.535350359637924e-07,
+      "halfwidth_to_abs_mean": 11.08225060679671,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        -1.1322173802317754e-05,
+        -1.092473357249043e-05
+      ],
+      "mean": -1.1123453687404092e-05,
+      "conditional_mc_standard_error": 1.9872011491366163e-07,
+      "conditional_student_t95_interval": [
+        -1.364843215274439e-05,
+        -8.598475222063794e-06
+      ],
+      "mean_field_pairing": -1.1123453687404097e-05,
+      "halfwidth_to_abs_mean": 0.22699590759293736,
+      "excludes_zero": true,
+      "passes_descriptive_R2_gate": true
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        -1.1295915435817366e-05,
+        -1.0918175634839947e-05
+      ],
+      "mean": -1.1107045535328657e-05,
+      "conditional_mc_standard_error": 1.888699004887097e-07,
+      "conditional_student_t95_interval": [
+        -1.3506865159487758e-05,
+        -8.707225911169556e-06
+      ],
+      "mean_field_pairing": -1.1107045535328675e-05,
+      "halfwidth_to_abs_mean": 0.21606282395492957,
+      "excludes_zero": true,
+      "passes_descriptive_R2_gate": true
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "bootstrap_normalized",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        -1.1325409991314605e-05,
+        -1.0927637619772857e-05
+      ],
+      "mean": -1.112652380554373e-05,
+      "conditional_mc_standard_error": 1.9888618577087373e-07,
+      "conditional_student_t95_interval": [
+        -1.365361240119652e-05,
+        -8.599435209890941e-06
+      ],
+      "mean_field_pairing": -1.112652380554372e-05,
+      "halfwidth_to_abs_mean": 0.2271229217515071,
+      "excludes_zero": true,
+      "passes_descriptive_R2_gate": true
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        3.304251867835969e-08,
+        -7.689251714842042e-09
+      ],
+      "mean": 1.2676633481758823e-08,
+      "conditional_mc_standard_error": 2.0365885196600862e-08,
+      "conditional_student_t95_interval": [
+        -2.4609647346492334e-07,
+        2.71449740428441e-07
+      ],
+      "mean_field_pairing": 1.2676633481757765e-08,
+      "halfwidth_to_abs_mean": 20.413393454898458,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        3.300130085297149e-08,
+        -7.584835405597368e-09
+      ],
+      "mean": 1.2708232723687061e-08,
+      "conditional_mc_standard_error": 2.029306812928443e-08,
+      "conditional_student_t95_interval": [
+        -2.4513964565736593e-07,
+        2.7055611110474005e-07
+      ],
+      "mean_field_pairing": 1.2708232723688967e-08,
+      "halfwidth_to_abs_mean": 20.28982974953288,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        3.312543624455545e-08,
+        -7.977436678160478e-09
+      ],
+      "mean": 1.2573999783197487e-08,
+      "conditional_mc_standard_error": 2.0551436461357965e-08,
+      "conditional_student_t95_interval": [
+        -2.485567595225923e-07,
+        2.737047590889873e-07
+      ],
+      "mean_field_pairing": 1.2573999783198334e-08,
+      "halfwidth_to_abs_mean": 20.767517401641463,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "actual_endpoint_jvp",
+      "replica_values": [
+        2.031538452198764e-07,
+        -9.13712294655668e-08
+      ],
+      "mean": 5.58913078771548e-08,
+      "conditional_mc_standard_error": 1.472625373427216e-07,
+      "conditional_student_t95_interval": [
+        -1.8152566416059428e-06,
+        1.9270392573602524e-06
+      ],
+      "mean_field_pairing": 5.589130787715649e-08,
+      "halfwidth_to_abs_mean": 33.478335371856936,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "tangent_only_jvp",
+      "replica_values": [
+        2.0309501262404805e-07,
+        -9.127489916575077e-08
+      ],
+      "mean": 5.591005672914864e-08,
+      "conditional_mc_standard_error": 1.471849558948994e-07,
+      "conditional_student_t95_interval": [
+        -1.814252126994171e-06,
+        1.9260722404524682e-06
+      ],
+      "mean_field_pairing": 5.591005672914186e-08,
+      "halfwidth_to_abs_mean": 33.44947748458129,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "objective": "paired_estimated_tail_increment",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "motion": "finite_actual_logit_change",
+      "replica_values": [
+        2.0302111655625876e-07,
+        -9.151743465273484e-08
+      ],
+      "mean": 5.5751840951761964e-08,
+      "conditional_mc_standard_error": 1.4726927560449677e-07,
+      "conditional_student_t95_interval": [
+        -1.8154817262650186e-06,
+        1.9269854081685426e-06
+      ],
+      "mean_field_pairing": 5.575184095178907e-08,
+      "halfwidth_to_abs_mean": 33.56361934013666,
+      "excludes_zero": false,
+      "passes_descriptive_R2_gate": false
+    }
+  ],
+  "actual_motions": [
+    {
+      "capture": "Adam4M",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "joint_fisher_quadratic": 0.0052818083361659334,
+      "diagonal_fisher_quadratic": 0.0013723066731970539,
+      "cross_fisher_quadratic": 0.00390950166296888,
+      "finite_exact_beta_kl": 0.00532316840107176,
+      "finite_fisher_quadratic": 0.005342830548483064,
+      "finite_logit_linearization_relative_error": 0.019893314449608734,
+      "normal_retraction_component_logit_relative_norm": 0.00017756135976902156,
+      "parameter_delta_norm": 0.026714110900058863,
+      "finite_KL_over_JVP_fisher": 1.007830663718451,
+      "joint_over_diagonal": 3.848854224297355
+    },
+    {
+      "capture": "Adam4M",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "joint_fisher_quadratic": 0.016227343034433565,
+      "diagonal_fisher_quadratic": 0.013705464904057153,
+      "cross_fisher_quadratic": 0.0025218781303764128,
+      "finite_exact_beta_kl": 0.016306444129022123,
+      "finite_fisher_quadratic": 0.016402432914650864,
+      "finite_logit_linearization_relative_error": 0.06253386915817753,
+      "normal_retraction_component_logit_relative_norm": 0.006100699461411127,
+      "parameter_delta_norm": 0.22123446898078022,
+      "finite_KL_over_JVP_fisher": 1.004874556137792,
+      "joint_over_diagonal": 1.1840052962836654
+    },
+    {
+      "capture": "Adam8M",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "joint_fisher_quadratic": 2.9118028649947835e-06,
+      "diagonal_fisher_quadratic": 6.50692202004105e-07,
+      "cross_fisher_quadratic": 2.2611106629906785e-06,
+      "finite_exact_beta_kl": 2.910990534753102e-06,
+      "finite_fisher_quadratic": 2.910707978840197e-06,
+      "finite_logit_linearization_relative_error": 0.001050726594844113,
+      "normal_retraction_component_logit_relative_norm": 0.0004594572021946107,
+      "parameter_delta_norm": 0.00025382302049190784,
+      "finite_KL_over_JVP_fisher": 0.9997210215528506,
+      "joint_over_diagonal": 4.474931244029899
+    },
+    {
+      "capture": "Adam8M",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "joint_fisher_quadratic": 8.287213247887938e-05,
+      "diagonal_fisher_quadratic": 2.077260510578615e-05,
+      "cross_fisher_quadratic": 6.209952737309322e-05,
+      "finite_exact_beta_kl": 8.303893673714633e-05,
+      "finite_fisher_quadratic": 8.287735570075871e-05,
+      "finite_logit_linearization_relative_error": 0.0014286695567600307,
+      "normal_retraction_component_logit_relative_norm": 8.155742143887329e-05,
+      "parameter_delta_norm": 0.0022815078063112846,
+      "finite_KL_over_JVP_fisher": 1.00201279070874,
+      "joint_over_diagonal": 3.9894915470084955
+    },
+    {
+      "capture": "Anvil4M",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "joint_fisher_quadratic": 0.002183320685482148,
+      "diagonal_fisher_quadratic": 0.0005961698951139603,
+      "cross_fisher_quadratic": 0.0015871507903681876,
+      "finite_exact_beta_kl": 0.0021958092457244663,
+      "finite_fisher_quadratic": 0.0021884439882582135,
+      "finite_logit_linearization_relative_error": 0.010667722249425948,
+      "normal_retraction_component_logit_relative_norm": 0.0003554395751273624,
+      "parameter_delta_norm": 0.02241506894003191,
+      "finite_KL_over_JVP_fisher": 1.0057199843913727,
+      "joint_over_diagonal": 3.662245784928132
+    },
+    {
+      "capture": "Anvil4M",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "joint_fisher_quadratic": 0.012030652259470984,
+      "diagonal_fisher_quadratic": 0.012907421222094432,
+      "cross_fisher_quadratic": -0.000876768962623448,
+      "finite_exact_beta_kl": 0.011903608636429216,
+      "finite_fisher_quadratic": 0.011901265714856883,
+      "finite_logit_linearization_relative_error": 0.04006530006317209,
+      "normal_retraction_component_logit_relative_norm": 0.0076838268563957784,
+      "parameter_delta_norm": 0.19450832568175935,
+      "finite_KL_over_JVP_fisher": 0.9894400053877583,
+      "joint_over_diagonal": 0.9320724916668381
+    },
+    {
+      "capture": "Anvil8M",
+      "timing": "first_actual_retracted_update_at_snapshot",
+      "joint_fisher_quadratic": 2.2322108324623456e-07,
+      "diagonal_fisher_quadratic": 6.30165410318393e-08,
+      "cross_fisher_quadratic": 1.6020454221439527e-07,
+      "finite_exact_beta_kl": 2.2279285699277037e-07,
+      "finite_fisher_quadratic": 2.2279838775855753e-07,
+      "finite_logit_linearization_relative_error": 0.003954909212422287,
+      "normal_retraction_component_logit_relative_norm": 0.0016509584201758445,
+      "parameter_delta_norm": 0.00012280389382695933,
+      "finite_KL_over_JVP_fisher": 0.9980816048052602,
+      "joint_over_diagonal": 3.542261755265993
+    },
+    {
+      "capture": "Anvil8M",
+      "timing": "all_epochs_endpoint_delta_linearized_at_snapshot",
+      "joint_fisher_quadratic": 1.7511345854749352e-05,
+      "diagonal_fisher_quadratic": 4.8818028864114955e-06,
+      "cross_fisher_quadratic": 1.2629542968337857e-05,
+      "finite_exact_beta_kl": 1.7502272220643616e-05,
+      "finite_fisher_quadratic": 1.7507190337939024e-05,
+      "finite_logit_linearization_relative_error": 0.0006905490326533444,
+      "normal_retraction_component_logit_relative_norm": 0.0002503876997554479,
+      "parameter_delta_norm": 0.0011042102479931358,
+      "finite_KL_over_JVP_fisher": 0.9994818425619025,
+      "joint_over_diagonal": 3.5870653244710486
+    }
+  ],
+  "ranks": [
+    {
+      "capture": "Adam4M",
+      "configured_rank": 384,
+      "effective_rank": 33.85861787336074,
+      "condition_number": 107388.37220298857,
+      "threshold_sensitivity_FIRST_MOTION_ONLY": [
+        {
+          "label": "configured_arithmetic_fit",
+          "relative_singular_cutoff": 2.9447555505157652e-12,
+          "rank": 384,
+          "oracle_reachable_dual_energy_fraction": 1.0000000000001625,
+          "constrained_maximum_efficiency_vs_unconstrained": 1.0000000000000813,
+          "required_tangent_parameter_norm_at_full_budget": 46.59881645255865,
+          "unconstrained_target_projection_parameter_norm": 46.59881645256244,
+          "actual_retained_range_fisher_quadratic": 0.005281663855129263,
+          "actual_retained_range_motion_energy_fraction": 1.0000000000002247,
+          "actual_retained_range_oracle_gain": -0.0001265378255270384,
+          "actual_retained_range_model_bound_efficiency": -0.010521807097432667
+        },
+        {
+          "label": "fp32_sensitivity_1e-7",
+          "relative_singular_cutoff": 1e-07,
+          "rank": 384,
+          "oracle_reachable_dual_energy_fraction": 1.0000000000001625,
+          "constrained_maximum_efficiency_vs_unconstrained": 1.0000000000000813,
+          "required_tangent_parameter_norm_at_full_budget": 46.59881645255865,
+          "unconstrained_target_projection_parameter_norm": 46.59881645256244,
+          "actual_retained_range_fisher_quadratic": 0.005281663855129263,
+          "actual_retained_range_motion_energy_fraction": 1.0000000000002247,
+          "actual_retained_range_oracle_gain": -0.0001265378255270384,
+          "actual_retained_range_model_bound_efficiency": -0.010521807097432667
+        },
+        {
+          "label": "fp32_sensitivity_1e-6",
+          "relative_singular_cutoff": 1e-06,
+          "rank": 384,
+          "oracle_reachable_dual_energy_fraction": 1.0000000000001625,
+          "constrained_maximum_efficiency_vs_unconstrained": 1.0000000000000813,
+          "required_tangent_parameter_norm_at_full_budget": 46.59881645255865,
+          "unconstrained_target_projection_parameter_norm": 46.59881645256244,
+          "actual_retained_range_fisher_quadratic": 0.005281663855129263,
+          "actual_retained_range_motion_energy_fraction": 1.0000000000002247,
+          "actual_retained_range_oracle_gain": -0.0001265378255270384,
+          "actual_retained_range_model_bound_efficiency": -0.010521807097432667
+        },
+        {
+          "label": "fp32_sensitivity_1e-5",
+          "relative_singular_cutoff": 1e-05,
+          "rank": 383,
+          "oracle_reachable_dual_energy_fraction": 0.9978467824213871,
+          "constrained_maximum_efficiency_vs_unconstrained": 0.9989228110426687,
+          "required_tangent_parameter_norm_at_full_budget": 42.22063907261053,
+          "unconstrained_target_projection_parameter_norm": 42.175159466430046,
+          "actual_retained_range_fisher_quadratic": 0.00528166385512926,
+          "actual_retained_range_motion_energy_fraction": 1.000000000000224,
+          "actual_retained_range_oracle_gain": -0.00012653783979865257,
+          "actual_retained_range_model_bound_efficiency": -0.010533154481833019
+        },
+        {
+          "label": "fp32_sensitivity_1e-4",
+          "relative_singular_cutoff": 0.0001,
+          "rank": 373,
+          "oracle_reachable_dual_energy_fraction": 0.97845312457761,
+          "constrained_maximum_efficiency_vs_unconstrained": 0.9891678950398713,
+          "required_tangent_parameter_norm_at_full_budget": 5.0998141925964635,
+          "unconstrained_target_projection_parameter_norm": 5.044572469985105,
+          "actual_retained_range_fisher_quadratic": 0.005281663855024166,
+          "actual_retained_range_motion_energy_fraction": 0.9999999999803261,
+          "actual_retained_range_oracle_gain": -0.00012654049174780433,
+          "actual_retained_range_model_bound_efficiency": -0.010637252634760211
+        }
+      ]
+    },
+    {
+      "capture": "Adam8M",
+      "configured_rank": 384,
+      "effective_rank": 34.51747512578136,
+      "condition_number": 4258793.111425369,
+      "threshold_sensitivity_FIRST_MOTION_ONLY": [
+        {
+          "label": "configured_arithmetic_fit",
+          "relative_singular_cutoff": 2.9447555505157652e-12,
+          "rank": 384,
+          "oracle_reachable_dual_energy_fraction": 1.000000000000188,
+          "constrained_maximum_efficiency_vs_unconstrained": 1.000000000000094,
+          "required_tangent_parameter_norm_at_full_budget": 8.412432278702681,
+          "unconstrained_target_projection_parameter_norm": 8.412432278703474,
+          "actual_retained_range_fisher_quadratic": 2.9122804243748538e-06,
+          "actual_retained_range_motion_energy_fraction": 1.0000000000002394,
+          "actual_retained_range_oracle_gain": 3.924908115372337e-06,
+          "actual_retained_range_model_bound_efficiency": 0.01871368075600371
+        },
+        {
+          "label": "fp32_sensitivity_1e-7",
+          "relative_singular_cutoff": 1e-07,
+          "rank": 384,
+          "oracle_reachable_dual_energy_fraction": 1.000000000000188,
+          "constrained_maximum_efficiency_vs_unconstrained": 1.000000000000094,
+          "required_tangent_parameter_norm_at_full_budget": 8.412432278702681,
+          "unconstrained_target_projection_parameter_norm": 8.412432278703474,
+          "actual_retained_range_fisher_quadratic": 2.9122804243748538e-06,
+          "actual_retained_range_motion_energy_fraction": 1.0000000000002394,
+          "actual_retained_range_oracle_gain": 3.924908115372337e-06,
+          "actual_retained_range_model_bound_efficiency": 0.01871368075600371
+        },
+        {
+          "label": "fp32_sensitivity_1e-6",
+          "relative_singular_cutoff": 1e-06,
+          "rank": 382,
+          "oracle_reachable_dual_energy_fraction": 0.9982094311753117,
+          "constrained_maximum_efficiency_vs_unconstrained": 0.9991043144613638,
+          "required_tangent_parameter_norm_at_full_budget": 3.00819854189188,
+          "unconstrained_target_projection_parameter_norm": 3.005504141960561,
+          "actual_retained_range_fisher_quadratic": 2.912280424374853e-06,
+          "actual_retained_range_motion_energy_fraction": 1.0000000000002391,
+          "actual_retained_range_oracle_gain": 3.924908246846338e-06,
+          "actual_retained_range_model_bound_efficiency": 0.018730457983211688
+        },
+        {
+          "label": "fp32_sensitivity_1e-5",
+          "relative_singular_cutoff": 1e-05,
+          "rank": 372,
+          "oracle_reachable_dual_energy_fraction": 0.9501193565382551,
+          "constrained_maximum_efficiency_vs_unconstrained": 0.9747406611700647,
+          "required_tangent_parameter_norm_at_full_budget": 0.5435339833963685,
+          "unconstrained_target_projection_parameter_norm": 0.5298046743441752,
+          "actual_retained_range_fisher_quadratic": 2.9122804243740775e-06,
+          "actual_retained_range_motion_energy_fraction": 0.9999999999999728,
+          "actual_retained_range_oracle_gain": 3.9249230699685805e-06,
+          "actual_retained_range_model_bound_efficiency": 0.019198698488670767
+        },
+        {
+          "label": "fp32_sensitivity_1e-4",
+          "relative_singular_cutoff": 0.0001,
+          "rank": 353,
+          "oracle_reachable_dual_energy_fraction": 0.9287823045846705,
+          "constrained_maximum_efficiency_vs_unconstrained": 0.9637335236384954,
+          "required_tangent_parameter_norm_at_full_budget": 0.23767765254667866,
+          "unconstrained_target_projection_parameter_norm": 0.22905792157893667,
+          "actual_retained_range_fisher_quadratic": 2.9122804243138433e-06,
+          "actual_retained_range_motion_energy_fraction": 0.99999999997929,
+          "actual_retained_range_oracle_gain": 3.924917553005897e-06,
+          "actual_retained_range_model_bound_efficiency": 0.019417946242556952
+        }
+      ]
+    },
+    {
+      "capture": "Anvil4M",
+      "configured_rank": 384,
+      "effective_rank": 48.368301055639684,
+      "condition_number": 152600.8179715256,
+      "threshold_sensitivity_FIRST_MOTION_ONLY": [
+        {
+          "label": "configured_arithmetic_fit",
+          "relative_singular_cutoff": 2.9447555505157652e-12,
+          "rank": 384,
+          "oracle_reachable_dual_energy_fraction": 1.000000000000164,
+          "constrained_maximum_efficiency_vs_unconstrained": 1.000000000000082,
+          "required_tangent_parameter_norm_at_full_budget": 26.370865523921232,
+          "unconstrained_target_projection_parameter_norm": 26.3708655239234,
+          "actual_retained_range_fisher_quadratic": 0.002183356552282393,
+          "actual_retained_range_motion_energy_fraction": 1.000000000000197,
+          "actual_retained_range_oracle_gain": 0.00045405296211199807,
+          "actual_retained_range_model_bound_efficiency": 0.06732711688580027
+        },
+        {
+          "label": "fp32_sensitivity_1e-7",
+          "relative_singular_cutoff": 1e-07,
+          "rank": 384,
+          "oracle_reachable_dual_energy_fraction": 1.000000000000164,
+          "constrained_maximum_efficiency_vs_unconstrained": 1.000000000000082,
+          "required_tangent_parameter_norm_at_full_budget": 26.370865523921232,
+          "unconstrained_target_projection_parameter_norm": 26.3708655239234,
+          "actual_retained_range_fisher_quadratic": 0.002183356552282393,
+          "actual_retained_range_motion_energy_fraction": 1.000000000000197,
+          "actual_retained_range_oracle_gain": 0.00045405296211199807,
+          "actual_retained_range_model_bound_efficiency": 0.06732711688580027
+        },
+        {
+          "label": "fp32_sensitivity_1e-6",
+          "relative_singular_cutoff": 1e-06,
+          "rank": 384,
+          "oracle_reachable_dual_energy_fraction": 1.000000000000164,
+          "constrained_maximum_efficiency_vs_unconstrained": 1.000000000000082,
+          "required_tangent_parameter_norm_at_full_budget": 26.370865523921232,
+          "unconstrained_target_projection_parameter_norm": 26.3708655239234,
+          "actual_retained_range_fisher_quadratic": 0.002183356552282393,
+          "actual_retained_range_motion_energy_fraction": 1.000000000000197,
+          "actual_retained_range_oracle_gain": 0.00045405296211199807,
+          "actual_retained_range_model_bound_efficiency": 0.06732711688580027
+        },
+        {
+          "label": "fp32_sensitivity_1e-5",
+          "relative_singular_cutoff": 1e-05,
+          "rank": 383,
+          "oracle_reachable_dual_energy_fraction": 0.9967084905998265,
+          "constrained_maximum_efficiency_vs_unconstrained": 0.9983528888122809,
+          "required_tangent_parameter_norm_at_full_budget": 4.128318859733009,
+          "unconstrained_target_projection_parameter_norm": 4.121519059552672,
+          "actual_retained_range_fisher_quadratic": 0.0021833565522819264,
+          "actual_retained_range_motion_energy_fraction": 0.9999999999999831,
+          "actual_retained_range_oracle_gain": 0.00045405314100350883,
+          "actual_retained_range_model_bound_efficiency": 0.06743822166128098
+        },
+        {
+          "label": "fp32_sensitivity_1e-4",
+          "relative_singular_cutoff": 0.0001,
+          "rank": 378,
+          "oracle_reachable_dual_energy_fraction": 0.9910400188745125,
+          "constrained_maximum_efficiency_vs_unconstrained": 0.9955099290687726,
+          "required_tangent_parameter_norm_at_full_budget": 2.4424727759715843,
+          "unconstrained_target_projection_parameter_norm": 2.43150589995988,
+          "actual_retained_range_fisher_quadratic": 0.0021833565520727087,
+          "actual_retained_range_motion_energy_fraction": 0.9999999999041592,
+          "actual_retained_range_oracle_gain": 0.0004540522851570202,
+          "actual_retained_range_model_bound_efficiency": 0.06763068307407039
+        }
+      ]
+    },
+    {
+      "capture": "Anvil8M",
+      "configured_rank": 384,
+      "effective_rank": 31.62980065935639,
+      "condition_number": 11775699.151589734,
+      "threshold_sensitivity_FIRST_MOTION_ONLY": [
+        {
+          "label": "configured_arithmetic_fit",
+          "relative_singular_cutoff": 2.9447555505157652e-12,
+          "rank": 384,
+          "oracle_reachable_dual_energy_fraction": 1.0000000000001978,
+          "constrained_maximum_efficiency_vs_unconstrained": 1.0000000000000988,
+          "required_tangent_parameter_norm_at_full_budget": 3.902530687184847,
+          "unconstrained_target_projection_parameter_norm": 3.9025306871852328,
+          "actual_retained_range_fisher_quadratic": 2.231587385483502e-07,
+          "actual_retained_range_motion_energy_fraction": 1.0000000000002296,
+          "actual_retained_range_oracle_gain": 7.604814458695226e-07,
+          "actual_retained_range_model_bound_efficiency": 0.007608429089666127
+        },
+        {
+          "label": "fp32_sensitivity_1e-7",
+          "relative_singular_cutoff": 1e-07,
+          "rank": 383,
+          "oracle_reachable_dual_energy_fraction": 0.9999453074822173,
+          "constrained_maximum_efficiency_vs_unconstrained": 0.9999726533671895,
+          "required_tangent_parameter_norm_at_full_budget": 3.5592046060643066,
+          "unconstrained_target_projection_parameter_norm": 3.559107273802847,
+          "actual_retained_range_fisher_quadratic": 2.231587385483502e-07,
+          "actual_retained_range_motion_energy_fraction": 1.0000000000002296,
+          "actual_retained_range_oracle_gain": 7.604814411779664e-07,
+          "actual_retained_range_model_bound_efficiency": 0.007608637113334344
+        },
+        {
+          "label": "fp32_sensitivity_1e-6",
+          "relative_singular_cutoff": 1e-06,
+          "rank": 377,
+          "oracle_reachable_dual_energy_fraction": 0.9957329226636203,
+          "constrained_maximum_efficiency_vs_unconstrained": 0.9978641804692763,
+          "required_tangent_parameter_norm_at_full_budget": 0.6399087117907186,
+          "unconstrained_target_projection_parameter_norm": 0.6385419822661956,
+          "actual_retained_range_fisher_quadratic": 2.231587385483403e-07,
+          "actual_retained_range_motion_energy_fraction": 1.0000000000001852,
+          "actual_retained_range_oracle_gain": 7.604812802298539e-07,
+          "actual_retained_range_model_bound_efficiency": 0.0076247124422333355
+        },
+        {
+          "label": "fp32_sensitivity_1e-5",
+          "relative_singular_cutoff": 1e-05,
+          "rank": 368,
+          "oracle_reachable_dual_energy_fraction": 0.9889698459740636,
+          "constrained_maximum_efficiency_vs_unconstrained": 0.994469630493593,
+          "required_tangent_parameter_norm_at_full_budget": 0.06360606906786552,
+          "unconstrained_target_projection_parameter_norm": 0.0632543040030702,
+          "actual_retained_range_fisher_quadratic": 2.2315873854817232e-07,
+          "actual_retained_range_motion_energy_fraction": 0.9999999999994326,
+          "actual_retained_range_oracle_gain": 7.604865002730812e-07,
+          "actual_retained_range_model_bound_efficiency": 0.0076507913609720965
+        },
+        {
+          "label": "fp32_sensitivity_1e-4",
+          "relative_singular_cutoff": 0.0001,
+          "rank": 354,
+          "oracle_reachable_dual_energy_fraction": 0.9831474941903869,
+          "constrained_maximum_efficiency_vs_unconstrained": 0.9915379438984606,
+          "required_tangent_parameter_norm_at_full_budget": 0.014729756002151782,
+          "unconstrained_target_projection_parameter_norm": 0.014605111980499588,
+          "actual_retained_range_fisher_quadratic": 2.2315873851857445e-07,
+          "actual_retained_range_motion_energy_fraction": 0.9999999998668011,
+          "actual_retained_range_oracle_gain": 7.605191337645608e-07,
+          "actual_retained_range_model_bound_efficiency": 0.007673741781724223
+        }
+      ]
+    }
+  ],
+  "fitted_cross_replica": [
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "fit_replicate": 0,
+      "evaluation_replicate": 1,
+      "target_fisher_quadratic": 0.005281663855128078,
+      "fit_replica_first_order_gain": 0.016376700437903256,
+      "held_replica_first_order_gain": 0.0008026688090724007,
+      "held_replica_unconstrained_cauchy_bound": 0.016853361202596527,
+      "held_replica_efficiency": 0.0476266306420073,
+      "fit_model_reachable_dual_fraction": 1.000000000000327,
+      "required_parameter_delta_norm": 33.37567323624884,
+      "finite_retracted_exact_beta_kl": 20.34551894181076,
+      "finite_retracted_fisher_quadratic": 4.810278225368213,
+      "finite_retraction_relative_error": 30.280016247501532,
+      "finite_held_replica_gain": -0.022045729378415882,
+      "finite_KL_to_target": 3852.104090656369
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 256,
+      "fit_replicate": 1,
+      "evaluation_replicate": 0,
+      "target_fisher_quadratic": 0.005281663855128078,
+      "fit_replica_first_order_gain": 0.016853361202596527,
+      "held_replica_first_order_gain": 0.0007799670628908183,
+      "held_replica_unconstrained_cauchy_bound": 0.016376700437903256,
+      "held_replica_efficiency": 0.047626630642007346,
+      "fit_model_reachable_dual_fraction": 1.000000000000327,
+      "required_parameter_delta_norm": 63.45685341123905,
+      "finite_retracted_exact_beta_kl": 44.63563573891912,
+      "finite_retracted_fisher_quadratic": 11.858610808636385,
+      "finite_retraction_relative_error": 47.36031985104268,
+      "finite_held_replica_gain": -0.025760928413453895,
+      "finite_KL_to_target": 8451.055758798706
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "fit_replicate": 0,
+      "evaluation_replicate": 1,
+      "target_fisher_quadratic": 0.005281663855128078,
+      "fit_replica_first_order_gain": 0.01694404141782161,
+      "held_replica_first_order_gain": 0.0006251530079433288,
+      "held_replica_unconstrained_cauchy_bound": 0.017716073738966793,
+      "held_replica_efficiency": 0.03528733381642539,
+      "fit_model_reachable_dual_fraction": 1.0000000000003266,
+      "required_parameter_delta_norm": 34.97940120488187,
+      "finite_retracted_exact_beta_kl": 20.67224232170291,
+      "finite_retracted_fisher_quadratic": 4.940620781200725,
+      "finite_retraction_relative_error": 30.69396668817726,
+      "finite_held_replica_gain": -0.019341532160351057,
+      "finite_KL_to_target": 3913.96402511148
+    },
+    {
+      "capture": "Adam4M",
+      "horizon": 512,
+      "fit_replicate": 1,
+      "evaluation_replicate": 0,
+      "target_fisher_quadratic": 0.005281663855128078,
+      "fit_replica_first_order_gain": 0.017716073738966793,
+      "held_replica_first_order_gain": 0.0005979100457100096,
+      "held_replica_unconstrained_cauchy_bound": 0.016944041417821614,
+      "held_replica_efficiency": 0.03528733381642542,
+      "fit_model_reachable_dual_fraction": 1.0000000000003253,
+      "required_parameter_delta_norm": 61.26954803220827,
+      "finite_retracted_exact_beta_kl": 42.577015469259635,
+      "finite_retracted_fisher_quadratic": 10.50157412260879,
+      "finite_retraction_relative_error": 44.573849561568196,
+      "finite_held_replica_gain": -0.027155110246807578,
+      "finite_KL_to_target": 8061.288381296874
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "fit_replicate": 0,
+      "evaluation_replicate": 1,
+      "target_fisher_quadratic": 2.9122804243741575e-06,
+      "fit_replica_first_order_gain": 0.0002626177568000552,
+      "held_replica_first_order_gain": -1.186146950014483e-05,
+      "held_replica_unconstrained_cauchy_bound": 0.00033647666644252616,
+      "held_replica_efficiency": -0.03525198233075962,
+      "fit_model_reachable_dual_fraction": 1.0000000000003608,
+      "required_parameter_delta_norm": 17.048169052989593,
+      "finite_retracted_exact_beta_kl": 19.740080057310145,
+      "finite_retracted_fisher_quadratic": 6.726282933346925,
+      "finite_retraction_relative_error": 1519.806276843315,
+      "finite_held_replica_gain": 0.05445855669926917,
+      "finite_KL_to_target": 6778220.906234413
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 256,
+      "fit_replicate": 1,
+      "evaluation_replicate": 0,
+      "target_fisher_quadratic": 2.9122804243741575e-06,
+      "fit_replica_first_order_gain": 0.0003364766664425261,
+      "held_replica_first_order_gain": -9.257796522459197e-06,
+      "held_replica_unconstrained_cauchy_bound": 0.00026261775680005517,
+      "held_replica_efficiency": -0.03525198233075934,
+      "fit_model_reachable_dual_fraction": 1.000000000000378,
+      "required_parameter_delta_norm": 10.550898561385102,
+      "finite_retracted_exact_beta_kl": 13.047821608074182,
+      "finite_retracted_fisher_quadratic": 4.61066092306631,
+      "finite_retraction_relative_error": 1258.1966515377908,
+      "finite_held_replica_gain": 0.0038321804456199118,
+      "finite_KL_to_target": 4480276.521062744
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "fit_replicate": 0,
+      "evaluation_replicate": 1,
+      "target_fisher_quadratic": 2.9122804243741575e-06,
+      "fit_replica_first_order_gain": 0.0002730927843142576,
+      "held_replica_first_order_gain": -1.357971846520929e-05,
+      "held_replica_unconstrained_cauchy_bound": 0.0003607238547889978,
+      "held_replica_efficiency": -0.03764574558883172,
+      "fit_model_reachable_dual_fraction": 1.0000000000003624,
+      "required_parameter_delta_norm": 15.7844877833046,
+      "finite_retracted_exact_beta_kl": 18.836680218235045,
+      "finite_retracted_fisher_quadratic": 6.4353086918788165,
+      "finite_retraction_relative_error": 1486.5577795688198,
+      "finite_held_replica_gain": 0.05384366236064378,
+      "finite_KL_to_target": 6468017.317488581
+    },
+    {
+      "capture": "Adam8M",
+      "horizon": 512,
+      "fit_replicate": 1,
+      "evaluation_replicate": 0,
+      "target_fisher_quadratic": 2.9122804243741575e-06,
+      "fit_replica_first_order_gain": 0.0003607238547889978,
+      "held_replica_first_order_gain": -1.0280781480440154e-05,
+      "held_replica_unconstrained_cauchy_bound": 0.0002730927843142576,
+      "held_replica_efficiency": -0.03764574558883142,
+      "fit_model_reachable_dual_fraction": 1.00000000000038,
+      "required_parameter_delta_norm": 10.958513426113543,
+      "finite_retracted_exact_beta_kl": 13.492640024852333,
+      "finite_retracted_fisher_quadratic": 4.713015837771093,
+      "finite_retraction_relative_error": 1272.0860312572486,
+      "finite_held_replica_gain": 0.003438804749905232,
+      "finite_KL_to_target": 4633015.389564304
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "fit_replicate": 0,
+      "evaluation_replicate": 1,
+      "target_fisher_quadratic": 0.0021833565522819632,
+      "fit_replica_first_order_gain": 0.010242150884985781,
+      "held_replica_first_order_gain": 0.0004603936047034178,
+      "held_replica_unconstrained_cauchy_bound": 0.00822148130761073,
+      "held_replica_efficiency": 0.055998862915035225,
+      "fit_model_reachable_dual_fraction": 1.0000000000003315,
+      "required_parameter_delta_norm": 6.694267089185619,
+      "finite_retracted_exact_beta_kl": 25.86686329736864,
+      "finite_retracted_fisher_quadratic": 7.563122228995086,
+      "finite_retraction_relative_error": 58.97623077011497,
+      "finite_held_replica_gain": -0.059507201873990195,
+      "finite_KL_to_target": 11847.29231253299
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 256,
+      "fit_replicate": 1,
+      "evaluation_replicate": 0,
+      "target_fisher_quadratic": 0.0021833565522819632,
+      "fit_replica_first_order_gain": 0.008221481307610728,
+      "held_replica_first_order_gain": 0.0005735488033634274,
+      "held_replica_unconstrained_cauchy_bound": 0.010242150884985783,
+      "held_replica_efficiency": 0.055998862915035405,
+      "fit_model_reachable_dual_fraction": 1.000000000000324,
+      "required_parameter_delta_norm": 42.28483289298919,
+      "finite_retracted_exact_beta_kl": 36.2037995119653,
+      "finite_retracted_fisher_quadratic": 14.882426004100763,
+      "finite_retraction_relative_error": 82.6011297758012,
+      "finite_held_replica_gain": -0.12593440413041462,
+      "finite_KL_to_target": 16581.71656577412
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "fit_replicate": 0,
+      "evaluation_replicate": 1,
+      "target_fisher_quadratic": 0.0021833565522819632,
+      "fit_replica_first_order_gain": 0.011279105618419653,
+      "held_replica_first_order_gain": 0.0005923598798860617,
+      "held_replica_unconstrained_cauchy_bound": 0.009102721842453088,
+      "held_replica_efficiency": 0.06507502812218492,
+      "fit_model_reachable_dual_fraction": 1.0000000000003324,
+      "required_parameter_delta_norm": 7.56059463996108,
+      "finite_retracted_exact_beta_kl": 23.735398948635094,
+      "finite_retracted_fisher_quadratic": 6.606213132055647,
+      "finite_retraction_relative_error": 55.13629290681271,
+      "finite_held_replica_gain": -0.05914710279908313,
+      "finite_KL_to_target": 10871.059481250433
+    },
+    {
+      "capture": "Anvil4M",
+      "horizon": 512,
+      "fit_replicate": 1,
+      "evaluation_replicate": 0,
+      "target_fisher_quadratic": 0.0021833565522819632,
+      "fit_replica_first_order_gain": 0.00910272184245309,
+      "held_replica_first_order_gain": 0.0007339881153117549,
+      "held_replica_unconstrained_cauchy_bound": 0.011279105618419653,
+      "held_replica_efficiency": 0.0650750281221851,
+      "fit_model_reachable_dual_fraction": 1.0000000000003262,
+      "required_parameter_delta_norm": 50.223300407747416,
+      "finite_retracted_exact_beta_kl": 38.5833037643465,
+      "finite_retracted_fisher_quadratic": 19.300157693921648,
+      "finite_retraction_relative_error": 94.06221134310648,
+      "finite_held_replica_gain": -0.1406532465615708,
+      "finite_KL_to_target": 17671.554251650134
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "fit_replicate": 0,
+      "evaluation_replicate": 1,
+      "target_fisher_quadratic": 2.23158738548299e-07,
+      "fit_replica_first_order_gain": 0.0001427517778431074,
+      "held_replica_first_order_gain": 2.5737767687972126e-05,
+      "held_replica_unconstrained_cauchy_bound": 0.00011061513533918376,
+      "held_replica_efficiency": 0.2326785354377712,
+      "fit_model_reachable_dual_fraction": 1.0000000000003837,
+      "required_parameter_delta_norm": 2.1465217369073044,
+      "finite_retracted_exact_beta_kl": 2.0336610221598006,
+      "finite_retracted_fisher_quadratic": 1.268464333554138,
+      "finite_retraction_relative_error": 2384.176379853242,
+      "finite_held_replica_gain": 0.0030136567857529254,
+      "finite_KL_to_target": 9113069.17842094
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 256,
+      "fit_replicate": 1,
+      "evaluation_replicate": 0,
+      "target_fisher_quadratic": 2.23158738548299e-07,
+      "fit_replica_first_order_gain": 0.00011061513533918376,
+      "held_replica_first_order_gain": 3.3215274599672326e-05,
+      "held_replica_unconstrained_cauchy_bound": 0.0001427517778431074,
+      "held_replica_efficiency": 0.23267853543777134,
+      "fit_model_reachable_dual_fraction": 1.000000000000382,
+      "required_parameter_delta_norm": 7.363050263315971,
+      "finite_retracted_exact_beta_kl": 16.49060611314392,
+      "finite_retracted_fisher_quadratic": 4.698792978303734,
+      "finite_retraction_relative_error": 4588.709851316465,
+      "finite_held_replica_gain": 0.02832023951778958,
+      "finite_KL_to_target": 73896304.57861188
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "fit_replicate": 0,
+      "evaluation_replicate": 1,
+      "target_fisher_quadratic": 2.23158738548299e-07,
+      "fit_replica_first_order_gain": 0.0001441678759193153,
+      "held_replica_first_order_gain": 2.6932712967417468e-05,
+      "held_replica_unconstrained_cauchy_bound": 0.00011663530664237014,
+      "held_replica_efficiency": 0.23091389513810917,
+      "fit_model_reachable_dual_fraction": 1.0000000000003844,
+      "required_parameter_delta_norm": 2.143858722489469,
+      "finite_retracted_exact_beta_kl": 1.5146423292762754,
+      "finite_retracted_fisher_quadratic": 0.9082801469727664,
+      "finite_retraction_relative_error": 2017.48259552354,
+      "finite_held_replica_gain": 0.0027619417194137924,
+      "finite_KL_to_target": 6787286.660291173
+    },
+    {
+      "capture": "Anvil8M",
+      "horizon": 512,
+      "fit_replicate": 1,
+      "evaluation_replicate": 0,
+      "target_fisher_quadratic": 2.23158738548299e-07,
+      "fit_replica_first_order_gain": 0.00011663530664237017,
+      "held_replica_first_order_gain": 3.329036578231675e-05,
+      "held_replica_unconstrained_cauchy_bound": 0.0001441678759193153,
+      "held_replica_efficiency": 0.23091389513810948,
+      "fit_model_reachable_dual_fraction": 1.0000000000003815,
+      "required_parameter_delta_norm": 6.785826289493704,
+      "finite_retracted_exact_beta_kl": 14.734352492300914,
+      "finite_retracted_fisher_quadratic": 4.601211232704447,
+      "finite_retraction_relative_error": 4540.8138816783385,
+      "finite_held_replica_gain": 0.016360547251322688,
+      "finite_KL_to_target": 66026329.90377793
+    }
+  ]
+}

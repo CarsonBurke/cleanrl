@@ -1,0 +1,101 @@
+{
+  "job_id": 11757,
+  "max_parallel_runs": 1,
+  "artifact_sha256": "b44dcca698dd15bec9318f350506b20bb5efc80519f6a52ebc142cd76a65b53b",
+  "execution_manifest": "execution_sources/sepclip_microscopy_layer_historical_fp64_1791320411555435874.json",
+  "rows": [
+    {
+      "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_4013696.pt",
+      "step": 4013696,
+      "joint_fisher": 0.0036395650822669268,
+      "finite_kl": 0.0036290047579983853,
+      "finite_kl_to_fisher": 0.9970984653303785,
+      "cross_fraction": 0.7470645919318508,
+      "physical_mean_motion_rms": 0.006597056984901428,
+      "linearization_relative_error": 0.010537726804614067
+    },
+    {
+      "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_7995008.pt",
+      "step": 7995008,
+      "joint_fisher": 2.2469106397693395e-07,
+      "finite_kl": 2.2466574569291264e-07,
+      "finite_kl_to_fisher": 0.9998873195774982,
+      "cross_fraction": 0.7006157270010906,
+      "physical_mean_motion_rms": 4.961706872563809e-05,
+      "linearization_relative_error": 0.003961177077144384
+    },
+    {
+      "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016/diagnostic_snapshot_4013696.pt",
+      "step": 4013696,
+      "joint_fisher": 0.011985883116722107,
+      "finite_kl": 0.012171210340484198,
+      "finite_kl_to_fisher": 1.0154621250647382,
+      "cross_fraction": 0.7205395849365769,
+      "physical_mean_motion_rms": 0.014004773460328579,
+      "linearization_relative_error": 0.02343723364174366
+    },
+    {
+      "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016/diagnostic_snapshot_7995008.pt",
+      "step": 7995008,
+      "joint_fisher": 7.117882887541782e-07,
+      "finite_kl": 7.119932797183265e-07,
+      "finite_kl_to_fisher": 1.000287994291824,
+      "cross_fraction": 0.7392918110269422,
+      "physical_mean_motion_rms": 0.00010758842836366966,
+      "linearization_relative_error": 0.0023891013115644455
+    },
+    {
+      "snapshot": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146/diagnostic_snapshot_4013696.pt",
+      "step": 4013696,
+      "joint_fisher": 0.005540680140256882,
+      "finite_kl": 0.0055323507351854725,
+      "finite_kl_to_fisher": 0.9984966818403953,
+      "cross_fraction": 0.7791266476839136,
+      "physical_mean_motion_rms": 0.00857677310705185,
+      "linearization_relative_error": 0.01159742008894682
+    },
+    {
+      "snapshot": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146/diagnostic_snapshot_7995008.pt",
+      "step": 7995008,
+      "joint_fisher": 1.9537830553417734e-07,
+      "finite_kl": 1.9546647852318859e-07,
+      "finite_kl_to_fisher": 1.000451293651924,
+      "cross_fraction": 0.7167390162407228,
+      "physical_mean_motion_rms": 4.7704088501632214e-05,
+      "linearization_relative_error": 0.004442370962351561
+    }
+  ],
+  "all_required_restore_checks": true,
+  "all_numeric_artifact_fields_finite": true,
+  "interpretation": "FP64 KL algebra on actual FP32 shapes repairs cancellation at tiny late updates. This validates local functional measurement, not physical PG, optimizer efficiency or causal benchmark advantage.",
+  "updated_at": 1791320716.4321334,
+  "independent_review": "benchmarks/sepclip_weight_microscopy/layer_historical_fp64_measurement_review.md",
+  "independent_review_sha256": "cf316f233cd0b756a45dd2361f7f34692fc9aa4b0d874417142624ffe7458398",
+  "provenance_limit": "Execution manifest records source/environment hashes but not six checkpoint byte hashes. Current checkpoint hashes recorded after measurement cannot independently prove historical input identity.",
+  "post_measurement_input_inventory": {
+    "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_4013696.pt": {
+      "sha256_after_measurement": "253afd0111b500475a4777a941e36483ef4c648fa92de0e5016d453a4c78927f",
+      "size_bytes": 2311570
+    },
+    "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_7995008.pt": {
+      "sha256_after_measurement": "254481ce20051e0a7d8e84717b8fed41c80ab14f8592f1202a30692c45f2cd1d",
+      "size_bytes": 2311506
+    },
+    "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016/diagnostic_snapshot_4013696.pt": {
+      "sha256_after_measurement": "f004e9bb2775c814574f90ac588fd9267ce7c43e6378198efe5556fa1c360906",
+      "size_bytes": 2311506
+    },
+    "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016/diagnostic_snapshot_7995008.pt": {
+      "sha256_after_measurement": "3a6a696f7142349591c26a49f784366924da227dcb5ee494a6201333d19980fc",
+      "size_bytes": 2311634
+    },
+    "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146/diagnostic_snapshot_4013696.pt": {
+      "sha256_after_measurement": "b5777a26429553eb904febd1050df706fba353af1bb3a4f16db07e9afe134ef3",
+      "size_bytes": 2311378
+    },
+    "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146/diagnostic_snapshot_7995008.pt": {
+      "sha256_after_measurement": "fcbc726f7c121d6f5ff72c613a3d0321a6d2fab996ca31c1f3cd805bb38c7a12",
+      "size_bytes": 2311378
+    }
+  }
+}

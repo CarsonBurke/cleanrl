@@ -1,0 +1,403 @@
+{
+  "contract_job": 11518,
+  "replacements": [
+    {
+      "replaces": 11519,
+      "job": {
+        "id": 11550,
+        "name": "sepclip_anvil2_frontier_v4",
+        "state": "queued",
+        "eligibility": "waiting_for_dependencies: jobs [11518]",
+        "maxParallelRuns": 1,
+        "priority": 0,
+        "cwd": "/home/marvin/Documents/repositories/cleanrl",
+        "args": [
+          ".venv/bin/python",
+          "-u",
+          "scripts/audit_sepclip_anvil2.py",
+          "runs/HalfCheetah-v4__normuon_audit_8m_long__1__1791058248/diagnostic_snapshot_4013696.pt",
+          "--out",
+          "benchmarks/sepclip_anvil2_v4/frontier.json"
+        ],
+        "maxAttempts": 1,
+        "retryDelayMs": 0,
+        "timeLimitMs": 1500000,
+        "attemptCount": 0,
+        "createdAt": 1791173609172,
+        "updatedAt": 1791173609172,
+        "dependencies": [
+          {
+            "parent": 11518,
+            "condition": "succeeded",
+            "parentState": "queued"
+          }
+        ],
+        "attempts": []
+      }
+    },
+    {
+      "replaces": 11520,
+      "job": {
+        "id": 11551,
+        "name": "sepclip_anvil2_v4_normuon_half",
+        "state": "queued",
+        "eligibility": "waiting_for_dependencies: jobs [11518]",
+        "maxParallelRuns": 1,
+        "priority": 0,
+        "cwd": "/home/marvin/Documents/repositories/cleanrl",
+        "args": [
+          "bash",
+          "scripts/run_sepclip_anvil2_v4.sh",
+          "normuon_half"
+        ],
+        "maxAttempts": 1,
+        "retryDelayMs": 0,
+        "timeLimitMs": 1500000,
+        "attemptCount": 0,
+        "createdAt": 1791173609805,
+        "updatedAt": 1791173609805,
+        "dependencies": [
+          {
+            "parent": 11518,
+            "condition": "succeeded",
+            "parentState": "queued"
+          }
+        ],
+        "attempts": []
+      }
+    },
+    {
+      "replaces": 11521,
+      "job": {
+        "id": 11552,
+        "name": "sepclip_anvil2_v4_normuon_fast",
+        "state": "queued",
+        "eligibility": "waiting_for_dependencies: jobs [11518]",
+        "maxParallelRuns": 1,
+        "priority": 0,
+        "cwd": "/home/marvin/Documents/repositories/cleanrl",
+        "args": [
+          "bash",
+          "scripts/run_sepclip_anvil2_v4.sh",
+          "normuon_fast"
+        ],
+        "maxAttempts": 1,
+        "retryDelayMs": 0,
+        "timeLimitMs": 1500000,
+        "attemptCount": 0,
+        "createdAt": 1791173609886,
+        "updatedAt": 1791173609886,
+        "dependencies": [
+          {
+            "parent": 11518,
+            "condition": "succeeded",
+            "parentState": "queued"
+          }
+        ],
+        "attempts": []
+      }
+    },
+    {
+      "replaces": 11522,
+      "job": {
+        "id": 11553,
+        "name": "sepclip_anvil2_v4_anvil_half",
+        "state": "queued",
+        "eligibility": "waiting_for_dependencies: jobs [11518]",
+        "maxParallelRuns": 1,
+        "priority": 0,
+        "cwd": "/home/marvin/Documents/repositories/cleanrl",
+        "args": [
+          "bash",
+          "scripts/run_sepclip_anvil2_v4.sh",
+          "anvil_half"
+        ],
+        "maxAttempts": 1,
+        "retryDelayMs": 0,
+        "timeLimitMs": 1500000,
+        "attemptCount": 0,
+        "createdAt": 1791173609964,
+        "updatedAt": 1791173609964,
+        "dependencies": [
+          {
+            "parent": 11518,
+            "condition": "succeeded",
+            "parentState": "queued"
+          }
+        ],
+        "attempts": []
+      }
+    },
+    {
+      "replaces": 11523,
+      "job": {
+        "id": 11554,
+        "name": "sepclip_anvil2_v4_anvil_full",
+        "state": "queued",
+        "eligibility": "waiting_for_dependencies: jobs [11518]",
+        "maxParallelRuns": 1,
+        "priority": 0,
+        "cwd": "/home/marvin/Documents/repositories/cleanrl",
+        "args": [
+          "bash",
+          "scripts/run_sepclip_anvil2_v4.sh",
+          "anvil_full"
+        ],
+        "maxAttempts": 1,
+        "retryDelayMs": 0,
+        "timeLimitMs": 1500000,
+        "attemptCount": 0,
+        "createdAt": 1791173610038,
+        "updatedAt": 1791173610038,
+        "dependencies": [
+          {
+            "parent": 11518,
+            "condition": "succeeded",
+            "parentState": "queued"
+          }
+        ],
+        "attempts": []
+      }
+    },
+    {
+      "replaces": 11524,
+      "job": {
+        "id": 11555,
+        "name": "sepclip_anvil2_v4_normuon_double",
+        "state": "queued",
+        "eligibility": "waiting_for_dependencies: jobs [11518]",
+        "maxParallelRuns": 1,
+        "priority": 0,
+        "cwd": "/home/marvin/Documents/repositories/cleanrl",
+        "args": [
+          "bash",
+          "scripts/run_sepclip_anvil2_v4.sh",
+          "normuon_double"
+        ],
+        "maxAttempts": 1,
+        "retryDelayMs": 0,
+        "timeLimitMs": 1500000,
+        "attemptCount": 0,
+        "createdAt": 1791173610110,
+        "updatedAt": 1791173610110,
+        "dependencies": [
+          {
+            "parent": 11518,
+            "condition": "succeeded",
+            "parentState": "queued"
+          }
+        ],
+        "attempts": []
+      }
+    },
+    {
+      "replaces": 11525,
+      "job": {
+        "id": 11556,
+        "name": "sepclip_anvil2_v4_anvil_double",
+        "state": "queued",
+        "eligibility": "waiting_for_dependencies: jobs [11518]",
+        "maxParallelRuns": 1,
+        "priority": 0,
+        "cwd": "/home/marvin/Documents/repositories/cleanrl",
+        "args": [
+          "bash",
+          "scripts/run_sepclip_anvil2_v4.sh",
+          "anvil_double"
+        ],
+        "maxAttempts": 1,
+        "retryDelayMs": 0,
+        "timeLimitMs": 1500000,
+        "attemptCount": 0,
+        "createdAt": 1791173610180,
+        "updatedAt": 1791173610180,
+        "dependencies": [
+          {
+            "parent": 11518,
+            "condition": "succeeded",
+            "parentState": "queued"
+          }
+        ],
+        "attempts": []
+      }
+    },
+    {
+      "replaces": 11526,
+      "job": {
+        "id": 11557,
+        "name": "sepclip_anvil2_v4_anvil_quad",
+        "state": "queued",
+        "eligibility": "waiting_for_dependencies: jobs [11518]",
+        "maxParallelRuns": 1,
+        "priority": 0,
+        "cwd": "/home/marvin/Documents/repositories/cleanrl",
+        "args": [
+          "bash",
+          "scripts/run_sepclip_anvil2_v4.sh",
+          "anvil_quad"
+        ],
+        "maxAttempts": 1,
+        "retryDelayMs": 0,
+        "timeLimitMs": 1500000,
+        "attemptCount": 0,
+        "createdAt": 1791173610255,
+        "updatedAt": 1791173610255,
+        "dependencies": [
+          {
+            "parent": 11518,
+            "condition": "succeeded",
+            "parentState": "queued"
+          }
+        ],
+        "attempts": []
+      }
+    },
+    {
+      "replaces": 11527,
+      "job": {
+        "id": 11558,
+        "name": "sepclip_anvil2_v4_anvil_fp32",
+        "state": "queued",
+        "eligibility": "waiting_for_dependencies: jobs [11518]",
+        "maxParallelRuns": 1,
+        "priority": 0,
+        "cwd": "/home/marvin/Documents/repositories/cleanrl",
+        "args": [
+          "bash",
+          "scripts/run_sepclip_anvil2_v4.sh",
+          "anvil_fp32"
+        ],
+        "maxAttempts": 1,
+        "retryDelayMs": 0,
+        "timeLimitMs": 1500000,
+        "attemptCount": 0,
+        "createdAt": 1791173610320,
+        "updatedAt": 1791173610320,
+        "dependencies": [
+          {
+            "parent": 11518,
+            "condition": "succeeded",
+            "parentState": "queued"
+          }
+        ],
+        "attempts": []
+      }
+    }
+  ],
+  "evidence_job": {
+    "id": 11559,
+    "name": "sepclip_anvil2_v4_evidence_repaired",
+    "state": "queued",
+    "eligibility": "waiting_for_dependencies: jobs [11518, 11550, 11551, 11552, 11553, 11554, 11555, 11556, 11557, 11558]",
+    "maxParallelRuns": 1,
+    "priority": 0,
+    "cwd": "/home/marvin/Documents/repositories/cleanrl",
+    "args": [
+      ".venv/bin/python",
+      "scripts/analyze_sepclip_anvil2.py",
+      "--jobs",
+      "11518",
+      "11519",
+      "11520",
+      "11521",
+      "11522",
+      "11523",
+      "11524",
+      "11525",
+      "11526",
+      "11527",
+      "11528",
+      "11550",
+      "11551",
+      "11552",
+      "11553",
+      "11554",
+      "11555",
+      "11556",
+      "11557",
+      "11558"
+    ],
+    "maxAttempts": 1,
+    "retryDelayMs": 0,
+    "timeLimitMs": 600000,
+    "attemptCount": 0,
+    "createdAt": 1791173610368,
+    "updatedAt": 1791173610368,
+    "dependencies": [
+      {
+        "parent": 11518,
+        "condition": "terminal",
+        "parentState": "queued"
+      },
+      {
+        "parent": 11550,
+        "condition": "terminal",
+        "parentState": "queued"
+      },
+      {
+        "parent": 11551,
+        "condition": "terminal",
+        "parentState": "queued"
+      },
+      {
+        "parent": 11552,
+        "condition": "terminal",
+        "parentState": "queued"
+      },
+      {
+        "parent": 11553,
+        "condition": "terminal",
+        "parentState": "queued"
+      },
+      {
+        "parent": 11554,
+        "condition": "terminal",
+        "parentState": "queued"
+      },
+      {
+        "parent": 11555,
+        "condition": "terminal",
+        "parentState": "queued"
+      },
+      {
+        "parent": 11556,
+        "condition": "terminal",
+        "parentState": "queued"
+      },
+      {
+        "parent": 11557,
+        "condition": "terminal",
+        "parentState": "queued"
+      },
+      {
+        "parent": 11558,
+        "condition": "terminal",
+        "parentState": "queued"
+      }
+    ],
+    "attempts": []
+  },
+  "report_inputs": [
+    11518,
+    11519,
+    11520,
+    11521,
+    11522,
+    11523,
+    11524,
+    11525,
+    11526,
+    11527,
+    11528,
+    11550,
+    11551,
+    11552,
+    11553,
+    11554,
+    11555,
+    11556,
+    11557,
+    11558
+  ],
+  "artifact_role": "Historical submission manifest; job states reflect submission time. Current terminal outcomes are in investigation_report.json and supervision_status.json."
+}

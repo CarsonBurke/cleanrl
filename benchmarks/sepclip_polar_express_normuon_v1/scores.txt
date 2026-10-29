@@ -1,0 +1,19 @@
+
+  ML queue states (independent of TensorBoard scores):
+  job 11324 [sepclip_polar_express_normuon_v1_hc50m]: cancelled — cancelled by request
+  job 11325 [sepclip_polar_express_normuon_v1_lrhalf_hc50m]: cancelled — cancelled by request
+  job 11326 [sepclip_polar_express_normuon_v1_lr02_hc50m]: cancelled — cancelled by request
+  ! Jobs not reported as succeeded: 11324, 11325, 11326. Available scores may be partial.
+  Scores do not establish job completion or successful training.
+
+
+  4 runs across 1 env(s)
+
+  HalfCheetah-v4  (4 runs, last 20 eps)
+  ! run lengths differ (9.1M..50.0M): Mean / +-CI95 / Avg all are END-OF-RUN and NOT comparable here.
+   #  Variant                                           Mean   ±CI95  Avg all      Steps     @1M     @2M     @4M     @6M     @8M
+   1  awr_ce_ppo_sepclip_control_v1_50M              13576.3  1302.5  11145.9   49987008  2401.0  3674.5  5680.2  7230.3  8390.9
+   2  sepclip_polar_express_normuon_v1_hc50m          6021.8   142.6   4998.2    9794000  2967.2  4446.6  5633.3  5889.7  5485.8
+   3  sepclip_polar_express_normuon_v1_lr02_hc50m     4943.4   829.9   3955.5    9093008  2827.0  3266.1  4035.7  4908.9  5025.0
+   4  sepclip_polar_express_normuon_v1_lrhalf_hc50m   3983.4   444.0   3766.7   11336000  1456.0  3198.2  4326.5  4168.7  4619.3
+

@@ -1,0 +1,830 @@
+{
+  "checked_at": "2026-10-05T06:10:40.241870+00:00",
+  "status": "complete",
+  "jobs": [
+    {
+      "id": 11518,
+      "name": "sepclip_anvil2_contracts_v4",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_sepclip_anvil2.py"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1200000,
+      "readySequence": 10627,
+      "attemptCount": 3,
+      "createdAt": 1791165796160,
+      "updatedAt": 1791174060620,
+      "finishedAt": 1791174060620,
+      "attempts": [
+        {
+          "id": 9216,
+          "jobId": 11518,
+          "number": 1,
+          "state": "failed",
+          "maxParallelRuns": 1,
+          "exitCode": 1,
+          "message": "command exited with code 1",
+          "createdAt": 1791173133303,
+          "finishedAt": 1791173158196,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9216"
+        },
+        {
+          "id": 9220,
+          "jobId": 11518,
+          "number": 2,
+          "state": "failed",
+          "maxParallelRuns": 1,
+          "exitCode": 1,
+          "message": "command exited with code 1",
+          "createdAt": 1791173781916,
+          "finishedAt": 1791173791509,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9220"
+        },
+        {
+          "id": 9228,
+          "jobId": 11518,
+          "number": 3,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791174053544,
+          "finishedAt": 1791174060620,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9228"
+        }
+      ]
+    },
+    {
+      "id": 11565,
+      "name": "sepclip_anvil2_frontier_v4",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/audit_sepclip_anvil2.py",
+        "runs/HalfCheetah-v4__normuon_audit_8m_long__1__1791058248/diagnostic_snapshot_4013696.pt",
+        "--out",
+        "benchmarks/sepclip_anvil2_v4/frontier.json"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1500000,
+      "readySequence": 10630,
+      "attemptCount": 1,
+      "createdAt": 1791174120177,
+      "updatedAt": 1791177100827,
+      "finishedAt": 1791177100827,
+      "dependencies": [
+        {
+          "parent": 11518,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791174120177
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9233,
+          "jobId": 11565,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791177074285,
+          "finishedAt": 1791177100827,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9233"
+        }
+      ]
+    },
+    {
+      "id": 11566,
+      "name": "sepclip_anvil2_v4_normuon_half",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_anvil2_v4.sh",
+        "normuon_half"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1500000,
+      "readySequence": 10631,
+      "attemptCount": 1,
+      "createdAt": 1791174120455,
+      "updatedAt": 1791177230127,
+      "finishedAt": 1791177230127,
+      "dependencies": [
+        {
+          "parent": 11518,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791174120455
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9234,
+          "jobId": 11566,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791177100833,
+          "finishedAt": 1791177230127,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9234"
+        }
+      ]
+    },
+    {
+      "id": 11567,
+      "name": "sepclip_anvil2_v4_normuon_fast",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_anvil2_v4.sh",
+        "normuon_fast"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1500000,
+      "readySequence": 10632,
+      "attemptCount": 1,
+      "createdAt": 1791174120497,
+      "updatedAt": 1791178127434,
+      "finishedAt": 1791178127434,
+      "dependencies": [
+        {
+          "parent": 11518,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791174120497
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9237,
+          "jobId": 11567,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791177998441,
+          "finishedAt": 1791178127434,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9237"
+        }
+      ]
+    },
+    {
+      "id": 11568,
+      "name": "sepclip_anvil2_v4_anvil_half",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_anvil2_v4.sh",
+        "anvil_half"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1500000,
+      "readySequence": 10633,
+      "attemptCount": 1,
+      "createdAt": 1791174120535,
+      "updatedAt": 1791178270984,
+      "finishedAt": 1791178270984,
+      "dependencies": [
+        {
+          "parent": 11518,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791174120535
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9239,
+          "jobId": 11568,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791178144391,
+          "finishedAt": 1791178270984,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9239"
+        }
+      ]
+    },
+    {
+      "id": 11569,
+      "name": "sepclip_anvil2_v4_anvil_full",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_anvil2_v4.sh",
+        "anvil_full"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1500000,
+      "readySequence": 10634,
+      "attemptCount": 1,
+      "createdAt": 1791174120574,
+      "updatedAt": 1791178411239,
+      "finishedAt": 1791178411239,
+      "dependencies": [
+        {
+          "parent": 11518,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791174120574
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9241,
+          "jobId": 11569,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791178284947,
+          "finishedAt": 1791178411239,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9241"
+        }
+      ]
+    },
+    {
+      "id": 11570,
+      "name": "sepclip_anvil2_v4_normuon_double",
+      "state": "cancelled",
+      "stateReason": "cancelled by request",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_anvil2_v4.sh",
+        "normuon_double"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1500000,
+      "readySequence": 10635,
+      "attemptCount": 1,
+      "createdAt": 1791174120614,
+      "updatedAt": 1791178511589,
+      "finishedAt": 1791178511589,
+      "dependencies": [
+        {
+          "parent": 11518,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791174120614
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9243,
+          "jobId": 11570,
+          "number": 1,
+          "state": "cancelled",
+          "maxParallelRuns": 1,
+          "termSignal": 15,
+          "message": "cancelled by request",
+          "createdAt": 1791178424896,
+          "finishedAt": 1791178511589,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9243"
+        }
+      ]
+    },
+    {
+      "id": 11571,
+      "name": "sepclip_anvil2_v4_anvil_double",
+      "state": "cancelled",
+      "stateReason": "cancelled by request",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_anvil2_v4.sh",
+        "anvil_double"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1500000,
+      "readySequence": 10636,
+      "attemptCount": 1,
+      "createdAt": 1791174120655,
+      "updatedAt": 1791178602189,
+      "finishedAt": 1791178602189,
+      "dependencies": [
+        {
+          "parent": 11518,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791174120655
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9245,
+          "jobId": 11571,
+          "number": 1,
+          "state": "cancelled",
+          "maxParallelRuns": 1,
+          "termSignal": 15,
+          "message": "cancelled by request",
+          "createdAt": 1791178525996,
+          "finishedAt": 1791178602189,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9245"
+        }
+      ]
+    },
+    {
+      "id": 11572,
+      "name": "sepclip_anvil2_v4_anvil_quad",
+      "state": "cancelled",
+      "stateReason": "cancelled by request",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_anvil2_v4.sh",
+        "anvil_quad"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1500000,
+      "readySequence": 10637,
+      "attemptCount": 1,
+      "createdAt": 1791174120694,
+      "updatedAt": 1791178692789,
+      "finishedAt": 1791178692789,
+      "dependencies": [
+        {
+          "parent": 11518,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791174120694
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9246,
+          "jobId": 11572,
+          "number": 1,
+          "state": "cancelled",
+          "maxParallelRuns": 1,
+          "termSignal": 15,
+          "message": "cancelled by request",
+          "createdAt": 1791178602194,
+          "finishedAt": 1791178692789,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9246"
+        }
+      ]
+    },
+    {
+      "id": 11573,
+      "name": "sepclip_anvil2_v4_anvil_fp32",
+      "state": "cancelled",
+      "stateReason": "cancelled by request",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_anvil2_v4.sh",
+        "anvil_fp32"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1500000,
+      "readySequence": 10638,
+      "attemptCount": 1,
+      "createdAt": 1791174120733,
+      "updatedAt": 1791178813540,
+      "finishedAt": 1791178813540,
+      "dependencies": [
+        {
+          "parent": 11518,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791174120733
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9249,
+          "jobId": 11573,
+          "number": 1,
+          "state": "cancelled",
+          "maxParallelRuns": 1,
+          "termSignal": 15,
+          "message": "cancelled by request",
+          "createdAt": 1791178710496,
+          "finishedAt": 1791178813540,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9249"
+        }
+      ]
+    },
+    {
+      "id": 11574,
+      "name": "sepclip_anvil2_v4_evidence_final",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "scripts/analyze_sepclip_anvil2.py",
+        "--jobs",
+        "11518",
+        "11519",
+        "11520",
+        "11521",
+        "11522",
+        "11523",
+        "11524",
+        "11525",
+        "11526",
+        "11527",
+        "11528",
+        "11550",
+        "11551",
+        "11552",
+        "11553",
+        "11554",
+        "11555",
+        "11556",
+        "11557",
+        "11558",
+        "11559",
+        "11565",
+        "11566",
+        "11567",
+        "11568",
+        "11569",
+        "11570",
+        "11571",
+        "11572",
+        "11573"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 600000,
+      "readySequence": 10651,
+      "attemptCount": 1,
+      "createdAt": 1791174120761,
+      "updatedAt": 1791179592340,
+      "finishedAt": 1791179592340,
+      "dependencies": [
+        {
+          "parent": 11518,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791174120761
+        },
+        {
+          "parent": 11565,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791177100827
+        },
+        {
+          "parent": 11566,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791177230127
+        },
+        {
+          "parent": 11567,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791178127434
+        },
+        {
+          "parent": 11568,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791178270984
+        },
+        {
+          "parent": 11569,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791178411239
+        },
+        {
+          "parent": 11570,
+          "condition": "terminal",
+          "parentState": "cancelled",
+          "resolution": "satisfied",
+          "parentOutcome": "cancelled",
+          "resolvedAt": 1791178511589
+        },
+        {
+          "parent": 11571,
+          "condition": "terminal",
+          "parentState": "cancelled",
+          "resolution": "satisfied",
+          "parentOutcome": "cancelled",
+          "resolvedAt": 1791178602189
+        },
+        {
+          "parent": 11572,
+          "condition": "terminal",
+          "parentState": "cancelled",
+          "resolution": "satisfied",
+          "parentOutcome": "cancelled",
+          "resolvedAt": 1791178692789
+        },
+        {
+          "parent": 11573,
+          "condition": "terminal",
+          "parentState": "cancelled",
+          "resolution": "satisfied",
+          "parentOutcome": "cancelled",
+          "resolvedAt": 1791178813540
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9254,
+          "jobId": 11574,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791179587246,
+          "finishedAt": 1791179592340,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9254"
+        }
+      ]
+    },
+    {
+      "id": 11587,
+      "name": "sepclip_anvil2_fasttracking_v5_contracts",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_sepclip_anvil2_fasttracking_v5.py"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1200000,
+      "readySequence": 10647,
+      "attemptCount": 1,
+      "createdAt": 1791178520779,
+      "updatedAt": 1791179587240,
+      "finishedAt": 1791179587240,
+      "dependencies": [
+        {
+          "parent": 11518,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791178520779
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9253,
+          "jobId": 11587,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791179581244,
+          "finishedAt": 1791179587240,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9253"
+        }
+      ]
+    },
+    {
+      "id": 11593,
+      "name": "sepclip_anvil2_fasttracking_v5_half",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_anvil2_fasttracking_v5.sh"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1500000,
+      "readySequence": 10654,
+      "attemptCount": 1,
+      "createdAt": 1791178899380,
+      "updatedAt": 1791179713089,
+      "finishedAt": 1791179713089,
+      "dependencies": [
+        {
+          "parent": 11587,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791179587240
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9255,
+          "jobId": 11593,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791179592344,
+          "finishedAt": 1791179713089,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9255"
+        }
+      ]
+    },
+    {
+      "id": 11594,
+      "name": "sepclip_anvil2_investigation_complete",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "scripts/analyze_sepclip_anvil2.py",
+        "--jobs",
+        "11518",
+        "11519",
+        "11520",
+        "11521",
+        "11522",
+        "11523",
+        "11524",
+        "11525",
+        "11526",
+        "11527",
+        "11528",
+        "11550",
+        "11551",
+        "11552",
+        "11553",
+        "11554",
+        "11555",
+        "11556",
+        "11557",
+        "11558",
+        "11559",
+        "11565",
+        "11566",
+        "11567",
+        "11568",
+        "11569",
+        "11570",
+        "11571",
+        "11572",
+        "11573",
+        "11574",
+        "11587",
+        "11593"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 600000,
+      "readySequence": 10656,
+      "attemptCount": 1,
+      "createdAt": 1791178947104,
+      "updatedAt": 1791180479139,
+      "finishedAt": 1791180479139,
+      "dependencies": [
+        {
+          "parent": 11574,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791179592340
+        },
+        {
+          "parent": 11587,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791179587240
+        },
+        {
+          "parent": 11593,
+          "condition": "terminal",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791179713089
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9257,
+          "jobId": 11594,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791180473445,
+          "finishedAt": 1791180479139,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9257"
+        }
+      ]
+    }
+  ],
+  "cuda_contracts_executed": true,
+  "files": {
+    "cleanrl/ppo_continuous_action_sepclip_anvil2_v4.py": "1bf4cb185907e87409d466d130081e99951b99b8ef5ce8ed01e361703efb99de",
+    "tests/test_sepclip_anvil2.py": "2c4eb74a672c8abdd13926c2c2f533c9e2f847fd3cf85eb9894947192a06f3e8",
+    "scripts/audit_sepclip_anvil2.py": "d94b24f23be9ec17c186855170a31ed72457ca7ca112381412e1cd4a74fb6743",
+    "scripts/run_sepclip_anvil2_v4.sh": "64ecb6aee265e75f078364a604405c749cf07a73b062966ee8ae2e6cdabda05c",
+    "scripts/analyze_sepclip_anvil2.py": "3749842c3d55bb958e58427a40e240f00d38587d7fe9551820b22de8db6835c4"
+  },
+  "preserved": "Unrelated dirty files and frozen algorithm versions were not edited.",
+  "review_fixes": [
+    "Trailing common 200k-step scoring windows",
+    "GAE versus MC gain labels",
+    "Pre-update diagnostic checkpoint label",
+    "Momentum-switch history and within-chunk normalizer caveats",
+    "Durable numerical contract error measurements"
+  ],
+  "cuda_contracts_passed": 19,
+  "extra_supervisors": "Both foreground 30s prefix-scoped controllers stopped cleanly; each per-run600s supervisor exited with wrapper.",
+  "final_evidence": "investigation_report.json",
+  "final_files": {
+    "cleanrl/ppo_continuous_action_sepclip_anvil2_v4.py": "1bf4cb185907e87409d466d130081e99951b99b8ef5ce8ed01e361703efb99de",
+    "cleanrl/ppo_continuous_action_sepclip_anvil2_fasttracking_v5.py": "bc03d3928cc90a402c651f2b5d1a31af001af16b8450c99c1a8fdd7f90bf321e",
+    "tests/test_sepclip_anvil2.py": "2c4eb74a672c8abdd13926c2c2f533c9e2f847fd3cf85eb9894947192a06f3e8",
+    "tests/test_sepclip_anvil2_fasttracking_v5.py": "9404eebf51a2a9212998cbd4298a680657491ac10d193c9bb1c4fd293bc5f540",
+    "scripts/audit_sepclip_anvil2.py": "d94b24f23be9ec17c186855170a31ed72457ca7ca112381412e1cd4a74fb6743",
+    "scripts/run_sepclip_anvil2_v4.sh": "64ecb6aee265e75f078364a604405c749cf07a73b062966ee8ae2e6cdabda05c",
+    "scripts/run_sepclip_anvil2_fasttracking_v5.sh": "89b7ac213ecf418e11123aafe9fe9c9a35fb40e0fc15ce5512d8586c872fa6c1",
+    "scripts/analyze_sepclip_anvil2.py": "656205a28127823bae781787f248298791359e860a33211b80b7aec67ce940a0"
+  }
+}

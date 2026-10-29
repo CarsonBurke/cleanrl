@@ -1,0 +1,43 @@
+{
+  "id": 11827,
+  "name": "sepclip_microscopy_strong_reference_physics",
+  "state": "queued",
+  "eligibility": "waiting_for_dependencies: jobs [11826]",
+  "maxParallelRuns": 1,
+  "priority": 0,
+  "cwd": "/home/marvin/Documents/repositories/cleanrl",
+  "args": [
+    ".venv/bin/python",
+    "-u",
+    "scripts/run_sepclip_microscopy.py",
+    "--name",
+    "sepclip_microscopy_strong_reference_physics",
+    "--source",
+    "scripts/audit_sepclip_strong_reference.py",
+    "--source",
+    "cleanrl/ppo_continuous_action_prerms_adamh_v22.py",
+    "--output-json",
+    "benchmarks/sepclip_weight_microscopy/strong_reference_physics.json",
+    "--",
+    ".venv/bin/python",
+    "-u",
+    "scripts/audit_sepclip_strong_reference.py",
+    "--out",
+    "benchmarks/sepclip_weight_microscopy/strong_reference_physics.json",
+    "--save-traces"
+  ],
+  "maxAttempts": 1,
+  "retryDelayMs": 0,
+  "timeLimitMs": 2700000,
+  "attemptCount": 0,
+  "createdAt": 1791313344887,
+  "updatedAt": 1791313344887,
+  "dependencies": [
+    {
+      "parent": 11826,
+      "condition": "succeeded",
+      "parentState": "queued"
+    }
+  ],
+  "attempts": []
+}

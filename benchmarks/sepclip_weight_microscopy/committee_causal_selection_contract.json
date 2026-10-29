@@ -1,0 +1,10 @@
+{
+  "captured_at": 1791319926.6100311,
+  "scope": "Conditional selected-state diagnosis; no new physical measurements or causal selection.",
+  "optimizer_direction": "Require resolved actual fixed-chord weak/negative physical PG pairing and a positive held-noise alternative at comparable ACHIEVED Fisher cost. Negative held-fit gains falsify the fitted rescue. Same-policy/batch optimizer replay with explicit moment-history controls must separate optimizer transport from its input GAE covector.",
+  "representation": "Require resolved held-noise credit outside a numerically trustworthy functional range or structured held-state fitting failure. Current held-noise validation shares states; selected-state full rank and chart conditioning cannot establish visited-state generalization or global capacity.",
+  "critic": "Matched all-time GAE-minus-tail-augmented-MC discrepancy shares a frozen estimated old-critic tail; it is estimator discrepancy, not true infinite-horizon critic bias. Observed-action GAE-Q differences also contain action sampling.",
+  "feedback": "If local first-action pairing is positive but finite closed-loop return falls, require resolved all-time directional PG before attributing feedback. Hybrid interactions establish finite feedback, while derivative residual also contains curvature; epsilon-chord arms would be needed to isolate derivative scaling.",
+  "objective_robustness": "Compare the identical actual first/end motions under finite raw, finite normalized and estimated-tail normalized fields, plus paired SAME-replica tail increments. Do not infer aggregate raw credit by scaling normalized credit with an average reward standard deviation.",
+  "uncertainty": "Noise replicas measure conditional MC error at fixed saved states only; intervals do not quantify state-population or training-seed uncertainty. No architecture or optimizer winner is currently selected."
+}

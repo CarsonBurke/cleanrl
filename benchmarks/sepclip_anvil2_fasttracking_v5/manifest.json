@@ -1,0 +1,98 @@
+{
+  "hypothesis": "Constant .85 fast EMA/lookahead improves PPO tracking relative to transferred LM schedule, retaining slow rail/cascade and all PPO/architecture choices.",
+  "selection": "BF16 actor LR .0025; v4 best completed Anvil8345 vs full8308. FP32.005 culled at6.24M. Differences on one seed do not establish robustness.",
+  "jobs": [
+    {
+      "id": 11587,
+      "name": "sepclip_anvil2_fasttracking_v5_contracts",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_sepclip_anvil2_fasttracking_v5.py"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1200000,
+      "readySequence": 10647,
+      "attemptCount": 1,
+      "createdAt": 1791178520779,
+      "updatedAt": 1791179587240,
+      "finishedAt": 1791179587240,
+      "dependencies": [
+        {
+          "parent": 11518,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791178520779
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9253,
+          "jobId": 11587,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791179581244,
+          "finishedAt": 1791179587240,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9253"
+        }
+      ]
+    },
+    {
+      "id": 11593,
+      "name": "sepclip_anvil2_fasttracking_v5_half",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        "bash",
+        "scripts/run_sepclip_anvil2_fasttracking_v5.sh"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1500000,
+      "readySequence": 10654,
+      "attemptCount": 1,
+      "createdAt": 1791178899380,
+      "updatedAt": 1791179713089,
+      "finishedAt": 1791179713089,
+      "dependencies": [
+        {
+          "parent": 11587,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1791179587240
+        }
+      ],
+      "attempts": [
+        {
+          "id": 9255,
+          "jobId": 11593,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1791179592344,
+          "finishedAt": 1791179713089,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/9255"
+        }
+      ]
+    }
+  ],
+  "declared_max_parallel_runs": 1,
+  "culling_ref": "sepclip_anvil2_v4_anvil_half",
+  "only_prefix": "sepclip_anvil2_fasttracking_v5_"
+}

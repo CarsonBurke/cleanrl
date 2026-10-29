@@ -1,0 +1,61 @@
+{
+  "reference_start": 1791057936,
+  "modules": [
+    {
+      "module": "cleanrl.shared.host_actor",
+      "mtime": "2026-09-16T20:27:39.066459+00:00",
+      "predates_adam_reference": true
+    },
+    {
+      "module": "cleanrl.shared.host_graph",
+      "mtime": "2026-09-25T08:00:11.605988+00:00",
+      "predates_adam_reference": true
+    },
+    {
+      "module": "cleanrl.shared.mujoco_env",
+      "mtime": "2026-09-07T22:15:00.713195+00:00",
+      "predates_adam_reference": true
+    },
+    {
+      "module": "cleanrl.shared.ppo_loop",
+      "mtime": "2026-10-03T01:03:05.662754+00:00",
+      "predates_adam_reference": true
+    },
+    {
+      "module": "cleanrl.shared.rollout_graph",
+      "mtime": "2026-09-05T21:27:07.963035+00:00",
+      "predates_adam_reference": true
+    },
+    {
+      "module": "cleanrl.shared.rollout_transfer",
+      "mtime": "2026-09-06T04:33:28.920782+00:00",
+      "predates_adam_reference": true
+    },
+    {
+      "module": "cleanrl.shared.runtime",
+      "mtime": "2026-09-08T02:09:58.829265+00:00",
+      "predates_adam_reference": true
+    },
+    {
+      "module": "cleanrl.shared.sampling",
+      "mtime": "2026-09-25T08:00:34.284409+00:00",
+      "predates_adam_reference": true
+    },
+    {
+      "module": "cleanrl.shared.staggered_envs",
+      "mtime": "2026-09-08T17:53:13.912602+00:00",
+      "predates_adam_reference": true
+    },
+    {
+      "module": "cleanrl.shared.timing",
+      "mtime": "2026-09-06T04:29:45.070292+00:00",
+      "predates_adam_reference": true
+    },
+    {
+      "module": "cleanrl.shared.vector_norm",
+      "mtime": "2026-09-06T04:39:48.811251+00:00",
+      "predates_adam_reference": true
+    }
+  ],
+  "limitation": "Modification times are supporting provenance, not historical content hashes. Unrelated shared files were not edited."
+}

@@ -1,0 +1,72 @@
+{
+  "contracts": 11694,
+  "diagnostic": 11696,
+  "all_declared_limits": 1,
+  "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_4013696.pt",
+  "status": "complete_candidate_rejected",
+  "hypothesis": "V10 equal parameter norms amplified policy displacement. Compare a fractional proposal to an original-cascade shadow budget on exact empirical policy Fisher geometry, keep fresh slow rail and Adam heads/critic.",
+  "limits": [
+    "Matrix-only budget on training states, not fullactor trust region.",
+    "Two corrections then GPU-side rejection if beyond1.02budget.",
+    "Both rail histories see same clippedgradients; lane adaptation histories differ as intended."
+  ],
+  "failed_attempts": [
+    {
+      "id": 11692,
+      "passed": 2,
+      "failed": 1,
+      "reason": "Large-rate rejection restored old unnormalized fixture weights; test incorrectly assumed unit weights without Agent initial normalization. Fixture now matches actual Agent manifold.",
+      "log": "benchmarks/sepclip_mechanisms/contract_logs/11692.txt"
+    },
+    {
+      "id": 11693,
+      "state": "skipped",
+      "reason": "failed11692dependency"
+    }
+  ],
+  "review": "Independent review found no blocking math/ownership/state issue. Diagnostic matrix measurements aligned at common post-retraction stage before replacement execution. Rejection intentionally advances both optimizer histories while restoring weights.",
+  "source_sha256": {
+    "cleanrl/ppo_continuous_action_sepclip_policy_budget_anvil_v11.py": "9df820c8d89a62c62cb6abf7319d31e07af6f00c2767585f33159758a4c79a30",
+    "tests/test_sepclip_policy_budget.py": "7aeb70c6d5d819388dc66e132e39e7b578fd7f9f5f39d7f898d40141cc3fc34d",
+    "scripts/audit_sepclip_policy_budget.py": "4c75f32f3abcdf105bf49cf90f5d7e9473e295426ee998cf04c135b0b7b78c66"
+  },
+  "initial_stage_mismatch_diagnostic": {
+    "id": 11695,
+    "artifact": "benchmarks/sepclip_mechanisms/policy_budget_diagnostic_initial_stage_mismatch.json",
+    "reason": "Source loaded before stage-label repair. Policy geometry comparable; matrix row stages differ. Preserve and rerun corrected diagnostic."
+  },
+  "contract_recheck_result": {
+    "id": 11694,
+    "state": "succeeded",
+    "passed": 3
+  },
+  "training_jobs": [
+    {
+      "id": 11697,
+      "name": "sepclip_mechanisms_policy_budget_cascade_control_v11",
+      "limit": 1
+    },
+    {
+      "id": 11698,
+      "name": "sepclip_mechanisms_policy_budget_anvil_v11",
+      "limit": 1
+    }
+  ],
+  "training_decision": {
+    "basis": "Calibration matches shadow policy cost and removes4x displacement defect; firststep mean signed GAE/Fisher efficiency improves9.5%, two of threechunks improve, thirddecreases. A controlled fresh test is warranted, not a claim of reliably positive heldout gains.",
+    "gate_update": "Initial strict allchunk consistency criterion not met. Explicitly proceed as uncertain hypothesis test because the geometry defect is resolved and aggregate firststep efficiency positive; do not portray this as consistent crosschunk evidence.",
+    "control": "Fresh powerzero same-source control bypasses calibration and spectral reweighting, compared to frozen v7 and stock Adam.",
+    "scope": "Half-rate .0025 only, consistent earlier v7 learning curve. Larger rate not automatically queued after failure."
+  },
+  "initial_training_gate": "No training submitted absent positive diagnostic and independent review.",
+  "independent_red_team": {
+    "blocking_defect_found": false,
+    "finite_heldout_clipped_surrogate": "Negative in all powers/chunks/epochs at this selected checkpoint. Mean signed firstorder efficiency improvement is not finite objective improvement.",
+    "continuation_scope": "Matrix optimizer state only. No full trainer resume path; snapshots omit environment/RNG state.",
+    "gate": "Strict consistency gate was explicitly relaxed for uncertain fresh test, not met or retroactively described as satisfied."
+  },
+  "terminal_primary_results": {
+    "11697": 8632.022201006685,
+    "11698": 8074.09911137671
+  }
+}

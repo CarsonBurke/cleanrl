@@ -1,0 +1,27 @@
+{
+  "prepared_at": 1791344612.4973817,
+  "source": "scripts/plot_sepclip_actual_microscopy_v1.py",
+  "source_sha256": "b23d6b2b1d90f80c9dcc5cbb5b2dd378581a245de9b5983869f7c087b39ace5c",
+  "status": "Frozen static-reviewed renderer; not executed or submitted",
+  "review": "Independent physics committee reviewed interpretations/domain guards; final approval after fixes.",
+  "input_gate": "Render only independently accepted actual layerV2 and bitwise-accepted actual optimizer forensic JSON; each input CLI byte pin checked before/after.",
+  "numerical_scope": "Stored PPO ascent, epoch clipped LOSS covector, matrix-space moment alignment and physical PG remain explicitly separate. No new model/gradient/physical measurement or significance selection.",
+  "plot_semantics": [
+    "Signed normalized layerGram retainscross terms",
+    "Raw storedPPOascentpairings preserve signs",
+    "Relativeweightmotion logcolors mask zero and verifiedzero-norm undefined ratios; no epsilonreplacement",
+    "Momentcosine masked only legitimatezero-vector None; numericNaN/inf/domaininvalid rejected",
+    "Duplicate labels rejected beforefigureswrites"
+  ],
+  "execution": "Future mlq maxParallelRuns1 model-free rendering after acceptedmeasures; noextra mirroredimplementation tests for reversiblefigures",
+  "updated_at": 1791344796.3820283,
+  "selected_input_domain": "FrozenV1 renderer is restricted to independently accepted actual-layer artifacts with strictly positive finite joint energy. Compatibility and nonzero energy of pending captures remain unverified; CLI byte identity is not acceptance.",
+  "zero_joint_interpretation": "Genuine zero-response Gram is valid; its normalized Gram is undefined, not failed scientific geometry. If encountered, preserveV1 and prepare a new renderer version that masks this undefined normalization instead of silently dropping or invalidating the measurement.",
+  "acceptance_before_selection": [
+    "Source/execution/input replay pins and actual capture forward gates",
+    "Independent captured-chord derivative acceptance including rounding limitations",
+    "Executed FisherV2 contract plus conditional scalar budget/withholding assessment",
+    "Independent empiricallayer review with fullbatch/freevsunit axes and crossGram arithmetic",
+    "Forensics fullactualdelta+endpoint bitwise parity and separate boundedinternalstage acceptance"
+  ]
+}

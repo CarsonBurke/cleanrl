@@ -1,0 +1,21 @@
+{
+  "status": "Prepared, unexecuted, unsubmitted; held pending reliable dense physical PG fields and required numerical validation",
+  "captured_at": 1791316775.984104,
+  "source_sha256": {
+    "scripts/audit_sepclip_chart_credit.py": "89d821323c352df5141adf9a1adc6ae350f037202a9bd260a6714f980269fe6c",
+    "tests/test_sepclip_chart_credit.py": "ab789012a21abc4862d3ceaac8bf4ed8ca0c49ecc2f7b5d7e72de16b4fe1f0f3"
+  },
+  "validation": "AST parse plus independent physics/architecture static approvals only; no models, tests or jobs executed/submitted; no numerical pass",
+  "reference": "analytical_chart_identification.md",
+  "proposed_execution_policy": "No submission made; execution held pending reliable dense fields and required numerical validation. All future local CUDA work through mlq maxParallelRuns1.",
+  "frozen_trainer_changes": false,
+  "independent_static_reviews": {
+    "architecture": "Approved final source89d821323c352df5141adf9a1adc6ae350f037202a9bd260a6714f980269fe6c/testab789012a21abc4862d3ceaac8bf4ed8ca0c49ecc2f7b5d7e72de16b4fe1f0f3, including accepted-ULP logit-Fisher domain guard. No new blocker; source review only.",
+    "physics": "Approved final source89d821323c352df5141adf9a1adc6ae350f037202a9bd260a6714f980269fe6c/testab789012a21abc4862d3ceaac8bf4ed8ca0c49ecc2f7b5d7e72de16b4fe1f0f3 after logit-Fisher domain guard; no remaining blocking math/source/scope defect. Source review only."
+  },
+  "review_artifacts": [
+    "chart_credit_physics_source_review.md",
+    "chart_credit_independent_code_review.md",
+    "chart_credit_interpretation_contract.md"
+  ]
+}

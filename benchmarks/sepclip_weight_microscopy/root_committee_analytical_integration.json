@@ -1,0 +1,18 @@
+{
+  "captured_at": 1791331584.5607812,
+  "source_sha256": {
+    "committee_joint_bank_geometry.md": "88d855a3310ba36a0a0e1fef1094e911851fee87bde46d078a88c537723aa0e3",
+    "ppo_active_set_fisher_appendix.md": "bd852777a5ba67c1152e1dac2245fd6e21ce46857c081a87493ad6dfa38b96c1",
+    "independent_allocation_and_phase_appendix.md": "8f90fac6f29a4c954a67c011064b21b0244a6eb856a973db57a396ed8a040b5e",
+    "analytical_synthesis.md": "6b2ae5a7ba47789a2a46977a4c4e0dc4ea0f4efa4374207df04bc4986cdef193"
+  },
+  "evidence_class": "Analytical synthesis of existing accepted measurements; no new ML, optimization, physical PG or causal selection.",
+  "refinements": [
+    "Net cross-layer reinforcement does not establish collinearity, redundancy, excess LR or useful credit.",
+    "Fixed-bank comparison uses the full joint Gram H=2*stored_Gram and a supported credit covector on the SAME states/metric/chord; ill-conditioned coefficient cancellation and finite retractions can invalidate its optimum.",
+    "PPO joint six-action ratio selects whole-sample active masks; a Fisher second moment cannot determine removed credit or inactive fraction.",
+    "Native mean/total-concentration components are nonorthogonal and differ from mode/excess precision; small concentration cost does not prove zero physical credit.",
+    "Near-bound mode, inward mean and pooled torque thresholds do not identify a torque ceiling or gait optimum."
+  ],
+  "historical_layer_scope": "One replayed next-rollout full-batch proposal per saved checkpoint; functional evaluation on 512 stored states, distinct from actual first/ten-epoch updates."
+}

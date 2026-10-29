@@ -1,0 +1,413 @@
+{
+  "status": "completed: independent audit, numerical contracts and three fresh matched training runs succeeded",
+  "reference_revisions": {
+    "modded_nanogpt": "4ea6b937337a4889b8cfe3f38a93d120048d8f71",
+    "casmi": "6a14329a411182c0ee83b0d5a324228e914bb86b"
+  },
+  "findings": [
+    {
+      "kind": "reference discrepancy",
+      "finding": "Local output-row equalizer differs from nanoGPT shape-dependent long-axis equalizer on second gate/up weights (43x64).",
+      "evidence": [
+        "cleanrl/ppo_continuous_action_sepclip_normuon_split_diagnostic_v2.py:68",
+        "../modded-nanogpt/train_gpt_medium.py:658",
+        "../modded-nanogpt/track_1_short/optim/anvil.py:427"
+      ],
+      "interpretation": "A full-rank exact wide polar has equal row energies, so output-row adaptation is then redundant. Column energies are leverage scores. The paper itself uses output rows, so this is not an intrinsic NorMuon algorithm bug."
+    },
+    {
+      "kind": "confirmed optimizer API bug",
+      "finding": "Standard load_state_dict leaves cached stack state and parameter-group dictionaries stale.",
+      "evidence": [
+        "cleanrl/ppo_continuous_action_sepclip_normuon_split_diagnostic_v2.py:79",
+        "scripts/diagnose_sepclip_normuon_history.py:21"
+      ],
+      "interpretation": "Does not explain fresh training; original real-history diagnostic already compensates by rebuilding stacks."
+    },
+    {
+      "kind": "normalization convention",
+      "finding": "Paper Algorithm 1 fixes update norm at 0.2*sqrt(out*in)*lr. Our casmi port preserves the approximate polar norm, then uses sqrt(max(1,out/in)).",
+      "source": "https://arxiv.org/html/2510.05491v1#S3",
+      "interpretation": "Different layerwise LR calibration; not evidence that either is universally wrong."
+    },
+    {
+      "kind": "verified source equivalence",
+      "finding": "Polar Express coefficients, bf16 casting, transpose handling, margin, epsilon, EMA, Nesterov and per-matrix norm restoration match casmi. Optimizer membership is disjoint and state is not shared across actor/critic matrices."
+    },
+    {
+      "kind": "integration difference",
+      "finding": "nGPT projects gate/up rows and down columns after every optimizer step. nanoGPT uses distinct weight layouts, role multipliers, momentum schedules and decay.",
+      "interpretation": "Effective projected updates are not determined solely by the optimizer formula. Copying nanoGPT storage-shape LR multipliers without functional layout analysis would be unsound."
+    }
+  ],
+  "layer_scaling": [
+    {
+      "shape": [
+        43,
+        17
+      ],
+      "local_scale": 1.5904124511289146,
+      "local_full_rank_polar_norm": 6.557438524302,
+      "paper_target_norm": 5.40740233383831,
+      "paper_to_local_full_rank_ratio": 0.8246211251235321
+    },
+    {
+      "shape": [
+        43,
+        64
+      ],
+      "local_scale": 1.0,
+      "local_full_rank_polar_norm": 6.557438524302,
+      "paper_target_norm": 10.491901638883201,
+      "paper_to_local_full_rank_ratio": 1.6
+    },
+    {
+      "shape": [
+        64,
+        43
+      ],
+      "local_scale": 1.2199885626608373,
+      "local_full_rank_polar_norm": 8.0,
+      "paper_target_norm": 10.491901638883201,
+      "paper_to_local_full_rank_ratio": 1.3114877048604001
+    }
+  ],
+  "corrections_to_prior_conclusion": [
+    "Incorrect port of casmi was not found; incorrect equivalence to every nanoGPT NorMuon variant cannot be excluded.",
+    "Actor optimizer localization remains supported for the tested seed/setup. Internal cause remains unresolved.",
+    "Precision and momentum interventions failing to consistently rescue two frozen batches do not exclude every precision/momentum configuration in fresh training.",
+    "Held-out chunks are sequential trajectories, not independent training seeds; surrogate gain is not a measured long-run return.",
+    "Full polar with full rank is only a reference limit; finite Polar Express iterations and rank deficiency can retain nonuniform row energies.",
+    "Prior matched-KL comparison at one checkpoint does not calibrate all layerwise rates or prove universal optimizer inferiority."
+  ],
+  "new_files": [
+    "scripts/audit_sepclip_normuon.py",
+    "cleanrl/ppo_continuous_action_sepclip_longaxis_normuon_v3.py",
+    "tests/test_sepclip_longaxis_normuon.py",
+    "scripts/run_sepclip_normuon_reference_audit.sh"
+  ],
+  "jobs": [
+    {
+      "id": 11333,
+      "purpose": "independent spectral oracle, stale-load reproduction, actual-history eight-case replay",
+      "limit": 1,
+      "outcome": "succeeded"
+    },
+    {
+      "id": 11334,
+      "purpose": "long-axis and compiled checkpoint continuation contracts",
+      "limit": 1,
+      "outcome": "succeeded"
+    },
+    {
+      "id": 11335,
+      "purpose": "matched Adam control, HC8M seed1",
+      "limit": 1,
+      "outcome": "succeeded"
+    },
+    {
+      "id": 11336,
+      "purpose": "existing row-NorMuon actor, HC8M seed1",
+      "limit": 1,
+      "outcome": "succeeded"
+    },
+    {
+      "id": 11337,
+      "purpose": "nanoGPT long-axis NorMuon actor, HC8M seed1",
+      "limit": 1,
+      "outcome": "succeeded"
+    }
+  ],
+  "queue_priority_rationale": "Priority 1 for this bounded interactive investigation; exclusive running work is not preempted. Limits remain one and unrelated holds are unchanged.",
+  "numerical_results": [
+    {
+      "shape": [
+        43,
+        17
+      ],
+      "analytic_polar_relative_error": 0.05753057822585106,
+      "multistep_relative_errors": [
+        0.07618880271911621,
+        0.07213502377271652,
+        0.08733817934989929
+      ],
+      "stale_state_after_standard_load": true
+    },
+    {
+      "shape": [
+        43,
+        64
+      ],
+      "analytic_polar_relative_error": 0.048782844096422195,
+      "multistep_relative_errors": [
+        0.05441012606024742,
+        0.06004153937101364,
+        0.04850846529006958
+      ],
+      "stale_state_after_standard_load": true
+    },
+    {
+      "shape": [
+        64,
+        43
+      ],
+      "analytic_polar_relative_error": 0.04994140937924385,
+      "multistep_relative_errors": [
+        0.05431663244962692,
+        0.051559288054704666,
+        0.059063348919153214
+      ],
+      "stale_state_after_standard_load": true
+    }
+  ],
+  "contract_tests": {
+    "job": 11334,
+    "outcome": "succeeded",
+    "passed": 5
+  },
+  "history_results": [
+    {
+      "step": 4013696,
+      "cases": [
+        {
+          "kind": "actual",
+          "hold_final": {
+            "exact_kl": 0.027508452534675598,
+            "surrogate_gain": -0.00011297375749563798,
+            "mc_gain": -0.00016810515080578625,
+            "clipfrac": 0.2710978388786316,
+            "value_mse": 0.0019477095920592546,
+            "entropy_delta": -0.018035337328910828,
+            "clipped_surrogate_gain": -0.0008750786073505878
+          }
+        },
+        {
+          "kind": "rows_reset",
+          "hold_final": {
+            "exact_kl": 0.02735016867518425,
+            "surrogate_gain": -0.00014179546269588172,
+            "mc_gain": -0.00021128446678631008,
+            "clipfrac": 0.26910400390625,
+            "value_mse": 0.0019477095920592546,
+            "entropy_delta": -0.019184160977602005,
+            "clipped_surrogate_gain": -0.0008941724663600326
+          }
+        },
+        {
+          "kind": "long_axis_reset",
+          "hold_final": {
+            "exact_kl": 0.027741581201553345,
+            "surrogate_gain": -0.00015006298781372607,
+            "mc_gain": -0.00020411494188010693,
+            "clipfrac": 0.2734171748161316,
+            "value_mse": 0.0019477095920592546,
+            "entropy_delta": -0.01737881265580654,
+            "clipped_surrogate_gain": -0.0009167563985101879
+          }
+        },
+        {
+          "kind": "projection_axis_reset",
+          "hold_final": {
+            "exact_kl": 0.027520183473825455,
+            "surrogate_gain": -0.00012089473602827638,
+            "mc_gain": -0.00018591785919852555,
+            "clipfrac": 0.2697347104549408,
+            "value_mse": 0.0019477095920592546,
+            "entropy_delta": -0.017579443752765656,
+            "clipped_surrogate_gain": -0.0008849850855767727
+          }
+        },
+        {
+          "kind": "paper_rms_reset",
+          "hold_final": {
+            "exact_kl": 0.03726062923669815,
+            "surrogate_gain": -5.328575934981927e-05,
+            "mc_gain": -1.6520789358764887e-05,
+            "clipfrac": 0.3387451171875,
+            "value_mse": 0.0019477095920592546,
+            "entropy_delta": -0.00939647201448679,
+            "clipped_surrogate_gain": -0.0011153246741741896
+          }
+        },
+        {
+          "kind": "plain_muon",
+          "hold_final": {
+            "exact_kl": 0.028560474514961243,
+            "surrogate_gain": -0.00016940964269451797,
+            "mc_gain": -0.00021289836149662733,
+            "clipfrac": 0.2803141474723816,
+            "value_mse": 0.0019477095920592546,
+            "entropy_delta": -0.017794311046600342,
+            "clipped_surrogate_gain": -0.0009533198899589479
+          }
+        },
+        {
+          "kind": "heads_only",
+          "hold_final": {
+            "exact_kl": 0.007625322788953781,
+            "surrogate_gain": 0.00012025429168716073,
+            "mc_gain": 0.00010856268636416644,
+            "clipfrac": 0.0959065780043602,
+            "value_mse": 0.0019477095920592546,
+            "entropy_delta": -0.005248682573437691,
+            "clipped_surrogate_gain": -2.4197439415729605e-05
+          }
+        },
+        {
+          "kind": "matrices_only",
+          "hold_final": {
+            "exact_kl": 0.02754226326942444,
+            "surrogate_gain": -0.00012491394591052085,
+            "mc_gain": -0.00018188514513894916,
+            "clipfrac": 0.2664388120174408,
+            "value_mse": 0.0019477095920592546,
+            "entropy_delta": -0.010437420569360256,
+            "clipped_surrogate_gain": -0.000879116530995816
+          }
+        }
+      ]
+    },
+    {
+      "step": 8011392,
+      "cases": [
+        {
+          "kind": "actual",
+          "hold_final": {
+            "exact_kl": 0.04814177751541138,
+            "surrogate_gain": 9.047225466929376e-05,
+            "mc_gain": 0.00015830411575734615,
+            "clipfrac": 0.3467610776424408,
+            "value_mse": 0.0032395466696470976,
+            "entropy_delta": -0.0010823265183717012,
+            "clipped_surrogate_gain": -0.0012876384425908327
+          }
+        },
+        {
+          "kind": "rows_reset",
+          "hold_final": {
+            "exact_kl": 0.04978538677096367,
+            "surrogate_gain": 0.00010714693780755624,
+            "mc_gain": 0.00020749805844388902,
+            "clipfrac": 0.3409627377986908,
+            "value_mse": 0.0032395466696470976,
+            "entropy_delta": -0.006254555191844702,
+            "clipped_surrogate_gain": -0.0013130640145391226
+          }
+        },
+        {
+          "kind": "long_axis_reset",
+          "hold_final": {
+            "exact_kl": 0.047214847058057785,
+            "surrogate_gain": 9.121306356973946e-05,
+            "mc_gain": 0.00018318835645914078,
+            "clipfrac": 0.33746337890625,
+            "value_mse": 0.0032395466696470976,
+            "entropy_delta": -0.012714389711618423,
+            "clipped_surrogate_gain": -0.00128358940128237
+          }
+        },
+        {
+          "kind": "projection_axis_reset",
+          "hold_final": {
+            "exact_kl": 0.046926192939281464,
+            "surrogate_gain": 1.5340070603997447e-05,
+            "mc_gain": 9.437921107746661e-05,
+            "clipfrac": 0.3349609375,
+            "value_mse": 0.0032395466696470976,
+            "entropy_delta": -0.014719977974891663,
+            "clipped_surrogate_gain": -0.0013310413341969252
+          }
+        },
+        {
+          "kind": "paper_rms_reset",
+          "hold_final": {
+            "exact_kl": 0.05469280481338501,
+            "surrogate_gain": -6.024302274454385e-05,
+            "mc_gain": 3.887194179696962e-05,
+            "clipfrac": 0.35693359375,
+            "value_mse": 0.0032395466696470976,
+            "entropy_delta": -0.020998327061533928,
+            "clipped_surrogate_gain": -0.0015792867634445429
+          }
+        },
+        {
+          "kind": "plain_muon",
+          "hold_final": {
+            "exact_kl": 0.04933851957321167,
+            "surrogate_gain": 0.0001331646490143612,
+            "mc_gain": 0.00020292696717660874,
+            "clipfrac": 0.3522745966911316,
+            "value_mse": 0.0032395466696470976,
+            "entropy_delta": 0.0001642043935135007,
+            "clipped_surrogate_gain": -0.0013166200369596481
+          }
+        },
+        {
+          "kind": "heads_only",
+          "hold_final": {
+            "exact_kl": 0.005862231831997633,
+            "surrogate_gain": 0.0001376277068629861,
+            "mc_gain": 0.0001136869250331074,
+            "clipfrac": 0.06695556640625,
+            "value_mse": 0.0032395466696470976,
+            "entropy_delta": 0.002534387866035104,
+            "clipped_surrogate_gain": 3.584046135074459e-05
+          }
+        },
+        {
+          "kind": "matrices_only",
+          "hold_final": {
+            "exact_kl": 0.04690500348806381,
+            "surrogate_gain": 1.4337007996800821e-05,
+            "mc_gain": 0.00011625842307694256,
+            "clipfrac": 0.3396199643611908,
+            "value_mse": 0.0032395466696470976,
+            "entropy_delta": -0.007496276870369911,
+            "clipped_surrogate_gain": -0.0013615762582048774
+          }
+        }
+      ]
+    }
+  ],
+  "history_interpretation": [
+    "4M: rows_reset and long_axis_reset have almost identical KL and both negative unclipped held-out gain. Axis correction alone does not rescue this local update.",
+    "8M: rows_reset and long_axis_reset have modest positive unclipped gain, but clipped held-out gain is negative for both. No consistent axis benefit.",
+    "Plain Muon is also negative at4M: equalization during this replay is not necessary for the local failure. Earlier training effects remain unresolved.",
+    "Matrices-only remains negative at4M at similar KL: simultaneous head movement is not necessary for this failure. Other head/representation interactions remain unresolved.",
+    "Heads-only is positive but has substantially smaller KL; it is not a matched-movement direction comparison.",
+    "Paper RMS scaling is not a consistent local rescue. Layerwise scaling and total movement remain confounded.",
+    "Compiled-versus-independent arithmetic update differences around5-9% and spectral errors around5% do not exclude every numerically meaningful precision effect."
+  ],
+  "fresh_training": [
+    {
+      "variant": "normuon_audit_8m_adam",
+      "run": "runs/HalfCheetah-v4__normuon_audit_8m_adam__1__1791057936",
+      "final_step": 7995008,
+      "final_100_episode_mean": 8281.17818359375,
+      "at_2M": 4769.828404190516,
+      "at_4M": 6620.046904006807
+    },
+    {
+      "variant": "normuon_audit_8m_long",
+      "run": "runs/HalfCheetah-v4__normuon_audit_8m_long__1__1791058248",
+      "final_step": 7995008,
+      "final_100_episode_mean": 5906.569892578125,
+      "at_2M": 3881.956629082708,
+      "at_4M": 4687.587541448008
+    },
+    {
+      "variant": "normuon_audit_8m_rows",
+      "run": "runs/HalfCheetah-v4__normuon_audit_8m_rows__1__1791058077",
+      "final_step": 7995008,
+      "final_100_episode_mean": 5873.104173431397,
+      "at_2M": 3823.6659696975557,
+      "at_4M": 4816.248299211558
+    }
+  ],
+  "conclusion": "The faithful casmi port differs from nanoGPT long-axis adaptation and paper RMS scaling. A genuine cached-state restore bug exists, but the prior replay compensates and fresh training does not load optimizer checkpoints. Changing the adaptation axis did not rescue either the failed local replay or fresh HalfCheetah 8M seed-1 training: final-100-episode means were Adam 8,281, row adaptation 5,873, and long-axis adaptation 5,907. This does not establish universal optimizer inferiority or uniquely identify the internal cause.",
+  "fresh_training_limits": [
+    "Seed 1 only; the final 100 episodes are not 100 independent training seeds.",
+    "All three runs have the same 8M annealing horizon, unlike the prior 50M runs.",
+    "Wall times/SPS were not measured under an aggregate-throughput protocol, so no optimizer throughput conclusion is drawn."
+  ]
+}

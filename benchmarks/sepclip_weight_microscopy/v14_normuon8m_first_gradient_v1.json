@@ -1,0 +1,549 @@
+{
+  "status": "accepted_bitwise_source_first_gradient_reconstruction",
+  "rng": {
+    "saved_rng_sha256": "d32c4d9d7cfdf72d178492f7e4055464a31c6d4dc6fe08b81536645ed45dfef6",
+    "first_permutation_sha256": "7718439ebb8736c950d0be2afc5128b88d06ecef57d5967628e84870ca7a315d",
+    "post_first_rng_sha256": "d9dd9b990e6743f1d4a9846d7a9597cb65ee0e1b473604d315411dbc4ac836e8",
+    "permutation_dtype": "torch.int64",
+    "permutation_count": 16384,
+    "interpretation": "Saved pre-rollout private shuffle RNG; source uses this generator only in device_minibatches after rollout"
+  },
+  "first_gradient_parity": {
+    "critic.readout_gain": {
+      "bitwise_equal": true,
+      "norm": 0.0016682144487276673
+    },
+    "critic.first.0.gate.weight": {
+      "bitwise_equal": true,
+      "norm": 0.0016946395445573744
+    },
+    "critic.first.0.up.weight": {
+      "bitwise_equal": true,
+      "norm": 0.0016876876791093365
+    },
+    "critic.first.0.down.weight": {
+      "bitwise_equal": true,
+      "norm": 0.0022458629111073
+    },
+    "critic.second.0.gate.weight": {
+      "bitwise_equal": true,
+      "norm": 0.0011869448295392575
+    },
+    "critic.second.0.up.weight": {
+      "bitwise_equal": true,
+      "norm": 0.0011138006698215223
+    },
+    "critic.second.0.down.weight": {
+      "bitwise_equal": true,
+      "norm": 0.0015401644989790342
+    },
+    "critic.head.0.weight": {
+      "bitwise_equal": true,
+      "norm": 0.003606438689197854
+    },
+    "critic.head.0.bias": {
+      "bitwise_equal": true,
+      "norm": 0.0004069087444804609
+    },
+    "actor.readout_gain": {
+      "bitwise_equal": true,
+      "norm": 0.00724170956717925
+    },
+    "actor.trunk.in_proj.weight": {
+      "bitwise_equal": true,
+      "norm": 0.0330547218700946
+    },
+    "actor.trunk.in_proj.bias": {
+      "bitwise_equal": true,
+      "norm": 0.00701819429595874
+    },
+    "actor.trunk.blocks.0.gate.weight": {
+      "bitwise_equal": true,
+      "norm": 0.01794919003406994
+    },
+    "actor.trunk.blocks.0.up.weight": {
+      "bitwise_equal": true,
+      "norm": 0.018507648368167366
+    },
+    "actor.trunk.blocks.0.down.weight": {
+      "bitwise_equal": true,
+      "norm": 0.02627632496479289
+    },
+    "actor.trunk.blocks.1.gate.weight": {
+      "bitwise_equal": true,
+      "norm": 0.01065718994102805
+    },
+    "actor.trunk.blocks.1.up.weight": {
+      "bitwise_equal": true,
+      "norm": 0.012786802503045126
+    },
+    "actor.trunk.blocks.1.down.weight": {
+      "bitwise_equal": true,
+      "norm": 0.02631999188068617
+    },
+    "actor.trunk.block_gates.0": {
+      "bitwise_equal": true,
+      "norm": 0.003812696211544038
+    },
+    "actor.trunk.block_gates.1": {
+      "bitwise_equal": true,
+      "norm": 0.004904984437177142
+    },
+    "actor.head.0.weight": {
+      "bitwise_equal": true,
+      "norm": 0.06671931996182587
+    },
+    "actor.head.0.bias": {
+      "bitwise_equal": true,
+      "norm": 0.0012173118676847134
+    }
+  },
+  "source_reconstructed_preclip_norms": {
+    "actor": 0.08950323611497879,
+    "critic": 0.0056338622234761715
+  },
+  "source_loss": 0.0035560037940740585,
+  "source_metrics": [
+    0.0008907399023883045,
+    0.005330527666956186,
+    -7.205271244049072,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "full_actor_covector": {
+    "independent_policy_ascent_norm": 0.08950326402733691,
+    "negative_recorded_clipped_loss_norm": 0.0895032333972767,
+    "dot": 0.00801083152996003,
+    "cosine": 0.9999999999879184,
+    "unconstrained_least_squares_common_scale": 0.9999996577650895,
+    "common_scale_positive": true,
+    "residual_after_common_scale_norm": 4.3996283901619734e-07,
+    "residual_relative_to_recorded_norm": 4.9156083229232705e-06,
+    "raw_difference_norm": 4.410278523487941e-07,
+    "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+  },
+  "actor_routes": {
+    "readout_gain": {
+      "independent_policy_ascent_norm": 0.007241729350046854,
+      "negative_recorded_clipped_loss_norm": 0.00724170956717925,
+      "dot": 5.244250071691431e-05,
+      "cosine": 0.9999999999953708,
+      "unconstrained_least_squares_common_scale": 0.9999972682076101,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 2.203476956392529e-08,
+      "residual_relative_to_recorded_norm": 3.0427579785567333e-06,
+      "raw_difference_norm": 2.9612400219786365e-08,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.in_proj": {
+      "independent_policy_ascent_norm": 0.03379155771974212,
+      "negative_recorded_clipped_loss_norm": 0.03379156239485145,
+      "dot": 0.0011418695310936317,
+      "cosine": 0.999999999989265,
+      "unconstrained_least_squares_common_scale": 1.0000001383406654,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.565766375038002e-07,
+      "residual_relative_to_recorded_norm": 4.633601597766209e-06,
+      "raw_difference_norm": 1.566464064941651e-07,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.blocks.0.gate": {
+      "independent_policy_ascent_norm": 0.017949181500217952,
+      "negative_recorded_clipped_loss_norm": 0.01794919003406994,
+      "dot": 0.00032217326969841516,
+      "cosine": 0.9999999999844511,
+      "unconstrained_least_squares_common_scale": 1.0000004754296399,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.0009470333719518e-07,
+      "residual_relative_to_recorded_norm": 5.576558226148487e-06,
+      "raw_difference_norm": 1.0045780956475471e-07,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.blocks.0.up": {
+      "independent_policy_ascent_norm": 0.018507651084849655,
+      "negative_recorded_clipped_loss_norm": 0.018507648368167366,
+      "dot": 0.0003425330983919826,
+      "cosine": 0.9999999999791376,
+      "unconstrained_least_squares_common_scale": 0.9999998531921532,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.1954979380668781e-07,
+      "residual_relative_to_recorded_norm": 6.459480503871582e-06,
+      "raw_difference_norm": 1.1958066591187397e-07,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.blocks.0.down": {
+      "independent_policy_ascent_norm": 0.026276319697916998,
+      "negative_recorded_clipped_loss_norm": 0.02627632496479289,
+      "dot": 0.0006904451152528357,
+      "cosine": 0.9999999999878051,
+      "unconstrained_least_squares_common_scale": 1.0000002004297222,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.297681961065518e-07,
+      "residual_relative_to_recorded_norm": 4.938597626586881e-06,
+      "raw_difference_norm": 1.2987502195238072e-07,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.blocks.1.gate": {
+      "independent_policy_ascent_norm": 0.010657184979351732,
+      "negative_recorded_clipped_loss_norm": 0.01065718994102805,
+      "dot": 0.00011357564456003627,
+      "cosine": 0.9999999999860336,
+      "unconstrained_least_squares_common_scale": 1.0000004655570383,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 5.6325013011740403e-08,
+      "residual_relative_to_recorded_norm": 5.285165538328295e-06,
+      "raw_difference_norm": 5.654311492711742e-08,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.blocks.1.up": {
+      "independent_policy_ascent_norm": 0.012786805667261734,
+      "negative_recorded_clipped_loss_norm": 0.012786802503045126,
+      "dot": 0.0001635023587100865,
+      "cosine": 0.9999999999877222,
+      "unconstrained_least_squares_common_scale": 0.9999997525282167,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 6.336318140069941e-08,
+      "residual_relative_to_recorded_norm": 4.9553577906290274e-06,
+      "raw_difference_norm": 6.344214701212394e-08,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.blocks.1.down": {
+      "independent_policy_ascent_norm": 0.026319984569624255,
+      "negative_recorded_clipped_loss_norm": 0.02631999188068617,
+      "dot": 0.000692741780164079,
+      "cosine": 0.9999999999881389,
+      "unconstrained_least_squares_common_scale": 1.0000002777642103,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.2819133301608339e-07,
+      "residual_relative_to_recorded_norm": 4.870492878462902e-06,
+      "raw_difference_norm": 1.283996297586789e-07,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.block_gates.0": {
+      "independent_policy_ascent_norm": 0.0038126924931789676,
+      "negative_recorded_clipped_loss_norm": 0.003812696211544038,
+      "dot": 1.4536638224370715e-05,
+      "cosine": 0.9999999999893285,
+      "unconstrained_least_squares_common_scale": 1.0000009752489585,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.761411428632002e-08,
+      "residual_relative_to_recorded_norm": 4.6198577880367724e-06,
+      "raw_difference_norm": 1.8002304250056787e-08,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.block_gates.1": {
+      "independent_policy_ascent_norm": 0.00490498366717928,
+      "negative_recorded_clipped_loss_norm": 0.004904984437177142,
+      "dot": 2.4058868551970948e-05,
+      "cosine": 0.9999999999937035,
+      "unconstrained_least_squares_common_scale": 1.0000001569764612,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.7406105951153805e-08,
+      "residual_relative_to_recorded_norm": 3.548656713204815e-06,
+      "raw_difference_norm": 1.7423127547282133e-08,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "head.0": {
+      "independent_policy_ascent_norm": 0.06673047238663314,
+      "negative_recorded_clipped_loss_norm": 0.06673042412836667,
+      "dot": 0.004452952724595708,
+      "cosine": 0.9999999999886406,
+      "unconstrained_least_squares_common_scale": 0.9999992768067909,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 3.1806708503455365e-07,
+      "residual_relative_to_recorded_norm": 4.766447826297351e-06,
+      "raw_difference_norm": 3.217073266593336e-07,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    }
+  },
+  "actor_parameters": {
+    "readout_gain": {
+      "independent_policy_ascent_norm": 0.007241729350046854,
+      "negative_recorded_clipped_loss_norm": 0.00724170956717925,
+      "dot": 5.244250071691431e-05,
+      "cosine": 0.9999999999953708,
+      "unconstrained_least_squares_common_scale": 0.9999972682076101,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 2.203476956392529e-08,
+      "residual_relative_to_recorded_norm": 3.0427579785567333e-06,
+      "raw_difference_norm": 2.9612400219786365e-08,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.in_proj.weight": {
+      "independent_policy_ascent_norm": 0.03305471690331365,
+      "negative_recorded_clipped_loss_norm": 0.03305472187009461,
+      "dot": 0.0010926144737221136,
+      "cosine": 0.999999999989352,
+      "unconstrained_least_squares_common_scale": 1.0000001502487226,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.5253935026151977e-07,
+      "residual_relative_to_recorded_norm": 4.614752193680557e-06,
+      "raw_difference_norm": 1.5262017820425904e-07,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.in_proj.bias": {
+      "independent_policy_ascent_norm": 0.007018195178851439,
+      "negative_recorded_clipped_loss_norm": 0.00701819429595874,
+      "dot": 4.9255057371518115e-05,
+      "cosine": 0.999999999987368,
+      "unconstrained_least_squares_common_scale": 0.9999998741868343,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 3.5276028919977585e-08,
+      "residual_relative_to_recorded_norm": 5.026368241228437e-06,
+      "raw_difference_norm": 3.5287077980975245e-08,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.blocks.0.gate.weight": {
+      "independent_policy_ascent_norm": 0.017949181500217952,
+      "negative_recorded_clipped_loss_norm": 0.01794919003406994,
+      "dot": 0.00032217326969841516,
+      "cosine": 0.9999999999844511,
+      "unconstrained_least_squares_common_scale": 1.0000004754296399,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.0009470333719518e-07,
+      "residual_relative_to_recorded_norm": 5.576558226148487e-06,
+      "raw_difference_norm": 1.0045780956475471e-07,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.blocks.0.up.weight": {
+      "independent_policy_ascent_norm": 0.018507651084849655,
+      "negative_recorded_clipped_loss_norm": 0.018507648368167366,
+      "dot": 0.0003425330983919826,
+      "cosine": 0.9999999999791376,
+      "unconstrained_least_squares_common_scale": 0.9999998531921532,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.1954979380668781e-07,
+      "residual_relative_to_recorded_norm": 6.459480503871582e-06,
+      "raw_difference_norm": 1.1958066591187397e-07,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.blocks.0.down.weight": {
+      "independent_policy_ascent_norm": 0.026276319697916998,
+      "negative_recorded_clipped_loss_norm": 0.02627632496479289,
+      "dot": 0.0006904451152528357,
+      "cosine": 0.9999999999878051,
+      "unconstrained_least_squares_common_scale": 1.0000002004297222,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.297681961065518e-07,
+      "residual_relative_to_recorded_norm": 4.938597626586881e-06,
+      "raw_difference_norm": 1.2987502195238072e-07,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.blocks.1.gate.weight": {
+      "independent_policy_ascent_norm": 0.010657184979351732,
+      "negative_recorded_clipped_loss_norm": 0.01065718994102805,
+      "dot": 0.00011357564456003627,
+      "cosine": 0.9999999999860336,
+      "unconstrained_least_squares_common_scale": 1.0000004655570383,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 5.6325013011740403e-08,
+      "residual_relative_to_recorded_norm": 5.285165538328295e-06,
+      "raw_difference_norm": 5.654311492711742e-08,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.blocks.1.up.weight": {
+      "independent_policy_ascent_norm": 0.012786805667261734,
+      "negative_recorded_clipped_loss_norm": 0.012786802503045126,
+      "dot": 0.0001635023587100865,
+      "cosine": 0.9999999999877222,
+      "unconstrained_least_squares_common_scale": 0.9999997525282167,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 6.336318140069941e-08,
+      "residual_relative_to_recorded_norm": 4.9553577906290274e-06,
+      "raw_difference_norm": 6.344214701212394e-08,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.blocks.1.down.weight": {
+      "independent_policy_ascent_norm": 0.026319984569624255,
+      "negative_recorded_clipped_loss_norm": 0.02631999188068617,
+      "dot": 0.000692741780164079,
+      "cosine": 0.9999999999881389,
+      "unconstrained_least_squares_common_scale": 1.0000002777642103,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.2819133301608339e-07,
+      "residual_relative_to_recorded_norm": 4.870492878462902e-06,
+      "raw_difference_norm": 1.283996297586789e-07,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.block_gates.0": {
+      "independent_policy_ascent_norm": 0.0038126924931789676,
+      "negative_recorded_clipped_loss_norm": 0.003812696211544038,
+      "dot": 1.4536638224370715e-05,
+      "cosine": 0.9999999999893285,
+      "unconstrained_least_squares_common_scale": 1.0000009752489585,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.761411428632002e-08,
+      "residual_relative_to_recorded_norm": 4.6198577880367724e-06,
+      "raw_difference_norm": 1.8002304250056787e-08,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "trunk.block_gates.1": {
+      "independent_policy_ascent_norm": 0.00490498366717928,
+      "negative_recorded_clipped_loss_norm": 0.004904984437177142,
+      "dot": 2.4058868551970948e-05,
+      "cosine": 0.9999999999937035,
+      "unconstrained_least_squares_common_scale": 1.0000001569764612,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 1.7406105951153805e-08,
+      "residual_relative_to_recorded_norm": 3.548656713204815e-06,
+      "raw_difference_norm": 1.7423127547282133e-08,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "head.0.weight": {
+      "independent_policy_ascent_norm": 0.06671936820445826,
+      "negative_recorded_clipped_loss_norm": 0.06671931996182587,
+      "dot": 0.00445147087483355,
+      "cosine": 0.9999999999886392,
+      "unconstrained_least_squares_common_scale": 0.9999992769207552,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 3.1803288555166624e-07,
+      "residual_relative_to_recorded_norm": 4.766728523816369e-06,
+      "raw_difference_norm": 3.216711690648583e-07,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    },
+    "head.0.bias": {
+      "independent_policy_ascent_norm": 0.0012173131647738662,
+      "negative_recorded_clipped_loss_norm": 0.0012173118676847134,
+      "dot": 1.4818497621572741e-06,
+      "cosine": 0.9999999999927183,
+      "unconstrained_least_squares_common_scale": 0.9999989344582361,
+      "common_scale_positive": true,
+      "residual_after_common_scale_norm": 4.6454876468519685e-09,
+      "residual_relative_to_recorded_norm": 3.816185293327939e-06,
+      "raw_difference_norm": 4.823175172281275e-09,
+      "scope": "Independent compiled actor-only covector versus recorded negative clipped LOSS covector; LS scale is a comparison statistic, not an independently captured clipping factor or physical PG."
+    }
+  },
+  "common_scale_route_residuals": {
+    "readout_gain": {
+      "parameter_names": [
+        "readout_gain"
+      ],
+      "common_full_actor_scale_residual_norm": 2.8017454870889195e-08
+    },
+    "trunk.in_proj": {
+      "parameter_names": [
+        "trunk.in_proj.weight",
+        "trunk.in_proj.bias"
+      ],
+      "common_full_actor_scale_residual_norm": 1.5741652212169412e-07
+    },
+    "trunk.blocks.0.gate": {
+      "parameter_names": [
+        "trunk.blocks.0.gate.weight"
+      ],
+      "common_full_actor_scale_residual_norm": 1.0116494763342951e-07
+    },
+    "trunk.blocks.0.up": {
+      "parameter_names": [
+        "trunk.blocks.0.up.weight"
+      ],
+      "common_full_actor_scale_residual_norm": 1.196044946281526e-07
+    },
+    "trunk.blocks.0.down": {
+      "parameter_names": [
+        "trunk.blocks.0.down.weight"
+      ],
+      "common_full_actor_scale_residual_norm": 1.3054926404683445e-07
+    },
+    "trunk.blocks.1.gate": {
+      "parameter_names": [
+        "trunk.blocks.1.gate.weight"
+      ],
+      "common_full_actor_scale_residual_norm": 5.697910428784709e-08
+    },
+    "trunk.blocks.1.up": {
+      "parameter_names": [
+        "trunk.blocks.1.up.weight"
+      ],
+      "common_full_actor_scale_residual_norm": 6.337476640571063e-08
+    },
+    "trunk.blocks.1.down": {
+      "parameter_names": [
+        "trunk.blocks.1.down.weight"
+      ],
+      "common_full_actor_scale_residual_norm": 1.292257983990467e-07
+    },
+    "trunk.block_gates.0": {
+      "parameter_names": [
+        "trunk.block_gates.0"
+      ],
+      "common_full_actor_scale_residual_norm": 1.8316363369784247e-08
+    },
+    "trunk.block_gates.1": {
+      "parameter_names": [
+        "trunk.block_gates.1"
+      ],
+      "common_full_actor_scale_residual_norm": 1.7577493622139133e-08
+    },
+    "head.0": {
+      "parameter_names": [
+        "head.0.weight",
+        "head.0.bias"
+      ],
+      "common_full_actor_scale_residual_norm": 3.1908137618691363e-07
+    }
+  },
+  "raw_gradient_scope": "Raw gradients and preclip norms were NOT saved; these are source-reconstructed values accepted through recorded clipped-gradient equality.",
+  "conventions": {
+    "entropy_coefficient": 0.0,
+    "advantage_normalization": false,
+    "actor_critic_disjoint": true,
+    "max_grad_norm": 0.5,
+    "compile_mode": "reduce-overhead",
+    "full_saved_batch": true,
+    "same_exact_first_permutation": true,
+    "gradient_clip_count_per_trunk": 1
+  },
+  "limitations": [
+    "Independent actor-only graph can differ in compiler fusion/reduction roundoff; discrepancies are measured, not certified away by an arbitrary residual threshold.",
+    "Common LS scale, even positive with a tiny residual, is not an independently recorded clipping multiplier.",
+    "Source gradient is a clipped stored-surrogate loss covector; independent policy gradient uses the same saved GAE/actions, not physical PG or causal return credit.",
+    "Shuffle RNG gives exact first permutation because the pinned source uses this private generator only after rollout; this is not a claim about unrecorded later gradient history."
+  ],
+  "private_ownership": {
+    "caller_model_unchanged": true,
+    "saved_shuffle_unchanged": true,
+    "caller_cpu_rng_unchanged": true,
+    "caller_cuda_rng_unchanged": true,
+    "cpu_rng_before_sha256": "a119dc37d368023ac3e2c8dcb0a9b4443c4dedddc3311fe3b284ff46d2c2b3d2",
+    "cuda_rng_before_sha256": "97e41f5c2a14a3bd0653446caf49c4e2493a827a403427c5610d619d1c9aff02"
+  },
+  "source_sha256": {
+    "/home/marvin/Documents/repositories/cleanrl/scripts/audit_sepclip_prescription_first_gradient_v1.py": "0adfa1acf004b26fcc4cfd5c429ac9056260e2be747eb347aed84699506b0261",
+    "/home/marvin/Documents/repositories/cleanrl/scripts/sepclip_prescription_replay.py": "7edfc432775a0098a60d63cb3c8642c65a599c3e8ae8fa2cc2f3354885d1dcf9"
+  },
+  "replay_validation": {
+    "module": "cleanrl.ppo_continuous_action_sepclip_additive_prerms_anvil_v14",
+    "architecture": "additive_prerms",
+    "snapshot_sha256": "08bca0d402d6b796741ea10a4089002300adafb4c3492ac9f504a40507aeba54",
+    "trace_sha256": "5725f7b55999b51b54b005f40181e644039b3ef60831df3ad9c586d186aa7c91",
+    "source_manifest_sha256": "80b4adf1e5301573084b28b3183d1f32dd96b8ed745785f0741c3932b249bbe2",
+    "execution_sha256": "b13583ffefada73030a474a11172b054b62bc9c2e81ad248c6a02b0f4f2c18ea",
+    "exp_name": "sepclip_prescription_v14_additive_normuon",
+    "independently_recorded_logits": false,
+    "logits_source": "Actual pinned compiled actor forward; snapshot has no independently saved latent logits; no inversion or floor-latent certification.",
+    "recorded_forward_max_abs_errors": {
+      "alpha": 0.0,
+      "beta": 0.0,
+      "values": 0.0,
+      "logprob": 0.0
+    },
+    "frozen_row_normalization_max_abs_error": 0.0,
+    "native_physical_action_max_abs_error": 0.0,
+    "floor_shape_count": 1631,
+    "reconstruction": {
+      "update_count": 10,
+      "cumulative_endpoint_max_abs_error": 0.0,
+      "constrained_axis_unit_max_abs_errors": {
+        "old": 1.1920928955078125e-07,
+        "first": 1.1920928955078125e-07,
+        "endpoint": 1.1920928955078125e-07
+      },
+      "first_policy_source": "Old FP32 state plus stored first retracted delta; original first endpoint was not independently saved; subtraction/addition roundoff remains.",
+      "endpoint_policy_source": "Exact full model_after_update; actor banks use its exact recorded actor tensors."
+    }
+  },
+  "independently_recorded_logits": false
+}

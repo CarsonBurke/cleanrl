@@ -1,0 +1,178 @@
+{
+  "updated_at": 1791347709.6835814,
+  "owned": [
+    {
+      "id": 11912,
+      "name": "sepclip_microscopy_v14_normuon4m_chord_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_higher_priority: job 11956 (pri 9)",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11913,
+      "name": "sepclip_microscopy_v14_normuon4m_closedloop_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_higher_priority: job 11956 (pri 9)",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11914,
+      "name": "sepclip_microscopy_v14_normuon8m_chord_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_higher_priority: job 11956 (pri 9)",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11915,
+      "name": "sepclip_microscopy_v14_normuon8m_closedloop_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_higher_priority: job 11956 (pri 9)",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11926,
+      "name": "sepclip_prescription_layer_geometry_contracts_v2",
+      "state": "queued",
+      "eligibility": "waiting_for_higher_priority: job 11956 (pri 9)",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11928,
+      "name": "sepclip_microscopy_v14_adam4m_layers_v2",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11926]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11929,
+      "name": "sepclip_microscopy_v14_adam8m_layers_v2",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11926]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11930,
+      "name": "sepclip_microscopy_v14_anvil4m_layers_v2",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11926]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11933,
+      "name": "sepclip_microscopy_v14_normuon4m_layers_v2",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11912, 11926]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11934,
+      "name": "sepclip_microscopy_v14_normuon8m_layers_v2",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11914, 11926]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11937,
+      "name": "sepclip_prescription_optimizer_forensics_contracts_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_higher_priority: job 11956 (pri 9)",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11938,
+      "name": "sepclip_microscopy_v14_adam4m_optimizer_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11937]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11939,
+      "name": "sepclip_microscopy_v14_adam8m_optimizer_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11937]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11940,
+      "name": "sepclip_microscopy_v14_anvil4m_optimizer_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11937]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11941,
+      "name": "sepclip_microscopy_v14_normuon4m_optimizer_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11912, 11937]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11942,
+      "name": "sepclip_microscopy_v14_normuon8m_optimizer_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11914, 11937]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11948,
+      "name": "sepclip_prescription_first_gradient_contracts_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_higher_priority: job 11956 (pri 9)",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11949,
+      "name": "sepclip_microscopy_v14_adam4m_first_gradient_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11948]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11950,
+      "name": "sepclip_microscopy_v14_adam8m_first_gradient_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11948]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11951,
+      "name": "sepclip_microscopy_v14_anvil4m_first_gradient_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11948]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11952,
+      "name": "sepclip_microscopy_v14_normuon4m_first_gradient_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11912, 11948]",
+      "maxParallelRuns": 1
+    },
+    {
+      "id": 11953,
+      "name": "sepclip_microscopy_v14_normuon8m_first_gradient_v1",
+      "state": "queued",
+      "eligibility": "waiting_for_dependencies: jobs [11914, 11948]",
+      "maxParallelRuns": 1
+    }
+  ],
+  "unrelated_active_read_only": [
+    {
+      "id": 11947,
+      "name": "gdn2_layer_top2_128_1k_v3",
+      "state": "running"
+    }
+  ],
+  "reservation": {
+    "protectedJob": 11956,
+    "backfillWindowOpen": true,
+    "createdAt": 1791347403351,
+    "blockingAttempts": [
+      9503
+    ],
+    "consumedBypasses": [
+      11947
+    ]
+  },
+  "event_heartbeat_semantics": "Last queue subscription event; this record is an explicit read-only poll."
+}

@@ -1,0 +1,37 @@
+{
+  "status": "source ready after cross-review; CUDA validation not yet executed by root",
+  "sources": {
+    "scripts/audit_sepclip_layer_transport.py": "c560aebdb89e47a18580bd84103571525c7b19744a68056c20c21b930ee67dc6",
+    "scripts/audit_sepclip_representation.py": "377c39e256b25b00c705714910315cf18d23c0db8e2e61abc4d3ddda24467fb7",
+    "scripts/audit_sepclip_critic_transport.py": "0e33fb479d94cd438cd29ab3b8429fa9abd91b4f6e65b15f68673ac2cf6046be",
+    "tests/test_sepclip_layer_transport.py": "584c6912600e0570ee88330da44a9ec3f4f1ffe14bf59774761b0527df044427",
+    "tests/test_sepclip_representation.py": "2de0b286f8104325c43b49a51e36f9646700feb5e9cfc0fd574b5b8fb9ab87c0",
+    "tests/test_sepclip_critic_transport.py": "e24a0c642775ce7fc9bffa6bdd57ce66609488921e543570084b32d2fd1ea015"
+  },
+  "contracts": {
+    "tests/test_sepclip_layer_transport.py": 6,
+    "tests/test_sepclip_representation.py": 6,
+    "tests/test_sepclip_critic_transport.py": 3
+  },
+  "protocol": "all GPU work via mlq, maxParallelRuns1, .venv/bin/python; contract success dependencies before diagnostics",
+  "repairs": [
+    "omit empty hidden-bias component for bias-free architecture",
+    "preserve epoch-clock legacy optimizer metadata",
+    "raw-adv/no-entropy scope enforced for layer PG gains",
+    "critic samples all env slots with distinct deterministic GPU RNG",
+    "zero spectra have rank0",
+    "undefined uniform Beta modes excluded",
+    "effective head gain signs included",
+    "compiled Jacobian paths",
+    "fresh unclipped PG baseline cancellation distinguished from later clipped PPO masks"
+  ],
+  "snapshot_grid": [
+    "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_4013696.pt",
+    "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_7995008.pt",
+    "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016/diagnostic_snapshot_4013696.pt",
+    "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016/diagnostic_snapshot_7995008.pt",
+    "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146/diagnostic_snapshot_4013696.pt",
+    "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146/diagnostic_snapshot_7995008.pt"
+  ],
+  "ownership": "Parent reviewers finished all six files; persistent coordinator now authorized to fix/validate these sources and queue all contracts/diagnostics. Do not duplicate already submitted jobs."
+}

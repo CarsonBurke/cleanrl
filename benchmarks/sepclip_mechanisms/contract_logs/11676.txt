@@ -1,0 +1,15 @@
+.epoch_clock_parity compiled=False: {'parameters': {'absolute': 0.0, 'relative': 0.0}, 'velocity': {'absolute': 0.0, 'relative': 0.0}, 'second': {'absolute': 0.0, 'relative': 0.0}}
+.epoch_clock_parity compiled=True: {'parameters': {'absolute': 0.0, 'relative': 0.0}, 'velocity': {'absolute': 0.0, 'relative': 0.0}, 'second': {'absolute': 0.0, 'relative': 0.0}}
+...
+=============================== warnings summary ===============================
+tests/test_sepclip_rollout_clock.py: 14 warnings
+  /home/marvin/Documents/repositories/cleanrl/.venv/lib/python3.10/site-packages/torch/jit/_script.py:365: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+tests/test_sepclip_rollout_clock.py::test_epoch_clock_control_matches_frozen_v4[False]
+  /home/marvin/Documents/repositories/cleanrl/tests/test_sepclip_rollout_clock.py:41: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+  Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:838.)
+    maximum_differences[name]['absolute'] = max(maximum_differences[name]['absolute'], float(difference.max()))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+5 passed, 15 warnings in 2.59s

@@ -1,0 +1,41 @@
+{
+  "id": 11825,
+  "name": "sepclip_microscopy_nonlinear_jvp_contract",
+  "state": "queued",
+  "eligibility": "waiting_for_dependencies: jobs [11795]",
+  "maxParallelRuns": 1,
+  "priority": 0,
+  "cwd": "/home/marvin/Documents/repositories/cleanrl",
+  "args": [
+    ".venv/bin/python",
+    "-u",
+    "scripts/run_sepclip_microscopy.py",
+    "--name",
+    "sepclip_microscopy_nonlinear_jvp_contract",
+    "--source",
+    "tests/test_sepclip_closed_loop_nonlinear_jvp.py",
+    "--source",
+    "scripts/audit_sepclip_closed_loop_update.py",
+    "--",
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-s",
+    "tests/test_sepclip_closed_loop_nonlinear_jvp.py"
+  ],
+  "maxAttempts": 1,
+  "retryDelayMs": 0,
+  "timeLimitMs": 2700000,
+  "attemptCount": 0,
+  "createdAt": 1791311224113,
+  "updatedAt": 1791311224113,
+  "dependencies": [
+    {
+      "parent": 11795,
+      "condition": "succeeded",
+      "parentState": "queued"
+    }
+  ],
+  "attempts": []
+}

@@ -1,0 +1,30 @@
+{
+  "captured_at": 1791332580.4328246,
+  "job_ids": [
+    11876,
+    11877,
+    11878,
+    11879,
+    11880,
+    11881
+  ],
+  "source_pins": {
+    "v14": {
+      "manifest_sha256": "80b4adf1e5301573084b28b3183d1f32dd96b8ed745785f0741c3932b249bbe2",
+      "trainer": "cleanrl/ppo_continuous_action_sepclip_additive_prerms_anvil_v14.py",
+      "trainer_sha256": "27a3e7a84e2c5d0ab1679f84cc4ddb8dad5eb1b6e2bc5f66850ad93ccf1012b0",
+      "test_sha256": "e3688469313001635f603f2685a3658110b01c01ef3b5427d70532ea99f9bff8"
+    },
+    "v15": {
+      "manifest_sha256": "25c229c57ceed4376084fea0b25dd7722e898dfc15edeeae02a845eddb40fc17",
+      "trainer": "cleanrl/ppo_continuous_action_sepclip_constraint_transport_v15.py",
+      "trainer_sha256": "62bb7ca6a87072414ef9fa90f31a7e5e9a14762bec0633789bef5167ccbaec9a",
+      "test_sha256": "a552178dbc4a123b3c7b17bc3fd9ef10105069ea75659ebc6e31d524b8c562a0"
+    }
+  },
+  "current_source_discrepancies": [],
+  "source_manifests_immutable": true,
+  "frozen_trainers_modified": false,
+  "supervision_owner": "bd67787a-6033-4ae5-82de-f317731838ad",
+  "attribution": "User-selected exploratory packages, not oracle-established cause; no duplicate submissions."
+}

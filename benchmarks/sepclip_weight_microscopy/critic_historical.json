@@ -1,0 +1,1523 @@
+{
+  "oracle_protocol": {
+    "required_payload": [
+      "raw observations at t and transition t+1",
+      "raw and normalized rewards",
+      "terminations and truncations",
+      "episode age and environment slot",
+      "full MuJoCo simulator state, including hidden qpos position and time",
+      "per-step normalization statistics or a frozen diagnostic transform",
+      "native actions and old alpha/beta",
+      "policy, critic, RNG and normalizer checkpoints"
+    ],
+    "independent_action_credit": {
+      "procedure": "Restore the same simulator state for multiple policy-distributed first actions. Follow the frozen policy with paired base uniforms transformed by the Beta inverse CDF. Same RNG seeds alone do not guarantee paired rejection-sampler draws. Accumulate actual discounted physical rewards; report finite horizons separately. At H=512, gamma=.99 leaves gamma^H about .0058. Residual tail remains a limitation.",
+      "transport": "Compare score-weighted successor critic values with score-weighted independent continuation returns after the sampled first action. For fresh, unclipped score-policy gradients, the current-state value baseline cancels in expectation; successor value error generally does not. This cancellation does not establish invariance of later clipped PPO gradients: their active mask depends on the likelihood ratio and advantage sign, so state-baseline errors can change which samples contribute. Measure those later-epoch gradients and masks separately.",
+      "layers": "Project both estimated policy gradients through every actor matrix layer, its unit-sphere tangent, and the actual optimizer update. Measure sign, cosine, and predicted policy-Fisher efficiency per layer; paired trajectory intervals are sampling uncertainty, not independent training seeds."
+    },
+    "gae_error_identity": "Away from boundaries, V=V*+e implies advantage error -e(s_t)+gamma*(1-lambda)*sum_k (gamma*lambda)^k e(s_{t+k+1}). Finite trajectories add explicit tail/boundary terms.",
+    "lambda_counterfactual": "Only when transition payload is available: recompute lambda=.8/.95/1 using the same frozen values and correct truncation bootstraps; compare actor gradient and optimizer tangent alignment with independent finite-horizon action-credit estimates. This is a diagnostic of credit bias, not a proposal for a generic hyperparameter sweep."
+  },
+  "snapshots": [
+    {
+      "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_4013696.pt",
+      "step": 4013696,
+      "critic_metadata": {
+        "value_mean": 3.101102352142334,
+        "value_std": 0.1237558051943779,
+        "frozen_target_mean": 3.106522560119629,
+        "frozen_target_std": 0.13199369609355927,
+        "gae_advantage_mean": 0.0054201106540858746,
+        "gae_advantage_std": 0.047080524265766144,
+        "preupdate_prediction_replay_rmse": 2.3806907734069682e-07,
+        "frozen_lambda_target_residual_rmse": 0.04739006608724594,
+        "frozen_lambda_target_explained_variance": 0.8727739453315735,
+        "gain": [
+          0.9289900660514832
+        ],
+        "bias": [
+          0.022516099736094475
+        ],
+        "affine_bias": [
+          0.02091723307967186
+        ],
+        "feature_component_mean": 3.0801851749420166
+      },
+      "feature_spectra": {
+        "first_raw": {
+          "energy": 240216.734375,
+          "participation_rank": 6.22429084777832,
+          "top1_energy": 0.280260294675827,
+          "top5_energy": 0.7660807371139526
+        },
+        "first_unit": {
+          "energy": 5194.9931640625,
+          "participation_rank": 6.206270217895508,
+          "top1_energy": 0.26926755905151367,
+          "top5_energy": 0.7255127429962158
+        },
+        "final": {
+          "energy": 155496.28125,
+          "participation_rank": 5.46120548248291,
+          "top1_energy": 0.30940887331962585,
+          "top5_energy": 0.7491537928581238
+        }
+      },
+      "feature_parity": [
+        {
+          "observation_scale": 0.01,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 4.861054185312241e-05
+            },
+            "first_unit": {
+              "odd_energy_fraction": 3.868812200380489e-05
+            },
+            "final": {
+              "odd_energy_fraction": 1.7244350601686165e-05
+            }
+          }
+        },
+        {
+          "observation_scale": 0.1,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.004794113337993622
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.0038267311174422503
+            },
+            "final": {
+              "odd_energy_fraction": 0.001707225339487195
+            }
+          }
+        },
+        {
+          "observation_scale": 1.0,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.20386908948421478
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.18532057106494904
+            },
+            "final": {
+              "odd_energy_fraction": 0.08744587749242783
+            }
+          }
+        }
+      ],
+      "input_jacobian": {
+        "first_unit_radial_energy": 4.134252230869606e-05,
+        "first_unit_tangent_energy": 0.01068967767059803,
+        "value_radial_sensitivity": 0.039024222642183304,
+        "value_input_gradient_rms": 0.055787522345781326,
+        "exact_zero_first_feature_jacobian": 0.0,
+        "velocity_gradient_rms": 0.06984837353229523,
+        "position_gradient_rms": 0.03353925421833992
+      },
+      "selected_env_slot_counts": [
+        13,
+        8,
+        15,
+        15,
+        18,
+        13,
+        16,
+        14,
+        17,
+        19,
+        13,
+        19,
+        23,
+        19,
+        23,
+        11
+      ],
+      "per_state_value_gradient_spectra": {
+        "readout_gain": {
+          "energy": 2883.106201171875,
+          "participation_rank": 1.0,
+          "top1_energy": 1.0,
+          "top5_energy": 1.0
+        },
+        "first.0.gate.weight": {
+          "energy": 93.19644165039062,
+          "participation_rank": 11.738210678100586,
+          "top1_energy": 0.2052851766347885,
+          "top5_energy": 0.5672431588172913
+        },
+        "first.0.up.weight": {
+          "energy": 114.59564208984375,
+          "participation_rank": 9.28288459777832,
+          "top1_energy": 0.22674725949764252,
+          "top5_energy": 0.6355848908424377
+        },
+        "first.0.down.weight": {
+          "energy": 1971.4979248046875,
+          "participation_rank": 5.394350528717041,
+          "top1_energy": 0.31669607758522034,
+          "top5_energy": 0.8077118396759033
+        },
+        "second.0.gate.weight": {
+          "energy": 324.0581970214844,
+          "participation_rank": 4.5283098220825195,
+          "top1_energy": 0.3974494934082031,
+          "top5_energy": 0.8134145736694336
+        },
+        "second.0.up.weight": {
+          "energy": 323.11932373046875,
+          "participation_rank": 3.5317580699920654,
+          "top1_energy": 0.4904767870903015,
+          "top5_energy": 0.8362160921096802
+        },
+        "second.0.down.weight": {
+          "energy": 1745.8251953125,
+          "participation_rank": 2.598741054534912,
+          "top1_energy": 0.5888800621032715,
+          "top5_energy": 0.9109264612197876
+        },
+        "head.0.weight": {
+          "energy": 14139.74609375,
+          "participation_rank": 1.3689343929290771,
+          "top1_energy": 0.8519232273101807,
+          "top5_energy": 0.9641208648681641
+        },
+        "head.0.bias": {
+          "energy": 220.93377685546875,
+          "participation_rank": 1.0,
+          "top1_energy": 1.0,
+          "top5_energy": 1.0
+        }
+      },
+      "finite_sample_baseline_score": {
+        "readout_gain": {
+          "gae_gradient_norm": 0.0010275800013914704,
+          "expectation_zero_baseline_sample_norm": 0.0014858575304970145,
+          "baseline_sample_to_gae_ratio": 1.4459774494171143,
+          "baseline_sample_cosine": -0.04908638820052147
+        },
+        "first.0.gate.weight": {
+          "gae_gradient_norm": 0.01353702787309885,
+          "expectation_zero_baseline_sample_norm": 0.029896602034568787,
+          "baseline_sample_to_gae_ratio": 2.208505630493164,
+          "baseline_sample_cosine": 0.04082491248846054
+        },
+        "first.0.up.weight": {
+          "gae_gradient_norm": 0.012426533736288548,
+          "expectation_zero_baseline_sample_norm": 0.02759687602519989,
+          "baseline_sample_to_gae_ratio": 2.2208023071289062,
+          "baseline_sample_cosine": -0.10989496111869812
+        },
+        "first.0.down.weight": {
+          "gae_gradient_norm": 0.01955515891313553,
+          "expectation_zero_baseline_sample_norm": 0.04264913871884346,
+          "baseline_sample_to_gae_ratio": 2.1809661388397217,
+          "baseline_sample_cosine": 0.1626850813627243
+        },
+        "second.0.gate.weight": {
+          "gae_gradient_norm": 0.014904152601957321,
+          "expectation_zero_baseline_sample_norm": 0.03027340956032276,
+          "baseline_sample_to_gae_ratio": 2.0312063694000244,
+          "baseline_sample_cosine": 0.2558113634586334
+        },
+        "second.0.up.weight": {
+          "gae_gradient_norm": 0.011646964587271214,
+          "expectation_zero_baseline_sample_norm": 0.026197608560323715,
+          "baseline_sample_to_gae_ratio": 2.249307870864868,
+          "baseline_sample_cosine": 0.14295129477977753
+        },
+        "second.0.down.weight": {
+          "gae_gradient_norm": 0.005939316935837269,
+          "expectation_zero_baseline_sample_norm": 0.01675199344754219,
+          "baseline_sample_to_gae_ratio": 2.8205251693725586,
+          "baseline_sample_cosine": 0.2151956707239151
+        },
+        "head.0.weight": {
+          "gae_gradient_norm": 0.00939174834638834,
+          "expectation_zero_baseline_sample_norm": 0.019568834453821182,
+          "baseline_sample_to_gae_ratio": 2.083620071411133,
+          "baseline_sample_cosine": 0.12170102447271347
+        },
+        "head.0.bias": {
+          "gae_gradient_norm": 0.0012482746969908476,
+          "expectation_zero_baseline_sample_norm": 0.0026115088257938623,
+          "baseline_sample_to_gae_ratio": 2.092094659805298,
+          "baseline_sample_cosine": 0.07347343862056732
+        }
+      },
+      "identifiability": {
+        "true_value_error": "not_identifiable",
+        "score_weighted_successor_error": "not_identifiable",
+        "transition_TD_residual": "not_identifiable",
+        "lambda_sweep": "not_identifiable",
+        "independent_finite_horizon_returns": "not_identifiable",
+        "missing_fields": [
+          "transition rewards",
+          "termination/truncation masks",
+          "successor observations",
+          "simulator states"
+        ],
+        "reason": "Stored GAE advantages and values alone do not identify transition TD residuals without boundaries. Lambda targets contain this critic bootstrap; their residuals are not independent value errors."
+      },
+      "assumptions": [
+        "Input and parameter Jacobians use up to 256 randomly selected stored states, not independent samples.",
+        "Negated/scaled centered observations are algebraic representation probes, not simulator-valid counterfactuals.",
+        "First SiTU is only asymptotically even near zero; real visited-state oddness is measured separately.",
+        "Rank participation measures sampled value-gradient energy, not representational expressiveness bounds.",
+        "Fresh unclipped baseline-score correlation is finite-sample noise; it cannot establish action-dependent bootstrap bias.",
+        "Current-state baseline cancellation holds for fresh unclipped score-policy gradients. Later clipped PPO active masks depend on ratio and advantage sign; their baseline sensitivity must be measured separately."
+      ]
+    },
+    {
+      "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_7995008.pt",
+      "step": 7995008,
+      "critic_metadata": {
+        "value_mean": 3.5135855674743652,
+        "value_std": 0.20355725288391113,
+        "frozen_target_mean": 3.5132224559783936,
+        "frozen_target_std": 0.2090478539466858,
+        "gae_advantage_mean": -0.00036318745696917176,
+        "gae_advantage_std": 0.06144246459007263,
+        "preupdate_prediction_replay_rmse": 2.6205105996268685e-07,
+        "frozen_lambda_target_residual_rmse": 0.061441659927368164,
+        "frozen_lambda_target_explained_variance": 0.913613498210907,
+        "gain": [
+          0.9348512887954712
+        ],
+        "bias": [
+          0.02709195390343666
+        ],
+        "affine_bias": [
+          0.02532694861292839
+        ],
+        "feature_component_mean": 3.4882586002349854
+      },
+      "feature_spectra": {
+        "first_raw": {
+          "energy": 242839.90625,
+          "participation_rank": 6.815811634063721,
+          "top1_energy": 0.28857365250587463,
+          "top5_energy": 0.7186933159828186
+        },
+        "first_unit": {
+          "energy": 5109.27978515625,
+          "participation_rank": 6.57411003112793,
+          "top1_energy": 0.30011552572250366,
+          "top5_energy": 0.6958232522010803
+        },
+        "final": {
+          "energy": 142988.625,
+          "participation_rank": 6.371811866760254,
+          "top1_energy": 0.3168433904647827,
+          "top5_energy": 0.6994384527206421
+        }
+      },
+      "feature_parity": [
+        {
+          "observation_scale": 0.01,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 4.8210738896159455e-05
+            },
+            "first_unit": {
+              "odd_energy_fraction": 3.3888249163283035e-05
+            },
+            "final": {
+              "odd_energy_fraction": 1.4722419109602924e-05
+            }
+          }
+        },
+        {
+          "observation_scale": 0.1,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.004749737214297056
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.0033561927266418934
+            },
+            "final": {
+              "odd_energy_fraction": 0.001459319842979312
+            }
+          }
+        },
+        {
+          "observation_scale": 1.0,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.19640737771987915
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.1704484224319458
+            },
+            "final": {
+              "odd_energy_fraction": 0.07816924154758453
+            }
+          }
+        }
+      ],
+      "input_jacobian": {
+        "first_unit_radial_energy": 5.014085036236793e-05,
+        "first_unit_tangent_energy": 0.011643657460808754,
+        "value_radial_sensitivity": 0.05406848341226578,
+        "value_input_gradient_rms": 0.073585145175457,
+        "exact_zero_first_feature_jacobian": 0.0,
+        "velocity_gradient_rms": 0.09293012320995331,
+        "position_gradient_rms": 0.042318835854530334
+      },
+      "selected_env_slot_counts": [
+        13,
+        8,
+        15,
+        15,
+        18,
+        13,
+        16,
+        14,
+        17,
+        19,
+        13,
+        19,
+        23,
+        19,
+        23,
+        11
+      ],
+      "per_state_value_gradient_spectra": {
+        "readout_gain": {
+          "energy": 3636.47119140625,
+          "participation_rank": 1.0,
+          "top1_energy": 1.0,
+          "top5_energy": 1.0
+        },
+        "first.0.gate.weight": {
+          "energy": 164.41148376464844,
+          "participation_rank": 12.594219207763672,
+          "top1_energy": 0.21851789951324463,
+          "top5_energy": 0.5145217180252075
+        },
+        "first.0.up.weight": {
+          "energy": 198.69558715820312,
+          "participation_rank": 9.95043659210205,
+          "top1_energy": 0.24304358661174774,
+          "top5_energy": 0.5931295156478882
+        },
+        "first.0.down.weight": {
+          "energy": 1913.351806640625,
+          "participation_rank": 5.60107946395874,
+          "top1_energy": 0.3369445204734802,
+          "top5_energy": 0.7647315859794617
+        },
+        "second.0.gate.weight": {
+          "energy": 448.141845703125,
+          "participation_rank": 4.425335884094238,
+          "top1_energy": 0.4250400960445404,
+          "top5_energy": 0.7781742215156555
+        },
+        "second.0.up.weight": {
+          "energy": 427.1126708984375,
+          "participation_rank": 3.7331995964050293,
+          "top1_energy": 0.48370227217674255,
+          "top5_energy": 0.8022522926330566
+        },
+        "second.0.down.weight": {
+          "energy": 1649.595458984375,
+          "participation_rank": 2.6031317710876465,
+          "top1_energy": 0.592985987663269,
+          "top5_energy": 0.8948686718940735
+        },
+        "head.0.weight": {
+          "energy": 14318.80078125,
+          "participation_rank": 1.3316489458084106,
+          "top1_energy": 0.864814281463623,
+          "top5_energy": 0.9567034244537354
+        },
+        "head.0.bias": {
+          "energy": 223.7303924560547,
+          "participation_rank": 1.0,
+          "top1_energy": 1.0,
+          "top5_energy": 1.0
+        }
+      },
+      "finite_sample_baseline_score": {
+        "readout_gain": {
+          "gae_gradient_norm": 0.0006512368563562632,
+          "expectation_zero_baseline_sample_norm": 0.0022653471678495407,
+          "baseline_sample_to_gae_ratio": 3.4785304069519043,
+          "baseline_sample_cosine": 0.027700716629624367
+        },
+        "first.0.gate.weight": {
+          "gae_gradient_norm": 0.016758283600211143,
+          "expectation_zero_baseline_sample_norm": 0.06265266239643097,
+          "baseline_sample_to_gae_ratio": 3.7386085987091064,
+          "baseline_sample_cosine": -0.19673092663288116
+        },
+        "first.0.up.weight": {
+          "gae_gradient_norm": 0.02015783078968525,
+          "expectation_zero_baseline_sample_norm": 0.06604219228029251,
+          "baseline_sample_to_gae_ratio": 3.276254892349243,
+          "baseline_sample_cosine": -0.2952650785446167
+        },
+        "first.0.down.weight": {
+          "gae_gradient_norm": 0.019127285107970238,
+          "expectation_zero_baseline_sample_norm": 0.0863562822341919,
+          "baseline_sample_to_gae_ratio": 4.514821529388428,
+          "baseline_sample_cosine": -0.10932640731334686
+        },
+        "second.0.gate.weight": {
+          "gae_gradient_norm": 0.01414495799690485,
+          "expectation_zero_baseline_sample_norm": 0.06111691892147064,
+          "baseline_sample_to_gae_ratio": 4.320756435394287,
+          "baseline_sample_cosine": -0.039039526134729385
+        },
+        "second.0.up.weight": {
+          "gae_gradient_norm": 0.011731959879398346,
+          "expectation_zero_baseline_sample_norm": 0.05146384611725807,
+          "baseline_sample_to_gae_ratio": 4.386636734008789,
+          "baseline_sample_cosine": -0.12439022958278656
+        },
+        "second.0.down.weight": {
+          "gae_gradient_norm": 0.006744060665369034,
+          "expectation_zero_baseline_sample_norm": 0.02681475505232811,
+          "baseline_sample_to_gae_ratio": 3.9760549068450928,
+          "baseline_sample_cosine": 0.014300739392638206
+        },
+        "head.0.weight": {
+          "gae_gradient_norm": 0.007822521030902863,
+          "expectation_zero_baseline_sample_norm": 0.03356603533029556,
+          "baseline_sample_to_gae_ratio": 4.290948390960693,
+          "baseline_sample_cosine": -0.07345128804445267
+        },
+        "head.0.bias": {
+          "gae_gradient_norm": 0.0009934591362252831,
+          "expectation_zero_baseline_sample_norm": 0.004760864190757275,
+          "baseline_sample_to_gae_ratio": 4.792209148406982,
+          "baseline_sample_cosine": 0.05426601320505142
+        }
+      },
+      "identifiability": {
+        "true_value_error": "not_identifiable",
+        "score_weighted_successor_error": "not_identifiable",
+        "transition_TD_residual": "not_identifiable",
+        "lambda_sweep": "not_identifiable",
+        "independent_finite_horizon_returns": "not_identifiable",
+        "missing_fields": [
+          "transition rewards",
+          "termination/truncation masks",
+          "successor observations",
+          "simulator states"
+        ],
+        "reason": "Stored GAE advantages and values alone do not identify transition TD residuals without boundaries. Lambda targets contain this critic bootstrap; their residuals are not independent value errors."
+      },
+      "assumptions": [
+        "Input and parameter Jacobians use up to 256 randomly selected stored states, not independent samples.",
+        "Negated/scaled centered observations are algebraic representation probes, not simulator-valid counterfactuals.",
+        "First SiTU is only asymptotically even near zero; real visited-state oddness is measured separately.",
+        "Rank participation measures sampled value-gradient energy, not representational expressiveness bounds.",
+        "Fresh unclipped baseline-score correlation is finite-sample noise; it cannot establish action-dependent bootstrap bias.",
+        "Current-state baseline cancellation holds for fresh unclipped score-policy gradients. Later clipped PPO active masks depend on ratio and advantage sign; their baseline sensitivity must be measured separately."
+      ]
+    },
+    {
+      "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016/diagnostic_snapshot_4013696.pt",
+      "step": 4013696,
+      "critic_metadata": {
+        "value_mean": 2.801027297973633,
+        "value_std": 0.8063094019889832,
+        "frozen_target_mean": 2.802277088165283,
+        "frozen_target_std": 0.810809850692749,
+        "gae_advantage_mean": 0.0012495365226641297,
+        "gae_advantage_std": 0.10306882113218307,
+        "preupdate_prediction_replay_rmse": 2.2560493562195916e-07,
+        "frozen_lambda_target_residual_rmse": 0.10307325422763824,
+        "frozen_lambda_target_explained_variance": 0.9838409423828125,
+        "gain": [
+          0.9306896328926086
+        ],
+        "bias": [
+          0.01845330186188221
+        ],
+        "affine_bias": [
+          0.01717429608106613
+        ],
+        "feature_component_mean": 2.783853054046631
+      },
+      "feature_spectra": {
+        "first_raw": {
+          "energy": 1747087.5,
+          "participation_rank": 1.4646397829055786,
+          "top1_energy": 0.8245583176612854,
+          "top5_energy": 0.9176236391067505
+        },
+        "first_unit": {
+          "energy": 6912.81787109375,
+          "participation_rank": 6.175332546234131,
+          "top1_energy": 0.30680349469184875,
+          "top5_energy": 0.7486304044723511
+        },
+        "final": {
+          "energy": 253408.46875,
+          "participation_rank": 4.103975772857666,
+          "top1_energy": 0.44168177247047424,
+          "top5_energy": 0.809525191783905
+        }
+      },
+      "feature_parity": [
+        {
+          "observation_scale": 0.01,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.0005885869613848627
+            },
+            "first_unit": {
+              "odd_energy_fraction": 6.803346332162619e-05
+            },
+            "final": {
+              "odd_energy_fraction": 4.692210131906904e-05
+            }
+          }
+        },
+        {
+          "observation_scale": 0.1,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.053022243082523346
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.006504192017018795
+            },
+            "final": {
+              "odd_energy_fraction": 0.004454733803868294
+            }
+          }
+        },
+        {
+          "observation_scale": 1.0,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.45835286378860474
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.2083251029253006
+            },
+            "final": {
+              "odd_energy_fraction": 0.11031531542539597
+            }
+          }
+        }
+      ],
+      "input_jacobian": {
+        "first_unit_radial_energy": 4.07169500249438e-05,
+        "first_unit_tangent_energy": 0.01087243389338255,
+        "value_radial_sensitivity": 0.03583153709769249,
+        "value_input_gradient_rms": 0.06642819195985794,
+        "exact_zero_first_feature_jacobian": 0.0,
+        "velocity_gradient_rms": 0.07649250328540802,
+        "position_gradient_rms": 0.05286308005452156
+      },
+      "selected_env_slot_counts": [
+        13,
+        8,
+        15,
+        15,
+        18,
+        13,
+        16,
+        14,
+        17,
+        19,
+        13,
+        19,
+        23,
+        19,
+        23,
+        11
+      ],
+      "per_state_value_gradient_spectra": {
+        "readout_gain": {
+          "energy": 2550.046630859375,
+          "participation_rank": 1.0,
+          "top1_energy": 1.0,
+          "top5_energy": 1.0
+        },
+        "first.0.gate.weight": {
+          "energy": 140.34381103515625,
+          "participation_rank": 12.86019229888916,
+          "top1_energy": 0.18436020612716675,
+          "top5_energy": 0.5499991178512573
+        },
+        "first.0.up.weight": {
+          "energy": 143.70236206054688,
+          "participation_rank": 10.307706832885742,
+          "top1_energy": 0.22010362148284912,
+          "top5_energy": 0.5998221635818481
+        },
+        "first.0.down.weight": {
+          "energy": 1647.98828125,
+          "participation_rank": 7.2345123291015625,
+          "top1_energy": 0.27842479944229126,
+          "top5_energy": 0.721203625202179
+        },
+        "second.0.gate.weight": {
+          "energy": 359.5963439941406,
+          "participation_rank": 5.055521011352539,
+          "top1_energy": 0.3827952742576599,
+          "top5_energy": 0.7834201455116272
+        },
+        "second.0.up.weight": {
+          "energy": 323.3904113769531,
+          "participation_rank": 4.286730766296387,
+          "top1_energy": 0.446162611246109,
+          "top5_energy": 0.7764265537261963
+        },
+        "second.0.down.weight": {
+          "energy": 2037.2412109375,
+          "participation_rank": 2.6803925037384033,
+          "top1_energy": 0.5847572088241577,
+          "top5_energy": 0.9021835327148438
+        },
+        "head.0.weight": {
+          "energy": 14191.458984375,
+          "participation_rank": 1.5202113389968872,
+          "top1_energy": 0.8068730235099792,
+          "top5_energy": 0.9508132338523865
+        },
+        "head.0.bias": {
+          "energy": 221.7428436279297,
+          "participation_rank": 1.0,
+          "top1_energy": 1.0,
+          "top5_energy": 1.0
+        }
+      },
+      "finite_sample_baseline_score": {
+        "readout_gain": {
+          "gae_gradient_norm": 0.0011147722834721208,
+          "expectation_zero_baseline_sample_norm": 0.0038250621873885393,
+          "baseline_sample_to_gae_ratio": 3.4312498569488525,
+          "baseline_sample_cosine": -0.00603055115789175
+        },
+        "first.0.gate.weight": {
+          "gae_gradient_norm": 0.03084222413599491,
+          "expectation_zero_baseline_sample_norm": 0.12945319712162018,
+          "baseline_sample_to_gae_ratio": 4.197271823883057,
+          "baseline_sample_cosine": 0.19102834165096283
+        },
+        "first.0.up.weight": {
+          "gae_gradient_norm": 0.038289874792099,
+          "expectation_zero_baseline_sample_norm": 0.1448962688446045,
+          "baseline_sample_to_gae_ratio": 3.7841928005218506,
+          "baseline_sample_cosine": -0.03850118815898895
+        },
+        "first.0.down.weight": {
+          "gae_gradient_norm": 0.032233964651823044,
+          "expectation_zero_baseline_sample_norm": 0.19232136011123657,
+          "baseline_sample_to_gae_ratio": 5.966419696807861,
+          "baseline_sample_cosine": -0.021403087303042412
+        },
+        "second.0.gate.weight": {
+          "gae_gradient_norm": 0.022481191903352737,
+          "expectation_zero_baseline_sample_norm": 0.12387169152498245,
+          "baseline_sample_to_gae_ratio": 5.510014533996582,
+          "baseline_sample_cosine": 0.05994902551174164
+        },
+        "second.0.up.weight": {
+          "gae_gradient_norm": 0.018187662586569786,
+          "expectation_zero_baseline_sample_norm": 0.13680186867713928,
+          "baseline_sample_to_gae_ratio": 7.5216851234436035,
+          "baseline_sample_cosine": -0.04556175693869591
+        },
+        "second.0.down.weight": {
+          "gae_gradient_norm": 0.00949692353606224,
+          "expectation_zero_baseline_sample_norm": 0.08010953664779663,
+          "baseline_sample_to_gae_ratio": 8.435314178466797,
+          "baseline_sample_cosine": -0.05244594067335129
+        },
+        "head.0.weight": {
+          "gae_gradient_norm": 0.01139868050813675,
+          "expectation_zero_baseline_sample_norm": 0.08905772864818573,
+          "baseline_sample_to_gae_ratio": 7.812985897064209,
+          "baseline_sample_cosine": -0.10921227186918259
+        },
+        "head.0.bias": {
+          "gae_gradient_norm": 0.0013925787061452866,
+          "expectation_zero_baseline_sample_norm": 0.00752466032281518,
+          "baseline_sample_to_gae_ratio": 5.403400421142578,
+          "baseline_sample_cosine": 0.5857550501823425
+        }
+      },
+      "identifiability": {
+        "true_value_error": "not_identifiable",
+        "score_weighted_successor_error": "not_identifiable",
+        "transition_TD_residual": "not_identifiable",
+        "lambda_sweep": "not_identifiable",
+        "independent_finite_horizon_returns": "not_identifiable",
+        "missing_fields": [
+          "transition rewards",
+          "termination/truncation masks",
+          "successor observations",
+          "simulator states"
+        ],
+        "reason": "Stored GAE advantages and values alone do not identify transition TD residuals without boundaries. Lambda targets contain this critic bootstrap; their residuals are not independent value errors."
+      },
+      "assumptions": [
+        "Input and parameter Jacobians use up to 256 randomly selected stored states, not independent samples.",
+        "Negated/scaled centered observations are algebraic representation probes, not simulator-valid counterfactuals.",
+        "First SiTU is only asymptotically even near zero; real visited-state oddness is measured separately.",
+        "Rank participation measures sampled value-gradient energy, not representational expressiveness bounds.",
+        "Fresh unclipped baseline-score correlation is finite-sample noise; it cannot establish action-dependent bootstrap bias.",
+        "Current-state baseline cancellation holds for fresh unclipped score-policy gradients. Later clipped PPO active masks depend on ratio and advantage sign; their baseline sensitivity must be measured separately."
+      ]
+    },
+    {
+      "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016/diagnostic_snapshot_7995008.pt",
+      "step": 7995008,
+      "critic_metadata": {
+        "value_mean": 3.2635884284973145,
+        "value_std": 0.7583819031715393,
+        "frozen_target_mean": 3.2599706649780273,
+        "frozen_target_std": 0.7621703743934631,
+        "gae_advantage_mean": -0.0036180615425109863,
+        "gae_advantage_std": 0.09672445058822632,
+        "preupdate_prediction_replay_rmse": 2.5130933067885053e-07,
+        "frozen_lambda_target_residual_rmse": 0.09678915143013,
+        "frozen_lambda_target_explained_variance": 0.9838947057723999,
+        "gain": [
+          0.9318681955337524
+        ],
+        "bias": [
+          0.023464946076273918
+        ],
+        "affine_bias": [
+          0.021866237744688988
+        ],
+        "feature_component_mean": 3.2417221069335938
+      },
+      "feature_spectra": {
+        "first_raw": {
+          "energy": 5955073.5,
+          "participation_rank": 1.1045912504196167,
+          "top1_energy": 0.9513538479804993,
+          "top5_energy": 0.9785833358764648
+        },
+        "first_unit": {
+          "energy": 6535.478515625,
+          "participation_rank": 7.208366394042969,
+          "top1_energy": 0.2569003701210022,
+          "top5_energy": 0.717182993888855
+        },
+        "final": {
+          "energy": 209664.796875,
+          "participation_rank": 5.280831336975098,
+          "top1_energy": 0.3594052195549011,
+          "top5_energy": 0.7735974192619324
+        }
+      },
+      "feature_parity": [
+        {
+          "observation_scale": 0.01,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.0013315248070284724
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.0001013855217024684
+            },
+            "final": {
+              "odd_energy_fraction": 7.568511500721797e-05
+            }
+          }
+        },
+        {
+          "observation_scale": 0.1,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.1068548932671547
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.008922552689909935
+            },
+            "final": {
+              "odd_energy_fraction": 0.005899716168642044
+            }
+          }
+        },
+        {
+          "observation_scale": 1.0,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.5224116444587708
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.21576343476772308
+            },
+            "final": {
+              "odd_energy_fraction": 0.10428646206855774
+            }
+          }
+        }
+      ],
+      "input_jacobian": {
+        "first_unit_radial_energy": 4.869700569543056e-05,
+        "first_unit_tangent_energy": 0.013488847762346268,
+        "value_radial_sensitivity": 0.04980285465717316,
+        "value_input_gradient_rms": 0.08685781061649323,
+        "exact_zero_first_feature_jacobian": 0.0,
+        "velocity_gradient_rms": 0.09345948696136475,
+        "position_gradient_rms": 0.07877235114574432
+      },
+      "selected_env_slot_counts": [
+        13,
+        8,
+        15,
+        15,
+        18,
+        13,
+        16,
+        14,
+        17,
+        19,
+        13,
+        19,
+        23,
+        19,
+        23,
+        11
+      ],
+      "per_state_value_gradient_spectra": {
+        "readout_gain": {
+          "energy": 3294.09228515625,
+          "participation_rank": 1.0,
+          "top1_energy": 1.0,
+          "top5_energy": 1.0
+        },
+        "first.0.gate.weight": {
+          "energy": 219.5953369140625,
+          "participation_rank": 16.17205238342285,
+          "top1_energy": 0.16814003884792328,
+          "top5_energy": 0.4779687523841858
+        },
+        "first.0.up.weight": {
+          "energy": 254.10025024414062,
+          "participation_rank": 10.90352725982666,
+          "top1_energy": 0.23945561051368713,
+          "top5_energy": 0.5627514719963074
+        },
+        "first.0.down.weight": {
+          "energy": 1620.21484375,
+          "participation_rank": 7.5162811279296875,
+          "top1_energy": 0.28639620542526245,
+          "top5_energy": 0.6791504621505737
+        },
+        "second.0.gate.weight": {
+          "energy": 356.3819885253906,
+          "participation_rank": 5.151912212371826,
+          "top1_energy": 0.39671897888183594,
+          "top5_energy": 0.7213214039802551
+        },
+        "second.0.up.weight": {
+          "energy": 324.088134765625,
+          "participation_rank": 4.490164279937744,
+          "top1_energy": 0.43519842624664307,
+          "top5_energy": 0.7389363050460815
+        },
+        "second.0.down.weight": {
+          "energy": 1839.353759765625,
+          "participation_rank": 2.4653563499450684,
+          "top1_energy": 0.6179679036140442,
+          "top5_energy": 0.8957616090774536
+        },
+        "head.0.weight": {
+          "energy": 14227.60546875,
+          "participation_rank": 1.4663890600204468,
+          "top1_energy": 0.8229247331619263,
+          "top5_energy": 0.9443249106407166
+        },
+        "head.0.bias": {
+          "energy": 222.30482482910156,
+          "participation_rank": 1.0,
+          "top1_energy": 1.0,
+          "top5_energy": 1.0
+        }
+      },
+      "finite_sample_baseline_score": {
+        "readout_gain": {
+          "gae_gradient_norm": 0.001112428493797779,
+          "expectation_zero_baseline_sample_norm": 0.009053225629031658,
+          "baseline_sample_to_gae_ratio": 8.138254165649414,
+          "baseline_sample_cosine": -0.2383798211812973
+        },
+        "first.0.gate.weight": {
+          "gae_gradient_norm": 0.050415944308042526,
+          "expectation_zero_baseline_sample_norm": 0.4319092035293579,
+          "baseline_sample_to_gae_ratio": 8.566916465759277,
+          "baseline_sample_cosine": 0.10448702424764633
+        },
+        "first.0.up.weight": {
+          "gae_gradient_norm": 0.0506022572517395,
+          "expectation_zero_baseline_sample_norm": 0.5420389771461487,
+          "baseline_sample_to_gae_ratio": 10.71175479888916,
+          "baseline_sample_cosine": 0.10765986889600754
+        },
+        "first.0.down.weight": {
+          "gae_gradient_norm": 0.04584834352135658,
+          "expectation_zero_baseline_sample_norm": 1.1329431533813477,
+          "baseline_sample_to_gae_ratio": 24.71066665649414,
+          "baseline_sample_cosine": 0.11329939216375351
+        },
+        "second.0.gate.weight": {
+          "gae_gradient_norm": 0.029082583263516426,
+          "expectation_zero_baseline_sample_norm": 0.5671184659004211,
+          "baseline_sample_to_gae_ratio": 19.50027847290039,
+          "baseline_sample_cosine": 0.06935451179742813
+        },
+        "second.0.up.weight": {
+          "gae_gradient_norm": 0.025944363325834274,
+          "expectation_zero_baseline_sample_norm": 0.5380262136459351,
+          "baseline_sample_to_gae_ratio": 20.73769187927246,
+          "baseline_sample_cosine": 0.04563823342323303
+        },
+        "second.0.down.weight": {
+          "gae_gradient_norm": 0.018942659720778465,
+          "expectation_zero_baseline_sample_norm": 0.24427074193954468,
+          "baseline_sample_to_gae_ratio": 12.895271301269531,
+          "baseline_sample_cosine": 0.14773108065128326
+        },
+        "head.0.weight": {
+          "gae_gradient_norm": 0.015669971704483032,
+          "expectation_zero_baseline_sample_norm": 0.1921187937259674,
+          "baseline_sample_to_gae_ratio": 12.26031494140625,
+          "baseline_sample_cosine": 0.1742536872625351
+        },
+        "head.0.bias": {
+          "gae_gradient_norm": 0.0013541898224502802,
+          "expectation_zero_baseline_sample_norm": 0.02423214539885521,
+          "baseline_sample_to_gae_ratio": 17.894201278686523,
+          "baseline_sample_cosine": -0.1294659972190857
+        }
+      },
+      "identifiability": {
+        "true_value_error": "not_identifiable",
+        "score_weighted_successor_error": "not_identifiable",
+        "transition_TD_residual": "not_identifiable",
+        "lambda_sweep": "not_identifiable",
+        "independent_finite_horizon_returns": "not_identifiable",
+        "missing_fields": [
+          "transition rewards",
+          "termination/truncation masks",
+          "successor observations",
+          "simulator states"
+        ],
+        "reason": "Stored GAE advantages and values alone do not identify transition TD residuals without boundaries. Lambda targets contain this critic bootstrap; their residuals are not independent value errors."
+      },
+      "assumptions": [
+        "Input and parameter Jacobians use up to 256 randomly selected stored states, not independent samples.",
+        "Negated/scaled centered observations are algebraic representation probes, not simulator-valid counterfactuals.",
+        "First SiTU is only asymptotically even near zero; real visited-state oddness is measured separately.",
+        "Rank participation measures sampled value-gradient energy, not representational expressiveness bounds.",
+        "Fresh unclipped baseline-score correlation is finite-sample noise; it cannot establish action-dependent bootstrap bias.",
+        "Current-state baseline cancellation holds for fresh unclipped score-policy gradients. Later clipped PPO active masks depend on ratio and advantage sign; their baseline sensitivity must be measured separately."
+      ]
+    },
+    {
+      "snapshot": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146/diagnostic_snapshot_4013696.pt",
+      "step": 4013696,
+      "critic_metadata": {
+        "value_mean": 3.017202377319336,
+        "value_std": 0.12362165004014969,
+        "frozen_target_mean": 3.0233418941497803,
+        "frozen_target_std": 0.1309797614812851,
+        "gae_advantage_mean": 0.006139518693089485,
+        "gae_advantage_std": 0.04806217923760414,
+        "preupdate_prediction_replay_rmse": 2.345121288271912e-07,
+        "frozen_lambda_target_residual_rmse": 0.04845127463340759,
+        "frozen_lambda_target_explained_variance": 0.8653524518013,
+        "gain": [
+          0.922476053237915
+        ],
+        "bias": [
+          0.02699068933725357
+        ],
+        "affine_bias": [
+          0.024898264557123184
+        ],
+        "feature_component_mean": 2.9923040866851807
+      },
+      "feature_spectra": {
+        "first_raw": {
+          "energy": 269444.25,
+          "participation_rank": 5.833207130432129,
+          "top1_energy": 0.30609792470932007,
+          "top5_energy": 0.7724758386611938
+        },
+        "first_unit": {
+          "energy": 5707.3388671875,
+          "participation_rank": 5.642831802368164,
+          "top1_energy": 0.3159632980823517,
+          "top5_energy": 0.747596025466919
+        },
+        "final": {
+          "energy": 164091.90625,
+          "participation_rank": 5.7150068283081055,
+          "top1_energy": 0.29478856921195984,
+          "top5_energy": 0.7435506582260132
+        }
+      },
+      "feature_parity": [
+        {
+          "observation_scale": 0.01,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 6.468309584306553e-05
+            },
+            "first_unit": {
+              "odd_energy_fraction": 4.2052204662468284e-05
+            },
+            "final": {
+              "odd_energy_fraction": 1.934124702529516e-05
+            }
+          }
+        },
+        {
+          "observation_scale": 0.1,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.006335587240755558
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.004159973002970219
+            },
+            "final": {
+              "odd_energy_fraction": 0.0019140858203172684
+            }
+          }
+        },
+        {
+          "observation_scale": 1.0,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.2284955382347107
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.19976040720939636
+            },
+            "final": {
+              "odd_energy_fraction": 0.09515610337257385
+            }
+          }
+        }
+      ],
+      "input_jacobian": {
+        "first_unit_radial_energy": 5.08867742610164e-05,
+        "first_unit_tangent_energy": 0.01161293312907219,
+        "value_radial_sensitivity": 0.04180797562003136,
+        "value_input_gradient_rms": 0.05179527401924133,
+        "exact_zero_first_feature_jacobian": 0.0,
+        "velocity_gradient_rms": 0.06479132920503616,
+        "position_gradient_rms": 0.03127599135041237
+      },
+      "selected_env_slot_counts": [
+        13,
+        8,
+        15,
+        15,
+        18,
+        13,
+        16,
+        14,
+        17,
+        19,
+        13,
+        19,
+        23,
+        19,
+        23,
+        11
+      ],
+      "per_state_value_gradient_spectra": {
+        "readout_gain": {
+          "energy": 2758.576416015625,
+          "participation_rank": 1.0,
+          "top1_energy": 1.0,
+          "top5_energy": 1.0
+        },
+        "first.0.gate.weight": {
+          "energy": 96.59133911132812,
+          "participation_rank": 11.561967849731445,
+          "top1_energy": 0.16826511919498444,
+          "top5_energy": 0.6054960489273071
+        },
+        "first.0.up.weight": {
+          "energy": 82.96305847167969,
+          "participation_rank": 11.242676734924316,
+          "top1_energy": 0.1986943781375885,
+          "top5_energy": 0.6018192768096924
+        },
+        "first.0.down.weight": {
+          "energy": 1866.0743408203125,
+          "participation_rank": 5.963878631591797,
+          "top1_energy": 0.2978546619415283,
+          "top5_energy": 0.7855677604675293
+        },
+        "second.0.gate.weight": {
+          "energy": 327.0749206542969,
+          "participation_rank": 4.90362548828125,
+          "top1_energy": 0.37270188331604004,
+          "top5_energy": 0.7884379625320435
+        },
+        "second.0.up.weight": {
+          "energy": 281.7276611328125,
+          "participation_rank": 4.000396251678467,
+          "top1_energy": 0.45002904534339905,
+          "top5_energy": 0.8178850412368774
+        },
+        "second.0.down.weight": {
+          "energy": 1823.7379150390625,
+          "participation_rank": 2.5476863384246826,
+          "top1_energy": 0.5990262627601624,
+          "top5_energy": 0.9045048952102661
+        },
+        "head.0.weight": {
+          "energy": 13942.0068359375,
+          "participation_rank": 1.3941787481307983,
+          "top1_energy": 0.84429931640625,
+          "top5_energy": 0.9561833143234253
+        },
+        "head.0.bias": {
+          "energy": 217.84628295898438,
+          "participation_rank": 1.0,
+          "top1_energy": 1.0,
+          "top5_energy": 1.0
+        }
+      },
+      "finite_sample_baseline_score": {
+        "readout_gain": {
+          "gae_gradient_norm": 0.0011627906933426857,
+          "expectation_zero_baseline_sample_norm": 0.0011343163205310702,
+          "baseline_sample_to_gae_ratio": 0.9755120277404785,
+          "baseline_sample_cosine": -0.29378658533096313
+        },
+        "first.0.gate.weight": {
+          "gae_gradient_norm": 0.015170072205364704,
+          "expectation_zero_baseline_sample_norm": 0.025631628930568695,
+          "baseline_sample_to_gae_ratio": 1.6896181106567383,
+          "baseline_sample_cosine": 0.08728361129760742
+        },
+        "first.0.up.weight": {
+          "gae_gradient_norm": 0.017260029911994934,
+          "expectation_zero_baseline_sample_norm": 0.025673815980553627,
+          "baseline_sample_to_gae_ratio": 1.4874722957611084,
+          "baseline_sample_cosine": 0.11104719340801239
+        },
+        "first.0.down.weight": {
+          "gae_gradient_norm": 0.0228224229067564,
+          "expectation_zero_baseline_sample_norm": 0.03608126938343048,
+          "baseline_sample_to_gae_ratio": 1.580957055091858,
+          "baseline_sample_cosine": 0.10518963634967804
+        },
+        "second.0.gate.weight": {
+          "gae_gradient_norm": 0.016738953068852425,
+          "expectation_zero_baseline_sample_norm": 0.025792455300688744,
+          "baseline_sample_to_gae_ratio": 1.54086434841156,
+          "baseline_sample_cosine": 0.12398436665534973
+        },
+        "second.0.up.weight": {
+          "gae_gradient_norm": 0.013953417539596558,
+          "expectation_zero_baseline_sample_norm": 0.024523980915546417,
+          "baseline_sample_to_gae_ratio": 1.7575608491897583,
+          "baseline_sample_cosine": 0.15115083754062653
+        },
+        "second.0.down.weight": {
+          "gae_gradient_norm": 0.00628340570256114,
+          "expectation_zero_baseline_sample_norm": 0.012993108481168747,
+          "baseline_sample_to_gae_ratio": 2.067844867706299,
+          "baseline_sample_cosine": 0.07826858013868332
+        },
+        "head.0.weight": {
+          "gae_gradient_norm": 0.007034787908196449,
+          "expectation_zero_baseline_sample_norm": 0.01802467554807663,
+          "baseline_sample_to_gae_ratio": 2.5622200965881348,
+          "baseline_sample_cosine": 0.050165824592113495
+        },
+        "head.0.bias": {
+          "gae_gradient_norm": 0.0006474886904470623,
+          "expectation_zero_baseline_sample_norm": 0.0016103689558804035,
+          "baseline_sample_to_gae_ratio": 2.4870996475219727,
+          "baseline_sample_cosine": -0.32959580421447754
+        }
+      },
+      "identifiability": {
+        "true_value_error": "not_identifiable",
+        "score_weighted_successor_error": "not_identifiable",
+        "transition_TD_residual": "not_identifiable",
+        "lambda_sweep": "not_identifiable",
+        "independent_finite_horizon_returns": "not_identifiable",
+        "missing_fields": [
+          "transition rewards",
+          "termination/truncation masks",
+          "successor observations",
+          "simulator states"
+        ],
+        "reason": "Stored GAE advantages and values alone do not identify transition TD residuals without boundaries. Lambda targets contain this critic bootstrap; their residuals are not independent value errors."
+      },
+      "assumptions": [
+        "Input and parameter Jacobians use up to 256 randomly selected stored states, not independent samples.",
+        "Negated/scaled centered observations are algebraic representation probes, not simulator-valid counterfactuals.",
+        "First SiTU is only asymptotically even near zero; real visited-state oddness is measured separately.",
+        "Rank participation measures sampled value-gradient energy, not representational expressiveness bounds.",
+        "Fresh unclipped baseline-score correlation is finite-sample noise; it cannot establish action-dependent bootstrap bias.",
+        "Current-state baseline cancellation holds for fresh unclipped score-policy gradients. Later clipped PPO active masks depend on ratio and advantage sign; their baseline sensitivity must be measured separately."
+      ]
+    },
+    {
+      "snapshot": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146/diagnostic_snapshot_7995008.pt",
+      "step": 7995008,
+      "critic_metadata": {
+        "value_mean": 3.4813897609710693,
+        "value_std": 0.20100043714046478,
+        "frozen_target_mean": 3.4799442291259766,
+        "frozen_target_std": 0.2094571739435196,
+        "gae_advantage_mean": -0.0014455949421972036,
+        "gae_advantage_std": 0.06432049721479416,
+        "preupdate_prediction_replay_rmse": 2.6393917096356745e-07,
+        "frozen_lambda_target_residual_rmse": 0.06433477997779846,
+        "frozen_lambda_target_explained_variance": 0.9057007431983948,
+        "gain": [
+          0.9296061396598816
+        ],
+        "bias": [
+          0.031237302348017693
+        ],
+        "affine_bias": [
+          0.029038388282060623
+        ],
+        "feature_component_mean": 3.4523513317108154
+      },
+      "feature_spectra": {
+        "first_raw": {
+          "energy": 259777.625,
+          "participation_rank": 7.147608757019043,
+          "top1_energy": 0.2530873119831085,
+          "top5_energy": 0.7224485874176025
+        },
+        "first_unit": {
+          "energy": 5718.0791015625,
+          "participation_rank": 6.431280136108398,
+          "top1_energy": 0.27766740322113037,
+          "top5_energy": 0.7177901268005371
+        },
+        "final": {
+          "energy": 153350.03125,
+          "participation_rank": 6.973694324493408,
+          "top1_energy": 0.2774202227592468,
+          "top5_energy": 0.7002233266830444
+        }
+      },
+      "feature_parity": [
+        {
+          "observation_scale": 0.01,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 5.6269229389727116e-05
+            },
+            "first_unit": {
+              "odd_energy_fraction": 3.9082813600543886e-05
+            },
+            "final": {
+              "odd_energy_fraction": 1.6895413864403963e-05
+            }
+          }
+        },
+        {
+          "observation_scale": 0.1,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.005520220845937729
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.0038673318922519684
+            },
+            "final": {
+              "odd_energy_fraction": 0.0016726518515497446
+            }
+          }
+        },
+        {
+          "observation_scale": 1.0,
+          "stages": {
+            "first_raw": {
+              "odd_energy_fraction": 0.21056050062179565
+            },
+            "first_unit": {
+              "odd_energy_fraction": 0.1893174946308136
+            },
+            "final": {
+              "odd_energy_fraction": 0.08503134548664093
+            }
+          }
+        }
+      ],
+      "input_jacobian": {
+        "first_unit_radial_energy": 5.0109592848457396e-05,
+        "first_unit_tangent_energy": 0.012015688233077526,
+        "value_radial_sensitivity": 0.0489981584250927,
+        "value_input_gradient_rms": 0.06948424130678177,
+        "exact_zero_first_feature_jacobian": 0.0,
+        "velocity_gradient_rms": 0.08928846567869186,
+        "position_gradient_rms": 0.03592551499605179
+      },
+      "selected_env_slot_counts": [
+        13,
+        8,
+        15,
+        15,
+        18,
+        13,
+        16,
+        14,
+        17,
+        19,
+        13,
+        19,
+        23,
+        19,
+        23,
+        11
+      ],
+      "per_state_value_gradient_spectra": {
+        "readout_gain": {
+          "energy": 3572.411865234375,
+          "participation_rank": 1.0,
+          "top1_energy": 1.0,
+          "top5_energy": 1.0
+        },
+        "first.0.gate.weight": {
+          "energy": 153.53028869628906,
+          "participation_rank": 14.740951538085938,
+          "top1_energy": 0.17779229581356049,
+          "top5_energy": 0.5023679733276367
+        },
+        "first.0.up.weight": {
+          "energy": 168.4757843017578,
+          "participation_rank": 14.328178405761719,
+          "top1_energy": 0.1683465838432312,
+          "top5_energy": 0.5171927213668823
+        },
+        "first.0.down.weight": {
+          "energy": 1831.119140625,
+          "participation_rank": 7.030311584472656,
+          "top1_energy": 0.28401997685432434,
+          "top5_energy": 0.7146916389465332
+        },
+        "second.0.gate.weight": {
+          "energy": 424.61102294921875,
+          "participation_rank": 5.357354640960693,
+          "top1_energy": 0.36797085404396057,
+          "top5_energy": 0.7579761743545532
+        },
+        "second.0.up.weight": {
+          "energy": 347.23724365234375,
+          "participation_rank": 4.408847332000732,
+          "top1_energy": 0.4319579303264618,
+          "top5_energy": 0.7684962749481201
+        },
+        "second.0.down.weight": {
+          "energy": 1766.09033203125,
+          "participation_rank": 2.5074551105499268,
+          "top1_energy": 0.6116950511932373,
+          "top5_energy": 0.8782322406768799
+        },
+        "head.0.weight": {
+          "energy": 14158.3828125,
+          "participation_rank": 1.3812793493270874,
+          "top1_energy": 0.8489832878112793,
+          "top5_energy": 0.9451577067375183
+        },
+        "head.0.bias": {
+          "energy": 221.22689819335938,
+          "participation_rank": 1.0,
+          "top1_energy": 1.0,
+          "top5_energy": 1.0
+        }
+      },
+      "finite_sample_baseline_score": {
+        "readout_gain": {
+          "gae_gradient_norm": 0.0007033593137748539,
+          "expectation_zero_baseline_sample_norm": 0.0024570925161242485,
+          "baseline_sample_to_gae_ratio": 3.4933674335479736,
+          "baseline_sample_cosine": -0.12714290618896484
+        },
+        "first.0.gate.weight": {
+          "gae_gradient_norm": 0.020572012290358543,
+          "expectation_zero_baseline_sample_norm": 0.060102928429841995,
+          "baseline_sample_to_gae_ratio": 2.9215872287750244,
+          "baseline_sample_cosine": -0.032351039350032806
+        },
+        "first.0.up.weight": {
+          "gae_gradient_norm": 0.02130274474620819,
+          "expectation_zero_baseline_sample_norm": 0.05857075750827789,
+          "baseline_sample_to_gae_ratio": 2.7494466304779053,
+          "baseline_sample_cosine": 0.18365813791751862
+        },
+        "first.0.down.weight": {
+          "gae_gradient_norm": 0.02866024151444435,
+          "expectation_zero_baseline_sample_norm": 0.08249376714229584,
+          "baseline_sample_to_gae_ratio": 2.8783347606658936,
+          "baseline_sample_cosine": 0.010042211972177029
+        },
+        "second.0.gate.weight": {
+          "gae_gradient_norm": 0.021427175030112267,
+          "expectation_zero_baseline_sample_norm": 0.05963551998138428,
+          "baseline_sample_to_gae_ratio": 2.783172369003296,
+          "baseline_sample_cosine": 0.0006382238934747875
+        },
+        "second.0.up.weight": {
+          "gae_gradient_norm": 0.019608603790402412,
+          "expectation_zero_baseline_sample_norm": 0.05875784158706665,
+          "baseline_sample_to_gae_ratio": 2.9965336322784424,
+          "baseline_sample_cosine": -0.0009636138565838337
+        },
+        "second.0.down.weight": {
+          "gae_gradient_norm": 0.008008820936083794,
+          "expectation_zero_baseline_sample_norm": 0.02881678193807602,
+          "baseline_sample_to_gae_ratio": 3.598130464553833,
+          "baseline_sample_cosine": -0.023431526497006416
+        },
+        "head.0.weight": {
+          "gae_gradient_norm": 0.009030147455632687,
+          "expectation_zero_baseline_sample_norm": 0.03422966226935387,
+          "baseline_sample_to_gae_ratio": 3.7905983924865723,
+          "baseline_sample_cosine": -0.056637682020664215
+        },
+        "head.0.bias": {
+          "gae_gradient_norm": 0.001232875045388937,
+          "expectation_zero_baseline_sample_norm": 0.0045493901707232,
+          "baseline_sample_to_gae_ratio": 3.690065860748291,
+          "baseline_sample_cosine": -0.2985903024673462
+        }
+      },
+      "identifiability": {
+        "true_value_error": "not_identifiable",
+        "score_weighted_successor_error": "not_identifiable",
+        "transition_TD_residual": "not_identifiable",
+        "lambda_sweep": "not_identifiable",
+        "independent_finite_horizon_returns": "not_identifiable",
+        "missing_fields": [
+          "transition rewards",
+          "termination/truncation masks",
+          "successor observations",
+          "simulator states"
+        ],
+        "reason": "Stored GAE advantages and values alone do not identify transition TD residuals without boundaries. Lambda targets contain this critic bootstrap; their residuals are not independent value errors."
+      },
+      "assumptions": [
+        "Input and parameter Jacobians use up to 256 randomly selected stored states, not independent samples.",
+        "Negated/scaled centered observations are algebraic representation probes, not simulator-valid counterfactuals.",
+        "First SiTU is only asymptotically even near zero; real visited-state oddness is measured separately.",
+        "Rank participation measures sampled value-gradient energy, not representational expressiveness bounds.",
+        "Fresh unclipped baseline-score correlation is finite-sample noise; it cannot establish action-dependent bootstrap bias.",
+        "Current-state baseline cancellation holds for fresh unclipped score-policy gradients. Later clipped PPO active masks depend on ratio and advantage sign; their baseline sensitivity must be measured separately."
+      ]
+    }
+  ]
+}

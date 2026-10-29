@@ -1,0 +1,1766 @@
+....F.F                                                                  [100%]
+=================================== FAILURES ===================================
+______ test_compiled_checkpoint_continuation_and_gradient_ownership[1.0] _______
+
+code = <code object matrix_update at 0x7ff0456907c0, file "/home/marvin/Documents/repositories/cleanrl/cleanrl/ppo_continuous_action_sepclip_fractional_rollout_anvil_v10.py", line 110>
+globals = {'ANVIL_MAPS': ((3.923798038567, -6.095026865488, 3.905234618423), (3.278126713798, -3.328923386476, 0.989127286973), ...po_continuous_action_sepclip_fractional_rollout_anvil_v10.Args'>, 'Beta': <class 'torch.distributions.beta.Beta'>, ...}
+locals = {'beta2': 0.9, 'grad': tensor([[[-0.0664, -0.4869,  0.2567,  ...,  0.0993,  0.1730, -1.6123],
+         [-0.7731, -1.33...0.1265,  ...,  0.3723,  1.5904, -1.2977]]],
+       device='cuda:0'), 'method': 'anvil2', 'normuon_momentum': 0.95, ...}
+builtins = {'ArithmeticError': <class 'ArithmeticError'>, 'AssertionError': <class 'AssertionError'>, 'AttributeError': <class 'AttributeError'>, 'BaseException': <class 'BaseException'>, ...}
+closure = ()
+compiler_fn = <torch._dynamo.repro.after_dynamo.WrapBackendDebug object at 0x7fee230d7ee0>
+one_graph = True, export = False, export_constraints = None
+hooks = Hooks(guard_export_fn=None, guard_fail_fn=None, guard_filter_fn=None)
+cache_entry = <torch._C._dynamo.eval_frame._CacheEntry object at 0x7fee22d0f830>
+cache_size = CacheSizeRelevantForFrame(num_cache_entries=8, num_cache_entries_with_same_id_matched_objs=8)
+frame = <torch._C._dynamo.eval_frame._PyInterpreterFrame object at 0x7fedddf8e590>
+frame_state = {'_id': 0}
+
+    def _compile(
+        code: CodeType,
+        globals: dict[str, object],
+        locals: dict[str, object],
+        builtins: dict[str, object],
+        closure: tuple[CellType],
+        compiler_fn: CompilerFn,
+        one_graph: bool,
+        export: bool,
+        export_constraints: Any | None,
+        hooks: Hooks,
+        cache_entry: CacheEntry | None,
+        cache_size: CacheSizeRelevantForFrame,
+        frame: DynamoFrameType | None = None,
+        frame_state: dict[str, int | FrameStateSizeEntry] | None = None,
+        *,
+        compile_id: CompileId,
+        skip: int = 0,
+        package: CompilePackage | None = None,
+        # Can be used to record things for the caller, both
+        # in the case of normal and exception code paths
+        convert_frame_box: ConvertFrameBox | None = None,
+    ) -> ConvertFrameReturn:
+        from torch.fx.experimental.validator import (
+            BisectValidationException,
+            ValidationException,
+        )
+    
+        # Only nonlocal defs here please!
+        # Time spent compiling this frame before restarting or failing analysis
+        dynamo_time_before_restart: float = 0.0
+    
+        @compile_time_strobelight_meta(phase_name="compile_inner")
+        def compile_inner(
+            code: CodeType, one_graph: bool, hooks: Hooks
+        ) -> tuple[ConvertFrameReturn, DynamoTracerOutput | None]:
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(
+                    torch._dynamo.callback_handler.install_callbacks(
+                        CallbackTrigger.DYNAMO, str(CompileContext.current_compile_id())
+                    )
+                )
+                stack.enter_context(CompileTimeInstructionCounter.record())
+                stack.enter_context(torch_function_mode_stack_state_mgr)
+                result = _compile_inner(code, one_graph, hooks)
+                assert torch._C._len_torch_function_stack() == 0, (
+                    "Torch function mode stack state changed while dynamo tracing, please report a bug"
+                )
+                return result
+    
+            return (
+                ConvertFrameReturn(),
+                None,
+            )  # dead, but see https://github.com/python/mypy/issues/7577
+    
+        @maybe_cprofile
+        def _compile_inner(
+            code: CodeType,
+            one_graph: bool,
+            hooks: Hooks,
+        ) -> tuple[ConvertFrameReturn, DynamoTracerOutput]:
+            nonlocal dynamo_time_before_restart
+            last_attempt_start_time = start_time = time.time()
+    
+            def log_bytecode(
+                prefix: str, name: str, filename: str, line_no: int, code: CodeType
+            ) -> None:
+                if bytecode_log.isEnabledFor(logging.DEBUG):
+                    bytecode_log.debug(
+                        format_bytecode(prefix, name, filename, line_no, code)
+                    )
+    
+            log_bytecode(
+                "ORIGINAL BYTECODE",
+                code.co_name,
+                code.co_filename,
+                code.co_firstlineno,
+                code,
+            )
+            # Dump the ORIGINAL bytecode of resumption frame into TORCH_TRACE
+            # log file, so that it is parsed by tlparse tool.
+            is_resumption_frame = "torch_dynamo_resume_in" in code.co_name
+            if is_resumption_frame:
+                torch._logging.trace_structured(
+                    "artifact",
+                    metadata_fn=lambda: {
+                        "name": code.co_name + "_ORIGINAL_BYTECODE",
+                        "encoding": "string",
+                    },
+                    payload_fn=lambda: dis.Bytecode(code).dis(),
+                )
+            out_code = None
+            from .graph_id_filter import get_dynamo_config_override_for_compile_id
+    
+            dynamo_config_override = get_dynamo_config_override_for_compile_id(
+                compile_id, config.debug_dynamo_config_override
+            )
+            try:
+                with (
+                    config.patch(dynamo_config_override)
+                    if dynamo_config_override
+                    else contextlib.nullcontext()
+                ):
+                    dynamo_output = compile_frame(
+                        code,
+                        globals,
+                        locals,
+                        builtins,
+                        closure,
+                        compiler_fn,
+                        one_graph,
+                        restart_reasons,
+                        export=export,
+                        export_constraints=export_constraints,
+                        frame_state=frame_state,
+                        distributed_state=distributed_state,
+                        package=package,
+                    )
+            except exc.SkipFrame as e:
+                if one_graph:
+                    log.debug("No graph captured with export/fullgraph=True")
+                assert e._torch_dynamo_tracer_output is not None
+                return ConvertFrameReturn(), e._torch_dynamo_tracer_output
+    
+            assert distributed_state is None or distributed_state.all_states is not None, (  # type: ignore[has-type]
+                "compiler collective wasn't run before compilation completed"
+            )
+            out_code = dynamo_output.bytecode
+            tracer_output = dynamo_output.tracer_output
+            if dynamo_output.last_attempt_start_time is not None:
+                last_attempt_start_time = dynamo_output.last_attempt_start_time
+    
+            assert out_code is not None
+            log_bytecode(
+                "MODIFIED BYTECODE",
+                code.co_name,
+                code.co_filename,
+                code.co_firstlineno,
+                out_code,
+            )
+            # Dump the MODIFIED bytecode of resumption frame into TORCH_TRACE
+            # log file, so that it is parsed by tlparse tool.
+            if is_resumption_frame:
+                torch._logging.trace_structured(
+                    "artifact",
+                    metadata_fn=lambda: {
+                        "name": code.co_name + "_MODIFIED_BYTECODE",
+                        "encoding": "string",
+                    },
+                    payload_fn=lambda: dis.Bytecode(out_code).dis(),
+                )
+    
+            assert tracer_output.output_graph is not None
+            output = tracer_output.output_graph
+            code_context.get_context(out_code)[_BYTECODE_HOOK_SIDE_EFFECTS_CONTEXT_KEY] = (
+                tuple(output.get_replayed_side_effect_source_refs())
+            )
+    
+            for idx, hook in enumerate(_bytecode_hooks.values()):
+                with dynamo_timed(f"bytecode_hooks_{idx}", log_pt2_compile_event=True):
+                    hook_output = hook(code, out_code)
+                    if hook_output is not None:
+                        if hook_output is not out_code:
+                            _copy_code_context(out_code, hook_output)
+                        out_code = hook_output
+    
+            orig_code_map[out_code] = code
+            output_codes.add(out_code)
+            dynamo_time_before_restart = last_attempt_start_time - start_time
+    
+            from .bytecode_debugger import BREAKPOINT_MARKER
+    
+            if BREAKPOINT_MARKER in out_code.co_consts:
+                from torch._C._dynamo.eval_frame import register_breakpoint_code
+    
+                register_breakpoint_code(out_code)
+    
+            # Tests for new code objects.
+            # The rationale for these tests can be found in torch/csrc/dynamo/eval_frame.c
+            # Only test once the code object is created.
+            # They are not tested during runtime.
+    
+            def count_args(code: CodeType) -> int:
+                import inspect
+    
+                return (
+                    code.co_argcount
+                    + code.co_kwonlyargcount
+                    + bool(code.co_flags & inspect.CO_VARARGS)
+                    + bool(code.co_flags & inspect.CO_VARKEYWORDS)
+                )
+    
+            assert out_code is not None
+    
+            total_argcount_old = count_args(code)
+            total_argcount_new = count_args(out_code)
+            msg = "arg mismatch: "
+            msg += f"old code object has args {code.co_varnames[:total_argcount_old]}, "
+            msg += f"new code object has args {out_code.co_varnames[:total_argcount_new]}"
+            assert (
+                code.co_varnames[:total_argcount_old]
+                == out_code.co_varnames[:total_argcount_new]
+            ), msg
+    
+            msg = "free var mismatch: "
+            msg += f"old code object has free var {code.co_freevars}, "
+            msg += f"new code object has free var {out_code.co_freevars}"
+            assert code.co_freevars == out_code.co_freevars, msg
+    
+            msg = "cell var mismatch: "
+            msg += f"old code object has cell var {code.co_cellvars}, "
+            msg += f"new code object has cell var {out_code.co_cellvars}"
+            assert code.co_cellvars == out_code.co_cellvars, msg
+    
+            # Skipping Dynamo on a frame without any extracted graph.
+            # This does not affect eager functionality. But this is necessary
+            # for export for cases where Dynamo-reconstructed bytecode can create
+            # new function frames, confusing export in thinking that there
+            # are extra graphs now.
+    
+            if output.export and output.is_empty_graph():
+                return ConvertFrameReturn(), tracer_output
+    
+            assert output.guards is not None
+            CleanupManager.instance[out_code] = output.cleanups
+            nonlocal cache_entry
+            # Temporarily restore the mode stack so guard expressions that
+            # reference modes can evaluate.  DisableTorchFunction prevents
+            # __torch_function__ dispatch during guard construction so modes
+            # with mutable state aren't triggered.
+            build_guards_ctx = contextlib.ExitStack()
+            if torch_function_mode_stack_state_mgr.stack:
+                build_guards_ctx.enter_context(
+                    torch_function_mode_stack_state_mgr.temp_restore_stack()
+                )
+            with dynamo_timed("build_guards", log_pt2_compile_event=True), build_guards_ctx:
+                check_fn = dynamo_output.build_guards(
+                    code,
+                    hooks=hooks,
+                    save=package is not None,
+                    cache_entry=cache_entry,
+                )
+    
+            if package is not None:
+                assert check_fn.guards_state is not None
+                package.add_guarded_code(check_fn.guards_state, out_code)
+                package.add_inlined_source(output.tracing_context.traced_code)
+                package.update_device_type(output.current_tracer.graph)
+    
+            compile_id_str = str(compile_id) if compile_id is not None else "Unknown"
+            annotation_str = "Torch-Compiled Region: " + compile_id_str
+            guarded_code = GuardedCode(
+                out_code,
+                check_fn.guard_manager,  # type: ignore[arg-type]
+                compile_id,
+                annotation_str,
+            )
+    
+            if not output.is_empty_graph() and hooks.guard_export_fn is not None:
+                # We should not run the guard_export_fn when Dynamo does not
+                # generate any graph. This can happen in export when TorchDynamo
+                # generated bytecode has some reconstruction logic for mutated
+                # variables which can trigger TorchDynamo on the children frames but
+                # they are benign and do not generate any new graphs.
+                hooks.guard_export_fn(output.guards)
+    
+            return wrap_guarded_code(guarded_code), tracer_output
+    
+        metrics_context = get_metrics_context()
+        package_code_context = (
+            package.code_context(code) if package is not None else contextlib.nullcontext()
+        )
+        with (
+            _use_lazy_graph_module(config.use_lazy_graph_module),
+            compile_context(CompileContext(compile_id)),
+            chromium_event_timed(
+                "dynamo", reset_event_log_on_exit=True, log_pt2_compile_event=True
+            ),
+            _WaitCounter("pytorch.wait_counter.entire_forward_compile").guard(),
+            metrics_context,
+            dynamo_timed(
+                "_compile.compile_inner",
+                phase_name="entire_frame_compile",
+                dynamo_compile_column_us="dynamo_cumulative_compile_time_us",
+            ),
+            package_code_context,
+        ):
+            restart_reasons: set[str] = set()
+            if compile_pg := get_compile_pg():
+                distributed_state = DistributedState(compile_pg, LocalState())
+            else:
+                distributed_state = None
+    
+            # Check recompilations
+            recompile_reason: str | None = None
+            if is_recompilation(cache_size) and frame:
+                reasons = get_and_maybe_log_recompilation_reasons(
+                    cache_entry, frame, innermost_fn(compiler_fn)
+                )
+                recompile_reason = (
+                    "Unable to find recompilation reasons" if not reasons else reasons[0]
+                )
+            metrics_context.update_outer(
+                {
+                    "recompile_reason": recompile_reason,
+                    "inline_inbuilt_nn_modules_candidate": False,
+                }
+            )
+    
+            recompile_user_contexts = get_hook_for_recompile_user_context()
+            if recompile_user_contexts:
+                # cap each user context to N chars for data retention purposes. N=256
+                # is chosen to be large enough to capture the most important info.
+                user_contexts_msg = {
+                    user_context()[:256] for user_context in recompile_user_contexts
+                }
+                metrics_context.set("recompile_user_contexts", user_contexts_msg)
+    
+            exceeded, limit_type = exceeds_recompile_limit(cache_size, compile_id)
+            if exceeded:
+    
+                def format_func_info(code: CodeType) -> str:
+                    return f"'{code.co_name}' ({code.co_filename}:{code.co_firstlineno})"
+    
+                # NS: Don't add period at the end of string, as it'll be added to URL
+                # rendering it incorrect
+                log.warning(
+                    "torch._dynamo hit config.%s (%s)\n"
+                    "   function: %s\n"
+                    "   last reason: %s\n"
+                    'To log all recompilation reasons, use TORCH_LOGS="recompiles".\n'
+                    "To diagnose recompilation issues, see %s",
+                    limit_type,
+                    getattr(config, limit_type),
+                    format_func_info(code),
+                    recompile_reason,
+                    troubleshooting_url,
+                )
+    
+                def raise_unimplemented_cache_limit_exceeded() -> NoReturn:
+                    unimplemented(
+                        gb_type="Dynamo recompile limit exceeded",
+                        context=f"Limit type: {limit_type}",
+                        explanation="Dynamo attempted to recompile the code object too many times, "
+                        f"exceeding the {limit_type} cache size limit (currently set to {getattr(config, limit_type)}). "
+                        "Excessive recompilations can degrade "
+                        "performance due to the compilation overhead of each recompilation.",
+                        hints=[
+                            "To monitor recompilations, enable TORCH_LOGS=recompiles. "
+                            "If recompilations are expected, consider "
+                            f"increasing torch._dynamo.config.{limit_type} to an appropriate value.",
+                            f"See {troubleshooting_url} for tips on dealing with recompilations.",
+                        ],
+                    )
+    
+                try:
+>                   raise_unimplemented_cache_limit_exceeded()
+
+.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1883: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def raise_unimplemented_cache_limit_exceeded() -> NoReturn:
+>       unimplemented(
+            gb_type="Dynamo recompile limit exceeded",
+            context=f"Limit type: {limit_type}",
+            explanation="Dynamo attempted to recompile the code object too many times, "
+            f"exceeding the {limit_type} cache size limit (currently set to {getattr(config, limit_type)}). "
+            "Excessive recompilations can degrade "
+            "performance due to the compilation overhead of each recompilation.",
+            hints=[
+                "To monitor recompilations, enable TORCH_LOGS=recompiles. "
+                "If recompilations are expected, consider "
+                f"increasing torch._dynamo.config.{limit_type} to an appropriate value.",
+                f"See {troubleshooting_url} for tips on dealing with recompilations.",
+            ],
+        )
+
+.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1867: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def unimplemented(
+        *,
+        gb_type: str,
+        context: str,
+        explanation: str,
+        hints: list[str],
+        from_exc: Any = _NOTHING,
+        log_warning: bool = False,
+        skip_frame: bool = False,
+    ) -> NoReturn:
+        """
+        Called within dynamo to cause a graph break.
+        Args:
+            gb_type: Context-free graph break type. It should be a short string without any
+                     information specific to the tracing context (i.e. no dynamically-generated strings)
+            context: Developer context for the graph break. It can contain tracing context/dynamic strings.
+            explanation: User-facing context-dependent explanation for the graph break. Can be dynamic.
+            hints: List of user-facing hints for the graph break.
+        """
+    
+        msg = format_graph_break_message(gb_type, context, explanation, hints)
+    
+        if log_warning:
+            log.warning(msg)
+        if from_exc is not _NOTHING:
+            past_real_stack = None
+            if hasattr(from_exc, "real_stack"):
+                past_real_stack = from_exc.real_stack
+            if isinstance(from_exc, Unsupported):
+                msg = f"{from_exc.msg}\n\n*** While handling this graph break, another graph break occurred: ***\n\n{msg}"
+                # noqa: GB_REGISTRY
+                raise Unsupported(msg, gb_type, skip_frame, real_stack=past_real_stack)
+            # noqa: GB_REGISTRY
+            raise Unsupported(
+                msg, gb_type, skip_frame, real_stack=past_real_stack
+            ) from from_exc
+        # noqa: GB_REGISTRY
+>       raise Unsupported(msg, gb_type, skip_frame)
+E       torch._dynamo.exc.Unsupported: Dynamo recompile limit exceeded
+E         Explanation: Dynamo attempted to recompile the code object too many times, exceeding the recompile_limit cache size limit (currently set to 8). Excessive recompilations can degrade performance due to the compilation overhead of each recompilation.
+E         Hint: To monitor recompilations, enable TORCH_LOGS=recompiles. If recompilations are expected, consider increasing torch._dynamo.config.recompile_limit to an appropriate value.
+E         Hint: See https://docs.pytorch.org/docs/main/user_guide/torch_compiler/compile/programming_model.recompilation.html for tips on dealing with recompilations.
+E       
+E         Developer debug context: Limit type: recompile_limit
+E       
+E        For more details about this graph break, please visit: https://meta-pytorch.github.io/compile-graph-break-site/gb/gb0039.html
+
+.venv/lib/python3.10/site-packages/torch/_dynamo/exc.py:657: Unsupported
+
+The above exception was the direct cause of the following exception:
+
+power = 1.0
+
+    @pytest.mark.parametrize('power', [0., .5, 1.])
+    @torch.no_grad()
+    def test_compiled_checkpoint_continuation_and_gradient_ownership(power):
+        torch.manual_seed(25)
+        weights = [torch.nn.Parameter(torch.randn(*shape,device='cuda')) for shape in [(43,17),(43,64),(64,43)]]
+        optimizer = MatrixOptimizer(weights, spectral_power=power, total_steps=20)
+        optimizer.begin_rollout(4)
+        for p in weights:
+            p.grad = torch.randn_like(p)
+>       optimizer.step()
+
+tests/test_sepclip_fractional_rollout.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.10/site-packages/torch/optim/optimizer.py:535: in wrapper
+    out = func(*args, **kwargs)
+.venv/lib/python3.10/site-packages/torch/utils/_contextlib.py:124: in decorate_context
+    return func(*args, **kwargs)
+cleanrl/ppo_continuous_action_sepclip_fractional_rollout_anvil_v10.py:232: in step
+    self.update(stacked, state["velocity"], state["second"], grads,
+.venv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py:1047: in compile_wrapper
+    result = fn(*args, **kwargs)
+.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:2474: in __call__
+    result = self._torchdynamo_orig_backend(
+.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:736: in __call__
+    result = _compile(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+code = <code object matrix_update at 0x7ff0456907c0, file "/home/marvin/Documents/repositories/cleanrl/cleanrl/ppo_continuous_action_sepclip_fractional_rollout_anvil_v10.py", line 110>
+globals = {'ANVIL_MAPS': ((3.923798038567, -6.095026865488, 3.905234618423), (3.278126713798, -3.328923386476, 0.989127286973), ...po_continuous_action_sepclip_fractional_rollout_anvil_v10.Args'>, 'Beta': <class 'torch.distributions.beta.Beta'>, ...}
+locals = {'beta2': 0.9, 'grad': tensor([[[-0.0664, -0.4869,  0.2567,  ...,  0.0993,  0.1730, -1.6123],
+         [-0.7731, -1.33...0.1265,  ...,  0.3723,  1.5904, -1.2977]]],
+       device='cuda:0'), 'method': 'anvil2', 'normuon_momentum': 0.95, ...}
+builtins = {'ArithmeticError': <class 'ArithmeticError'>, 'AssertionError': <class 'AssertionError'>, 'AttributeError': <class 'AttributeError'>, 'BaseException': <class 'BaseException'>, ...}
+closure = ()
+compiler_fn = <torch._dynamo.repro.after_dynamo.WrapBackendDebug object at 0x7fee230d7ee0>
+one_graph = True, export = False, export_constraints = None
+hooks = Hooks(guard_export_fn=None, guard_fail_fn=None, guard_filter_fn=None)
+cache_entry = <torch._C._dynamo.eval_frame._CacheEntry object at 0x7fee22d0f830>
+cache_size = CacheSizeRelevantForFrame(num_cache_entries=8, num_cache_entries_with_same_id_matched_objs=8)
+frame = <torch._C._dynamo.eval_frame._PyInterpreterFrame object at 0x7fedddf8e590>
+frame_state = {'_id': 0}
+
+    def _compile(
+        code: CodeType,
+        globals: dict[str, object],
+        locals: dict[str, object],
+        builtins: dict[str, object],
+        closure: tuple[CellType],
+        compiler_fn: CompilerFn,
+        one_graph: bool,
+        export: bool,
+        export_constraints: Any | None,
+        hooks: Hooks,
+        cache_entry: CacheEntry | None,
+        cache_size: CacheSizeRelevantForFrame,
+        frame: DynamoFrameType | None = None,
+        frame_state: dict[str, int | FrameStateSizeEntry] | None = None,
+        *,
+        compile_id: CompileId,
+        skip: int = 0,
+        package: CompilePackage | None = None,
+        # Can be used to record things for the caller, both
+        # in the case of normal and exception code paths
+        convert_frame_box: ConvertFrameBox | None = None,
+    ) -> ConvertFrameReturn:
+        from torch.fx.experimental.validator import (
+            BisectValidationException,
+            ValidationException,
+        )
+    
+        # Only nonlocal defs here please!
+        # Time spent compiling this frame before restarting or failing analysis
+        dynamo_time_before_restart: float = 0.0
+    
+        @compile_time_strobelight_meta(phase_name="compile_inner")
+        def compile_inner(
+            code: CodeType, one_graph: bool, hooks: Hooks
+        ) -> tuple[ConvertFrameReturn, DynamoTracerOutput | None]:
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(
+                    torch._dynamo.callback_handler.install_callbacks(
+                        CallbackTrigger.DYNAMO, str(CompileContext.current_compile_id())
+                    )
+                )
+                stack.enter_context(CompileTimeInstructionCounter.record())
+                stack.enter_context(torch_function_mode_stack_state_mgr)
+                result = _compile_inner(code, one_graph, hooks)
+                assert torch._C._len_torch_function_stack() == 0, (
+                    "Torch function mode stack state changed while dynamo tracing, please report a bug"
+                )
+                return result
+    
+            return (
+                ConvertFrameReturn(),
+                None,
+            )  # dead, but see https://github.com/python/mypy/issues/7577
+    
+        @maybe_cprofile
+        def _compile_inner(
+            code: CodeType,
+            one_graph: bool,
+            hooks: Hooks,
+        ) -> tuple[ConvertFrameReturn, DynamoTracerOutput]:
+            nonlocal dynamo_time_before_restart
+            last_attempt_start_time = start_time = time.time()
+    
+            def log_bytecode(
+                prefix: str, name: str, filename: str, line_no: int, code: CodeType
+            ) -> None:
+                if bytecode_log.isEnabledFor(logging.DEBUG):
+                    bytecode_log.debug(
+                        format_bytecode(prefix, name, filename, line_no, code)
+                    )
+    
+            log_bytecode(
+                "ORIGINAL BYTECODE",
+                code.co_name,
+                code.co_filename,
+                code.co_firstlineno,
+                code,
+            )
+            # Dump the ORIGINAL bytecode of resumption frame into TORCH_TRACE
+            # log file, so that it is parsed by tlparse tool.
+            is_resumption_frame = "torch_dynamo_resume_in" in code.co_name
+            if is_resumption_frame:
+                torch._logging.trace_structured(
+                    "artifact",
+                    metadata_fn=lambda: {
+                        "name": code.co_name + "_ORIGINAL_BYTECODE",
+                        "encoding": "string",
+                    },
+                    payload_fn=lambda: dis.Bytecode(code).dis(),
+                )
+            out_code = None
+            from .graph_id_filter import get_dynamo_config_override_for_compile_id
+    
+            dynamo_config_override = get_dynamo_config_override_for_compile_id(
+                compile_id, config.debug_dynamo_config_override
+            )
+            try:
+                with (
+                    config.patch(dynamo_config_override)
+                    if dynamo_config_override
+                    else contextlib.nullcontext()
+                ):
+                    dynamo_output = compile_frame(
+                        code,
+                        globals,
+                        locals,
+                        builtins,
+                        closure,
+                        compiler_fn,
+                        one_graph,
+                        restart_reasons,
+                        export=export,
+                        export_constraints=export_constraints,
+                        frame_state=frame_state,
+                        distributed_state=distributed_state,
+                        package=package,
+                    )
+            except exc.SkipFrame as e:
+                if one_graph:
+                    log.debug("No graph captured with export/fullgraph=True")
+                assert e._torch_dynamo_tracer_output is not None
+                return ConvertFrameReturn(), e._torch_dynamo_tracer_output
+    
+            assert distributed_state is None or distributed_state.all_states is not None, (  # type: ignore[has-type]
+                "compiler collective wasn't run before compilation completed"
+            )
+            out_code = dynamo_output.bytecode
+            tracer_output = dynamo_output.tracer_output
+            if dynamo_output.last_attempt_start_time is not None:
+                last_attempt_start_time = dynamo_output.last_attempt_start_time
+    
+            assert out_code is not None
+            log_bytecode(
+                "MODIFIED BYTECODE",
+                code.co_name,
+                code.co_filename,
+                code.co_firstlineno,
+                out_code,
+            )
+            # Dump the MODIFIED bytecode of resumption frame into TORCH_TRACE
+            # log file, so that it is parsed by tlparse tool.
+            if is_resumption_frame:
+                torch._logging.trace_structured(
+                    "artifact",
+                    metadata_fn=lambda: {
+                        "name": code.co_name + "_MODIFIED_BYTECODE",
+                        "encoding": "string",
+                    },
+                    payload_fn=lambda: dis.Bytecode(out_code).dis(),
+                )
+    
+            assert tracer_output.output_graph is not None
+            output = tracer_output.output_graph
+            code_context.get_context(out_code)[_BYTECODE_HOOK_SIDE_EFFECTS_CONTEXT_KEY] = (
+                tuple(output.get_replayed_side_effect_source_refs())
+            )
+    
+            for idx, hook in enumerate(_bytecode_hooks.values()):
+                with dynamo_timed(f"bytecode_hooks_{idx}", log_pt2_compile_event=True):
+                    hook_output = hook(code, out_code)
+                    if hook_output is not None:
+                        if hook_output is not out_code:
+                            _copy_code_context(out_code, hook_output)
+                        out_code = hook_output
+    
+            orig_code_map[out_code] = code
+            output_codes.add(out_code)
+            dynamo_time_before_restart = last_attempt_start_time - start_time
+    
+            from .bytecode_debugger import BREAKPOINT_MARKER
+    
+            if BREAKPOINT_MARKER in out_code.co_consts:
+                from torch._C._dynamo.eval_frame import register_breakpoint_code
+    
+                register_breakpoint_code(out_code)
+    
+            # Tests for new code objects.
+            # The rationale for these tests can be found in torch/csrc/dynamo/eval_frame.c
+            # Only test once the code object is created.
+            # They are not tested during runtime.
+    
+            def count_args(code: CodeType) -> int:
+                import inspect
+    
+                return (
+                    code.co_argcount
+                    + code.co_kwonlyargcount
+                    + bool(code.co_flags & inspect.CO_VARARGS)
+                    + bool(code.co_flags & inspect.CO_VARKEYWORDS)
+                )
+    
+            assert out_code is not None
+    
+            total_argcount_old = count_args(code)
+            total_argcount_new = count_args(out_code)
+            msg = "arg mismatch: "
+            msg += f"old code object has args {code.co_varnames[:total_argcount_old]}, "
+            msg += f"new code object has args {out_code.co_varnames[:total_argcount_new]}"
+            assert (
+                code.co_varnames[:total_argcount_old]
+                == out_code.co_varnames[:total_argcount_new]
+            ), msg
+    
+            msg = "free var mismatch: "
+            msg += f"old code object has free var {code.co_freevars}, "
+            msg += f"new code object has free var {out_code.co_freevars}"
+            assert code.co_freevars == out_code.co_freevars, msg
+    
+            msg = "cell var mismatch: "
+            msg += f"old code object has cell var {code.co_cellvars}, "
+            msg += f"new code object has cell var {out_code.co_cellvars}"
+            assert code.co_cellvars == out_code.co_cellvars, msg
+    
+            # Skipping Dynamo on a frame without any extracted graph.
+            # This does not affect eager functionality. But this is necessary
+            # for export for cases where Dynamo-reconstructed bytecode can create
+            # new function frames, confusing export in thinking that there
+            # are extra graphs now.
+    
+            if output.export and output.is_empty_graph():
+                return ConvertFrameReturn(), tracer_output
+    
+            assert output.guards is not None
+            CleanupManager.instance[out_code] = output.cleanups
+            nonlocal cache_entry
+            # Temporarily restore the mode stack so guard expressions that
+            # reference modes can evaluate.  DisableTorchFunction prevents
+            # __torch_function__ dispatch during guard construction so modes
+            # with mutable state aren't triggered.
+            build_guards_ctx = contextlib.ExitStack()
+            if torch_function_mode_stack_state_mgr.stack:
+                build_guards_ctx.enter_context(
+                    torch_function_mode_stack_state_mgr.temp_restore_stack()
+                )
+            with dynamo_timed("build_guards", log_pt2_compile_event=True), build_guards_ctx:
+                check_fn = dynamo_output.build_guards(
+                    code,
+                    hooks=hooks,
+                    save=package is not None,
+                    cache_entry=cache_entry,
+                )
+    
+            if package is not None:
+                assert check_fn.guards_state is not None
+                package.add_guarded_code(check_fn.guards_state, out_code)
+                package.add_inlined_source(output.tracing_context.traced_code)
+                package.update_device_type(output.current_tracer.graph)
+    
+            compile_id_str = str(compile_id) if compile_id is not None else "Unknown"
+            annotation_str = "Torch-Compiled Region: " + compile_id_str
+            guarded_code = GuardedCode(
+                out_code,
+                check_fn.guard_manager,  # type: ignore[arg-type]
+                compile_id,
+                annotation_str,
+            )
+    
+            if not output.is_empty_graph() and hooks.guard_export_fn is not None:
+                # We should not run the guard_export_fn when Dynamo does not
+                # generate any graph. This can happen in export when TorchDynamo
+                # generated bytecode has some reconstruction logic for mutated
+                # variables which can trigger TorchDynamo on the children frames but
+                # they are benign and do not generate any new graphs.
+                hooks.guard_export_fn(output.guards)
+    
+            return wrap_guarded_code(guarded_code), tracer_output
+    
+        metrics_context = get_metrics_context()
+        package_code_context = (
+            package.code_context(code) if package is not None else contextlib.nullcontext()
+        )
+        with (
+            _use_lazy_graph_module(config.use_lazy_graph_module),
+            compile_context(CompileContext(compile_id)),
+            chromium_event_timed(
+                "dynamo", reset_event_log_on_exit=True, log_pt2_compile_event=True
+            ),
+            _WaitCounter("pytorch.wait_counter.entire_forward_compile").guard(),
+            metrics_context,
+            dynamo_timed(
+                "_compile.compile_inner",
+                phase_name="entire_frame_compile",
+                dynamo_compile_column_us="dynamo_cumulative_compile_time_us",
+            ),
+            package_code_context,
+        ):
+            restart_reasons: set[str] = set()
+            if compile_pg := get_compile_pg():
+                distributed_state = DistributedState(compile_pg, LocalState())
+            else:
+                distributed_state = None
+    
+            # Check recompilations
+            recompile_reason: str | None = None
+            if is_recompilation(cache_size) and frame:
+                reasons = get_and_maybe_log_recompilation_reasons(
+                    cache_entry, frame, innermost_fn(compiler_fn)
+                )
+                recompile_reason = (
+                    "Unable to find recompilation reasons" if not reasons else reasons[0]
+                )
+            metrics_context.update_outer(
+                {
+                    "recompile_reason": recompile_reason,
+                    "inline_inbuilt_nn_modules_candidate": False,
+                }
+            )
+    
+            recompile_user_contexts = get_hook_for_recompile_user_context()
+            if recompile_user_contexts:
+                # cap each user context to N chars for data retention purposes. N=256
+                # is chosen to be large enough to capture the most important info.
+                user_contexts_msg = {
+                    user_context()[:256] for user_context in recompile_user_contexts
+                }
+                metrics_context.set("recompile_user_contexts", user_contexts_msg)
+    
+            exceeded, limit_type = exceeds_recompile_limit(cache_size, compile_id)
+            if exceeded:
+    
+                def format_func_info(code: CodeType) -> str:
+                    return f"'{code.co_name}' ({code.co_filename}:{code.co_firstlineno})"
+    
+                # NS: Don't add period at the end of string, as it'll be added to URL
+                # rendering it incorrect
+                log.warning(
+                    "torch._dynamo hit config.%s (%s)\n"
+                    "   function: %s\n"
+                    "   last reason: %s\n"
+                    'To log all recompilation reasons, use TORCH_LOGS="recompiles".\n'
+                    "To diagnose recompilation issues, see %s",
+                    limit_type,
+                    getattr(config, limit_type),
+                    format_func_info(code),
+                    recompile_reason,
+                    troubleshooting_url,
+                )
+    
+                def raise_unimplemented_cache_limit_exceeded() -> NoReturn:
+                    unimplemented(
+                        gb_type="Dynamo recompile limit exceeded",
+                        context=f"Limit type: {limit_type}",
+                        explanation="Dynamo attempted to recompile the code object too many times, "
+                        f"exceeding the {limit_type} cache size limit (currently set to {getattr(config, limit_type)}). "
+                        "Excessive recompilations can degrade "
+                        "performance due to the compilation overhead of each recompilation.",
+                        hints=[
+                            "To monitor recompilations, enable TORCH_LOGS=recompiles. "
+                            "If recompilations are expected, consider "
+                            f"increasing torch._dynamo.config.{limit_type} to an appropriate value.",
+                            f"See {troubleshooting_url} for tips on dealing with recompilations.",
+                        ],
+                    )
+    
+                try:
+                    raise_unimplemented_cache_limit_exceeded()
+                except Unsupported as e:
+                    if config.fail_on_recompile_limit_hit:
+                        raise FailOnRecompileLimitHit(
+                            "Hard failure due to fail_on_recompile_limit_hit"
+                        ) from e
+                    elif one_graph:
+>                       raise FailOnRecompileLimitHit(
+                            "Hard failure due to fullgraph=True"
+                        ) from e
+E                       torch._dynamo.exc.FailOnRecompileLimitHit: Hard failure due to fullgraph=True
+
+.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1890: FailOnRecompileLimitHit
+----------------------------- Captured stderr call -----------------------------
+W1005 16:25:07.806000 1285668 .venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1853] [0/8] torch._dynamo hit config.recompile_limit (8)
+W1005 16:25:07.806000 1285668 .venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1853] [0/8]    function: 'matrix_update' (/home/marvin/Documents/repositories/cleanrl/cleanrl/ppo_continuous_action_sepclip_fractional_rollout_anvil_v10.py:110)
+W1005 16:25:07.806000 1285668 .venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1853] [0/8]    last reason: 0/7: tensor 'p' size mismatch at index 1. expected 43, actual 64
+W1005 16:25:07.806000 1285668 .venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1853] [0/8] To log all recompilation reasons, use TORCH_LOGS="recompiles".
+W1005 16:25:07.806000 1285668 .venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1853] [0/8] To diagnose recompilation issues, see https://docs.pytorch.org/docs/main/user_guide/torch_compiler/compile/programming_model.recompilation.html
+______________ test_power_zero_preserves_frozen_v7_control[True] _______________
+
+code = <code object matrix_update at 0x7ff0456907c0, file "/home/marvin/Documents/repositories/cleanrl/cleanrl/ppo_continuous_action_sepclip_fractional_rollout_anvil_v10.py", line 110>
+globals = {'ANVIL_MAPS': ((3.923798038567, -6.095026865488, 3.905234618423), (3.278126713798, -3.328923386476, 0.989127286973), ...po_continuous_action_sepclip_fractional_rollout_anvil_v10.Args'>, 'Beta': <class 'torch.distributions.beta.Beta'>, ...}
+locals = {'beta2': 0.9, 'grad': tensor([[[ 8.5777e-01,  4.8500e-01,  1.2503e+00, -1.4151e-01,  2.0701e-01,
+           4.5314e-0...1.0402e+00,
+          -3.1779e-01, -1.4748e+00]]], device='cuda:0'), 'method': 'anvil2', 'normuon_momentum': 0.95, ...}
+builtins = {'ArithmeticError': <class 'ArithmeticError'>, 'AssertionError': <class 'AssertionError'>, 'AttributeError': <class 'AttributeError'>, 'BaseException': <class 'BaseException'>, ...}
+closure = ()
+compiler_fn = <torch._dynamo.repro.after_dynamo.WrapBackendDebug object at 0x7fedddeb3d90>
+one_graph = True, export = False, export_constraints = None
+hooks = Hooks(guard_export_fn=None, guard_fail_fn=None, guard_filter_fn=None)
+cache_entry = <torch._C._dynamo.eval_frame._CacheEntry object at 0x7fee22d0f830>
+cache_size = CacheSizeRelevantForFrame(num_cache_entries=8, num_cache_entries_with_same_id_matched_objs=8)
+frame = <torch._C._dynamo.eval_frame._PyInterpreterFrame object at 0x7feddd9aa750>
+frame_state = {'_id': 0}
+
+    def _compile(
+        code: CodeType,
+        globals: dict[str, object],
+        locals: dict[str, object],
+        builtins: dict[str, object],
+        closure: tuple[CellType],
+        compiler_fn: CompilerFn,
+        one_graph: bool,
+        export: bool,
+        export_constraints: Any | None,
+        hooks: Hooks,
+        cache_entry: CacheEntry | None,
+        cache_size: CacheSizeRelevantForFrame,
+        frame: DynamoFrameType | None = None,
+        frame_state: dict[str, int | FrameStateSizeEntry] | None = None,
+        *,
+        compile_id: CompileId,
+        skip: int = 0,
+        package: CompilePackage | None = None,
+        # Can be used to record things for the caller, both
+        # in the case of normal and exception code paths
+        convert_frame_box: ConvertFrameBox | None = None,
+    ) -> ConvertFrameReturn:
+        from torch.fx.experimental.validator import (
+            BisectValidationException,
+            ValidationException,
+        )
+    
+        # Only nonlocal defs here please!
+        # Time spent compiling this frame before restarting or failing analysis
+        dynamo_time_before_restart: float = 0.0
+    
+        @compile_time_strobelight_meta(phase_name="compile_inner")
+        def compile_inner(
+            code: CodeType, one_graph: bool, hooks: Hooks
+        ) -> tuple[ConvertFrameReturn, DynamoTracerOutput | None]:
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(
+                    torch._dynamo.callback_handler.install_callbacks(
+                        CallbackTrigger.DYNAMO, str(CompileContext.current_compile_id())
+                    )
+                )
+                stack.enter_context(CompileTimeInstructionCounter.record())
+                stack.enter_context(torch_function_mode_stack_state_mgr)
+                result = _compile_inner(code, one_graph, hooks)
+                assert torch._C._len_torch_function_stack() == 0, (
+                    "Torch function mode stack state changed while dynamo tracing, please report a bug"
+                )
+                return result
+    
+            return (
+                ConvertFrameReturn(),
+                None,
+            )  # dead, but see https://github.com/python/mypy/issues/7577
+    
+        @maybe_cprofile
+        def _compile_inner(
+            code: CodeType,
+            one_graph: bool,
+            hooks: Hooks,
+        ) -> tuple[ConvertFrameReturn, DynamoTracerOutput]:
+            nonlocal dynamo_time_before_restart
+            last_attempt_start_time = start_time = time.time()
+    
+            def log_bytecode(
+                prefix: str, name: str, filename: str, line_no: int, code: CodeType
+            ) -> None:
+                if bytecode_log.isEnabledFor(logging.DEBUG):
+                    bytecode_log.debug(
+                        format_bytecode(prefix, name, filename, line_no, code)
+                    )
+    
+            log_bytecode(
+                "ORIGINAL BYTECODE",
+                code.co_name,
+                code.co_filename,
+                code.co_firstlineno,
+                code,
+            )
+            # Dump the ORIGINAL bytecode of resumption frame into TORCH_TRACE
+            # log file, so that it is parsed by tlparse tool.
+            is_resumption_frame = "torch_dynamo_resume_in" in code.co_name
+            if is_resumption_frame:
+                torch._logging.trace_structured(
+                    "artifact",
+                    metadata_fn=lambda: {
+                        "name": code.co_name + "_ORIGINAL_BYTECODE",
+                        "encoding": "string",
+                    },
+                    payload_fn=lambda: dis.Bytecode(code).dis(),
+                )
+            out_code = None
+            from .graph_id_filter import get_dynamo_config_override_for_compile_id
+    
+            dynamo_config_override = get_dynamo_config_override_for_compile_id(
+                compile_id, config.debug_dynamo_config_override
+            )
+            try:
+                with (
+                    config.patch(dynamo_config_override)
+                    if dynamo_config_override
+                    else contextlib.nullcontext()
+                ):
+                    dynamo_output = compile_frame(
+                        code,
+                        globals,
+                        locals,
+                        builtins,
+                        closure,
+                        compiler_fn,
+                        one_graph,
+                        restart_reasons,
+                        export=export,
+                        export_constraints=export_constraints,
+                        frame_state=frame_state,
+                        distributed_state=distributed_state,
+                        package=package,
+                    )
+            except exc.SkipFrame as e:
+                if one_graph:
+                    log.debug("No graph captured with export/fullgraph=True")
+                assert e._torch_dynamo_tracer_output is not None
+                return ConvertFrameReturn(), e._torch_dynamo_tracer_output
+    
+            assert distributed_state is None or distributed_state.all_states is not None, (  # type: ignore[has-type]
+                "compiler collective wasn't run before compilation completed"
+            )
+            out_code = dynamo_output.bytecode
+            tracer_output = dynamo_output.tracer_output
+            if dynamo_output.last_attempt_start_time is not None:
+                last_attempt_start_time = dynamo_output.last_attempt_start_time
+    
+            assert out_code is not None
+            log_bytecode(
+                "MODIFIED BYTECODE",
+                code.co_name,
+                code.co_filename,
+                code.co_firstlineno,
+                out_code,
+            )
+            # Dump the MODIFIED bytecode of resumption frame into TORCH_TRACE
+            # log file, so that it is parsed by tlparse tool.
+            if is_resumption_frame:
+                torch._logging.trace_structured(
+                    "artifact",
+                    metadata_fn=lambda: {
+                        "name": code.co_name + "_MODIFIED_BYTECODE",
+                        "encoding": "string",
+                    },
+                    payload_fn=lambda: dis.Bytecode(out_code).dis(),
+                )
+    
+            assert tracer_output.output_graph is not None
+            output = tracer_output.output_graph
+            code_context.get_context(out_code)[_BYTECODE_HOOK_SIDE_EFFECTS_CONTEXT_KEY] = (
+                tuple(output.get_replayed_side_effect_source_refs())
+            )
+    
+            for idx, hook in enumerate(_bytecode_hooks.values()):
+                with dynamo_timed(f"bytecode_hooks_{idx}", log_pt2_compile_event=True):
+                    hook_output = hook(code, out_code)
+                    if hook_output is not None:
+                        if hook_output is not out_code:
+                            _copy_code_context(out_code, hook_output)
+                        out_code = hook_output
+    
+            orig_code_map[out_code] = code
+            output_codes.add(out_code)
+            dynamo_time_before_restart = last_attempt_start_time - start_time
+    
+            from .bytecode_debugger import BREAKPOINT_MARKER
+    
+            if BREAKPOINT_MARKER in out_code.co_consts:
+                from torch._C._dynamo.eval_frame import register_breakpoint_code
+    
+                register_breakpoint_code(out_code)
+    
+            # Tests for new code objects.
+            # The rationale for these tests can be found in torch/csrc/dynamo/eval_frame.c
+            # Only test once the code object is created.
+            # They are not tested during runtime.
+    
+            def count_args(code: CodeType) -> int:
+                import inspect
+    
+                return (
+                    code.co_argcount
+                    + code.co_kwonlyargcount
+                    + bool(code.co_flags & inspect.CO_VARARGS)
+                    + bool(code.co_flags & inspect.CO_VARKEYWORDS)
+                )
+    
+            assert out_code is not None
+    
+            total_argcount_old = count_args(code)
+            total_argcount_new = count_args(out_code)
+            msg = "arg mismatch: "
+            msg += f"old code object has args {code.co_varnames[:total_argcount_old]}, "
+            msg += f"new code object has args {out_code.co_varnames[:total_argcount_new]}"
+            assert (
+                code.co_varnames[:total_argcount_old]
+                == out_code.co_varnames[:total_argcount_new]
+            ), msg
+    
+            msg = "free var mismatch: "
+            msg += f"old code object has free var {code.co_freevars}, "
+            msg += f"new code object has free var {out_code.co_freevars}"
+            assert code.co_freevars == out_code.co_freevars, msg
+    
+            msg = "cell var mismatch: "
+            msg += f"old code object has cell var {code.co_cellvars}, "
+            msg += f"new code object has cell var {out_code.co_cellvars}"
+            assert code.co_cellvars == out_code.co_cellvars, msg
+    
+            # Skipping Dynamo on a frame without any extracted graph.
+            # This does not affect eager functionality. But this is necessary
+            # for export for cases where Dynamo-reconstructed bytecode can create
+            # new function frames, confusing export in thinking that there
+            # are extra graphs now.
+    
+            if output.export and output.is_empty_graph():
+                return ConvertFrameReturn(), tracer_output
+    
+            assert output.guards is not None
+            CleanupManager.instance[out_code] = output.cleanups
+            nonlocal cache_entry
+            # Temporarily restore the mode stack so guard expressions that
+            # reference modes can evaluate.  DisableTorchFunction prevents
+            # __torch_function__ dispatch during guard construction so modes
+            # with mutable state aren't triggered.
+            build_guards_ctx = contextlib.ExitStack()
+            if torch_function_mode_stack_state_mgr.stack:
+                build_guards_ctx.enter_context(
+                    torch_function_mode_stack_state_mgr.temp_restore_stack()
+                )
+            with dynamo_timed("build_guards", log_pt2_compile_event=True), build_guards_ctx:
+                check_fn = dynamo_output.build_guards(
+                    code,
+                    hooks=hooks,
+                    save=package is not None,
+                    cache_entry=cache_entry,
+                )
+    
+            if package is not None:
+                assert check_fn.guards_state is not None
+                package.add_guarded_code(check_fn.guards_state, out_code)
+                package.add_inlined_source(output.tracing_context.traced_code)
+                package.update_device_type(output.current_tracer.graph)
+    
+            compile_id_str = str(compile_id) if compile_id is not None else "Unknown"
+            annotation_str = "Torch-Compiled Region: " + compile_id_str
+            guarded_code = GuardedCode(
+                out_code,
+                check_fn.guard_manager,  # type: ignore[arg-type]
+                compile_id,
+                annotation_str,
+            )
+    
+            if not output.is_empty_graph() and hooks.guard_export_fn is not None:
+                # We should not run the guard_export_fn when Dynamo does not
+                # generate any graph. This can happen in export when TorchDynamo
+                # generated bytecode has some reconstruction logic for mutated
+                # variables which can trigger TorchDynamo on the children frames but
+                # they are benign and do not generate any new graphs.
+                hooks.guard_export_fn(output.guards)
+    
+            return wrap_guarded_code(guarded_code), tracer_output
+    
+        metrics_context = get_metrics_context()
+        package_code_context = (
+            package.code_context(code) if package is not None else contextlib.nullcontext()
+        )
+        with (
+            _use_lazy_graph_module(config.use_lazy_graph_module),
+            compile_context(CompileContext(compile_id)),
+            chromium_event_timed(
+                "dynamo", reset_event_log_on_exit=True, log_pt2_compile_event=True
+            ),
+            _WaitCounter("pytorch.wait_counter.entire_forward_compile").guard(),
+            metrics_context,
+            dynamo_timed(
+                "_compile.compile_inner",
+                phase_name="entire_frame_compile",
+                dynamo_compile_column_us="dynamo_cumulative_compile_time_us",
+            ),
+            package_code_context,
+        ):
+            restart_reasons: set[str] = set()
+            if compile_pg := get_compile_pg():
+                distributed_state = DistributedState(compile_pg, LocalState())
+            else:
+                distributed_state = None
+    
+            # Check recompilations
+            recompile_reason: str | None = None
+            if is_recompilation(cache_size) and frame:
+                reasons = get_and_maybe_log_recompilation_reasons(
+                    cache_entry, frame, innermost_fn(compiler_fn)
+                )
+                recompile_reason = (
+                    "Unable to find recompilation reasons" if not reasons else reasons[0]
+                )
+            metrics_context.update_outer(
+                {
+                    "recompile_reason": recompile_reason,
+                    "inline_inbuilt_nn_modules_candidate": False,
+                }
+            )
+    
+            recompile_user_contexts = get_hook_for_recompile_user_context()
+            if recompile_user_contexts:
+                # cap each user context to N chars for data retention purposes. N=256
+                # is chosen to be large enough to capture the most important info.
+                user_contexts_msg = {
+                    user_context()[:256] for user_context in recompile_user_contexts
+                }
+                metrics_context.set("recompile_user_contexts", user_contexts_msg)
+    
+            exceeded, limit_type = exceeds_recompile_limit(cache_size, compile_id)
+            if exceeded:
+    
+                def format_func_info(code: CodeType) -> str:
+                    return f"'{code.co_name}' ({code.co_filename}:{code.co_firstlineno})"
+    
+                # NS: Don't add period at the end of string, as it'll be added to URL
+                # rendering it incorrect
+                log.warning(
+                    "torch._dynamo hit config.%s (%s)\n"
+                    "   function: %s\n"
+                    "   last reason: %s\n"
+                    'To log all recompilation reasons, use TORCH_LOGS="recompiles".\n'
+                    "To diagnose recompilation issues, see %s",
+                    limit_type,
+                    getattr(config, limit_type),
+                    format_func_info(code),
+                    recompile_reason,
+                    troubleshooting_url,
+                )
+    
+                def raise_unimplemented_cache_limit_exceeded() -> NoReturn:
+                    unimplemented(
+                        gb_type="Dynamo recompile limit exceeded",
+                        context=f"Limit type: {limit_type}",
+                        explanation="Dynamo attempted to recompile the code object too many times, "
+                        f"exceeding the {limit_type} cache size limit (currently set to {getattr(config, limit_type)}). "
+                        "Excessive recompilations can degrade "
+                        "performance due to the compilation overhead of each recompilation.",
+                        hints=[
+                            "To monitor recompilations, enable TORCH_LOGS=recompiles. "
+                            "If recompilations are expected, consider "
+                            f"increasing torch._dynamo.config.{limit_type} to an appropriate value.",
+                            f"See {troubleshooting_url} for tips on dealing with recompilations.",
+                        ],
+                    )
+    
+                try:
+>                   raise_unimplemented_cache_limit_exceeded()
+
+.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1883: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def raise_unimplemented_cache_limit_exceeded() -> NoReturn:
+>       unimplemented(
+            gb_type="Dynamo recompile limit exceeded",
+            context=f"Limit type: {limit_type}",
+            explanation="Dynamo attempted to recompile the code object too many times, "
+            f"exceeding the {limit_type} cache size limit (currently set to {getattr(config, limit_type)}). "
+            "Excessive recompilations can degrade "
+            "performance due to the compilation overhead of each recompilation.",
+            hints=[
+                "To monitor recompilations, enable TORCH_LOGS=recompiles. "
+                "If recompilations are expected, consider "
+                f"increasing torch._dynamo.config.{limit_type} to an appropriate value.",
+                f"See {troubleshooting_url} for tips on dealing with recompilations.",
+            ],
+        )
+
+.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1867: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def unimplemented(
+        *,
+        gb_type: str,
+        context: str,
+        explanation: str,
+        hints: list[str],
+        from_exc: Any = _NOTHING,
+        log_warning: bool = False,
+        skip_frame: bool = False,
+    ) -> NoReturn:
+        """
+        Called within dynamo to cause a graph break.
+        Args:
+            gb_type: Context-free graph break type. It should be a short string without any
+                     information specific to the tracing context (i.e. no dynamically-generated strings)
+            context: Developer context for the graph break. It can contain tracing context/dynamic strings.
+            explanation: User-facing context-dependent explanation for the graph break. Can be dynamic.
+            hints: List of user-facing hints for the graph break.
+        """
+    
+        msg = format_graph_break_message(gb_type, context, explanation, hints)
+    
+        if log_warning:
+            log.warning(msg)
+        if from_exc is not _NOTHING:
+            past_real_stack = None
+            if hasattr(from_exc, "real_stack"):
+                past_real_stack = from_exc.real_stack
+            if isinstance(from_exc, Unsupported):
+                msg = f"{from_exc.msg}\n\n*** While handling this graph break, another graph break occurred: ***\n\n{msg}"
+                # noqa: GB_REGISTRY
+                raise Unsupported(msg, gb_type, skip_frame, real_stack=past_real_stack)
+            # noqa: GB_REGISTRY
+            raise Unsupported(
+                msg, gb_type, skip_frame, real_stack=past_real_stack
+            ) from from_exc
+        # noqa: GB_REGISTRY
+>       raise Unsupported(msg, gb_type, skip_frame)
+E       torch._dynamo.exc.Unsupported: Dynamo recompile limit exceeded
+E         Explanation: Dynamo attempted to recompile the code object too many times, exceeding the recompile_limit cache size limit (currently set to 8). Excessive recompilations can degrade performance due to the compilation overhead of each recompilation.
+E         Hint: To monitor recompilations, enable TORCH_LOGS=recompiles. If recompilations are expected, consider increasing torch._dynamo.config.recompile_limit to an appropriate value.
+E         Hint: See https://docs.pytorch.org/docs/main/user_guide/torch_compiler/compile/programming_model.recompilation.html for tips on dealing with recompilations.
+E       
+E         Developer debug context: Limit type: recompile_limit
+E       
+E        For more details about this graph break, please visit: https://meta-pytorch.github.io/compile-graph-break-site/gb/gb0039.html
+
+.venv/lib/python3.10/site-packages/torch/_dynamo/exc.py:657: Unsupported
+
+The above exception was the direct cause of the following exception:
+
+compiled = True
+
+    @pytest.mark.parametrize('compiled', [False, True])
+    @torch.no_grad()
+    def test_power_zero_preserves_frozen_v7_control(compiled):
+        from cleanrl.ppo_continuous_action_sepclip_rollout_clock_anvil_v7 import MatrixOptimizer as Original
+        torch.manual_seed(26)
+        weights = [torch.nn.Parameter(torch.randn(*shape,device='cuda')) for shape in [(43,17),(43,64),(64,43)]]
+        clones = [torch.nn.Parameter(p.detach().clone()) for p in weights]
+        current = MatrixOptimizer(weights,spectral_power=0,total_steps=20,compile=compiled)
+        original = Original(clones,total_steps=20,compile=compiled)
+        for step in range(10):
+            if step%5 == 0:
+                current.begin_rollout(5)
+                original.begin_rollout(5)
+            for p,q in zip(weights,clones):
+                gradient = torch.randn_like(p)
+                p.grad,q.grad = gradient.clone(),gradient.clone()
+>           current.step()
+
+tests/test_sepclip_fractional_rollout.py:77: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.10/site-packages/torch/optim/optimizer.py:535: in wrapper
+    out = func(*args, **kwargs)
+.venv/lib/python3.10/site-packages/torch/utils/_contextlib.py:124: in decorate_context
+    return func(*args, **kwargs)
+cleanrl/ppo_continuous_action_sepclip_fractional_rollout_anvil_v10.py:232: in step
+    self.update(stacked, state["velocity"], state["second"], grads,
+.venv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py:1047: in compile_wrapper
+    result = fn(*args, **kwargs)
+.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:2474: in __call__
+    result = self._torchdynamo_orig_backend(
+.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:736: in __call__
+    result = _compile(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+code = <code object matrix_update at 0x7ff0456907c0, file "/home/marvin/Documents/repositories/cleanrl/cleanrl/ppo_continuous_action_sepclip_fractional_rollout_anvil_v10.py", line 110>
+globals = {'ANVIL_MAPS': ((3.923798038567, -6.095026865488, 3.905234618423), (3.278126713798, -3.328923386476, 0.989127286973), ...po_continuous_action_sepclip_fractional_rollout_anvil_v10.Args'>, 'Beta': <class 'torch.distributions.beta.Beta'>, ...}
+locals = {'beta2': 0.9, 'grad': tensor([[[ 8.5777e-01,  4.8500e-01,  1.2503e+00, -1.4151e-01,  2.0701e-01,
+           4.5314e-0...1.0402e+00,
+          -3.1779e-01, -1.4748e+00]]], device='cuda:0'), 'method': 'anvil2', 'normuon_momentum': 0.95, ...}
+builtins = {'ArithmeticError': <class 'ArithmeticError'>, 'AssertionError': <class 'AssertionError'>, 'AttributeError': <class 'AttributeError'>, 'BaseException': <class 'BaseException'>, ...}
+closure = ()
+compiler_fn = <torch._dynamo.repro.after_dynamo.WrapBackendDebug object at 0x7fedddeb3d90>
+one_graph = True, export = False, export_constraints = None
+hooks = Hooks(guard_export_fn=None, guard_fail_fn=None, guard_filter_fn=None)
+cache_entry = <torch._C._dynamo.eval_frame._CacheEntry object at 0x7fee22d0f830>
+cache_size = CacheSizeRelevantForFrame(num_cache_entries=8, num_cache_entries_with_same_id_matched_objs=8)
+frame = <torch._C._dynamo.eval_frame._PyInterpreterFrame object at 0x7feddd9aa750>
+frame_state = {'_id': 0}
+
+    def _compile(
+        code: CodeType,
+        globals: dict[str, object],
+        locals: dict[str, object],
+        builtins: dict[str, object],
+        closure: tuple[CellType],
+        compiler_fn: CompilerFn,
+        one_graph: bool,
+        export: bool,
+        export_constraints: Any | None,
+        hooks: Hooks,
+        cache_entry: CacheEntry | None,
+        cache_size: CacheSizeRelevantForFrame,
+        frame: DynamoFrameType | None = None,
+        frame_state: dict[str, int | FrameStateSizeEntry] | None = None,
+        *,
+        compile_id: CompileId,
+        skip: int = 0,
+        package: CompilePackage | None = None,
+        # Can be used to record things for the caller, both
+        # in the case of normal and exception code paths
+        convert_frame_box: ConvertFrameBox | None = None,
+    ) -> ConvertFrameReturn:
+        from torch.fx.experimental.validator import (
+            BisectValidationException,
+            ValidationException,
+        )
+    
+        # Only nonlocal defs here please!
+        # Time spent compiling this frame before restarting or failing analysis
+        dynamo_time_before_restart: float = 0.0
+    
+        @compile_time_strobelight_meta(phase_name="compile_inner")
+        def compile_inner(
+            code: CodeType, one_graph: bool, hooks: Hooks
+        ) -> tuple[ConvertFrameReturn, DynamoTracerOutput | None]:
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(
+                    torch._dynamo.callback_handler.install_callbacks(
+                        CallbackTrigger.DYNAMO, str(CompileContext.current_compile_id())
+                    )
+                )
+                stack.enter_context(CompileTimeInstructionCounter.record())
+                stack.enter_context(torch_function_mode_stack_state_mgr)
+                result = _compile_inner(code, one_graph, hooks)
+                assert torch._C._len_torch_function_stack() == 0, (
+                    "Torch function mode stack state changed while dynamo tracing, please report a bug"
+                )
+                return result
+    
+            return (
+                ConvertFrameReturn(),
+                None,
+            )  # dead, but see https://github.com/python/mypy/issues/7577
+    
+        @maybe_cprofile
+        def _compile_inner(
+            code: CodeType,
+            one_graph: bool,
+            hooks: Hooks,
+        ) -> tuple[ConvertFrameReturn, DynamoTracerOutput]:
+            nonlocal dynamo_time_before_restart
+            last_attempt_start_time = start_time = time.time()
+    
+            def log_bytecode(
+                prefix: str, name: str, filename: str, line_no: int, code: CodeType
+            ) -> None:
+                if bytecode_log.isEnabledFor(logging.DEBUG):
+                    bytecode_log.debug(
+                        format_bytecode(prefix, name, filename, line_no, code)
+                    )
+    
+            log_bytecode(
+                "ORIGINAL BYTECODE",
+                code.co_name,
+                code.co_filename,
+                code.co_firstlineno,
+                code,
+            )
+            # Dump the ORIGINAL bytecode of resumption frame into TORCH_TRACE
+            # log file, so that it is parsed by tlparse tool.
+            is_resumption_frame = "torch_dynamo_resume_in" in code.co_name
+            if is_resumption_frame:
+                torch._logging.trace_structured(
+                    "artifact",
+                    metadata_fn=lambda: {
+                        "name": code.co_name + "_ORIGINAL_BYTECODE",
+                        "encoding": "string",
+                    },
+                    payload_fn=lambda: dis.Bytecode(code).dis(),
+                )
+            out_code = None
+            from .graph_id_filter import get_dynamo_config_override_for_compile_id
+    
+            dynamo_config_override = get_dynamo_config_override_for_compile_id(
+                compile_id, config.debug_dynamo_config_override
+            )
+            try:
+                with (
+                    config.patch(dynamo_config_override)
+                    if dynamo_config_override
+                    else contextlib.nullcontext()
+                ):
+                    dynamo_output = compile_frame(
+                        code,
+                        globals,
+                        locals,
+                        builtins,
+                        closure,
+                        compiler_fn,
+                        one_graph,
+                        restart_reasons,
+                        export=export,
+                        export_constraints=export_constraints,
+                        frame_state=frame_state,
+                        distributed_state=distributed_state,
+                        package=package,
+                    )
+            except exc.SkipFrame as e:
+                if one_graph:
+                    log.debug("No graph captured with export/fullgraph=True")
+                assert e._torch_dynamo_tracer_output is not None
+                return ConvertFrameReturn(), e._torch_dynamo_tracer_output
+    
+            assert distributed_state is None or distributed_state.all_states is not None, (  # type: ignore[has-type]
+                "compiler collective wasn't run before compilation completed"
+            )
+            out_code = dynamo_output.bytecode
+            tracer_output = dynamo_output.tracer_output
+            if dynamo_output.last_attempt_start_time is not None:
+                last_attempt_start_time = dynamo_output.last_attempt_start_time
+    
+            assert out_code is not None
+            log_bytecode(
+                "MODIFIED BYTECODE",
+                code.co_name,
+                code.co_filename,
+                code.co_firstlineno,
+                out_code,
+            )
+            # Dump the MODIFIED bytecode of resumption frame into TORCH_TRACE
+            # log file, so that it is parsed by tlparse tool.
+            if is_resumption_frame:
+                torch._logging.trace_structured(
+                    "artifact",
+                    metadata_fn=lambda: {
+                        "name": code.co_name + "_MODIFIED_BYTECODE",
+                        "encoding": "string",
+                    },
+                    payload_fn=lambda: dis.Bytecode(out_code).dis(),
+                )
+    
+            assert tracer_output.output_graph is not None
+            output = tracer_output.output_graph
+            code_context.get_context(out_code)[_BYTECODE_HOOK_SIDE_EFFECTS_CONTEXT_KEY] = (
+                tuple(output.get_replayed_side_effect_source_refs())
+            )
+    
+            for idx, hook in enumerate(_bytecode_hooks.values()):
+                with dynamo_timed(f"bytecode_hooks_{idx}", log_pt2_compile_event=True):
+                    hook_output = hook(code, out_code)
+                    if hook_output is not None:
+                        if hook_output is not out_code:
+                            _copy_code_context(out_code, hook_output)
+                        out_code = hook_output
+    
+            orig_code_map[out_code] = code
+            output_codes.add(out_code)
+            dynamo_time_before_restart = last_attempt_start_time - start_time
+    
+            from .bytecode_debugger import BREAKPOINT_MARKER
+    
+            if BREAKPOINT_MARKER in out_code.co_consts:
+                from torch._C._dynamo.eval_frame import register_breakpoint_code
+    
+                register_breakpoint_code(out_code)
+    
+            # Tests for new code objects.
+            # The rationale for these tests can be found in torch/csrc/dynamo/eval_frame.c
+            # Only test once the code object is created.
+            # They are not tested during runtime.
+    
+            def count_args(code: CodeType) -> int:
+                import inspect
+    
+                return (
+                    code.co_argcount
+                    + code.co_kwonlyargcount
+                    + bool(code.co_flags & inspect.CO_VARARGS)
+                    + bool(code.co_flags & inspect.CO_VARKEYWORDS)
+                )
+    
+            assert out_code is not None
+    
+            total_argcount_old = count_args(code)
+            total_argcount_new = count_args(out_code)
+            msg = "arg mismatch: "
+            msg += f"old code object has args {code.co_varnames[:total_argcount_old]}, "
+            msg += f"new code object has args {out_code.co_varnames[:total_argcount_new]}"
+            assert (
+                code.co_varnames[:total_argcount_old]
+                == out_code.co_varnames[:total_argcount_new]
+            ), msg
+    
+            msg = "free var mismatch: "
+            msg += f"old code object has free var {code.co_freevars}, "
+            msg += f"new code object has free var {out_code.co_freevars}"
+            assert code.co_freevars == out_code.co_freevars, msg
+    
+            msg = "cell var mismatch: "
+            msg += f"old code object has cell var {code.co_cellvars}, "
+            msg += f"new code object has cell var {out_code.co_cellvars}"
+            assert code.co_cellvars == out_code.co_cellvars, msg
+    
+            # Skipping Dynamo on a frame without any extracted graph.
+            # This does not affect eager functionality. But this is necessary
+            # for export for cases where Dynamo-reconstructed bytecode can create
+            # new function frames, confusing export in thinking that there
+            # are extra graphs now.
+    
+            if output.export and output.is_empty_graph():
+                return ConvertFrameReturn(), tracer_output
+    
+            assert output.guards is not None
+            CleanupManager.instance[out_code] = output.cleanups
+            nonlocal cache_entry
+            # Temporarily restore the mode stack so guard expressions that
+            # reference modes can evaluate.  DisableTorchFunction prevents
+            # __torch_function__ dispatch during guard construction so modes
+            # with mutable state aren't triggered.
+            build_guards_ctx = contextlib.ExitStack()
+            if torch_function_mode_stack_state_mgr.stack:
+                build_guards_ctx.enter_context(
+                    torch_function_mode_stack_state_mgr.temp_restore_stack()
+                )
+            with dynamo_timed("build_guards", log_pt2_compile_event=True), build_guards_ctx:
+                check_fn = dynamo_output.build_guards(
+                    code,
+                    hooks=hooks,
+                    save=package is not None,
+                    cache_entry=cache_entry,
+                )
+    
+            if package is not None:
+                assert check_fn.guards_state is not None
+                package.add_guarded_code(check_fn.guards_state, out_code)
+                package.add_inlined_source(output.tracing_context.traced_code)
+                package.update_device_type(output.current_tracer.graph)
+    
+            compile_id_str = str(compile_id) if compile_id is not None else "Unknown"
+            annotation_str = "Torch-Compiled Region: " + compile_id_str
+            guarded_code = GuardedCode(
+                out_code,
+                check_fn.guard_manager,  # type: ignore[arg-type]
+                compile_id,
+                annotation_str,
+            )
+    
+            if not output.is_empty_graph() and hooks.guard_export_fn is not None:
+                # We should not run the guard_export_fn when Dynamo does not
+                # generate any graph. This can happen in export when TorchDynamo
+                # generated bytecode has some reconstruction logic for mutated
+                # variables which can trigger TorchDynamo on the children frames but
+                # they are benign and do not generate any new graphs.
+                hooks.guard_export_fn(output.guards)
+    
+            return wrap_guarded_code(guarded_code), tracer_output
+    
+        metrics_context = get_metrics_context()
+        package_code_context = (
+            package.code_context(code) if package is not None else contextlib.nullcontext()
+        )
+        with (
+            _use_lazy_graph_module(config.use_lazy_graph_module),
+            compile_context(CompileContext(compile_id)),
+            chromium_event_timed(
+                "dynamo", reset_event_log_on_exit=True, log_pt2_compile_event=True
+            ),
+            _WaitCounter("pytorch.wait_counter.entire_forward_compile").guard(),
+            metrics_context,
+            dynamo_timed(
+                "_compile.compile_inner",
+                phase_name="entire_frame_compile",
+                dynamo_compile_column_us="dynamo_cumulative_compile_time_us",
+            ),
+            package_code_context,
+        ):
+            restart_reasons: set[str] = set()
+            if compile_pg := get_compile_pg():
+                distributed_state = DistributedState(compile_pg, LocalState())
+            else:
+                distributed_state = None
+    
+            # Check recompilations
+            recompile_reason: str | None = None
+            if is_recompilation(cache_size) and frame:
+                reasons = get_and_maybe_log_recompilation_reasons(
+                    cache_entry, frame, innermost_fn(compiler_fn)
+                )
+                recompile_reason = (
+                    "Unable to find recompilation reasons" if not reasons else reasons[0]
+                )
+            metrics_context.update_outer(
+                {
+                    "recompile_reason": recompile_reason,
+                    "inline_inbuilt_nn_modules_candidate": False,
+                }
+            )
+    
+            recompile_user_contexts = get_hook_for_recompile_user_context()
+            if recompile_user_contexts:
+                # cap each user context to N chars for data retention purposes. N=256
+                # is chosen to be large enough to capture the most important info.
+                user_contexts_msg = {
+                    user_context()[:256] for user_context in recompile_user_contexts
+                }
+                metrics_context.set("recompile_user_contexts", user_contexts_msg)
+    
+            exceeded, limit_type = exceeds_recompile_limit(cache_size, compile_id)
+            if exceeded:
+    
+                def format_func_info(code: CodeType) -> str:
+                    return f"'{code.co_name}' ({code.co_filename}:{code.co_firstlineno})"
+    
+                # NS: Don't add period at the end of string, as it'll be added to URL
+                # rendering it incorrect
+                log.warning(
+                    "torch._dynamo hit config.%s (%s)\n"
+                    "   function: %s\n"
+                    "   last reason: %s\n"
+                    'To log all recompilation reasons, use TORCH_LOGS="recompiles".\n'
+                    "To diagnose recompilation issues, see %s",
+                    limit_type,
+                    getattr(config, limit_type),
+                    format_func_info(code),
+                    recompile_reason,
+                    troubleshooting_url,
+                )
+    
+                def raise_unimplemented_cache_limit_exceeded() -> NoReturn:
+                    unimplemented(
+                        gb_type="Dynamo recompile limit exceeded",
+                        context=f"Limit type: {limit_type}",
+                        explanation="Dynamo attempted to recompile the code object too many times, "
+                        f"exceeding the {limit_type} cache size limit (currently set to {getattr(config, limit_type)}). "
+                        "Excessive recompilations can degrade "
+                        "performance due to the compilation overhead of each recompilation.",
+                        hints=[
+                            "To monitor recompilations, enable TORCH_LOGS=recompiles. "
+                            "If recompilations are expected, consider "
+                            f"increasing torch._dynamo.config.{limit_type} to an appropriate value.",
+                            f"See {troubleshooting_url} for tips on dealing with recompilations.",
+                        ],
+                    )
+    
+                try:
+                    raise_unimplemented_cache_limit_exceeded()
+                except Unsupported as e:
+                    if config.fail_on_recompile_limit_hit:
+                        raise FailOnRecompileLimitHit(
+                            "Hard failure due to fail_on_recompile_limit_hit"
+                        ) from e
+                    elif one_graph:
+>                       raise FailOnRecompileLimitHit(
+                            "Hard failure due to fullgraph=True"
+                        ) from e
+E                       torch._dynamo.exc.FailOnRecompileLimitHit: Hard failure due to fullgraph=True
+
+.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1890: FailOnRecompileLimitHit
+----------------------------- Captured stderr call -----------------------------
+W1005 16:25:08.291000 1285668 .venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1853] [0/9] torch._dynamo hit config.recompile_limit (8)
+W1005 16:25:08.291000 1285668 .venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1853] [0/9]    function: 'matrix_update' (/home/marvin/Documents/repositories/cleanrl/cleanrl/ppo_continuous_action_sepclip_fractional_rollout_anvil_v10.py:110)
+W1005 16:25:08.291000 1285668 .venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1853] [0/9]    last reason: 0/7: tensor 'p' size mismatch at index 2. expected 64, actual 17
+W1005 16:25:08.291000 1285668 .venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1853] [0/9] To log all recompilation reasons, use TORCH_LOGS="recompiles".
+W1005 16:25:08.291000 1285668 .venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:1853] [0/9] To diagnose recompilation issues, see https://docs.pytorch.org/docs/main/user_guide/torch_compiler/compile/programming_model.recompilation.html
+=============================== warnings summary ===============================
+tests/test_sepclip_fractional_rollout.py: 14 warnings
+  /home/marvin/Documents/repositories/cleanrl/.venv/lib/python3.10/site-packages/torch/jit/_script.py:365: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+tests/test_sepclip_fractional_rollout.py::test_compiled_checkpoint_continuation_and_gradient_ownership[0.0]
+tests/test_sepclip_fractional_rollout.py::test_compiled_checkpoint_continuation_and_gradient_ownership[0.5]
+tests/test_sepclip_fractional_rollout.py::test_compiled_checkpoint_continuation_and_gradient_ownership[0.5]
+tests/test_sepclip_fractional_rollout.py::test_compiled_checkpoint_continuation_and_gradient_ownership[0.5]
+tests/test_sepclip_fractional_rollout.py::test_compiled_checkpoint_continuation_and_gradient_ownership[1.0]
+tests/test_sepclip_fractional_rollout.py::test_compiled_checkpoint_continuation_and_gradient_ownership[1.0]
+  /home/marvin/Documents/repositories/cleanrl/.venv/lib/python3.10/site-packages/torch/_inductor/lowering.py:2158: FutureWarning: `torch._prims_common.check` is deprecated and will be removed in the future. Please use `torch._check*` functions instead.
+    check(
+
+tests/test_sepclip_fractional_rollout.py::test_compiled_checkpoint_continuation_and_gradient_ownership[0.5]
+  /home/marvin/Documents/repositories/cleanrl/.venv/lib/python3.10/site-packages/torch/_inductor/compile_fx.py:320: UserWarning: TensorFloat32 tensor cores for float32 matrix multiplication available but not enabled. Consider setting `torch.set_float32_matmul_precision('high')` for better performance.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sepclip_fractional_rollout.py::test_compiled_checkpoint_continuation_and_gradient_ownership[1.0]
+FAILED tests/test_sepclip_fractional_rollout.py::test_power_zero_preserves_frozen_v7_control[True]
+2 failed, 5 passed, 21 warnings in 15.01s

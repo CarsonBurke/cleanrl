@@ -1,0 +1,54 @@
+{
+  "captured_at": 1791340359.0245776,
+  "rows": [
+    {
+      "id": 11885,
+      "state": "succeeded",
+      "attempt_id": 9470,
+      "exit_code": 0,
+      "case_count": 21,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "junit": "benchmarks/sepclip_weight_microscopy/gait_actual_split_v2.xml",
+      "junit_sha256": "2b492c949c927af646750bc32d7e3b7b708cd331d77682b32dbc14183fac9f46",
+      "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_gait_actual_split_v2_1791340273868766955.json",
+      "execution_manifest_sha256": "7a5ce710c655e5c9a64d023ad671df00dbd9640ddce3558b4e1ec7989b17bf62",
+      "source_count": 68,
+      "discrepancies": []
+    },
+    {
+      "id": 11890,
+      "state": "succeeded",
+      "attempt_id": 9472,
+      "exit_code": 0,
+      "case_count": 9,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "junit": "benchmarks/sepclip_weight_microscopy/chart_contracts_v2.xml",
+      "junit_sha256": "d074932e8e7aa6609f2484399b8d829a20c575a1cb78562c0c9863d6e83d29f8",
+      "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_chart_contracts_v2_1791340281818165174.json",
+      "execution_manifest_sha256": "7ceb1e1854678ce402e362be028217d11f9d44f64322b7aa1ae6e397d3bd1708",
+      "source_count": 66,
+      "discrepancies": []
+    },
+    {
+      "id": 11891,
+      "state": "succeeded",
+      "attempt_id": 9473,
+      "exit_code": 0,
+      "case_count": 23,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "junit": "benchmarks/sepclip_weight_microscopy/closed_loop_contracts_v2.xml",
+      "junit_sha256": "fbdfff7a6b6d5679496a0982e15d7c62a7dfaacf0cb67b72dce2c7ff912ceaec",
+      "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_closed_loop_contracts_v2_1791340298022117697.json",
+      "execution_manifest_sha256": "b7399bf74320b0b87b0e8f15f4406e96cf4c404550dfab162136bd7f50810996",
+      "source_count": 66,
+      "discrepancies": []
+    }
+  ],
+  "scope": "Strict numerical contracts, not actual closed-loop intervention results or selected chart."
+}

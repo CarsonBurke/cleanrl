@@ -1,0 +1,531 @@
+{
+  "checkpoint": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__prerms_adamh_v22_control_50M__1__1788906876/prerms_adamh_v22_control_50M.cleanrl_model",
+  "checkpoint_sha256": "1f09a49740f656482f4e01a71f1070cfe13ebd1e44a52210eca8db73f0089532",
+  "source_sha256": {
+    "scripts/audit_sepclip_strong_reference.py": "9c2f313d5bfcfb23da6e34785acab3b2ec290a38c8a59b8aeedf20e04d15e7df",
+    "cleanrl/ppo_continuous_action_prerms_adamh_v22.py": "514cfd7c4b65ab891fa421ddd784c27f346502cf34e0eca0206b0d0c422478a3",
+    "scripts/audit_sepclip_physics.py": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114",
+    "scripts/audit_sepclip_gait.py": "cc5f8b35167c3beffcc71561474dcf81c79f3ad68b7b82ab35816f04f4d7e68e",
+    "cleanrl/shared/host_graph.py": "e4d336e290639c7316642e014232bbcd865c72e2a0acdd2acc91a51886c4aae2",
+    "cleanrl/shared/host_actor.py": "679925e692d862719cf278c5e0b9d4bdd2f04dd5d8c6f0cac5d9c7d58e4114cf",
+    "cleanrl/shared/host_kernel.c": "c433305a69ce7d5838642bd9f78afffff86f80a4e72b4533de579c67fb625cc6",
+    "cleanrl/shared/norm_residual.py": "ad3d7e9da1283cbcea4143d27cc4f4d8d3523fd17f954bfb821cb71a90394fee",
+    "cleanrl/shared/pre_rms.py": "9d2d1c02a81531fd59bf5698ff993e94a4cb5811246839541bae2b405e6d2da5",
+    "cleanrl/shared/vector_norm.py": "6ffb9a266ed3afc9b8c7f41acbdbcb8a824a4d1319edaa342e52d1661bc19196",
+    "cleanrl/shared/mujoco_env.py": "ca9bf82b174e0396b7b3c6e3a4fc08a53f6ff6c5c20c570282c72c5410df8abf",
+    "cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae",
+    "cleanrl/shared/sampling.py": "1d7ebb4ff054c73bc7a6cfdd701c8cdf34e6d8e848dfe96f1dbe8ed4ad9aa610"
+  },
+  "historical_execution_source_pinned": false,
+  "observation_normalizer": {
+    "arrays": {
+      "means": {
+        "shape": [
+          16,
+          17
+        ],
+        "dtype": "float64",
+        "sha256": "29834203f2d11c2d2128b770c47910b735af17d2180b42006ef3c902eda2663c"
+      },
+      "variances": {
+        "shape": [
+          16,
+          17
+        ],
+        "dtype": "float64",
+        "sha256": "0b4311c66cea50503e92ccfd976652d7ebdf66dca90f247806b26fad7edb5b8e"
+      },
+      "counts": {
+        "shape": [
+          16
+        ],
+        "dtype": "float64",
+        "sha256": "30ea475c9209a730533fb311fbc78d6e7c0b371baf40e0648c462f4cbe09841f"
+      }
+    },
+    "epsilon": 1e-08,
+    "clip": 10.0,
+    "rows": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ]
+  },
+  "checkpoint_args": {
+    "exp_name": "prerms_adamh_v22_control_50M",
+    "seed": 1,
+    "torch_deterministic": true,
+    "cuda": true,
+    "track": false,
+    "wandb_project_name": "cleanRL",
+    "wandb_entity": null,
+    "capture_video": false,
+    "save_model": true,
+    "env_id": "HalfCheetah-v4",
+    "total_timesteps": 50000000,
+    "learning_rate": 0.0096,
+    "optimizer_kind": "adam",
+    "hyperball_learning_rate": 0.018,
+    "hyperball_beta2": 0.999,
+    "num_envs": 16,
+    "num_steps": 2048,
+    "anneal_lr": true,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "num_minibatches": 1,
+    "update_epochs": 10,
+    "norm_adv": false,
+    "clip_coef": 0.2,
+    "clip_vloss": true,
+    "ent_coef": 0.0,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "grad_clip": false,
+    "clip_heads": true,
+    "target_kl": null,
+    "reward_norm": true,
+    "placement": "pre",
+    "norm_kind": "rms",
+    "activation": "stiglu",
+    "env_backend": "auto",
+    "env_threads": 2,
+    "compile": true,
+    "compile_mode": "reduce-overhead",
+    "non_blocking_transfers": false,
+    "staggered_starts": true,
+    "batch_size": 32768,
+    "minibatch_size": 32768,
+    "num_iterations": 1525
+  },
+  "protocol": {
+    "episodes": 16,
+    "seed": 1,
+    "steps_per_episode": 1000,
+    "modes": [
+      "sample",
+      "mean",
+      "mode"
+    ],
+    "paired_reset_seeds": true,
+    "normalization": "frozen exact rows"
+  },
+  "environment": {
+    "mujoco_version": "2.3.3"
+  },
+  "results": [
+    {
+      "mode": "sample",
+      "normalization": "frozen exact row0..15",
+      "returns": [
+        14958.337947023198,
+        14847.955314286954,
+        14905.840540853045,
+        15157.35083029106,
+        14813.292427353821,
+        15080.849345130668,
+        15107.648751399356,
+        15199.180004417318,
+        14812.075441125637,
+        15125.393082009465,
+        15102.32494589407,
+        14897.708167970759,
+        14865.404115719764,
+        14792.609780861249,
+        15122.917427728995,
+        14025.966704400389
+      ],
+      "return_summary": {
+        "mean": 14925.928426654109,
+        "std": 269.2930192496898,
+        "se": 69.5311585869308,
+        "min": 14025.966704400389,
+        "max": 15199.180004417318
+      },
+      "visited_host_cuda_max_abs_error": {
+        "logits": 6.103515625e-05,
+        "alpha": 4.863739013671875e-05,
+        "beta": 6.103515625e-05
+      },
+      "rounded_shape_diagnostics": {
+        "alpha_equal_one": 243,
+        "beta_equal_one": 1622,
+        "both_equal_one": 0,
+        "intended_mode_nonfinite_dimensions": 0,
+        "intended_vs_rounded_native_mode_max_abs_error": 6.3213519752025604e-06
+      },
+      "mode_law": "Actual FP32 Beta shapes; alpha=beta=1 uniform midpoint tie=.5. Intended logit-excess mode difference reported separately",
+      "metrics": {
+        "velocity": {
+          "mean": 15.329600681501294,
+          "std": 3.218563352913601,
+          "se": 0.025445772664709144,
+          "min": -1.3237955504965015,
+          "max": 18.164817322566343
+        },
+        "control_cost": {
+          "mean": 0.403672254847188,
+          "std": 0.08335061173679341,
+          "se": 0.00065896503662074,
+          "min": 0.0114268334582448,
+          "max": 0.5860753655433655
+        },
+        "concentration": {
+          "mean": 30.79863808446129,
+          "std": 9.221115734703456,
+          "se": 0.029761178068170815,
+          "min": 2.004459857940674,
+          "max": 57.40847396850586
+        }
+      },
+      "action_abs": {
+        "mean": 0.779817239832133,
+        "std": 0.25430720194831946,
+        "se": 0.0008207772398646299,
+        "min": 0.00010657310485839844,
+        "max": 0.9999979734420776
+      },
+      "action_change_squared": {
+        "mean": 5.684736034856318,
+        "std": 4.809726610710489,
+        "se": 0.038044444013730465,
+        "min": 0.007180447690188885,
+        "max": 20.11775779724121
+      },
+      "per_joint_mean_abs_action": [
+        0.9175577163696289,
+        0.6838160753250122,
+        0.8310337662696838,
+        0.7289167642593384,
+        0.7409756183624268,
+        0.7766023278236389
+      ],
+      "torque_fraction": {
+        "0.8": 0.6547708333333333,
+        "0.9": 0.4799375,
+        "0.95": 0.30383333333333334,
+        "0.98": 0.13969791666666667
+      },
+      "ground_geometry_order": [
+        "bthigh",
+        "bshin",
+        "bfoot",
+        "fthigh",
+        "fshin",
+        "ffoot",
+        "torso",
+        "head"
+      ],
+      "ground_duty_fraction": [
+        0.0,
+        0.0,
+        0.0086875,
+        0.0,
+        0.0,
+        0.0036875,
+        0.0,
+        0.0
+      ],
+      "ground_normal_force_mean": [
+        0.0,
+        0.0,
+        10.660386351783256,
+        0.0,
+        0.0,
+        3.6131862276700715,
+        0.0,
+        0.0
+      ],
+      "trace_path": "benchmarks/sepclip_weight_microscopy/strong_reference_1f09a49740f6_sample.npz",
+      "metric_uncertainty": "Step metric SEs are descriptive and ignore temporal correlation; episode paired-return differences are primary",
+      "contact_timing": "Pre-action contact/force at final solver substep of prior step, not contact impulse"
+    },
+    {
+      "mode": "mean",
+      "normalization": "frozen exact row0..15",
+      "returns": [
+        15708.612855506755,
+        15648.483079946496,
+        15873.630218011847,
+        15863.226010355458,
+        15820.70408317058,
+        15696.582502525283,
+        15744.243930166354,
+        15806.159966305555,
+        15829.125313069857,
+        15870.866628891808,
+        15841.230331125505,
+        15814.583569222814,
+        15808.546019774154,
+        15842.29789836443,
+        15700.164570711719,
+        15445.62781345947
+      ],
+      "return_summary": {
+        "mean": 15769.630299413006,
+        "std": 107.65489927478883,
+        "se": 27.796375468592938,
+        "min": 15445.62781345947,
+        "max": 15873.630218011847
+      },
+      "visited_host_cuda_max_abs_error": {
+        "logits": 4.9591064453125e-05,
+        "alpha": 4.9591064453125e-05,
+        "beta": 4.38690185546875e-05
+      },
+      "rounded_shape_diagnostics": {
+        "alpha_equal_one": 169,
+        "beta_equal_one": 287,
+        "both_equal_one": 0,
+        "intended_mode_nonfinite_dimensions": 0,
+        "intended_vs_rounded_native_mode_max_abs_error": 7.338821887969971e-07
+      },
+      "mode_law": "Actual FP32 Beta shapes; alpha=beta=1 uniform midpoint tie=.5. Intended logit-excess mode difference reported separately",
+      "metrics": {
+        "velocity": {
+          "mean": 16.15360940278078,
+          "std": 3.3106205643997737,
+          "se": 0.026173571567130526,
+          "min": -0.9688519578888728,
+          "max": 18.152457713794227
+        },
+        "control_cost": {
+          "mean": 0.3839791033677757,
+          "std": 0.08503669241127416,
+          "se": 0.0006722950913168386,
+          "min": 0.1513880491256714,
+          "max": 0.5148267149925232
+        },
+        "concentration": {
+          "mean": 32.098479748812814,
+          "std": 9.227591687390204,
+          "se": 0.029782079224453455,
+          "min": 2.026124954223633,
+          "max": 55.12366485595703
+        }
+      },
+      "action_abs": {
+        "mean": 0.7592199170297632,
+        "std": 0.2520918115791846,
+        "se": 0.000813627060953178,
+        "min": 0.000260770320892334,
+        "max": 0.9622656106948853
+      },
+      "action_change_squared": {
+        "mean": 5.35633490227686,
+        "std": 5.1627729160381035,
+        "se": 0.040837004066391486,
+        "min": 0.0006103818886913359,
+        "max": 16.898193359375
+      },
+      "per_joint_mean_abs_action": [
+        0.9408268332481384,
+        0.5966899991035461,
+        0.8319317102432251,
+        0.7000136971473694,
+        0.7109609246253967,
+        0.7748891711235046
+      ],
+      "torque_fraction": {
+        "0.8": 0.63215625,
+        "0.9": 0.5301875,
+        "0.95": 0.05996875,
+        "0.98": 0.0
+      },
+      "ground_geometry_order": [
+        "bthigh",
+        "bshin",
+        "bfoot",
+        "fthigh",
+        "fshin",
+        "ffoot",
+        "torso",
+        "head"
+      ],
+      "ground_duty_fraction": [
+        0.0,
+        0.0,
+        0.0059375,
+        0.0,
+        0.0,
+        0.002125,
+        0.0,
+        0.0
+      ],
+      "ground_normal_force_mean": [
+        0.0,
+        0.0,
+        6.865980150641794,
+        0.0,
+        0.0,
+        2.02274374775658,
+        0.0,
+        0.0
+      ],
+      "trace_path": "benchmarks/sepclip_weight_microscopy/strong_reference_1f09a49740f6_mean.npz",
+      "metric_uncertainty": "Step metric SEs are descriptive and ignore temporal correlation; episode paired-return differences are primary",
+      "contact_timing": "Pre-action contact/force at final solver substep of prior step, not contact impulse"
+    },
+    {
+      "mode": "mode",
+      "normalization": "frozen exact row0..15",
+      "returns": [
+        15980.60197731804,
+        16078.510462349277,
+        16320.458064243134,
+        16288.24065888944,
+        16287.296828729835,
+        16283.694130649177,
+        16298.756296233121,
+        16273.38265004341,
+        16237.539347054322,
+        16251.60156345271,
+        16189.540942737956,
+        16244.432820313286,
+        16198.882077004213,
+        16211.326093025342,
+        16110.592309684374,
+        15527.524050103426
+      ],
+      "return_summary": {
+        "mean": 16173.898766989441,
+        "std": 188.8381238533545,
+        "se": 48.757793920873034,
+        "min": 15527.524050103426,
+        "max": 16320.458064243134
+      },
+      "visited_host_cuda_max_abs_error": {
+        "logits": 8.249282836914062e-05,
+        "alpha": 5.340576171875e-05,
+        "beta": 4.9591064453125e-05
+      },
+      "rounded_shape_diagnostics": {
+        "alpha_equal_one": 142,
+        "beta_equal_one": 243,
+        "both_equal_one": 0,
+        "intended_mode_nonfinite_dimensions": 0,
+        "intended_vs_rounded_native_mode_max_abs_error": 1.4640390872955322e-06
+      },
+      "mode_law": "Actual FP32 Beta shapes; alpha=beta=1 uniform midpoint tie=.5. Intended logit-excess mode difference reported separately",
+      "metrics": {
+        "velocity": {
+          "mean": 16.603848911692943,
+          "std": 3.333549167884484,
+          "se": 0.02635484375842142,
+          "min": -1.4771518809799158,
+          "max": 18.711532634005017
+        },
+        "control_cost": {
+          "mean": 0.42995014470349996,
+          "std": 0.10423806538719498,
+          "se": 0.0008241000173106898,
+          "min": 0.14218316972255707,
+          "max": 0.5999819040298462
+        },
+        "concentration": {
+          "mean": 31.82735810598483,
+          "std": 8.949312462958627,
+          "se": 0.028883932211743072,
+          "min": 2.035916566848755,
+          "max": 55.443077087402344
+        }
+      },
+      "action_abs": {
+        "mean": 0.790537473058949,
+        "std": 0.302711194844187,
+        "se": 0.0009770012688465975,
+        "min": 2.8848648071289062e-05,
+        "max": 1.0
+      },
+      "action_change_squared": {
+        "mean": 6.398662961468619,
+        "std": 5.880182560776834,
+        "se": 0.046511640750188606,
+        "min": 0.000627215311396867,
+        "max": 20.137224197387695
+      },
+      "per_joint_mean_abs_action": [
+        0.9887920618057251,
+        0.6196620464324951,
+        0.8617870211601257,
+        0.7023286819458008,
+        0.7351440787315369,
+        0.8355080485343933
+      ],
+      "torque_fraction": {
+        "0.8": 0.65384375,
+        "0.9": 0.6052604166666666,
+        "0.95": 0.57553125,
+        "0.98": 0.5126770833333333
+      },
+      "ground_geometry_order": [
+        "bthigh",
+        "bshin",
+        "bfoot",
+        "fthigh",
+        "fshin",
+        "ffoot",
+        "torso",
+        "head"
+      ],
+      "ground_duty_fraction": [
+        0.0,
+        0.0,
+        0.0055625,
+        0.0,
+        0.0,
+        0.0024375,
+        0.0,
+        0.0
+      ],
+      "ground_normal_force_mean": [
+        0.0,
+        0.0,
+        7.85479739901537,
+        0.0,
+        0.0,
+        2.423399968894976,
+        0.0,
+        0.0
+      ],
+      "trace_path": "benchmarks/sepclip_weight_microscopy/strong_reference_1f09a49740f6_mode.npz",
+      "metric_uncertainty": "Step metric SEs are descriptive and ignore temporal correlation; episode paired-return differences are primary",
+      "contact_timing": "Pre-action contact/force at final solver substep of prior step, not contact impulse"
+    }
+  ],
+  "limitations": [
+    "50M training budget is unmatched to sepclip8M; architecture also differs.",
+    "Current source strictly loads the saved state but historical execution source was not pinned.",
+    "Frozen-normalizer inverse-CDF evaluation differs from historical live gamma sampler/online normalization.",
+    "Sample/mean/mode are different control laws; this is physical comparison, not causal PG/optimizer attribution or optimum certification.",
+    "Mode uses actual FP32 Beta shapes with uniform midpoint tie, while historical sepclip mode helper used intended softplus-excess logits; rounding discrepancies reported."
+  ],
+  "paired_return_differences": {
+    "mean": {
+      "mean": 843.7018727588963,
+      "std": 214.1507172643562,
+      "se": 55.29347743621498,
+      "min": 577.2471429827237,
+      "max": 1419.6611090590814
+    },
+    "mode": {
+      "mean": 1247.9703403353324,
+      "std": 163.88490304317844,
+      "se": 42.31490001206982,
+      "min": 987.6748819553795,
+      "max": 1501.5573457030368
+    }
+  }
+}

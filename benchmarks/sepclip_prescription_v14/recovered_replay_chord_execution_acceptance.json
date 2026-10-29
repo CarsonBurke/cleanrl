@@ -1,0 +1,30 @@
+{
+  "captured_at": 1791340915.132389,
+  "rows": [
+    {
+      "job_id": 11897,
+      "exit_code": 0,
+      "case_count": 49,
+      "fail_error_skip": 0,
+      "junit": "benchmarks/sepclip_prescription_v14/replay_contracts_recovered_v2.xml",
+      "junit_sha256": "f2fbafec0d8400fadde1d0412e07fc0f95be838f3e2004d37f7cc9e6ade93b50",
+      "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_replay_contracts_recovered_v2_1791340808322480214.json",
+      "execution_sha256": "a05dd95d9a7431c7558cc4013f18890bc26e5150417cf6cd44c5d2d600a3c754",
+      "source_checked": 65,
+      "source_discrepancies": []
+    },
+    {
+      "job_id": 11898,
+      "exit_code": 0,
+      "case_count": 16,
+      "fail_error_skip": 0,
+      "junit": "benchmarks/sepclip_prescription_v14/chord_contracts_recovered_v2.xml",
+      "junit_sha256": "7dd8f1d290d798b6777076f615b0cc5fe0f6dcefd51a09683b6149dea2dba9b4",
+      "execution_manifest": "benchmarks/sepclip_prescription_v14/execution_sources/sepclip_prescription_chord_contracts_recovered_v2_1791340831876412789.json",
+      "execution_sha256": "03162f676ccec1b7087947dbc1ab2639501594a50affb425681c2166cb068f74",
+      "source_checked": 69,
+      "source_discrepancies": []
+    }
+  ],
+  "scope": "Strict actual-module replay/closed-loop and chord numerical contracts; actualcapturedpolicy probes not yet executed."
+}

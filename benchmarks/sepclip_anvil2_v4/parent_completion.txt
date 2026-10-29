@@ -1,0 +1,12 @@
+COMPLETE: NorMuon/Anvil2 sepclip investigation, including targeted fasttracking v5, is finished. All relevant jobs are terminal; final independent artifact review passed.
+
+HalfCheetah-v4 seed 1, fresh 8M (actual 7,995,008), final 100 episodes: Adam 8281.18; best Anvil v4 BF16 LR .0025 8345.41 (+64.24, +0.776%); Anvil LR .005 8308.31; NorMuon LR .005 momentum .85 8189.45 versus prior .95 long-axis 5906.57; NorMuon .0025/.95 6932.19; targeted constant .85 fasttracking Anvil v5 8171.38, rejected as improvement (-174.03 versus v4 half). Marginal Anvil final-window gain does not establish superiority: common 7.9M trailing 200k returns are Anvil 8271.01 versus Adam 8308.73. No new gross v3 algebra bug established. Confirmed prior checkpoint bug, port rounding/ownership corrections, hardware-adapted upstream parity and repaired job environment are distinguished from algorithm adaptations. All 19 frozen-frontier final heldout gains are negative; cold Anvil replay is not warm Anvil or fresh-training evidence.
+
+Jobs (all declared maxParallelRuns=1): contracts 11518 passed 19, 11587 passed 2; frontier 11565 succeeded; training 11566-11569 and 11593 succeeded; 11570-11573 deliberately autoculled with recorded reasons, no invented final scores; final report 11594 succeeded. Failed/skipped original and repair attempts are retained. Prefix-scoped cull supervisors stopped. Frozen v4 and unrelated dirty files preserved.
+
+Machine report: /home/marvin/Documents/repositories/cleanrl/benchmarks/sepclip_anvil2_v4/investigation_report.json
+Scores: /home/marvin/Documents/repositories/cleanrl/benchmarks/sepclip_anvil2_v4/scores.json
+Curves: /home/marvin/Documents/repositories/cleanrl/benchmarks/sepclip_anvil2_v4/learning_curves.png
+Frontier: /home/marvin/Documents/repositories/cleanrl/benchmarks/sepclip_anvil2_v4/frontier.png
+V5 result: /home/marvin/Documents/repositories/cleanrl/benchmarks/sepclip_anvil2_fasttracking_v5/result.json
+Completion and current queue evidence: benchmarks/sepclip_anvil2_v4/completion.json and supervision_status.json.

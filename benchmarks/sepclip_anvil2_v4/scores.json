@@ -1,0 +1,718 @@
+{
+  "jobs": [
+    {
+      "id": 11335,
+      "name": "normuon_audit_8m_adam",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "stateReason": null
+    },
+    {
+      "id": 11336,
+      "name": "normuon_audit_8m_rows",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "stateReason": null
+    },
+    {
+      "id": 11337,
+      "name": "normuon_audit_8m_long",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "stateReason": null
+    },
+    {
+      "id": 11518,
+      "name": "sepclip_anvil2_contracts_v4",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "stateReason": null
+    },
+    {
+      "id": 11519,
+      "name": "sepclip_anvil2_frontier_v4",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11520,
+      "name": "sepclip_anvil2_v4_normuon_half",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11521,
+      "name": "sepclip_anvil2_v4_normuon_fast",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11522,
+      "name": "sepclip_anvil2_v4_anvil_half",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11523,
+      "name": "sepclip_anvil2_v4_anvil_full",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11524,
+      "name": "sepclip_anvil2_v4_normuon_double",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11525,
+      "name": "sepclip_anvil2_v4_anvil_double",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11526,
+      "name": "sepclip_anvil2_v4_anvil_quad",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11527,
+      "name": "sepclip_anvil2_v4_anvil_fp32",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11528,
+      "name": "sepclip_anvil2_v4_evidence",
+      "state": "cancelled",
+      "maxParallelRuns": 1,
+      "stateReason": "cancelled before start"
+    },
+    {
+      "id": 11550,
+      "name": "sepclip_anvil2_frontier_v4",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11551,
+      "name": "sepclip_anvil2_v4_normuon_half",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11552,
+      "name": "sepclip_anvil2_v4_normuon_fast",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11553,
+      "name": "sepclip_anvil2_v4_anvil_half",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11554,
+      "name": "sepclip_anvil2_v4_anvil_full",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11555,
+      "name": "sepclip_anvil2_v4_normuon_double",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11556,
+      "name": "sepclip_anvil2_v4_anvil_double",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11557,
+      "name": "sepclip_anvil2_v4_anvil_quad",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11558,
+      "name": "sepclip_anvil2_v4_anvil_fp32",
+      "state": "skipped",
+      "maxParallelRuns": 1,
+      "stateReason": "prerequisite jobs [11518] did not satisfy required outcomes"
+    },
+    {
+      "id": 11559,
+      "name": "sepclip_anvil2_v4_evidence_repaired",
+      "state": "failed",
+      "maxParallelRuns": 1,
+      "stateReason": "command exited with code 1"
+    },
+    {
+      "id": 11565,
+      "name": "sepclip_anvil2_frontier_v4",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "stateReason": null
+    },
+    {
+      "id": 11566,
+      "name": "sepclip_anvil2_v4_normuon_half",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "stateReason": null
+    },
+    {
+      "id": 11567,
+      "name": "sepclip_anvil2_v4_normuon_fast",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "stateReason": null
+    },
+    {
+      "id": 11568,
+      "name": "sepclip_anvil2_v4_anvil_half",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "stateReason": null
+    },
+    {
+      "id": 11569,
+      "name": "sepclip_anvil2_v4_anvil_full",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "stateReason": null
+    },
+    {
+      "id": 11570,
+      "name": "sepclip_anvil2_v4_normuon_double",
+      "state": "cancelled",
+      "maxParallelRuns": 1,
+      "stateReason": "cancelled by request"
+    },
+    {
+      "id": 11571,
+      "name": "sepclip_anvil2_v4_anvil_double",
+      "state": "cancelled",
+      "maxParallelRuns": 1,
+      "stateReason": "cancelled by request"
+    },
+    {
+      "id": 11572,
+      "name": "sepclip_anvil2_v4_anvil_quad",
+      "state": "cancelled",
+      "maxParallelRuns": 1,
+      "stateReason": "cancelled by request"
+    },
+    {
+      "id": 11573,
+      "name": "sepclip_anvil2_v4_anvil_fp32",
+      "state": "cancelled",
+      "maxParallelRuns": 1,
+      "stateReason": "cancelled by request"
+    },
+    {
+      "id": 11574,
+      "name": "sepclip_anvil2_v4_evidence_final",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "stateReason": null
+    },
+    {
+      "id": 11587,
+      "name": "sepclip_anvil2_fasttracking_v5_contracts",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "stateReason": null
+    },
+    {
+      "id": 11593,
+      "name": "sepclip_anvil2_fasttracking_v5_half",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "stateReason": null
+    }
+  ],
+  "runs": [
+    {
+      "variant": "normuon_audit_8m_adam",
+      "run": "runs/HalfCheetah-v4__normuon_audit_8m_adam__1__1791057936",
+      "job_id": 11335,
+      "state": "succeeded",
+      "final_step": 7995008,
+      "completed_8m": true,
+      "final_100_return": 8281.17818359375,
+      "latest_observed_100_return": 8281.17818359375,
+      "matched_step_return": {
+        "1000000": 2615.7108629520853,
+        "2000000": 4630.7030106729535,
+        "4000000": 6506.113193796642,
+        "6000000": 7580.259187461132,
+        "7900000": 8308.72625944982
+      },
+      "latest_metrics": {
+        "charts/interval_SPS": 88248.6796875,
+        "grad/actor_preclip_norm": 0.038610171526670456,
+        "grad/critic_preclip_norm": 0.0040605757385492325,
+        "losses/clipfrac": 0.0,
+        "losses/entropy": -4.183976173400879,
+        "losses/post_final_epoch_exact_kl": null,
+        "matrix_last/bank0_epsilon_fraction": null,
+        "matrix_last/bank0_grad_momentum_cosine": null,
+        "matrix_last/bank0_nesterov_norm": null,
+        "matrix_last/bank1_epsilon_fraction": null,
+        "matrix_last/bank1_grad_momentum_cosine": null,
+        "matrix_last/bank1_nesterov_norm": null,
+        "matrix_last/bank2_epsilon_fraction": null,
+        "matrix_last/bank2_grad_momentum_cosine": null,
+        "matrix_last/bank2_nesterov_norm": null,
+        "policy/concentration": null,
+        "policy/log_concentration_step": null,
+        "policy/mean_step_rms": null
+      }
+    },
+    {
+      "variant": "normuon_audit_8m_long",
+      "run": "runs/HalfCheetah-v4__normuon_audit_8m_long__1__1791058248",
+      "job_id": 11337,
+      "state": "succeeded",
+      "final_step": 7995008,
+      "completed_8m": true,
+      "final_100_return": 5906.569892578125,
+      "latest_observed_100_return": 5906.569892578125,
+      "matched_step_return": {
+        "1000000": 2532.718597563938,
+        "2000000": 3915.943679202255,
+        "4000000": 4727.668247203922,
+        "6000000": 5453.2981363932295,
+        "7900000": 5764.143511568136
+      },
+      "latest_metrics": {
+        "charts/interval_SPS": 82123.953125,
+        "grad/actor_preclip_norm": 0.03316211700439453,
+        "grad/critic_preclip_norm": 0.0063675823621451855,
+        "losses/clipfrac": 0.0,
+        "losses/entropy": -3.643657684326172,
+        "losses/post_final_epoch_exact_kl": 3.5247077903477475e-05,
+        "matrix_last/bank0_epsilon_fraction": null,
+        "matrix_last/bank0_grad_momentum_cosine": null,
+        "matrix_last/bank0_nesterov_norm": null,
+        "matrix_last/bank1_epsilon_fraction": null,
+        "matrix_last/bank1_grad_momentum_cosine": null,
+        "matrix_last/bank1_nesterov_norm": null,
+        "matrix_last/bank2_epsilon_fraction": null,
+        "matrix_last/bank2_grad_momentum_cosine": null,
+        "matrix_last/bank2_nesterov_norm": null,
+        "policy/concentration": null,
+        "policy/log_concentration_step": null,
+        "policy/mean_step_rms": null
+      }
+    },
+    {
+      "variant": "normuon_audit_8m_rows",
+      "run": "runs/HalfCheetah-v4__normuon_audit_8m_rows__1__1791058077",
+      "job_id": 11336,
+      "state": "succeeded",
+      "final_step": 7995008,
+      "completed_8m": true,
+      "final_100_return": 5873.104173431397,
+      "latest_observed_100_return": 5873.104173431397,
+      "matched_step_return": {
+        "1000000": 2179.414901201998,
+        "2000000": 3780.584613553327,
+        "4000000": 4820.203168119364,
+        "6000000": 5547.559046617195,
+        "7900000": 5896.8182063316235
+      },
+      "latest_metrics": {
+        "charts/interval_SPS": 77310.390625,
+        "grad/actor_preclip_norm": 0.025031397119164467,
+        "grad/critic_preclip_norm": 0.0033140077721327543,
+        "losses/clipfrac": 0.0,
+        "losses/entropy": -3.49560546875,
+        "losses/post_final_epoch_exact_kl": 2.4829187168506905e-05,
+        "matrix_last/bank0_epsilon_fraction": null,
+        "matrix_last/bank0_grad_momentum_cosine": null,
+        "matrix_last/bank0_nesterov_norm": null,
+        "matrix_last/bank1_epsilon_fraction": null,
+        "matrix_last/bank1_grad_momentum_cosine": null,
+        "matrix_last/bank1_nesterov_norm": null,
+        "matrix_last/bank2_epsilon_fraction": null,
+        "matrix_last/bank2_grad_momentum_cosine": null,
+        "matrix_last/bank2_nesterov_norm": null,
+        "policy/concentration": null,
+        "policy/log_concentration_step": null,
+        "policy/mean_step_rms": null
+      }
+    },
+    {
+      "variant": "sepclip_anvil2_fasttracking_v5_half",
+      "run": "runs/HalfCheetah-v4__sepclip_anvil2_fasttracking_v5_half__1__1791179593",
+      "job_id": 11593,
+      "state": "succeeded",
+      "final_step": 7995008,
+      "completed_8m": true,
+      "final_100_return": 8171.383403320313,
+      "latest_observed_100_return": 8171.383403320313,
+      "matched_step_return": {
+        "1000000": 1211.27113452361,
+        "2000000": 4379.711281240283,
+        "4000000": 6009.3187753857665,
+        "6000000": 7149.695402382618,
+        "7900000": 8106.640802943291
+      },
+      "latest_metrics": {
+        "charts/interval_SPS": 68664.2890625,
+        "grad/actor_preclip_norm": 0.05122392252087593,
+        "grad/critic_preclip_norm": 0.014411156065762043,
+        "losses/clipfrac": 0.0,
+        "losses/entropy": -4.200806617736816,
+        "losses/post_final_epoch_exact_kl": 1.6130459698615596e-05,
+        "matrix_last/bank0_epsilon_fraction": 8.438849181402475e-05,
+        "matrix_last/bank0_grad_momentum_cosine": 0.8730400204658508,
+        "matrix_last/bank0_nesterov_norm": 0.011900040321052074,
+        "matrix_last/bank1_epsilon_fraction": 0.0001551361638121307,
+        "matrix_last/bank1_grad_momentum_cosine": 0.8665253520011902,
+        "matrix_last/bank1_nesterov_norm": 0.010435276664793491,
+        "matrix_last/bank2_epsilon_fraction": 8.528222679160535e-05,
+        "matrix_last/bank2_grad_momentum_cosine": 0.9022955894470215,
+        "matrix_last/bank2_nesterov_norm": 0.011732060462236404,
+        "policy/concentration": 20.07362937927246,
+        "policy/log_concentration_step": -1.6799567674752325e-05,
+        "policy/mean_step_rms": 0.00020530565234366804
+      }
+    },
+    {
+      "variant": "sepclip_anvil2_v4_anvil_double",
+      "run": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_double__1__1791178528",
+      "job_id": 11571,
+      "state": "cancelled",
+      "final_step": 4614000,
+      "completed_8m": false,
+      "final_100_return": null,
+      "latest_observed_100_return": 3687.1892810058594,
+      "matched_step_return": {
+        "1000000": 891.1059150126443,
+        "2000000": 2457.575477106654,
+        "4000000": 3471.2697911808145,
+        "6000000": null,
+        "7900000": null
+      },
+      "latest_metrics": {
+        "charts/interval_SPS": 69505.65625,
+        "grad/actor_preclip_norm": 0.06842557340860367,
+        "grad/critic_preclip_norm": 0.04329890012741089,
+        "losses/clipfrac": 0.19848023355007172,
+        "losses/entropy": -2.0949649810791016,
+        "losses/post_final_epoch_exact_kl": 0.0320465974509716,
+        "matrix_last/bank0_epsilon_fraction": 0.0002599011640995741,
+        "matrix_last/bank0_grad_momentum_cosine": 0.6702669262886047,
+        "matrix_last/bank0_nesterov_norm": 0.00390616524964571,
+        "matrix_last/bank1_epsilon_fraction": 0.0004720993456430733,
+        "matrix_last/bank1_grad_momentum_cosine": 0.6713142395019531,
+        "matrix_last/bank1_nesterov_norm": 0.0026942419353872538,
+        "matrix_last/bank2_epsilon_fraction": 0.000396814604755491,
+        "matrix_last/bank2_grad_momentum_cosine": 0.6128361821174622,
+        "matrix_last/bank2_nesterov_norm": 0.0025798403657972813,
+        "policy/concentration": 12.486005783081055,
+        "policy/log_concentration_step": 0.0016964832320809364,
+        "policy/mean_step_rms": 0.013037688098847866
+      }
+    },
+    {
+      "variant": "sepclip_anvil2_v4_anvil_fp32",
+      "run": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_fp32__1__1791178712",
+      "job_id": 11573,
+      "state": "cancelled",
+      "final_step": 6237008,
+      "completed_8m": false,
+      "final_100_return": null,
+      "latest_observed_100_return": 5926.138743896485,
+      "matched_step_return": {
+        "1000000": 1819.6146402311563,
+        "2000000": 3754.875239282105,
+        "4000000": 4929.386881510417,
+        "6000000": 5894.2073847073225,
+        "7900000": null
+      },
+      "latest_metrics": {
+        "charts/interval_SPS": 65130.69140625,
+        "grad/actor_preclip_norm": 0.03898852691054344,
+        "grad/critic_preclip_norm": 0.004289458971470594,
+        "losses/clipfrac": 0.09254761040210724,
+        "losses/entropy": -3.6853408813476562,
+        "losses/post_final_epoch_exact_kl": 0.014298485592007637,
+        "matrix_last/bank0_epsilon_fraction": 0.0003235850890632719,
+        "matrix_last/bank0_grad_momentum_cosine": 0.41308820247650146,
+        "matrix_last/bank0_nesterov_norm": 0.003092522267252207,
+        "matrix_last/bank1_epsilon_fraction": 0.0005398159846663475,
+        "matrix_last/bank1_grad_momentum_cosine": 0.4161319434642792,
+        "matrix_last/bank1_nesterov_norm": 0.0025021592155098915,
+        "matrix_last/bank2_epsilon_fraction": 0.00039936855318956077,
+        "matrix_last/bank2_grad_momentum_cosine": 0.4088466763496399,
+        "matrix_last/bank2_nesterov_norm": 0.0025031992699950933,
+        "policy/concentration": 15.751379013061523,
+        "policy/log_concentration_step": 0.0015594663564115763,
+        "policy/mean_step_rms": 0.007821775041520596
+      }
+    },
+    {
+      "variant": "sepclip_anvil2_v4_anvil_full",
+      "run": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_full__1__1791178287",
+      "job_id": 11569,
+      "state": "succeeded",
+      "final_step": 7995008,
+      "completed_8m": true,
+      "final_100_return": 8308.30654724121,
+      "latest_observed_100_return": 8308.30654724121,
+      "matched_step_return": {
+        "1000000": 2326.089576227748,
+        "2000000": 4741.926489379275,
+        "4000000": 5840.423392072839,
+        "6000000": 7117.011535948189,
+        "7900000": 8269.823907804726
+      },
+      "latest_metrics": {
+        "charts/interval_SPS": 68542.953125,
+        "grad/actor_preclip_norm": 0.04864543303847313,
+        "grad/critic_preclip_norm": 0.013626194559037685,
+        "losses/clipfrac": 0.0,
+        "losses/entropy": -3.6537327766418457,
+        "losses/post_final_epoch_exact_kl": 4.6380344429053366e-05,
+        "matrix_last/bank0_epsilon_fraction": 6.605759699596092e-05,
+        "matrix_last/bank0_grad_momentum_cosine": 0.8387799859046936,
+        "matrix_last/bank0_nesterov_norm": 0.015148094855248928,
+        "matrix_last/bank1_epsilon_fraction": 0.00013394778943620622,
+        "matrix_last/bank1_grad_momentum_cosine": 0.8427556753158569,
+        "matrix_last/bank1_nesterov_norm": 0.009736846201121807,
+        "matrix_last/bank2_epsilon_fraction": 0.00010584732081042603,
+        "matrix_last/bank2_grad_momentum_cosine": 0.8372701406478882,
+        "matrix_last/bank2_nesterov_norm": 0.00945334229618311,
+        "policy/concentration": 18.04353904724121,
+        "policy/log_concentration_step": -7.178141095209867e-05,
+        "policy/mean_step_rms": 0.00037530375993810594
+      }
+    },
+    {
+      "variant": "sepclip_anvil2_v4_anvil_half",
+      "run": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146",
+      "job_id": 11568,
+      "state": "succeeded",
+      "final_step": 7995008,
+      "completed_8m": true,
+      "final_100_return": 8345.413642578125,
+      "latest_observed_100_return": 8345.413642578125,
+      "matched_step_return": {
+        "1000000": 1948.666670006899,
+        "2000000": 4641.722929541745,
+        "4000000": 6291.4578729885725,
+        "6000000": 7698.153777013371,
+        "7900000": 8271.011124795943
+      },
+      "latest_metrics": {
+        "charts/interval_SPS": 68313.515625,
+        "grad/actor_preclip_norm": 0.051762498915195465,
+        "grad/critic_preclip_norm": 0.0059666987508535385,
+        "losses/clipfrac": 0.0,
+        "losses/entropy": -4.377636909484863,
+        "losses/post_final_epoch_exact_kl": 1.76839494088199e-05,
+        "matrix_last/bank0_epsilon_fraction": 8.081881969701499e-05,
+        "matrix_last/bank0_grad_momentum_cosine": 0.8882328271865845,
+        "matrix_last/bank0_nesterov_norm": 0.012376993894577026,
+        "matrix_last/bank1_epsilon_fraction": 0.000135855792905204,
+        "matrix_last/bank1_grad_momentum_cosine": 0.9369508624076843,
+        "matrix_last/bank1_nesterov_norm": 0.010856619104743004,
+        "matrix_last/bank2_epsilon_fraction": 8.298437023768201e-05,
+        "matrix_last/bank2_grad_momentum_cosine": 0.9430824518203735,
+        "matrix_last/bank2_nesterov_norm": 0.012084279209375381,
+        "policy/concentration": 19.861549377441406,
+        "policy/log_concentration_step": 4.844014620175585e-05,
+        "policy/mean_step_rms": 0.00022169513977132738
+      }
+    },
+    {
+      "variant": "sepclip_anvil2_v4_anvil_quad",
+      "run": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_quad__1__1791178604",
+      "job_id": 11572,
+      "state": "cancelled",
+      "final_step": 5503008,
+      "completed_8m": false,
+      "final_100_return": null,
+      "latest_observed_100_return": 4343.600321044922,
+      "matched_step_return": {
+        "1000000": 1543.3671612715839,
+        "2000000": 3278.5136532000643,
+        "4000000": 4104.073932097326,
+        "6000000": null,
+        "7900000": null
+      },
+      "latest_metrics": {
+        "charts/interval_SPS": 63877.1953125,
+        "grad/actor_preclip_norm": 0.05196105316281319,
+        "grad/critic_preclip_norm": 0.024477705359458923,
+        "losses/clipfrac": 0.18641357123851776,
+        "losses/entropy": -3.350405693054199,
+        "losses/post_final_epoch_exact_kl": 0.032323889434337616,
+        "matrix_last/bank0_epsilon_fraction": 0.0002986431063618511,
+        "matrix_last/bank0_grad_momentum_cosine": 0.7961012125015259,
+        "matrix_last/bank0_nesterov_norm": 0.003347506746649742,
+        "matrix_last/bank1_epsilon_fraction": 0.0006184278754517436,
+        "matrix_last/bank1_grad_momentum_cosine": 0.6458498239517212,
+        "matrix_last/bank1_nesterov_norm": 0.0018713823519647121,
+        "matrix_last/bank2_epsilon_fraction": 0.0006424408638849854,
+        "matrix_last/bank2_grad_momentum_cosine": 0.6269493103027344,
+        "matrix_last/bank2_nesterov_norm": 0.0015721782110631466,
+        "policy/concentration": 13.707359313964844,
+        "policy/log_concentration_step": 0.0009888827335089445,
+        "policy/mean_step_rms": 0.012677758000791073
+      }
+    },
+    {
+      "variant": "sepclip_anvil2_v4_normuon_double",
+      "run": "runs/HalfCheetah-v4__sepclip_anvil2_v4_normuon_double__1__1791178427",
+      "job_id": 11570,
+      "state": "cancelled",
+      "final_step": 5253008,
+      "completed_8m": false,
+      "final_100_return": null,
+      "latest_observed_100_return": 5050.1607275390625,
+      "matched_step_return": {
+        "1000000": 1891.9207517709306,
+        "2000000": 3336.477727330146,
+        "4000000": 4614.332361629353,
+        "6000000": null,
+        "7900000": null
+      },
+      "latest_metrics": {
+        "charts/interval_SPS": 67209.8125,
+        "grad/actor_preclip_norm": 0.04599243402481079,
+        "grad/critic_preclip_norm": 0.01993997022509575,
+        "losses/clipfrac": 0.18659058213233948,
+        "losses/entropy": -2.4067883491516113,
+        "losses/post_final_epoch_exact_kl": 0.0319601409137249,
+        "matrix_last/bank0_epsilon_fraction": 0.0005486563313752413,
+        "matrix_last/bank0_grad_momentum_cosine": 0.2259436696767807,
+        "matrix_last/bank0_nesterov_norm": 0.0018226815154775977,
+        "matrix_last/bank1_epsilon_fraction": 0.0009324596030637622,
+        "matrix_last/bank1_grad_momentum_cosine": 0.3713796138763428,
+        "matrix_last/bank1_nesterov_norm": 0.0012853372609242797,
+        "matrix_last/bank2_epsilon_fraction": 0.0008869407465681434,
+        "matrix_last/bank2_grad_momentum_cosine": 0.28633734583854675,
+        "matrix_last/bank2_nesterov_norm": 0.0011313071008771658,
+        "policy/concentration": 13.032770156860352,
+        "policy/log_concentration_step": 0.0016941558569669724,
+        "policy/mean_step_rms": 0.01246715523302555
+      }
+    },
+    {
+      "variant": "sepclip_anvil2_v4_normuon_fast",
+      "run": "runs/HalfCheetah-v4__sepclip_anvil2_v4_normuon_fast__1__1791178000",
+      "job_id": 11567,
+      "state": "succeeded",
+      "final_step": 7995008,
+      "completed_8m": true,
+      "final_100_return": 8189.44580078125,
+      "latest_observed_100_return": 8189.44580078125,
+      "matched_step_return": {
+        "1000000": 1533.1255497718926,
+        "2000000": 3598.2753749866392,
+        "4000000": 5784.35836807175,
+        "6000000": 6946.871303577328,
+        "7900000": 8072.715564025575
+      },
+      "latest_metrics": {
+        "charts/interval_SPS": 68736.203125,
+        "grad/actor_preclip_norm": 0.07302923500537872,
+        "grad/critic_preclip_norm": 0.017017973586916924,
+        "losses/clipfrac": 0.0,
+        "losses/entropy": -3.4140992164611816,
+        "losses/post_final_epoch_exact_kl": 3.920603194274008e-05,
+        "matrix_last/bank0_epsilon_fraction": 3.914513945346698e-05,
+        "matrix_last/bank0_grad_momentum_cosine": 0.9910033941268921,
+        "matrix_last/bank0_nesterov_norm": 0.025558210909366608,
+        "matrix_last/bank1_epsilon_fraction": 7.147629366954789e-05,
+        "matrix_last/bank1_grad_momentum_cosine": 0.9923986196517944,
+        "matrix_last/bank1_nesterov_norm": 0.02129494585096836,
+        "matrix_last/bank2_epsilon_fraction": 4.695446841651574e-05,
+        "matrix_last/bank2_grad_momentum_cosine": 0.9921078681945801,
+        "matrix_last/bank2_nesterov_norm": 0.021302305161952972,
+        "policy/concentration": 16.1095027923584,
+        "policy/log_concentration_step": 0.00011805321264546365,
+        "policy/mean_step_rms": 0.00035923338145948946
+      }
+    },
+    {
+      "variant": "sepclip_anvil2_v4_normuon_half",
+      "run": "runs/HalfCheetah-v4__sepclip_anvil2_v4_normuon_half__1__1791177102",
+      "job_id": 11566,
+      "state": "succeeded",
+      "final_step": 7995008,
+      "completed_8m": true,
+      "final_100_return": 6932.190004882813,
+      "latest_observed_100_return": 6932.190004882813,
+      "matched_step_return": {
+        "1000000": 1082.737956791968,
+        "2000000": 3472.5597433972716,
+        "4000000": 5415.7503036574935,
+        "6000000": 6312.121114702367,
+        "7900000": 6900.12548099347
+      },
+      "latest_metrics": {
+        "charts/interval_SPS": 64633.1953125,
+        "grad/actor_preclip_norm": 0.03750606253743172,
+        "grad/critic_preclip_norm": 0.006948214955627918,
+        "losses/clipfrac": 0.0,
+        "losses/entropy": -3.9607667922973633,
+        "losses/post_final_epoch_exact_kl": 1.1782609362853691e-05,
+        "matrix_last/bank0_epsilon_fraction": 0.00011242952314205468,
+        "matrix_last/bank0_grad_momentum_cosine": 0.727121114730835,
+        "matrix_last/bank0_nesterov_norm": 0.008951965719461441,
+        "matrix_last/bank1_epsilon_fraction": 0.0001878624316304922,
+        "matrix_last/bank1_grad_momentum_cosine": 0.7833276391029358,
+        "matrix_last/bank1_nesterov_norm": 0.007163855247199535,
+        "matrix_last/bank2_epsilon_fraction": 0.00012490488006733358,
+        "matrix_last/bank2_grad_momentum_cosine": 0.8189439177513123,
+        "matrix_last/bank2_nesterov_norm": 0.008006930351257324,
+        "policy/concentration": 17.806068420410156,
+        "policy/log_concentration_step": 7.8690118243685e-06,
+        "policy/mean_step_rms": 0.0001836574519984424
+      }
+    }
+  ],
+  "ranked_completed": [
+    "sepclip_anvil2_v4_anvil_half",
+    "sepclip_anvil2_v4_anvil_full",
+    "normuon_audit_8m_adam",
+    "sepclip_anvil2_v4_normuon_fast",
+    "sepclip_anvil2_fasttracking_v5_half",
+    "sepclip_anvil2_v4_normuon_half",
+    "normuon_audit_8m_long",
+    "normuon_audit_8m_rows"
+  ],
+  "limitations": [
+    "One seed; this does not establish robustness across seeds or environments.",
+    "Matched-step returns use the same trailing 200k-step window for every run.",
+    "Culled/failed/queued runs have no final-8M score; their latest returns are not ranked.",
+    "V4 Anvil transfers reference cascade and rail schedule fractions; v5 keeps the cascade and slow-rail engagement/blend but uses constant .85 fast EMA/lookahead. Neither copies language-model decay or role multipliers."
+  ]
+}

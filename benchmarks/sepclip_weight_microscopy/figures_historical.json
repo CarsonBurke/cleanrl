@@ -1,0 +1,26 @@
+{
+  "artifacts": [
+    "benchmarks/sepclip_weight_microscopy/figures/closed_loop_returns.png",
+    "benchmarks/sepclip_weight_microscopy/figures/closed_loop_returns.svg",
+    "benchmarks/sepclip_weight_microscopy/figures/velocity_cost_decomposition.png",
+    "benchmarks/sepclip_weight_microscopy/figures/velocity_cost_decomposition.svg",
+    "benchmarks/sepclip_weight_microscopy/figures/layer_geometry_0.png",
+    "benchmarks/sepclip_weight_microscopy/figures/layer_geometry_0.svg",
+    "benchmarks/sepclip_weight_microscopy/figures/layer_geometry_1.png",
+    "benchmarks/sepclip_weight_microscopy/figures/layer_geometry_1.svg",
+    "benchmarks/sepclip_weight_microscopy/figures/layer_geometry_2.png",
+    "benchmarks/sepclip_weight_microscopy/figures/layer_geometry_2.svg",
+    "benchmarks/sepclip_weight_microscopy/figures/layer_geometry_3.png",
+    "benchmarks/sepclip_weight_microscopy/figures/layer_geometry_3.svg",
+    "benchmarks/sepclip_weight_microscopy/figures/layer_geometry_4.png",
+    "benchmarks/sepclip_weight_microscopy/figures/layer_geometry_4.svg",
+    "benchmarks/sepclip_weight_microscopy/figures/layer_geometry_5.png",
+    "benchmarks/sepclip_weight_microscopy/figures/layer_geometry_5.svg"
+  ],
+  "figure_count": 8,
+  "sources": {
+    "benchmarks/sepclip_weight_microscopy/physics_complete.json": "4e8cff45b006f0860a637af6aa56585a273178c08f36e0c2fb2abba7f779f44f",
+    "benchmarks/sepclip_weight_microscopy/layer_historical_fp64.json": "b44dcca698dd15bec9318f350506b20bb5efc80519f6a52ebc142cd76a65b53b"
+  },
+  "scope": "Measured historical physics and layer diagnostics; no optimum or causal-training claim"
+}

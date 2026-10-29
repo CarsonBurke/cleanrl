@@ -1,0 +1,52 @@
+..F..                                                                    [100%]
+=================================== FAILURES ===================================
+_______________ test_epoch_clock_control_matches_frozen_v4[True] _______________
+
+compiled = True
+
+    @pytest.mark.parametrize('compiled', [False, True])
+    def test_epoch_clock_control_matches_frozen_v4(compiled):
+        from cleanrl.ppo_continuous_action_sepclip_anvil2_v4 import MatrixOptimizer as Original
+        torch.manual_seed(1)
+        shapes = [(43, 17), (43, 64), (64, 43)]
+        weights = [torch.nn.Parameter(torch.randn(*shape, device='cuda')) for shape in shapes]
+        clones = [torch.nn.Parameter(p.detach().clone()) for p in weights]
+        new = MatrixOptimizer(weights, slow_clock='epoch', total_steps=10, compile=compiled)
+        old = Original(clones, total_steps=10, compile=compiled)
+        for step in range(10):
+            for p, q in zip(weights, clones):
+                gradient = torch.randn_like(p)
+                p.grad, q.grad = gradient.clone(), gradient.clone()
+            new.step()
+            old.step()
+            for p, q in zip(weights, clones):
+                torch.testing.assert_close(p, q, atol=0, rtol=0)
+            for a, b in zip(new.stacks, old.stacks):
+                for key in ('velocity', 'second'):
+>                   torch.testing.assert_close(a[2][key], b[2][key], atol=0, rtol=0)
+E                   AssertionError: Tensor-likes are not equal!
+E                   
+E                   Mismatched elements: 6 / 43 (14.0%)
+E                   Greatest absolute difference: 4.656612873077393e-10 at index (0, 35, 0)
+E                   Greatest relative difference: 1.2604546384409332e-07 at index (0, 38, 0)
+
+tests/test_sepclip_rollout_clock.py:46: AssertionError
+=============================== warnings summary ===============================
+tests/test_sepclip_rollout_clock.py: 14 warnings
+  /home/marvin/Documents/repositories/cleanrl/.venv/lib/python3.10/site-packages/torch/jit/_script.py:365: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+tests/test_sepclip_rollout_clock.py::test_slow_rail_counts_independent_rollouts_and_ignores_later_epochs
+tests/test_sepclip_rollout_clock.py::test_epoch_clock_control_matches_frozen_v4[True]
+tests/test_sepclip_rollout_clock.py::test_epoch_clock_control_matches_frozen_v4[True]
+tests/test_sepclip_rollout_clock.py::test_epoch_clock_control_matches_frozen_v4[True]
+tests/test_sepclip_rollout_clock.py::test_epoch_clock_control_matches_frozen_v4[True]
+tests/test_sepclip_rollout_clock.py::test_compiled_checkpoint_preserves_rollout_phase_and_banks[False]
+tests/test_sepclip_rollout_clock.py::test_compiled_checkpoint_preserves_rollout_phase_and_banks[False]
+  /home/marvin/Documents/repositories/cleanrl/.venv/lib/python3.10/site-packages/torch/_inductor/lowering.py:2158: FutureWarning: `torch._prims_common.check` is deprecated and will be removed in the future. Please use `torch._check*` functions instead.
+    check(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sepclip_rollout_clock.py::test_epoch_clock_control_matches_frozen_v4[True]
+1 failed, 4 passed, 21 warnings in 9.30s

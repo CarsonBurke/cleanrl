@@ -1,0 +1,399 @@
+{
+  "status": "in_progress_final_v11_controlled_training",
+  "updated_at": 1791239188.5144174,
+  "objective": "Investigate and resolve why NorMuon/Anvil only match Adam; seek a substantial measured improvement through mechanism-driven PPO optimizer innovations.",
+  "declared_concurrency_limit": 1,
+  "jobs": [
+    11655,
+    11656,
+    11657,
+    11658,
+    11659,
+    11660,
+    11661,
+    11662,
+    11663,
+    11664,
+    11665,
+    11666,
+    11667,
+    11668,
+    11669,
+    11670
+  ],
+  "benchmark_protocol": {
+    "primary": "Return averaged over trailing 200k environment steps at common 7.9M step.",
+    "secondary": [
+      "Final 100 episode mean on succeeded >=7.9M runs.",
+      "Matched 1M, 2M, 4M, and 6M windows; reject last-window cherry picking.",
+      "Same-head Adam trunk control for natural-head attribution.",
+      "Same-floor zero-noise polar control for covariance filtering attribution."
+    ],
+    "substantial_advantage_target": "Seek roughly 10% or more over fresh Adam with consistent late-window improvement; this is an operational research target, not a statistical significance threshold or promise.",
+    "uncertainty": "One seed on one environment cannot establish robustness. Marginal differences do not resolve the user objective."
+  },
+  "prior_evidence": {
+    "adam_final100": 8281.178,
+    "anvil_v4_final100": 8345.414,
+    "anvil_v4_matched7900000": 8271.011,
+    "adam_matched7900000": 8308.7,
+    "interpretation": "Marginal terminal-window difference does not demonstrate superiority; matching Adam is not task completion."
+  },
+  "pending_hypotheses": [
+    {
+      "mechanism": "v6 trajectory-covariance confidence polar",
+      "prediction": "Measured noise orientation improves heldout tangent alignment and fresh learning over the same-floor zero-noise polar control.",
+      "discriminators": [
+        "Eight independent partitions of one fixed rollout; estimator sensitivity only.",
+        "Trace-matched isotropic filtering distinguishes orientation from attenuation.",
+        "No post-filter norm restoration.",
+        "Within-rollout covariance drift measured while restoring candidate gradients before updates."
+      ]
+    },
+    {
+      "mechanism": "v7 fresh-rollout slow-rail clock",
+      "prediction": "Avoiding repeated-gradient contamination improves warm replay and fresh learning without reducing elapsed-memory horizon.",
+      "discriminators": [
+        "Exact epoch-clock parity with frozen v4, eager and compiled.",
+        "Warm actual Anvil versus switched warm slow rail, not cold comparison."
+      ]
+    },
+    {
+      "mechanism": "v8 Beta natural head",
+      "prediction": "Policy-metric head geometry allows the Anvil trunk to convert representation updates into larger useful policy gains.",
+      "discriminators": [
+        "Same-head Adam trunk isolates attribution.",
+        "Current train KFAC quadratic versus sample Fisher quadratic isolates approximation.",
+        "Exact head-only KL versus local quadratic isolates finite-step error.",
+        "Pre-head versus post-head progression and direction reversals isolate residual oscillation."
+      ]
+    }
+  ],
+  "static_review": {
+    "blocking_algebra_bug_established": false,
+    "corrections": [
+      "Removed mislabeled MC gain from GAE training replay.",
+      "Qualified zero-noise Gram flooring.",
+      "Expanded compiled/state-boundary contracts and KL attribution diagnostics.",
+      "Correct affine action Jacobian in the added policy-space diagnostic before execution.",
+      "Add CUDA derivative, action-affine-invariance and active-clipping contracts."
+    ],
+    "cuda_contract_status": "not executed",
+    "prior_preparation_reviewers_reported": 3,
+    "continuation_reviewer_agents": [
+      "/root/mechanism_review"
+    ],
+    "continuation_review_passes": 4
+  },
+  "source_hashes": {
+    "cleanrl/ppo_continuous_action_sepclip_noise_polar_v6.py": "1bf3837152176fd5c522f8fac4835dd78d72540e54851ea3de32cbe28c12074d",
+    "cleanrl/ppo_continuous_action_sepclip_rollout_clock_anvil_v7.py": "07f5f9636103dd5fdc9896de3eb781078df8bb1cb9b3ad87bcb79907fc619c8d",
+    "cleanrl/ppo_continuous_action_sepclip_fisher_head_v8.py": "18415290f80ac5a52cefc8e532b3141ccbb32fd9d03388fb39617f7a0a8a9536",
+    "tests/test_sepclip_noise_polar.py": "7b1ea602d9c0809dc943706c70ed63285e20ff118c3107532eb755defa46afdf",
+    "tests/test_sepclip_rollout_clock.py": "376d398267920b2c572a83bb241c4fc0341f289d2e0b5de94d6513a3b3115893",
+    "tests/test_sepclip_fisher_head.py": "e6f51b6176115a0448b411895c04038e6fcd13f4a59f4791a06c4319a1c9036e",
+    "scripts/run_sepclip_mechanisms.sh": "591ccf67e733476983617fa622bbf4ab02252d2af7c08d2857669d7212708e7e",
+    "scripts/audit_sepclip_mechanisms.py": "340cf96e709b025d99a30a664450fd69ebf9900264d6de62a2f0edd95d669b6e",
+    "scripts/analyze_sepclip_mechanisms.py": "0e2f4d18e3103ad8dffa7b2aec4911ba2d3629ad2341cb9fd8763a4fe63c0b93"
+  },
+  "frozen_source_hashes": {
+    "cleanrl/ppo_continuous_action_sepclip_anvil2_fasttracking_v5.py": "bc03d3928cc90a402c651f2b5d1a31af001af16b8450c99c1a8fdd7f90bf321e",
+    "cleanrl/ppo_continuous_action_sepclip_anvil2_v4.py": "1bf4cb185907e87409d466d130081e99951b99b8ef5ce8ed01e361703efb99de",
+    "cleanrl/ppo_continuous_action_sepclip_longaxis_normuon_v3.py": "f18cb36688b9a2736459f7f4b312df54701c5298e28db0d560f9c8fa416bf0bc",
+    "cleanrl/ppo_continuous_action_sepclip_normuon_split_diagnostic_v2.py": "5b31ff1390378f2de737db8ba9eb9cb19e17250ce758e6e8e19f32a48f696c78",
+    "cleanrl/ppo_continuous_action_sepclip_polar_express_normuon_v1.py": "f16ae989c3fe2675b7567dbcdb56dc008dbb978e799b6f10bf8f8e913c60bd64",
+    "cleanrl/awr/ppo_continuous_action_ppo_sepclip_control_v1.py": "bcc863675ba087eaf37e026362a618f6352a7a7e474822ad3c9a8c9f13756e34"
+  },
+  "limitations": [
+    "No new complete benchmark or CUDA validation result yet.",
+    "One seed, one environment; no robust superiority assertion.",
+    "Frozen replay is a diagnostic, not benchmark return or finetuning evidence.",
+    "Queue waiting is not completion.",
+    "Sources outside owned files may change through other researchers; execution manifests capture actual shared source."
+  ],
+  "policy_space_diagnostic": "Per-step predicted first-order GAE/clipped/lambda1 gain, sample Fisher quadratic and incremental exact Beta KL; not environment returns.",
+  "metric_definitions": {
+    "training_noise_to_signal": "Covariance trace / squared Nesterov norm: power ratio.",
+    "audit_noise_to_signal": "Raw fold-noise norm / raw full-gradient norm: norm ratio."
+  },
+  "conditional_next_hypothesis": "benchmarks/sepclip_mechanisms/conditional_agreement_hypothesis.json",
+  "cuda_contract_attempts": [
+    {
+      "id": 11655,
+      "state": "failed",
+      "maxParallelRuns": 1,
+      "log": "benchmarks/sepclip_mechanisms/contract_logs/11655.txt"
+    },
+    {
+      "id": 11656,
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "log": "benchmarks/sepclip_mechanisms/contract_logs/11656.txt"
+    },
+    {
+      "id": 11657,
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "log": "benchmarks/sepclip_mechanisms/contract_logs/11657.txt"
+    },
+    {
+      "id": 11676,
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "passed": 5,
+      "log": "benchmarks/sepclip_mechanisms/contract_logs/11676.txt",
+      "recorded_maximum_errors": {
+        "parameters": 0,
+        "velocity": 0,
+        "second": 0
+      },
+      "limits": "Original failure retained; zero deviations on recheck do not establish deterministic compiled bitwise parity universally."
+    }
+  ],
+  "replacement_jobs": {
+    "reason": "11655 strict compiled moment equality failed at FP32 rounding scale; 11658,11664,11665 permanently skipped. Revised moments-only tolerance with recorded deviations, exact parameters and eager contracts retained.",
+    "contract_job": 11676,
+    "replacements": [
+      {
+        "id": 11677,
+        "name": "sepclip_mechanisms_diagnostic_recheck",
+        "maxParallelRuns": 1,
+        "dependencies": [
+          11676,
+          11656,
+          11657
+        ]
+      },
+      {
+        "id": 11678,
+        "name": "sepclip_mechanisms_rollout_clock",
+        "maxParallelRuns": 1,
+        "dependencies": [
+          11676
+        ]
+      },
+      {
+        "id": 11679,
+        "name": "sepclip_mechanisms_rollout_clock_full",
+        "maxParallelRuns": 1,
+        "dependencies": [
+          11676
+        ]
+      }
+    ]
+  },
+  "compiled_parity_failure": {
+    "id": 11655,
+    "observed_max_absolute_moment_error": 4.656612873077393e-10,
+    "observed_max_relative_moment_error": 1.2604546384409332e-07,
+    "parameters_checked": "bitwise equal before first failed moment assertion",
+    "interpretation": "Epoch update algebra and eager parity agree; compiled graph differs due to extra clock scalar. FP32 rounding explanation plausible, not compiler cause proved. Recheck uses rtol1e-6 atol1e-9 only for compiled cross-version moments; parameters and eager remain exact.",
+    "review": "Independent reviewer checked code and tolerance; no trainer change."
+  },
+  "control_window_audit": [
+    {
+      "variant": "normuon_audit_8m_adam",
+      "run": "runs/HalfCheetah-v4__normuon_audit_8m_adam__1__1791057936",
+      "final100": 8281.17818359375,
+      "trailing200k_at7_9M": 8308.72625944982,
+      "count": 201,
+      "legacy_centered400k_at7_9M": 8296.799945315799
+    },
+    {
+      "variant": "sepclip_anvil2_v4_anvil_half",
+      "run": "runs/HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146",
+      "final100": 8345.413642578125,
+      "trailing200k_at7_9M": 8271.011124795943,
+      "count": 201,
+      "legacy_centered400k_at7_9M": 8292.611749597498
+    },
+    {
+      "variant": "sepclip_mechanisms_adam_reference",
+      "run": "runs/HalfCheetah-v4__sepclip_mechanisms_adam_reference__1__1791240609",
+      "final100": 8281.17818359375,
+      "trailing200k_at7_9M": 8308.72625944982,
+      "count": 201,
+      "legacy_centered400k_at7_9M": 8296.799945315799
+    }
+  ],
+  "analyzer_window_repair": {
+    "problem": "Prepared analyzer called symmetric window_mean despite intended trailing200k definition. Caught before evidence job execution.",
+    "repair": "Explicit inclusive trailing [step-200000,step] with counts. Legacy symmetric windows retained separately with explicit labels.",
+    "shared_helper_unchanged": true
+  },
+  "source_refresh_sha256": {
+    "scripts/analyze_sepclip_mechanisms.py": "1b261d444c9ffe8e47ff9fe2cb64d7300f395e2904ea815830dfa96fc5f7c6ba",
+    "tests/test_sepclip_rollout_clock.py": "8b96fa17cda20ee96c45f69551f5370ab06d1422f89f7cbc9c442d0e03441740"
+  },
+  "first_noise_results": {
+    "11659": {
+      "state": "succeeded",
+      "final100": 6932.200215148926,
+      "trailing200k_at7_9M": 6985.275306056388
+    },
+    "11660": {
+      "state": "succeeded",
+      "final100": 7598.4,
+      "score_precision": "rounded telemetry report; final analyzer will replace"
+    },
+    "11661": {
+      "state": "cancelled",
+      "reason": "Scoped autocull --enforce all --yes: two consecutive checkpoints below .8 reference;4M4494vs6078(.75),6M4228vs7341(.59).",
+      "final8m_score": null
+    },
+    "interpretation": "Full filtering loses to Adam; lower noise weighting helps but still trails. Larger nominal step did not rescue it and was culled. Directional failure versus attenuation remains unresolved pending zero-noise control and held-out diagnostic."
+  },
+  "first_fisher_results": {
+    "11666": {
+      "state": "succeeded",
+      "final100": 7173.145070648194,
+      "trailing200k_at7_9M": 7200.846430688355
+    },
+    "11667": {
+      "state": "succeeded",
+      "final100": 7730.82165058136,
+      "trailing200k_at7_9M": 7771.995853708751
+    },
+    "11668": {
+      "state": "succeeded",
+      "final100": 6731.122497558594,
+      "trailing200k_at7_9M": 6837.529440201337
+    },
+    "interpretation": "Anvil improves over same .001 headKL Adam trunk control but both lose to stock Adam. Smaller head radius improves Anvil yet still trails stock Adam. Need replay direction/curvature evidence before new iteration."
+  },
+  "evidence_job": 11680,
+  "v9_iteration": {
+    "hypothesis": "Measured KFAC underprediction is mostly feature/Fisher dependence, since sample quadratic tracks exact finite KL. Retain KFAC direction but scale by current exact empirical head Fisher.",
+    "implementation": "cleanrl/ppo_continuous_action_sepclip_sample_fisher_head_v9.py",
+    "contracts": {
+      "id": 11682,
+      "passed": 4,
+      "maxParallelRuns": 1
+    },
+    "jobs": {
+      "contracts": 11682,
+      "review": "Independent static review found no blocking issue; CUDA4contracts passed. Only validation text/early CLI checks changed afterward.",
+      "jobs": [
+        {
+          "id": 11683,
+          "name": "sepclip_mechanisms_sample_fisher_anvil_v9",
+          "maxParallelRuns": 1,
+          "contract_dependency": 11682
+        },
+        {
+          "id": 11684,
+          "name": "sepclip_mechanisms_sample_fisher_adam_v9",
+          "maxParallelRuns": 1,
+          "contract_dependency": 11682
+        },
+        {
+          "id": 11685,
+          "name": "sepclip_mechanisms_kfac_radius_control_v9",
+          "maxParallelRuns": 1,
+          "contract_dependency": 11682
+        }
+      ]
+    },
+    "fixed_radius_control": {
+      "head_target_kl": 0.00055,
+      "basis": "Representative observed curvature ratio approximately1.8; one predeclared diagnostic-derived constant control, no radius grid."
+    },
+    "limitations": [
+      "Curvature calibration cannot repair unreliable gradient direction.",
+      "Metric is head-only, not full actor trust region.",
+      "Direction uses fixed-rollout KFAC inverse; metric uses current data at gradient point.",
+      "FP32 finite KL cancellation near end of annealing."
+    ],
+    "source_sha256": {
+      "cleanrl/ppo_continuous_action_sepclip_sample_fisher_head_v9.py": "3098ca6b907409f1264edcf44b5af9074d03dd190c6413ca22e8811aeba86c48",
+      "tests/test_sepclip_sample_fisher_head.py": "87216041213ae1c4c7137e23ba9cce5b85366185875cc38690b6067000914d36"
+    },
+    "outcome": {
+      "state": "all3trainingjobs_succeeded",
+      "final100": {
+        "11683": 6442.705053710937,
+        "11684": 6600.90314453125,
+        "11685": 7185.2
+      },
+      "evidence": "benchmarks/sepclip_mechanisms/v9_live_telemetry.json",
+      "interpretation": "Exact empirical sample-Fisher and finite head KL match target in1\u20134M. Calibration repaired; benchmark returns worse. Reject curvature miscalibration as sufficient cause or remedy; direction/trunk interaction still matter."
+    }
+  },
+  "v10_iteration": {
+    "preparation": {
+      "contracts": 11688,
+      "diagnostic": 11689,
+      "all_declared_limits": 1,
+      "snapshot": "runs/HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877/diagnostic_snapshot_4013696.pt",
+      "status": "pre_training_contracts_and_diagnostic_only",
+      "hypothesis": "Retain stronger singular magnitudes to recover heldout alignment lost by full polarization; preserve successful fresh-rollout slow rail.",
+      "training_gate": "Do not submit fulltraining absent favorable matrix-only policy-space diagnostic and independent review.",
+      "powers": [
+        0,
+        0.5,
+        1
+      ],
+      "review": {
+        "result": "No blocking algebra/ownership issue. Diagnostic runtime mismatch repaired before execution: highest precision, TF32 disabled, matching trainer. Base-gradient cosines labeled explicitly.",
+        "source_sha256": {
+          "cleanrl/ppo_continuous_action_sepclip_fractional_rollout_anvil_v10.py": "3ecf150d5d97741fe98e4cc75f3d05bb5a4549da216039282b10cc0992e9f7c3",
+          "scripts/audit_sepclip_fractional_polar.py": "07ed6657d4f7ef066f0492021d852ae35e4208e3d663423c215177824678abd7",
+          "tests/test_sepclip_fractional_rollout.py": "f6c0a30d36108638573490c906ab238f27d2479359845fcf5a3481d82e46e404"
+        }
+      },
+      "failed_attempts": [
+        {
+          "id": 11686,
+          "passed": 5,
+          "failed": 2,
+          "reason": "Dynamo per-code eight-specialization cache limit across independent testpowers/shapes; compiler cache isolated between testcases/candidates, no trainer change.",
+          "log": "benchmarks/sepclip_mechanisms/contract_logs/11686.txt"
+        },
+        {
+          "id": 11687,
+          "state": "skipped",
+          "reason": "failed11686dependency"
+        }
+      ]
+    },
+    "contracts": {
+      "id": 11688,
+      "passed": 7,
+      "limit": 1
+    },
+    "diagnostic": {
+      "id": 11689,
+      "state": "succeeded",
+      "limit": 1,
+      "artifact": "benchmarks/sepclip_mechanisms/fractional_diagnostic.json"
+    },
+    "training_submitted": false,
+    "finding": "Fractional weighting improves most firststep tangent matrix cosines but policy KL approximately4x at equal parameter norms; repeatedepochs oscillate. Directional efficiency often improves, but thirdchunk firststep decreases and finite held gains mixed. Uncalibrated fulltraining gate not met.",
+    "next_hypothesis": "Use original Anvil matrix proposal as counterfactual policy-space displacement budget, scaling fractional proposals by exact sample-Fisher geometry before retraction. Preserve rails and head/critic Adam; controlled nextversion required."
+  },
+  "rollout_clock_results": {
+    "11678": {
+      "final100": 8729.246918945313,
+      "trailing200k_at7_9M": 8632.022201006685
+    },
+    "11679": {
+      "final100": 8600.528287353516,
+      "trailing200k_at7_9M": 8781.566726912313
+    },
+    "baseline": 8308.72625944982,
+    "interpretation": "Meaningful mechanism improvement of3.9%/5.7% on primarywindow, below soughtlargeadvantage and onlyone seed."
+  },
+  "v11_iteration": {
+    "preparation": "benchmarks/sepclip_mechanisms/v11_preparation.json",
+    "diagnostic": "benchmarks/sepclip_mechanisms/policy_budget_diagnostic.json",
+    "jobs": [
+      11697,
+      11698
+    ],
+    "first_order_mean_efficiency_gain_percent": 9.4848,
+    "finite_heldout_clipped_surrogate_all_negative": true,
+    "gate_relaxed_explicitly": true,
+    "interpretation": "Calibration fixes excessive policy displacement and improves mean first-step directional efficiency modestly; finite heldout clipped objective does not improve reliably. Fresh training is an uncertain falsification test, not a promised win.",
+    "review": "Fresh independent reviewer found no blocking algebra/ownership/state defect; highlighted finite gain and checkpoint scope limitations."
+  }
+}

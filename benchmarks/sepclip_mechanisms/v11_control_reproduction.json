@@ -1,0 +1,9 @@
+{
+  "original_job": 11678,
+  "reproduction_job": 11697,
+  "step_series_exact": true,
+  "return_series_exact": true,
+  "episodes": 7964,
+  "final100": 8729.246918945313,
+  "trailing200k_at7_9M": 8632.022201006685
+}

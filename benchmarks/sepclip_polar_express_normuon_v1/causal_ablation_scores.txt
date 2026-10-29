@@ -1,0 +1,20 @@
+
+  ML queue states (independent of TensorBoard scores):
+  job 11328 [sepclip_normuon_split_v2_actor_hc50m]: cancelled — cancelled by request
+  job 11329 [sepclip_normuon_split_v2_critic_hc50m]: succeeded
+  ! Jobs not reported as succeeded: 11328. Available scores may be partial.
+  Scores do not establish job completion or successful training.
+
+
+  4 runs across 1 env(s)
+
+  HalfCheetah-v4  (4 runs, last 20 eps)
+  ! 1 variant name(s) appear more than once (sepclip_normuon_split_v2_actor_hc50m) -- rows are distinct RUNS, often a cancelled job and its relaunch, which may not be the same code.
+  ! run lengths differ (32k..50.0M): Mean / +-CI95 / Avg all are END-OF-RUN and NOT comparable here.
+   #  Variant                                   Mean   ±CI95  Avg all      Steps     @2M     @4M     @6M     @8M     @24M      @50M
+   1  awr_ce_ppo_sepclip_control_v1_50M      13576.3  1302.5  11145.9   49987008  3674.5  5680.2  7230.3  8390.9  12127.5  ~13964.2
+   2  sepclip_normuon_split_v2_critic_hc50m  12861.5  1387.7  10794.5   49987008  5064.6  6755.3  7721.2  8565.0  11322.0  ~12552.0
+   3  sepclip_normuon_split_v2_actor_hc50m    5279.5    49.7   4087.0    9561008  3699.8  4364.0  4615.0  5026.3       --        --
+   4  sepclip_normuon_split_v2_actor_hc50m    -244.0     nan   -244.0      32000      --      --      --      --       --        --
+    (-- = run never reached this step; ~ = run ended inside the averaging window; ! = fewer than 10 episodes in the window)
+

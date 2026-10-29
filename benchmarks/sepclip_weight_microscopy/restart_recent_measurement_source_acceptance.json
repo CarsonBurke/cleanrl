@@ -1,0 +1,122 @@
+{
+  "captured_at": 1791340742.0836766,
+  "scope": "Basic terminal/source/artifact reconciliation; detailed numerical and empirical interpretation delegated independently. No efficiency or causal attribution established.",
+  "rows": [
+    {
+      "job_id": 11775,
+      "attempt_id": 9466,
+      "exit_code": 0,
+      "artifact": "benchmarks/sepclip_weight_microscopy/chart_numerics.json",
+      "artifact_sha256": "e029d7598d93caf2e5534b0c108ff426dac601de0712c24f3f5638e17079d4b0",
+      "execution_manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_chart_numerics_1791340126128131125.json",
+      "execution_sha256": "a529bafb13dbdd7d817acede152ef643076c57473b1fd57cdf30358593711a9c",
+      "source_checked": 82,
+      "source_discrepancies": [],
+      "artifact_keys": [
+        "protocol",
+        "rows",
+        "actual_candidate_decode_range",
+        "summary",
+        "limitations",
+        "source_sha256"
+      ]
+    },
+    {
+      "job_id": 11781,
+      "attempt_id": 9467,
+      "exit_code": 0,
+      "artifact": "benchmarks/sepclip_weight_microscopy/oracle_geometry_historical.json",
+      "artifact_sha256": "0fa869b8c4027d1287fb093b2a08ceae37a2d2136c7134cbfc327ed3c36787e4",
+      "execution_manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_oracle_geometry_historical_rank_1791340140374419326.json",
+      "execution_sha256": "9a1d3c1cb77161fea826920e05ddc2dd006351dc0477f0035bcd016f6aaa157d",
+      "source_checked": 82,
+      "source_discrepancies": [],
+      "artifact_keys": [
+        "protocol",
+        "results",
+        "imported_source_sha256",
+        "source_sha256"
+      ]
+    },
+    {
+      "job_id": 11886,
+      "attempt_id": 9478,
+      "exit_code": 0,
+      "artifact": "benchmarks/sepclip_weight_microscopy/gait_dense_recovered_v2.json",
+      "artifact_sha256": "c0d3d1d9296949be50e5027530ca859460009411be8e2528ea8c30f3744c7d4a",
+      "execution_manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_gait_dense_recovered_v2_1791340582570192547.json",
+      "execution_sha256": "1246ca42cdea91243d44239226a3ac054f0fc69c72a8aca5a5c81420b1192963",
+      "source_checked": 82,
+      "source_discrepancies": [],
+      "artifact_keys": [
+        "protocol",
+        "results",
+        "source_sha256"
+      ]
+    },
+    {
+      "job_id": 11887,
+      "attempt_id": 9479,
+      "exit_code": 0,
+      "artifact": "benchmarks/sepclip_weight_microscopy/actual_step_dense_recovered_v2.json",
+      "artifact_sha256": "cb5d01beb923b46dc810633cf6a0c1a84cc4a165bd51eb03acaad04abc4d98ef",
+      "execution_manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_actual_step_dense_rank_recovered_v2_1791340654568107497.json",
+      "execution_sha256": "a8360c1f9b581f31acc4f8123a59df54d107819d33776d09b799d434e4b371c0",
+      "source_checked": 83,
+      "source_discrepancies": [
+        "scripts/audit_sepclip_prescription_layer_geometry.py"
+      ],
+      "artifact_keys": [
+        "protocol",
+        "results",
+        "source_sha256",
+        "imported_source_sha256"
+      ],
+      "discrepancy_scope": "New in-progress diagnostic incidental in glob inventory; not a source dependency/import of the executed entrypoint or helper. Preserve recorded hash; no empirical artifact invalidation implied.",
+      "critical_recorded_source_maps": {
+        "source_sha256": "0d23d4b61059a255b7c566fd8088ebea629f357905a3fd7b35928cbb5b848953",
+        "imported_source_sha256": {
+          "/home/marvin/Documents/repositories/cleanrl/scripts/audit_sepclip_oracle_geometry.py": "03bca505a2e00e1b7ca2d93b8982beb4343dc8b24bcd7287100b593611fbc678",
+          "/home/marvin/Documents/repositories/cleanrl/scripts/audit_sepclip_closed_loop_update.py": "761e5ffd86d7432cdc47c21c9ad3a77a8c9d0f50ea39c40b608defdd812cef65",
+          "/home/marvin/Documents/repositories/cleanrl/scripts/audit_sepclip_dense_pg.py": "e7c6fd46e185e158bc7b00b11b9f86f94d3dbd885d6bc6bfea80146f57f2ddac",
+          "/home/marvin/Documents/repositories/cleanrl/scripts/audit_sepclip_physics.py": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114",
+          "/home/marvin/Documents/repositories/cleanrl/cleanrl/ppo_continuous_action_sepclip_rollout_clock_anvil_v7.py": "07f5f9636103dd5fdc9896de3eb781078df8bb1cb9b3ad87bcb79907fc619c8d",
+          "/home/marvin/Documents/repositories/cleanrl/cleanrl/ppo_continuous_action_sepclip_transition_microscopy_v12.py": "b8063ba4c3806d7812d6422c1b4c531d11def5ed58e1a85ccd10cd4591d66867",
+          "/home/marvin/Documents/repositories/cleanrl/cleanrl/shared/runtime.py": "1f86953c69c7e089aaf91c79e4b42ae048a8868929f509fe2e3fa019530434ae"
+        }
+      },
+      "critical_source_discrepancies": []
+    },
+    {
+      "job_id": 11892,
+      "attempt_id": 9480,
+      "exit_code": 0,
+      "artifact": "benchmarks/sepclip_weight_microscopy/closed_loop_anvil_recovered_v2.json",
+      "artifact_sha256": "0f8b45d7875bff727a61399be63404a455a63171f105440c045415979c5661c4",
+      "execution_manifest": "benchmarks/sepclip_weight_microscopy/execution_sources/sepclip_microscopy_closed_loop_anvil_gae_recovered_v2_1791340665374199808.json",
+      "execution_sha256": "8da5f7dab253606fd2d2329a6f4f574fa2116ae33934ee42ca774c876482ad51",
+      "source_checked": 83,
+      "source_discrepancies": [
+        "scripts/audit_sepclip_prescription_layer_geometry.py"
+      ],
+      "artifact_keys": [
+        "protocol",
+        "results",
+        "source_sha256",
+        "helper_sha256"
+      ],
+      "discrepancy_scope": "New in-progress diagnostic incidental in glob inventory; not a source dependency/import of the executed entrypoint or helper. Preserve recorded hash; no empirical artifact invalidation implied.",
+      "critical_recorded_source_maps": {
+        "source_sha256": "2b6dd11213f0aa28a1d6472124c8863e8ca96ba190229e6a1eace4ea1c815e99",
+        "helper_sha256": {
+          "scripts/audit_sepclip_dense_pg.py": "e7c6fd46e185e158bc7b00b11b9f86f94d3dbd885d6bc6bfea80146f57f2ddac",
+          "scripts/audit_sepclip_physics.py": "1d53db1d68f6fb188fb7207513b606a652f70682029e278031cd3adb25605114",
+          "cleanrl/ppo_continuous_action_sepclip_transition_microscopy_v12.py": "b8063ba4c3806d7812d6422c1b4c531d11def5ed58e1a85ccd10cd4591d66867"
+        }
+      },
+      "critical_source_discrepancies": []
+    }
+  ],
+  "previous_receipt_scope_correction": "11775 inventory selection initially matched contracts by common prefix; corrected to exact run_name. In-progress new layer-diagnostic hash drift is incidental inventory, not imported by11887/11892.",
+  "updated_at": 1791340762.9784584
+}

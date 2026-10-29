@@ -1,0 +1,56 @@
+{
+  "id": 11765,
+  "name": "sepclip_microscopy_dense_pg_controls",
+  "state": "queued",
+  "eligibility": "waiting_for_dependencies: jobs [11764]",
+  "maxParallelRuns": 1,
+  "priority": 0,
+  "cwd": "/home/marvin/Documents/repositories/cleanrl",
+  "args": [
+    ".venv/bin/python",
+    "-u",
+    "scripts/run_sepclip_microscopy.py",
+    "--name",
+    "sepclip_microscopy_dense_pg_controls",
+    "--source",
+    "scripts/audit_sepclip_dense_pg.py",
+    "--output-json",
+    "benchmarks/sepclip_weight_microscopy/dense_pg_controls.json",
+    "--",
+    ".venv/bin/python",
+    "-u",
+    "scripts/audit_sepclip_dense_pg.py",
+    "--snapshot",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_4013696.pt",
+    "--snapshot",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590/diagnostic_snapshot_7995008.pt",
+    "--snapshot",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_4013696.pt",
+    "--snapshot",
+    "runs/HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697/diagnostic_snapshot_7995008.pt",
+    "--out",
+    "benchmarks/sepclip_weight_microscopy/dense_pg_controls.json"
+  ],
+  "maxAttempts": 1,
+  "retryDelayMs": 0,
+  "timeLimitMs": 2700000,
+  "attemptCount": 0,
+  "createdAt": 1791261159607,
+  "updatedAt": 1791261159607,
+  "dependencies": [
+    {
+      "parent": 11746,
+      "condition": "succeeded",
+      "parentState": "succeeded",
+      "resolution": "satisfied",
+      "parentOutcome": "succeeded",
+      "resolvedAt": 1791261159607
+    },
+    {
+      "parent": 11764,
+      "condition": "succeeded",
+      "parentState": "queued"
+    }
+  ],
+  "attempts": []
+}

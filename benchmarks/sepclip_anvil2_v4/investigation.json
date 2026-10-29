@@ -1,0 +1,107 @@
+{
+  "status": "source investigation and implementation prepared; numerical contracts and all fresh experiments queued; persistent supervision active",
+  "reference_revision": "4ea6b937337a4889b8cfe3f38a93d120048d8f71",
+  "confirmed_existing_bugs": [
+    "Previously established stale cached optimizer state references after load_state_dict in v2, already fixed in v3; not a cause of fresh training gap."
+  ],
+  "new_findings": [
+    "No additional gross v3 NorMuon algebra or PPO integration bug confirmed by two independent source reviews.",
+    "Literal ANVIL FP32 port would mutate gradients: upstream float() copies BF16 gradients, but aliases existing FP32 tensors. The new port uses out-of-place interpolation.",
+    "ANVIL BF16 arithmetic requires first-Gram FP32 trace normalization and fused polynomial rounding; new port preserves these boundaries pending numerical verification.",
+    "Only matrix LR 0.005 had been freshly benchmarked before this investigation; lower-LR history cases were absent from stored JSON.",
+    "Existing gradients have concentrated singular spectra and whitening worsens held-out alignment; weak-mode amplification remains a hypothesis.",
+    "ANVIL2 best-run evidence combines optimizer with model and training changes, and does not isolate the optimizer benefit."
+  ],
+  "adaptations": [
+    "FP32 master actor weights instead of BF16 weights plus mantissa tracking.",
+    "Reference rail schedule phase fractions transferred to PPO optimizer-step horizon.",
+    "No language-model-specific cautious decay or transposed-storage down-projection role multiplier.",
+    "Adam critics and heads remain matched to the baseline."
+  ],
+  "validation": {
+    "python_parse_compile": "passed",
+    "bash_syntax": "passed",
+    "cuda_contracts": "queued, not executed"
+  },
+  "jobs": [
+    {
+      "id": 11518,
+      "declared_limit": 1,
+      "purpose": "CUDA numerical and checkpoint contracts",
+      "submission_state": "queued"
+    },
+    {
+      "id": 11519,
+      "declared_limit": 1,
+      "purpose": "Held-out real-history learning-rate frontier",
+      "submission_state": "queued"
+    },
+    {
+      "id": 11520,
+      "declared_limit": 1,
+      "purpose": "NorMuon LR 0.0025 momentum 0.95",
+      "submission_state": "queued"
+    },
+    {
+      "id": 11521,
+      "declared_limit": 1,
+      "purpose": "NorMuon LR 0.005 momentum 0.85",
+      "submission_state": "queued"
+    },
+    {
+      "id": 11522,
+      "declared_limit": 1,
+      "purpose": "ANVIL LR 0.0025",
+      "submission_state": "queued"
+    },
+    {
+      "id": 11523,
+      "declared_limit": 1,
+      "purpose": "ANVIL LR 0.005",
+      "submission_state": "queued"
+    },
+    {
+      "id": 11524,
+      "declared_limit": 1,
+      "purpose": "NorMuon LR 0.01 momentum 0.95",
+      "submission_state": "queued"
+    },
+    {
+      "id": 11525,
+      "declared_limit": 1,
+      "purpose": "ANVIL LR 0.01",
+      "submission_state": "queued"
+    },
+    {
+      "id": 11526,
+      "declared_limit": 1,
+      "purpose": "ANVIL LR 0.02",
+      "submission_state": "queued"
+    },
+    {
+      "id": 11527,
+      "declared_limit": 1,
+      "purpose": "ANVIL LR 0.005 FP32 cascade",
+      "submission_state": "queued"
+    },
+    {
+      "id": 11528,
+      "declared_limit": 1,
+      "purpose": "Queue-aware scores and learning curves after all experiment outcomes",
+      "submission_state": "queued"
+    }
+  ],
+  "persistent_supervisor": {
+    "agent_id": "38bebc00-770a-4033-9ac1-870de7f870b7",
+    "run_id": "00018ef6-7c37-4801-975b-16d7b5fcf3b5",
+    "instructions": "supervisor_task.txt",
+    "completion": "Complete tests, repair failures, monitor/cull training, analyze, iterate if warranted, notify parent with evidence."
+  },
+  "limits": [
+    "No new CUDA test or benchmark outcome yet.",
+    "The performance gap is not yet solved.",
+    "All fresh training experiments use HalfCheetah-v4, seed 1, 8M schedule."
+  ],
+  "artifact_role": "Historical implementation handoff snapshot; queued job states and pending validation describe preparation time, not current status.",
+  "current_evidence": "investigation_report.json"
+}

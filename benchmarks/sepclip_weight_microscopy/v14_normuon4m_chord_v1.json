@@ -1,0 +1,1069 @@
+{
+  "replay_validation": {
+    "module": "cleanrl.ppo_continuous_action_sepclip_additive_prerms_anvil_v14",
+    "architecture": "additive_prerms",
+    "snapshot_sha256": "becd8aab82e91f2faf7f78aeb7c982ceed66acfa30638e471409ddc0efeb60bc",
+    "trace_sha256": "08c58b67db6f390f73eb50d73189c8f7a9ebfd3d9ce53791c9e8de679d0a317d",
+    "source_manifest_sha256": "80b4adf1e5301573084b28b3183d1f32dd96b8ed745785f0741c3932b249bbe2",
+    "execution_sha256": "b13583ffefada73030a474a11172b054b62bc9c2e81ad248c6a02b0f4f2c18ea",
+    "exp_name": "sepclip_prescription_v14_additive_normuon",
+    "independently_recorded_logits": false,
+    "logits_source": "Actual pinned compiled actor forward; snapshot has no independently saved latent logits; no inversion or floor-latent certification.",
+    "recorded_forward_max_abs_errors": {
+      "alpha": 0.0,
+      "beta": 0.0,
+      "values": 0.0,
+      "logprob": 0.0
+    },
+    "frozen_row_normalization_max_abs_error": 0.0,
+    "native_physical_action_max_abs_error": 0.0,
+    "floor_shape_count": 576,
+    "reconstruction": {
+      "update_count": 10,
+      "cumulative_endpoint_max_abs_error": 4.656612873077393e-10,
+      "constrained_axis_unit_max_abs_errors": {
+        "old": 1.1920928955078125e-07,
+        "first": 1.1920928955078125e-07,
+        "endpoint": 1.7881393432617188e-07
+      },
+      "first_policy_source": "Old FP32 state plus stored first retracted delta; original first endpoint was not independently saved; subtraction/addition roundoff remains.",
+      "endpoint_policy_source": "Exact full model_after_update; actor banks use its exact recorded actor tensors."
+    }
+  },
+  "full_saved_batch": true,
+  "independently_recorded_logits": false,
+  "artifact_kind": "Actual captured first/end all-actor-parameter chords; derivative numerical audit only",
+  "chord_arithmetic": "First chord uses saved FP32 retracted delta; endpoint chord subtracts exact saved endpoint and old FP32 states in FP32. Neighboring parameters are rounded FP32 ambient additions, not retracted policies.",
+  "chord_audits": {
+    "first_actual_retracted_chord": {
+      "status": "numerical_measurement_only",
+      "requested_ambient_chord_norm": 0.04239033985120845,
+      "parameter_count": 18584,
+      "nonzero_requested_parameter_elements": 18584,
+      "saved_observation_count": 16384,
+      "jvp_norms": {
+        "latent_logits": 66.42316491621618,
+        "alpha": 41.19145253253446,
+        "beta": 46.893916065612416
+      },
+      "independent_graph_primal_max_abs_errors": {
+        "latent_logits": 0.0,
+        "alpha": 0.0,
+        "beta": 0.0
+      },
+      "neighboring_steps": [
+        {
+          "h": 1.0,
+          "status": "measured",
+          "effective_centered_parameter_direction_norm": 0.04239034002073385,
+          "effective_vs_requested_direction_relative_error": 4.88227022280832e-07,
+          "centered_parameter_basepoint_l2_error": 2.069611619857064e-08,
+          "vanished_nonzero_parameter_elements": 0,
+          "vanished_nonzero_parameter_fraction": 0.0,
+          "response_comparisons": {
+            "latent_logits": {
+              "jvp_norm": 66.42316491621618,
+              "centered_primal_norm": 66.42110364887306,
+              "absolute_l2_error": 0.0036884661762601563,
+              "absolute_max_error": 0.00013205409049987793,
+              "relative_l2_error": 5.5529816757642554e-05,
+              "cosine": 0.9999999989396904,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "alpha": {
+              "jvp_norm": 41.19145253253446,
+              "centered_primal_norm": 41.18706969751832,
+              "absolute_l2_error": 0.01672258294194292,
+              "absolute_max_error": 0.002159886062145233,
+              "relative_l2_error": 0.0004059721596060453,
+              "cosine": 0.9999999232457824,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "beta": {
+              "jvp_norm": 46.893916065612416,
+              "centered_primal_norm": 46.89094658030021,
+              "absolute_l2_error": 0.01526057440296249,
+              "absolute_max_error": 0.0007775500416755676,
+              "relative_l2_error": 0.0003254275966547643,
+              "cosine": 0.9999999490501441,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            }
+          },
+          "output_storage_rounding_floors": {
+            "latent_logits": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0011509601401633628,
+              "toward_zero_ulp_sum_over_2h_max": 7.62939453125e-06,
+              "relative_to_jvp_norm": 1.732769195227513e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "alpha": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0007564231361040436,
+              "toward_zero_ulp_sum_over_2h_max": 7.62939453125e-06,
+              "relative_to_jvp_norm": 1.836359461969917e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "beta": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0009011632886477043,
+              "toward_zero_ulp_sum_over_2h_max": 7.62939453125e-06,
+              "relative_to_jvp_norm": 1.921706191879617e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            }
+          },
+          "rounded_shape_floor_counts": {
+            "alpha": {
+              "old": 576,
+              "plus": 557,
+              "minus": 580,
+              "both_neighbors_floor": 556
+            },
+            "beta": {
+              "old": 0,
+              "plus": 0,
+              "minus": 0,
+              "both_neighbors_floor": 0
+            }
+          }
+        },
+        {
+          "h": 0.5,
+          "status": "measured",
+          "effective_centered_parameter_direction_norm": 0.04239034128638243,
+          "effective_vs_requested_direction_relative_error": 4.444120246893192e-05,
+          "centered_parameter_basepoint_l2_error": 1.064466273746004e-08,
+          "vanished_nonzero_parameter_elements": 0,
+          "vanished_nonzero_parameter_fraction": 0.0,
+          "response_comparisons": {
+            "latent_logits": {
+              "jvp_norm": 66.42316491621618,
+              "centered_primal_norm": 66.42281614337699,
+              "absolute_l2_error": 0.0032267633528879243,
+              "absolute_max_error": 5.8010220527648926e-05,
+              "relative_l2_error": 4.8578885949774434e-05,
+              "cosine": 0.999999998833825,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "alpha": {
+              "jvp_norm": 41.19145253253446,
+              "centered_primal_norm": 41.190461721049594,
+              "absolute_l2_error": 0.0046217133625582295,
+              "absolute_max_error": 0.0005404278635978699,
+              "relative_l2_error": 0.00011220078628953026,
+              "cosine": 0.9999999939946403,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "beta": {
+              "jvp_norm": 46.893916065612416,
+              "centered_primal_norm": 46.89332565857727,
+              "absolute_l2_error": 0.004507765090935149,
+              "absolute_max_error": 0.0001971796154975891,
+              "relative_l2_error": 9.61268639758734e-05,
+              "cosine": 0.9999999954590132,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            }
+          },
+          "output_storage_rounding_floors": {
+            "latent_logits": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0023024246902961306,
+              "toward_zero_ulp_sum_over_2h_max": 1.52587890625e-05,
+              "relative_to_jvp_norm": 3.466297779096084e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "alpha": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0015133947259580542,
+              "toward_zero_ulp_sum_over_2h_max": 1.52587890625e-05,
+              "relative_to_jvp_norm": 3.6740503985935475e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "beta": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0018025320061167975,
+              "toward_zero_ulp_sum_over_2h_max": 1.52587890625e-05,
+              "relative_to_jvp_norm": 3.8438504551310115e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            }
+          },
+          "rounded_shape_floor_counts": {
+            "alpha": {
+              "old": 576,
+              "plus": 567,
+              "minus": 577,
+              "both_neighbors_floor": 566
+            },
+            "beta": {
+              "old": 0,
+              "plus": 0,
+              "minus": 0,
+              "both_neighbors_floor": 0
+            }
+          },
+          "neighbor_comparison": {
+            "coarser_h": 1.0,
+            "h_ratio": 0.5,
+            "both_neighbor_chords_representable": true,
+            "current_vanished_nonzero_parameter_fraction": 0.0,
+            "coarser_vanished_nonzero_parameter_fraction": 0.0,
+            "responses": {
+              "latent_logits": {
+                "centered_response_difference_norm": 0.004279434339458042,
+                "centered_response_difference_relative_to_jvp_norm": 6.442683580127458e-05,
+                "error_ratio_to_coarser": 0.8748252522027012
+              },
+              "alpha": {
+                "centered_response_difference_norm": 0.01268786435183976,
+                "centered_response_difference_relative_to_jvp_norm": 0.00030802177567830215,
+                "error_ratio_to_coarser": 0.2763755682123861
+              },
+              "beta": {
+                "centered_response_difference_norm": 0.011701340313679634,
+                "centered_response_difference_relative_to_jvp_norm": 0.0002495278981884879,
+                "error_ratio_to_coarser": 0.29538633159575367
+              }
+            }
+          }
+        },
+        {
+          "h": 0.25,
+          "status": "measured",
+          "effective_centered_parameter_direction_norm": 0.04239030448398295,
+          "effective_vs_requested_direction_relative_error": 7.654383139475816e-05,
+          "centered_parameter_basepoint_l2_error": 2.0948130676341546e-08,
+          "vanished_nonzero_parameter_elements": 1,
+          "vanished_nonzero_parameter_fraction": 5.3809728798966854e-05,
+          "response_comparisons": {
+            "latent_logits": {
+              "jvp_norm": 66.42316491621618,
+              "centered_primal_norm": 66.42267404775515,
+              "absolute_l2_error": 0.006115381332593238,
+              "absolute_max_error": 0.00014579296112060547,
+              "relative_l2_error": 9.206699711323547e-05,
+              "cosine": 0.9999999957891089,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "alpha": {
+              "jvp_norm": 41.19145253253446,
+              "centered_primal_norm": 41.19086667893111,
+              "absolute_l2_error": 0.004045984503365684,
+              "absolute_max_error": 0.00013571232557296753,
+              "relative_l2_error": 9.822388516573974e-05,
+              "cosine": 0.9999999952771097,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "beta": {
+              "jvp_norm": 46.893916065612416,
+              "centered_primal_norm": 46.8935313129672,
+              "absolute_l2_error": 0.004713451379072703,
+              "absolute_max_error": 0.00014579296112060547,
+              "relative_l2_error": 0.00010051306810200706,
+              "cosine": 0.9999999949821795,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            }
+          },
+          "output_storage_rounding_floors": {
+            "latent_logits": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.004605212769728806,
+              "toward_zero_ulp_sum_over_2h_max": 3.0517578125e-05,
+              "relative_to_jvp_norm": 6.93314264012812e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "alpha": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0030273139746634656,
+              "toward_zero_ulp_sum_over_2h_max": 3.0517578125e-05,
+              "relative_to_jvp_norm": 7.349374174830049e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "beta": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.003605023457587366,
+              "toward_zero_ulp_sum_over_2h_max": 3.0517578125e-05,
+              "relative_to_jvp_norm": 7.687614428582455e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            }
+          },
+          "rounded_shape_floor_counts": {
+            "alpha": {
+              "old": 576,
+              "plus": 569,
+              "minus": 578,
+              "both_neighbors_floor": 569
+            },
+            "beta": {
+              "old": 0,
+              "plus": 0,
+              "minus": 0,
+              "both_neighbors_floor": 0
+            }
+          },
+          "neighbor_comparison": {
+            "coarser_h": 0.5,
+            "h_ratio": 0.5,
+            "both_neighbor_chords_representable": true,
+            "current_vanished_nonzero_parameter_fraction": 5.3809728798966854e-05,
+            "coarser_vanished_nonzero_parameter_fraction": 0.0,
+            "responses": {
+              "latent_logits": {
+                "centered_response_difference_norm": 0.0069609678401377955,
+                "centered_response_difference_relative_to_jvp_norm": 0.00010479729246443034,
+                "error_ratio_to_coarser": 1.8952060203361447
+              },
+              "alpha": {
+                "centered_response_difference_norm": 0.005382333229440363,
+                "centered_response_difference_relative_to_jvp_norm": 0.0001306662644437995,
+                "error_ratio_to_coarser": 0.8754295617169418
+              },
+              "beta": {
+                "centered_response_difference_norm": 0.006006316785040428,
+                "centered_response_difference_relative_to_jvp_norm": 0.00012808307108829614,
+                "error_ratio_to_coarser": 1.0456293271695052
+              }
+            }
+          }
+        },
+        {
+          "h": 0.125,
+          "status": "measured",
+          "effective_centered_parameter_direction_norm": 0.042390279654046875,
+          "effective_vs_requested_direction_relative_error": 0.00014590346130697823,
+          "centered_parameter_basepoint_l2_error": 1.1354784344536837e-08,
+          "vanished_nonzero_parameter_elements": 2,
+          "vanished_nonzero_parameter_fraction": 0.00010761945759793371,
+          "response_comparisons": {
+            "latent_logits": {
+              "jvp_norm": 66.42316491621618,
+              "centered_primal_norm": 66.42334010285919,
+              "absolute_l2_error": 0.012189979505548221,
+              "absolute_max_error": 0.00025503337383270264,
+              "relative_l2_error": 0.0001835200042172671,
+              "cosine": 0.9999999831637263,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "alpha": {
+              "jvp_norm": 41.19145253253446,
+              "centered_primal_norm": 41.19112110743292,
+              "absolute_l2_error": 0.007796763647546428,
+              "absolute_max_error": 0.00020536035299301147,
+              "relative_l2_error": 0.00018928110489398908,
+              "cosine": 0.9999999821185567,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "beta": {
+              "jvp_norm": 46.893916065612416,
+              "centered_primal_norm": 46.89434085901543,
+              "absolute_l2_error": 0.009210498614657074,
+              "absolute_max_error": 0.00025503337383270264,
+              "relative_l2_error": 0.00019641137672891403,
+              "cosine": 0.9999999807524893,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            }
+          },
+          "output_storage_rounding_floors": {
+            "latent_logits": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.009210492970170316,
+              "toward_zero_ulp_sum_over_2h_max": 6.103515625e-05,
+              "relative_to_jvp_norm": 0.00013866386797118302,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "alpha": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.006055252566560029,
+              "toward_zero_ulp_sum_over_2h_max": 6.103515625e-05,
+              "relative_to_jvp_norm": 0.0001470026472549706,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "beta": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.007209531840411853,
+              "toward_zero_ulp_sum_over_2h_max": 6.103515625e-05,
+              "relative_to_jvp_norm": 0.00015374130474248544,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            }
+          },
+          "rounded_shape_floor_counts": {
+            "alpha": {
+              "old": 576,
+              "plus": 572,
+              "minus": 577,
+              "both_neighbors_floor": 572
+            },
+            "beta": {
+              "old": 0,
+              "plus": 0,
+              "minus": 0,
+              "both_neighbors_floor": 0
+            }
+          },
+          "neighbor_comparison": {
+            "coarser_h": 0.25,
+            "h_ratio": 0.5,
+            "both_neighbor_chords_representable": true,
+            "current_vanished_nonzero_parameter_fraction": 0.00010761945759793371,
+            "coarser_vanished_nonzero_parameter_fraction": 5.3809728798966854e-05,
+            "responses": {
+              "latent_logits": {
+                "centered_response_difference_norm": 0.013679149895818006,
+                "centered_response_difference_relative_to_jvp_norm": 0.0002059394476772132,
+                "error_ratio_to_coarser": 1.9933310520766887
+              },
+              "alpha": {
+                "centered_response_difference_norm": 0.008776310126690041,
+                "centered_response_difference_relative_to_jvp_norm": 0.00021306143840783964,
+                "error_ratio_to_coarser": 1.9270374468959603
+              },
+              "beta": {
+                "centered_response_difference_norm": 0.010349699462715483,
+                "centered_response_difference_relative_to_jvp_norm": 0.0002207045248307803,
+                "error_ratio_to_coarser": 1.954087965254262
+              }
+            }
+          }
+        },
+        {
+          "h": 0.0625,
+          "status": "measured",
+          "effective_centered_parameter_direction_norm": 0.04239016238440926,
+          "effective_vs_requested_direction_relative_error": 0.0002881115959570601,
+          "centered_parameter_basepoint_l2_error": 4.703877231950125e-09,
+          "vanished_nonzero_parameter_elements": 5,
+          "vanished_nonzero_parameter_fraction": 0.00026904864399483427,
+          "response_comparisons": {
+            "latent_logits": {
+              "jvp_norm": 66.42316491621618,
+              "centered_primal_norm": 66.42203081811002,
+              "absolute_l2_error": 0.024322095291696995,
+              "absolute_max_error": 0.0005342811346054077,
+              "relative_l2_error": 0.00036616887079042414,
+              "cosine": 0.9999999331047947,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "alpha": {
+              "jvp_norm": 41.19145253253446,
+              "centered_primal_norm": 41.19036194508195,
+              "absolute_l2_error": 0.015529566392495349,
+              "absolute_max_error": 0.00038129277527332306,
+              "relative_l2_error": 0.00037700943855353364,
+              "cosine": 0.9999999292805601,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "beta": {
+              "jvp_norm": 46.893916065612416,
+              "centered_primal_norm": 46.89373334261899,
+              "absolute_l2_error": 0.018349427182168334,
+              "absolute_max_error": 0.0005342811346054077,
+              "relative_l2_error": 0.0003912965416770573,
+              "cosine": 0.9999999234508015,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            }
+          },
+          "output_storage_rounding_floors": {
+            "latent_logits": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.018421288006855656,
+              "toward_zero_ulp_sum_over_2h_max": 0.0001220703125,
+              "relative_to_jvp_norm": 0.0002773322835503489,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "alpha": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.012111222332319661,
+              "toward_zero_ulp_sum_over_2h_max": 0.0001220703125,
+              "relative_to_jvp_norm": 0.0002940227058697139,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "beta": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.014418962002194566,
+              "toward_zero_ulp_sum_over_2h_max": 0.0001220703125,
+              "relative_to_jvp_norm": 0.00030748044121587184,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            }
+          },
+          "rounded_shape_floor_counts": {
+            "alpha": {
+              "old": 576,
+              "plus": 573,
+              "minus": 576,
+              "both_neighbors_floor": 573
+            },
+            "beta": {
+              "old": 0,
+              "plus": 0,
+              "minus": 0,
+              "both_neighbors_floor": 0
+            }
+          },
+          "neighbor_comparison": {
+            "coarser_h": 0.125,
+            "h_ratio": 0.5,
+            "both_neighbor_chords_representable": true,
+            "current_vanished_nonzero_parameter_fraction": 0.00026904864399483427,
+            "coarser_vanished_nonzero_parameter_fraction": 0.00010761945759793371,
+            "responses": {
+              "latent_logits": {
+                "centered_response_difference_norm": 0.02723786210201352,
+                "centered_response_difference_relative_to_jvp_norm": 0.00041006570729308655,
+                "error_ratio_to_coarser": 1.9952531733648025
+              },
+              "alpha": {
+                "centered_response_difference_norm": 0.01747139361078925,
+                "centered_response_difference_relative_to_jvp_norm": 0.0004241509472624139,
+                "error_ratio_to_coarser": 1.9917964805028257
+              },
+              "beta": {
+                "centered_response_difference_norm": 0.020462428426289,
+                "centered_response_difference_relative_to_jvp_norm": 0.0004363557182483682,
+                "error_ratio_to_coarser": 1.9922295143683184
+              }
+            }
+          }
+        }
+      ],
+      "zero_requested_chord": false,
+      "scope": "Ambient actor parameter chord at old weights; no constraint retraction on neighbors. AD shape chain is a smooth-score convention, not derivative of FP32 rounding.",
+      "limitations": [
+        "All requested neighboring h values are retained; no post-hoc best-h selection or automated derivative certification.",
+        "Relative error and cosine are undefined for null reference/finite directions; no numerical denominator floor invents a sign.",
+        "Agreement concerns saved observations and this chord, not future states, physical PG, finite return or optimizer efficacy.",
+        "Finite nonlinear chord error and FP32 rounding can compete as h decreases; shape-floor disagreement does not establish hidden-layer starvation."
+      ]
+    },
+    "saved_endpoint_minus_old_chord": {
+      "status": "numerical_measurement_only",
+      "requested_ambient_chord_norm": 0.32159715558162066,
+      "parameter_count": 18584,
+      "nonzero_requested_parameter_elements": 18584,
+      "saved_observation_count": 16384,
+      "jvp_norms": {
+        "latent_logits": 120.11451473666065,
+        "alpha": 75.8868389444254,
+        "beta": 86.0226834978864
+      },
+      "independent_graph_primal_max_abs_errors": {
+        "latent_logits": 0.0,
+        "alpha": 0.0,
+        "beta": 0.0
+      },
+      "neighboring_steps": [
+        {
+          "h": 1.0,
+          "status": "measured",
+          "effective_centered_parameter_direction_norm": 0.32159715643427983,
+          "effective_vs_requested_direction_relative_error": 2.09889383043371e-07,
+          "centered_parameter_basepoint_l2_error": 6.750110838002255e-08,
+          "vanished_nonzero_parameter_elements": 0,
+          "vanished_nonzero_parameter_fraction": 0.0,
+          "response_comparisons": {
+            "latent_logits": {
+              "jvp_norm": 120.11451473666065,
+              "centered_primal_norm": 120.07850327333378,
+              "absolute_l2_error": 0.0822671749049115,
+              "absolute_max_error": 0.010280966758728027,
+              "relative_l2_error": 0.0006849061921057106,
+              "cosine": 0.9999998103377365,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "alpha": {
+              "jvp_norm": 75.8868389444254,
+              "centered_primal_norm": 75.85871605517521,
+              "absolute_l2_error": 0.10117029433928565,
+              "absolute_max_error": 0.02084118127822876,
+              "relative_l2_error": 0.0013331731265467022,
+              "cosine": 0.9999991796891122,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "beta": {
+              "jvp_norm": 86.0226834978864,
+              "centered_primal_norm": 85.99686948327411,
+              "absolute_l2_error": 0.07669094244803105,
+              "absolute_max_error": 0.035263240337371826,
+              "relative_l2_error": 0.0008915199960010009,
+              "cosine": 0.9999996475154199,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            }
+          },
+          "output_storage_rounding_floors": {
+            "latent_logits": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0011502553743780296,
+              "toward_zero_ulp_sum_over_2h_max": 7.62939453125e-06,
+              "relative_to_jvp_norm": 9.576322869054188e-06,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "alpha": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.000755735173555866,
+              "toward_zero_ulp_sum_over_2h_max": 7.62939453125e-06,
+              "relative_to_jvp_norm": 9.958711998918776e-06,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "beta": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0009007037461210617,
+              "toward_zero_ulp_sum_over_2h_max": 7.62939453125e-06,
+              "relative_to_jvp_norm": 1.0470537647703029e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            }
+          },
+          "rounded_shape_floor_counts": {
+            "alpha": {
+              "old": 576,
+              "plus": 642,
+              "minus": 512,
+              "both_neighbors_floor": 510
+            },
+            "beta": {
+              "old": 0,
+              "plus": 0,
+              "minus": 0,
+              "both_neighbors_floor": 0
+            }
+          }
+        },
+        {
+          "h": 0.5,
+          "status": "measured",
+          "effective_centered_parameter_direction_norm": 0.3215971317641356,
+          "effective_vs_requested_direction_relative_error": 5.7065382854091815e-06,
+          "centered_parameter_basepoint_l2_error": 4.957281032422769e-08,
+          "vanished_nonzero_parameter_elements": 0,
+          "vanished_nonzero_parameter_fraction": 0.0,
+          "response_comparisons": {
+            "latent_logits": {
+              "jvp_norm": 120.11451473666065,
+              "centered_primal_norm": 120.10565655228075,
+              "absolute_l2_error": 0.020787102271662167,
+              "absolute_max_error": 0.0025838613510131836,
+              "relative_l2_error": 0.00017306070225764022,
+              "cosine": 0.9999999877434638,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "alpha": {
+              "jvp_norm": 75.8868389444254,
+              "centered_primal_norm": 75.87973077365622,
+              "absolute_l2_error": 0.025781497520442384,
+              "absolute_max_error": 0.005438625812530518,
+              "relative_l2_error": 0.0003397360843996029,
+              "cosine": 0.9999999466715513,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "beta": {
+              "jvp_norm": 86.0226834978864,
+              "centered_primal_norm": 86.01650641257922,
+              "absolute_l2_error": 0.01976336771338167,
+              "absolute_max_error": 0.009754359722137451,
+              "relative_l2_error": 0.00022974600314424346,
+              "cosine": 0.999999976184845,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            }
+          },
+          "output_storage_rounding_floors": {
+            "latent_logits": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.002301749106165151,
+              "toward_zero_ulp_sum_over_2h_max": 1.52587890625e-05,
+              "relative_to_jvp_norm": 1.9162955544644302e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "alpha": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0015125773559360877,
+              "toward_zero_ulp_sum_over_2h_max": 1.52587890625e-05,
+              "relative_to_jvp_norm": 1.9932011623831124e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "beta": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0018020475151695199,
+              "toward_zero_ulp_sum_over_2h_max": 1.52587890625e-05,
+              "relative_to_jvp_norm": 2.0948515460039056e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            }
+          },
+          "rounded_shape_floor_counts": {
+            "alpha": {
+              "old": 576,
+              "plus": 608,
+              "minus": 535,
+              "both_neighbors_floor": 533
+            },
+            "beta": {
+              "old": 0,
+              "plus": 0,
+              "minus": 0,
+              "both_neighbors_floor": 0
+            }
+          },
+          "neighbor_comparison": {
+            "coarser_h": 1.0,
+            "h_ratio": 0.5,
+            "both_neighbor_chords_representable": true,
+            "current_vanished_nonzero_parameter_fraction": 0.0,
+            "coarser_vanished_nonzero_parameter_fraction": 0.0,
+            "responses": {
+              "latent_logits": {
+                "centered_response_difference_norm": 0.06179430222420226,
+                "centered_response_difference_relative_to_jvp_norm": 0.0005144615732718085,
+                "error_ratio_to_coarser": 0.25267796415385524
+              },
+              "alpha": {
+                "centered_response_difference_norm": 0.07549488059789355,
+                "centered_response_difference_relative_to_jvp_norm": 0.0009948349627948148,
+                "error_ratio_to_coarser": 0.2548326827436254
+              },
+              "beta": {
+                "centered_response_difference_norm": 0.05714960089907129,
+                "centered_response_difference_relative_to_jvp_norm": 0.0006643550116693985,
+                "error_ratio_to_coarser": 0.257701458379836
+              }
+            }
+          }
+        },
+        {
+          "h": 0.25,
+          "status": "measured",
+          "effective_centered_parameter_direction_norm": 0.32159715080313367,
+          "effective_vs_requested_direction_relative_error": 1.0229370954628136e-05,
+          "centered_parameter_basepoint_l2_error": 3.919565141378108e-08,
+          "vanished_nonzero_parameter_elements": 0,
+          "vanished_nonzero_parameter_fraction": 0.0,
+          "response_comparisons": {
+            "latent_logits": {
+              "jvp_norm": 120.11451473666065,
+              "centered_primal_norm": 120.1119048800167,
+              "absolute_l2_error": 0.008199278652474813,
+              "absolute_max_error": 0.0006498098373413086,
+              "relative_l2_error": 6.826218022402148e-05,
+              "cosine": 0.9999999979061462,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "alpha": {
+              "jvp_norm": 75.8868389444254,
+              "centered_primal_norm": 75.8849755581078,
+              "absolute_l2_error": 0.00765033508508384,
+              "absolute_max_error": 0.0013759732246398926,
+              "relative_l2_error": 0.00010081240952316447,
+              "cosine": 0.9999999952197808,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "beta": {
+              "jvp_norm": 86.0226834978864,
+              "centered_primal_norm": 86.02062176167492,
+              "absolute_l2_error": 0.006921882782669193,
+              "absolute_max_error": 0.002509772777557373,
+              "relative_l2_error": 8.046578531625633e-05,
+              "cosine": 0.999999997049775,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            }
+          },
+          "output_storage_rounding_floors": {
+            "latent_logits": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.004604355660265956,
+              "toward_zero_ulp_sum_over_2h_max": 3.0517578125e-05,
+              "relative_to_jvp_norm": 3.833304967647379e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "alpha": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.003026535787820281,
+              "toward_zero_ulp_sum_over_2h_max": 3.0517578125e-05,
+              "relative_to_jvp_norm": 3.988222239743995e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "beta": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0036051310320438456,
+              "toward_zero_ulp_sum_over_2h_max": 3.0517578125e-05,
+              "relative_to_jvp_norm": 4.190907427495475e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            }
+          },
+          "rounded_shape_floor_counts": {
+            "alpha": {
+              "old": 576,
+              "plus": 586,
+              "minus": 552,
+              "both_neighbors_floor": 551
+            },
+            "beta": {
+              "old": 0,
+              "plus": 0,
+              "minus": 0,
+              "both_neighbors_floor": 0
+            }
+          },
+          "neighbor_comparison": {
+            "coarser_h": 0.5,
+            "h_ratio": 0.5,
+            "both_neighbor_chords_representable": true,
+            "current_vanished_nonzero_parameter_fraction": 0.0,
+            "coarser_vanished_nonzero_parameter_fraction": 0.0,
+            "responses": {
+              "latent_logits": {
+                "centered_response_difference_norm": 0.01682000587015298,
+                "centered_response_difference_relative_to_jvp_norm": 0.00014003308348728045,
+                "error_ratio_to_coarser": 0.3944406750551474
+              },
+              "alpha": {
+                "centered_response_difference_norm": 0.01972253343094889,
+                "centered_response_difference_relative_to_jvp_norm": 0.00025989399091181536,
+                "error_ratio_to_coarser": 0.2967374210523582
+              },
+              "beta": {
+                "centered_response_difference_norm": 0.015504062887367595,
+                "centered_response_difference_relative_to_jvp_norm": 0.0001802322626653298,
+                "error_ratio_to_coarser": 0.35023802031383666
+              }
+            }
+          }
+        },
+        {
+          "h": 0.125,
+          "status": "measured",
+          "effective_centered_parameter_direction_norm": 0.3215971910037982,
+          "effective_vs_requested_direction_relative_error": 1.906233566534655e-05,
+          "centered_parameter_basepoint_l2_error": 2.395634409794095e-08,
+          "vanished_nonzero_parameter_elements": 0,
+          "vanished_nonzero_parameter_fraction": 0.0,
+          "response_comparisons": {
+            "latent_logits": {
+              "jvp_norm": 120.11451473666065,
+              "centered_primal_norm": 120.11387203997003,
+              "absolute_l2_error": 0.01221676409270928,
+              "absolute_max_error": 0.0002551078796386719,
+              "relative_l2_error": 0.00010170930731804846,
+              "cosine": 0.999999994841896,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "alpha": {
+              "jvp_norm": 75.8868389444254,
+              "centered_primal_norm": 75.8860911738235,
+              "absolute_l2_error": 0.007980886799091359,
+              "absolute_max_error": 0.0003339052200317383,
+              "relative_l2_error": 0.00010516825987357362,
+              "cosine": 0.9999999945183128,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "beta": {
+              "jvp_norm": 86.0226834978864,
+              "centered_primal_norm": 86.02252104239314,
+              "absolute_l2_error": 0.009207514779973705,
+              "absolute_max_error": 0.0006281733512878418,
+              "relative_l2_error": 0.0001070358933896771,
+              "cosine": 0.9999999942734311,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            }
+          },
+          "output_storage_rounding_floors": {
+            "latent_logits": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.009210223217836606,
+              "toward_zero_ulp_sum_over_2h_max": 6.103515625e-05,
+              "relative_to_jvp_norm": 7.66786864853854e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "alpha": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.006054033172793821,
+              "toward_zero_ulp_sum_over_2h_max": 6.103515625e-05,
+              "relative_to_jvp_norm": 7.977711625631689e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "beta": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.007210691853895922,
+              "toward_zero_ulp_sum_over_2h_max": 6.103515625e-05,
+              "relative_to_jvp_norm": 8.382314478800339e-05,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            }
+          },
+          "rounded_shape_floor_counts": {
+            "alpha": {
+              "old": 576,
+              "plus": 578,
+              "minus": 565,
+              "both_neighbors_floor": 564
+            },
+            "beta": {
+              "old": 0,
+              "plus": 0,
+              "minus": 0,
+              "both_neighbors_floor": 0
+            }
+          },
+          "neighbor_comparison": {
+            "coarser_h": 0.25,
+            "h_ratio": 0.5,
+            "both_neighbor_chords_representable": true,
+            "current_vanished_nonzero_parameter_fraction": 0.0,
+            "coarser_vanished_nonzero_parameter_fraction": 0.0,
+            "responses": {
+              "latent_logits": {
+                "centered_response_difference_norm": 0.014414806456878596,
+                "centered_response_difference_relative_to_jvp_norm": 0.00012000886394522471,
+                "error_ratio_to_coarser": 1.4899803519937522
+              },
+              "alpha": {
+                "centered_response_difference_norm": 0.010237659703368089,
+                "centered_response_difference_relative_to_jvp_norm": 0.0001349069199056438,
+                "error_ratio_to_coarser": 1.0432074818071706
+              },
+              "beta": {
+                "centered_response_difference_norm": 0.01103429863743723,
+                "centered_response_difference_relative_to_jvp_norm": 0.00012827196489061335,
+                "error_ratio_to_coarser": 1.3302037999006875
+              }
+            }
+          }
+        },
+        {
+          "h": 0.0625,
+          "status": "measured",
+          "effective_centered_parameter_direction_norm": 0.32159720635759736,
+          "effective_vs_requested_direction_relative_error": 3.752244806575404e-05,
+          "centered_parameter_basepoint_l2_error": 1.7399744216367686e-08,
+          "vanished_nonzero_parameter_elements": 0,
+          "vanished_nonzero_parameter_fraction": 0.0,
+          "response_comparisons": {
+            "latent_logits": {
+              "jvp_norm": 120.11451473666065,
+              "centered_primal_norm": 120.1139308998268,
+              "absolute_l2_error": 0.024636687783052242,
+              "absolute_max_error": 0.0005196928977966309,
+              "relative_l2_error": 0.00020510999721445633,
+              "cosine": 0.9999999789766553,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "alpha": {
+              "jvp_norm": 75.8868389444254,
+              "centered_primal_norm": 75.88637384471845,
+              "absolute_l2_error": 0.015722435472799372,
+              "absolute_max_error": 0.0003739893436431885,
+              "relative_l2_error": 0.00020718263787892737,
+              "cosine": 0.9999999785563273,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            },
+            "beta": {
+              "jvp_norm": 86.0226834978864,
+              "centered_primal_norm": 86.0223288744618,
+              "absolute_l2_error": 0.01864893198159842,
+              "absolute_max_error": 0.0005196928977966309,
+              "relative_l2_error": 0.0002167908651914658,
+              "cosine": 0.9999999765092606,
+              "null_jvp": false,
+              "zero_rounded_primal_response": false,
+              "scope": "Smooth compiled AD chain versus rounded FP32 centered primal; shape-floor plateaus can disagree with a nonzero smooth-chain derivative."
+            }
+          },
+          "output_storage_rounding_floors": {
+            "latent_logits": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.0184217651233035,
+              "toward_zero_ulp_sum_over_2h_max": 0.0001220703125,
+              "relative_to_jvp_norm": 0.00015336835155760667,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "alpha": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.012110205923029131,
+              "toward_zero_ulp_sum_over_2h_max": 0.0001220703125,
+              "relative_to_jvp_norm": 0.0001595824268276329,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            },
+            "beta": {
+              "toward_zero_ulp_sum_over_2h_l2": 0.014421168872874377,
+              "toward_zero_ulp_sum_over_2h_max": 0.0001220703125,
+              "relative_to_jvp_norm": 0.00016764379215429508,
+              "scope": "FP32 output-storage spacing heuristic only; toward-zero spacing varies across binades and excludes accumulated compiled-primal roundoff. Not a rigorous error bound or derivative certificate."
+            }
+          },
+          "rounded_shape_floor_counts": {
+            "alpha": {
+              "old": 576,
+              "plus": 577,
+              "minus": 569,
+              "both_neighbors_floor": 569
+            },
+            "beta": {
+              "old": 0,
+              "plus": 0,
+              "minus": 0,
+              "both_neighbors_floor": 0
+            }
+          },
+          "neighbor_comparison": {
+            "coarser_h": 0.125,
+            "h_ratio": 0.5,
+            "both_neighbor_chords_representable": true,
+            "current_vanished_nonzero_parameter_fraction": 0.0,
+            "coarser_vanished_nonzero_parameter_fraction": 0.0,
+            "responses": {
+              "latent_logits": {
+                "centered_response_difference_norm": 0.02742967528971226,
+                "centered_response_difference_relative_to_jvp_norm": 0.0002283627032906818,
+                "error_ratio_to_coarser": 2.016629575237106
+              },
+              "alpha": {
+                "centered_response_difference_norm": 0.017623765075866698,
+                "centered_response_difference_relative_to_jvp_norm": 0.00023223743828324698,
+                "error_ratio_to_coarser": 1.9700110863105347
+              },
+              "beta": {
+                "centered_response_difference_norm": 0.020685566858823518,
+                "centered_response_difference_relative_to_jvp_norm": 0.00024046642138677023,
+                "error_ratio_to_coarser": 2.025403426140542
+              }
+            }
+          }
+        }
+      ],
+      "zero_requested_chord": false,
+      "scope": "Ambient actor parameter chord at old weights; no constraint retraction on neighbors. AD shape chain is a smooth-score convention, not derivative of FP32 rounding.",
+      "limitations": [
+        "All requested neighboring h values are retained; no post-hoc best-h selection or automated derivative certification.",
+        "Relative error and cosine are undefined for null reference/finite directions; no numerical denominator floor invents a sign.",
+        "Agreement concerns saved observations and this chord, not future states, physical PG, finite return or optimizer efficacy.",
+        "Finite nonlinear chord error and FP32 rounding can compete as h decreases; shape-floor disagreement does not establish hidden-layer starvation."
+      ]
+    }
+  },
+  "source_sha256": {
+    "/home/marvin/Documents/repositories/cleanrl/scripts/audit_sepclip_prescription_chord_jvp.py": "3c9fcc0adbaf95c01aa36d93e0ca64d1f37c276bc2fbc556d3264a682f9ded9d",
+    "/home/marvin/Documents/repositories/cleanrl/scripts/sepclip_prescription_replay.py": "7edfc432775a0098a60d63cb3c8642c65a599c3e8ae8fa2cc2f3354885d1dcf9"
+  }
+}

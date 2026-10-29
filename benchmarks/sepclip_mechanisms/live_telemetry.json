@@ -1,0 +1,77 @@
+[
+  {
+    "variant": "sepclip_mechanisms_adam_reference",
+    "step": 7995008,
+    "completed_8m": true,
+    "final100_if_full_budget": 8281.17818359375,
+    "matched": {
+      "1000000": 2615.7108629520853,
+      "2000000": 4630.7030106729535,
+      "4000000": 6506.113193796642,
+      "6000000": 7580.259187461132,
+      "7900000": 8308.72625944982
+    },
+    "grad/actor_preclip_norm": {
+      "last": 0.038610171526670456,
+      "mean1to4M": 0.044135238649578044
+    }
+  },
+  {
+    "variant": "sepclip_mechanisms_noise_full",
+    "step": 7995008,
+    "completed_8m": true,
+    "final100_if_full_budget": 6932.200215148926,
+    "matched": {
+      "1000000": 2146.322701069846,
+      "2000000": 4196.47567862895,
+      "4000000": 4966.3328010217465,
+      "6000000": 6221.515102709111,
+      "7900000": 6985.275306056388
+    },
+    "matrix_last/bank0_noise_to_signal": {
+      "last": 0.5892924070358276,
+      "mean1to4M": 5.418580221348122
+    },
+    "matrix_last/bank0_effective_polar_norm": {
+      "last": 2.973855972290039,
+      "mean1to4M": 1.6634915161653947
+    },
+    "grad/actor_preclip_norm": {
+      "last": 0.059683799743652344,
+      "mean1to4M": 0.05703531066210218
+    },
+    "losses/post_final_epoch_exact_kl": {
+      "last": 5.301180135575123e-05,
+      "mean1to4M": 0.015998126821887622
+    }
+  },
+  {
+    "variant": "sepclip_mechanisms_noise_low",
+    "step": 1405008,
+    "completed_8m": false,
+    "final100_if_full_budget": null,
+    "matched": {
+      "1000000": 1944.6414920939735,
+      "2000000": null,
+      "4000000": null,
+      "6000000": null,
+      "7900000": null
+    },
+    "matrix_last/bank0_noise_to_signal": {
+      "last": 4.583703994750977,
+      "mean1to4M": 5.5758968989054365
+    },
+    "matrix_last/bank0_effective_polar_norm": {
+      "last": 2.2912025451660156,
+      "mean1to4M": 2.272272616624832
+    },
+    "grad/actor_preclip_norm": {
+      "last": 0.05128463730216026,
+      "mean1to4M": 0.04711749389146765
+    },
+    "losses/post_final_epoch_exact_kl": {
+      "last": 0.026266152039170265,
+      "mean1to4M": 0.023466814309358597
+    }
+  }
+]

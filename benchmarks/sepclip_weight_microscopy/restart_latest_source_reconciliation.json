@@ -1,0 +1,36 @@
+{
+  "updated_at": 1791346181.6601794,
+  "scope": "Read-only byte reconciliation; no numerical execution or parity certification. Frozen trainer files unchanged.",
+  "manifests": [
+    {
+      "manifest": "benchmarks/sepclip_prescription_v14/source_manifest_v14.json",
+      "sha256": "80b4adf1e5301573084b28b3183d1f32dd96b8ed745785f0741c3932b249bbe2",
+      "pinned_source_count": 49,
+      "mismatches": []
+    },
+    {
+      "manifest": "benchmarks/sepclip_prescription_v14/source_manifest_v15.json",
+      "sha256": "25c229c57ceed4376084fea0b25dd7722e898dfc15edeeae02a845eddb40fc17",
+      "pinned_source_count": 49,
+      "mismatches": []
+    },
+    {
+      "manifest": "benchmarks/sepclip_prescription_v14/source_manifest_layer_geometry_contracts_v2.json",
+      "sha256": "e47587d9620648c38b0f07854554bdd00b6c90ce0942077659d4ace02a4e17fe",
+      "pinned_source_count": 66,
+      "mismatches": []
+    },
+    {
+      "manifest": "benchmarks/sepclip_prescription_v14/source_manifest_optimizer_forensics_contracts_v1.json",
+      "sha256": "9198410e93c9a0da8614c24f12837d1530f8af933bd60fcf117c3f830b95d2a0",
+      "pinned_source_count": 68,
+      "mismatches": []
+    },
+    {
+      "manifest": "benchmarks/sepclip_prescription_v14/source_manifest_first_gradient_contracts_v1.json",
+      "sha256": "408167e367ac5b2bf675a676df2da7dff392e4bd66494968dc0d7869857f12e3",
+      "pinned_source_count": 70,
+      "mismatches": []
+    }
+  ]
+}
