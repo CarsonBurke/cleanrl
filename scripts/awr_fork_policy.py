@@ -4,11 +4,13 @@
     CLEANRL_FORK_STEPS=8000000 python scripts/awr_fork_policy.py <the trainer's usual arguments>
 
 The snapshot (scripts/awr_capture_policy.py, format 3) supplies the actor and critic weights, every
-parameter's Adam state and the observation/reward normalizer statistics. They are loaded into the
+parameter's Adam state and the observation/reward normalizer statistics; the actor's Adam state is reset
+unless CLEANRL_FORK_ACTOR_ADAM=keep, since it is sized to the snapshot rule's gradient scale. They are loaded into the
 trainer just before its phase warmup, so the warmup and every rollout after it use the captured policy.
 The learning-rate schedule continues exactly where the snapshot's run was: --total-timesteps and
 --learning-rate are rewritten so that the fork's first iteration uses the snapshot iteration's rate and
-the linear anneal keeps the original slope. The run stops after CLEANRL_FORK_STEPS environment steps.
+the linear anneal keeps the original slope. The run stops at the first update after CLEANRL_FORK_STEPS
+environment steps (warmup transitions included); logged steps count from the fork, not the snapshot.
 
 One update from a snapshot cannot see what compounds across updates (the data the policy collects next,
 the critic co-adapting, Adam's state, entropy drift). Forks of several trainers from one snapshot, all
@@ -26,7 +28,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # Arguments a fork must share with the snapshot's run for the continuation to be the same problem.
-MATCHED_ARGS = ("env_id", "num_envs", "num_steps", "gamma", "gae_lambda", "num_minibatches")
+MATCHED_ARGS = ("env_id", "num_envs", "num_steps", "gamma", "gae_lambda", "num_minibatches", "staggered_starts")
 
 
 class ForkComplete(Exception):
@@ -61,7 +63,7 @@ def rewrite_argv(argv, snapshot):
     return kept + ["--total-timesteps", str(total), "--learning-rate", repr(learning_rate), *schedule]
 
 
-def load_state(local, snapshot, device):
+def load_state(local, snapshot, device, actor_adam):
     agent, optimizer = local["agent"], local["optimizer"]
     agent.load_state_dict({key: value.to(device) for key, value in snapshot["model"].items()}, strict=True)
     saved = snapshot["optimizer_state"]
@@ -69,6 +71,13 @@ def load_state(local, snapshot, device):
     if set(saved) != set(parameters):
         raise ValueError(f"optimizer state covers {sorted(set(saved) ^ set(parameters))[:4]}... differently")
     for name, param in parameters.items():
+        # Actor moments are sized to the snapshot rule's gradients: raw-advantage PPO's are ~10x smaller than
+        # a z-scored CE rule's, so under beta2 = 0.999 a foreign second moment mis-scales hundreds of steps.
+        # Reset, Adam's bias correction scales the first steps to the fork's own gradients. The critic's loss
+        # is the same in every trainer, so its moments carry over.
+        if actor_adam == "reset" and name.startswith("actor."):
+            optimizer.state.pop(param, None)
+            continue
         optimizer.state[param] = {key: value.to(device=param.device) for key, value in saved[name].items()}
     # The native kernels hold these arrays' addresses: copy in place, never rebind. The running
     # discounted returns belong to the snapshot's episodes, which a fork does not continue.
@@ -84,13 +93,16 @@ def main():
     trainer_module = os.environ["CLEANRL_PROBE_MODULE"]
     snapshot_path = Path(os.environ["CLEANRL_FORK_SNAPSHOT"])
     fork_steps = int(float(os.environ["CLEANRL_FORK_STEPS"]))
+    actor_adam = os.environ.get("CLEANRL_FORK_ACTOR_ADAM", "reset")
+    if actor_adam not in ("reset", "keep"):
+        raise ValueError(f"CLEANRL_FORK_ACTOR_ADAM={actor_adam!r}: expected reset or keep")
     snapshot = torch.load(snapshot_path, map_location="cpu", weights_only=False)
     if snapshot.get("format_version", 0) < 3:
         raise ValueError(f"{snapshot_path}: no full optimizer state; recapture with scripts/awr_capture_policy.py")
     sys.argv = [sys.argv[0], *rewrite_argv(sys.argv[1:], snapshot)]
     trainer = importlib.import_module(trainer_module)
     original_warmup, original_minibatches = trainer.run_phase_warmup, trainer.device_minibatches
-    loaded = False
+    loaded = completed = False
 
     def main_locals():
         frame = inspect.currentframe().f_back.f_back
@@ -107,9 +119,9 @@ def main():
         for name in MATCHED_ARGS:
             if getattr(local["args"], name) != snapshot["args"][name]:
                 raise ValueError(f"fork {name}={getattr(local['args'], name)} != snapshot's {snapshot['args'][name]}")
-        load_state(local, snapshot, next(local["agent"].parameters()).device)
+        load_state(local, snapshot, next(local["agent"].parameters()).device, actor_adam)
         local["writer"].add_text("fork", f"snapshot {snapshot_path} (step {snapshot['global_step']}, "
-                                         f"{snapshot['trainer_module']}) under {trainer_module}")
+                                         f"{snapshot['trainer_module']}) under {trainer_module}, actor Adam {actor_adam}")
         print(f"FORK from {snapshot_path} step={snapshot['global_step']} iteration={snapshot['iteration']} "
               f"lr={local['args'].learning_rate:.3g}", flush=True)
         loaded = True
@@ -127,11 +139,14 @@ def main():
     try:
         trainer.main()
     except ForkComplete:
+        completed = True
         print(f"FORK complete after {fork_steps} steps", flush=True)
     finally:
         trainer.run_phase_warmup, trainer.device_minibatches = original_warmup, original_minibatches
     if not loaded:
         raise RuntimeError("the trainer never ran its phase warmup: nothing was forked")
+    if not completed:
+        raise RuntimeError(f"the snapshot's schedule ran out before {fork_steps} steps: the fork was cut short")
 
 
 if __name__ == "__main__":

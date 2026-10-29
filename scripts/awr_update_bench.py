@@ -187,7 +187,9 @@ def prepare_sce(advantages, config, batch):
     # The eps -> 1, k -> 0 edge of kce with separate reaches: |z|-weighted CE onto a sign target,
     # r* = e^up for z > 0 and e^-down for z < 0, w = z / (r* - 1). Force z at theta_old; every sample's
     # fixed point is independent of |A|, as under PPO's clip, but restoring rather than flat.
-    z = zscore(advantages)
+    # center=False keeps the batch mean (z = A / std): the self-likelihood term c sum grad log pi(a_i)
+    # that raw-advantage PPO carries.
+    z = zscore(advantages) if config.get("center", True) else advantages / advantages.std()
     up = z > 0
     target = torch.where(up, math.exp(config["up"]), math.exp(-config["down"]))
     weight = z.abs() / torch.where(up, math.expm1(config["up"]), -math.expm1(-config["down"]))
@@ -255,9 +257,206 @@ def prepare_logreg(advantages, config, batch):
     return (psi - psi.mean()) / config["eta"]
 
 
+COMPAT_FOLDS = 4
+COMPAT_NUM_ENVS = 16  # set from the snapshot's args; batches are flattened (step, env)
+# Ridge penalties in units of the mean feature power; inf is the first-order limit (pure kernel consensus).
+COMPAT_PENALTIES = torch.cat([torch.logspace(-3, 3, 25, dtype=torch.float64), torch.tensor([math.inf])])
+COMPAT_HEAD = ("head.0.weight", "head.0.bias", "readout_gain")
+
+
+def compat_preconditioner(actor_adam, beta2):
+    """P^1/2 for the head's tangent features: Adam's step is P g with P = 1/(sqrt(v_hat) + eps)."""
+    columns = []
+    for name in COMPAT_HEAD:
+        state = actor_adam[name]
+        v_hat = state["exp_avg_sq"].double() / (1.0 - beta2 ** float(state["step"]))
+        columns.append((v_hat.sqrt() + 1e-5).rsqrt())
+    weight, bias, gain = columns
+    return torch.cat([torch.cat([weight, bias[:, None]], dim=1).flatten(), gain])
+
+
+def compat_features(agent, batch, preconditioner):
+    """Per-sample gradients of log pi w.r.t. the actor head's weight, bias and readout gain, in Adam's
+    geometry (scaled by P^1/2), so that phi_i . phi_j is the preconditioned tangent kernel g_i^T P g_j."""
+    actor = agent.actor
+    with torch.no_grad():
+        h = F.normalize(actor.first(batch["obs"]), p=2, dim=-1)
+        branch = F.normalize(actor.second(8.0 * h), p=2, dim=-1)
+        hidden = 8.0 * F.normalize(h + branch, p=2, dim=-1)
+        pre = actor.head(hidden)
+        gain = actor.readout_gain.detach()
+        if not torch.allclose(gain * pre, actor(batch["obs"]), atol=1e-5, rtol=1e-4):
+            raise RuntimeError("compat_features' forward does not reproduce the actor's")
+    out = (gain * pre).requires_grad_(True)
+    with torch.enable_grad():
+        alpha, beta = (F.softplus(out) + 1.0).chunk(2, dim=-1)
+        logprob = Beta(alpha, beta, validate_args=False).log_prob(batch["native"]).sum()
+        (score,) = torch.autograd.grad(logprob, out)
+    inputs = torch.cat([hidden, torch.ones_like(hidden[:, :1])], dim=-1)
+    weight_bias = ((score * gain)[:, :, None] * inputs[:, None, :]).flatten(1)
+    return torch.cat([weight_bias, score * pre], dim=-1).double() * preconditioner.to(score.device)
+
+
+_COMPAT_BASES = {}
+
+
+def compat_advantages(features, y, num_envs):
+    """Cross-fitted kernel-ridge advantages, penalty chosen by held-out first-order improvement.
+
+    Each fold's samples are predicted by a fit on the other env groups, so no sample's own noise (nor
+    its trajectory neighbours', which share GAE returns) reaches its target. The penalty maximizes the
+    held-out alignment sum(y * y_hat) / |y_hat|, a scale-free estimate of the first-order improvement
+    per unit step; at inf the target is the pure kernel consensus of the other folds.
+    """
+    y = y.double()
+    fold = (torch.arange(y.numel(), device=y.device) % num_envs) % COMPAT_FOLDS
+    key = (features.data_ptr(), features.shape)
+    if key not in _COMPAT_BASES:
+        bases = []
+        for k in range(COMPAT_FOLDS):
+            train = fold != k
+            spectrum, basis = torch.linalg.eigh(features[train].T @ features[train])
+            bases.append((spectrum.clamp_min(0), basis, features[fold == k] @ basis))
+        _COMPAT_BASES[key] = bases
+    scale = features.square().sum(1).mean()
+    penalties = COMPAT_PENALTIES.to(y.device) * scale
+    predictions = torch.empty(y.numel(), penalties.numel(), dtype=torch.float64, device=y.device)
+    for k, (spectrum, basis, projected) in enumerate(_COMPAT_BASES[key]):
+        coefficients = basis.T @ (features[fold != k].T @ y[fold != k])
+        # (s + lambda)^-1 times lambda, so the inf column is the finite first-order limit.
+        shrink = torch.where(torch.isinf(penalties)[None, :], torch.ones_like(spectrum)[:, None],
+                             penalties[None, :] / (spectrum[:, None] + penalties[None, :]))
+        predictions[fold == k] = projected @ (coefficients[:, None] * shrink)
+    alignment = (y[:, None] * predictions).sum(0) / predictions.norm(dim=0).clamp_min(1e-30)
+    best = int(alignment.argmax())
+    y_hat = predictions[:, best]
+    y_hat = y_hat / y_hat.std()
+    return y_hat.float(), {"penalty": float(COMPAT_PENALTIES[best]), "boundary": best in (0, penalties.numel() - 2),
+                           "alignment": float(alignment[best] / y.norm()),
+                           "alignment_inf": float(alignment[-1] / y.norm()),
+                           "max_abs": float(y_hat.abs().max())}
+
+
+# Trajectory views: GAE at several lambdas are differently weighted sums of one batch's TD residuals.
+COMBO_VIEWS = (0.0, 0.5, 0.8, 0.9, 0.95, 1.0)
+COMBO_TARGET = COMBO_VIEWS.index(0.95)
+
+
+def actor_preconditioner(actor_adam, agent, beta2):
+    """P^1/2 over every actor parameter, flattened in named_parameters order: Adam's step is P g."""
+    roots = []
+    for name, _ in agent.actor.named_parameters():
+        state = actor_adam[name]
+        v_hat = state["exp_avg_sq"].double() / (1.0 - beta2 ** float(state["step"]))
+        roots.append((v_hat.sqrt() + 1e-5).rsqrt().flatten())
+    return torch.cat(roots).to(next(agent.actor.parameters()).device)
+
+
+def view_fold_gradients(agent, batch, preconditioner, num_envs, folds=COMPAT_FOLDS):
+    """(folds, views, params): per env-fold policy gradients mean_i A_v,i grad log pi_i in Adam's geometry.
+    The folds hold disjoint environments, so their gradients' noise is independent."""
+    params = actor_parameters(agent)
+    fold = (torch.arange(batch["obs"].shape[0], device=batch["obs"].device) % num_envs) % folds
+    out = []
+    with torch.enable_grad():
+        for f in range(folds):
+            keep = fold == f
+            _, _, logratio = logratio_of(agent, {"obs": batch["obs"][keep], "native": batch["native"][keep],
+                                                 "logprob": batch["logprob"][keep]})
+            rows = []
+            for view in COMBO_VIEWS:
+                weights = batch[f"advantages_{view:g}"][keep] / keep.sum()
+                grads = torch.autograd.grad(logratio, params, grad_outputs=weights, retain_graph=True)
+                rows.append(torch.cat([g.flatten() for g in grads]).double() * preconditioner)
+            out.append(torch.stack(rows))
+    return torch.stack(out)
+
+
+def combo_weights(signal, energy, target=COMBO_TARGET):
+    """c maximizing first-order gain c.s over step size sqrt(c'Ec): c = E^-1 s, s = signal[:, target].
+    signal holds cross-(independent)-sample inner products E[g_u].E[g_v]; energy the update's own."""
+    ridge = 1e-6 * energy.diagonal().mean() * torch.eye(energy.shape[0], dtype=energy.dtype, device=energy.device)
+    c = torch.linalg.solve(energy + ridge, signal[:, target])
+    return c / c[target].abs() if c[target] != 0 else c
+
+
+def efficiency(c, signal, energy, target=COMBO_TARGET):
+    return float(c @ signal[:, target] / (c @ energy @ c).clamp_min(1e-300).sqrt())
+
+
+def cross_gram(grads):
+    """grads (n, views, params) -> (mean over i != j of g_i g_j', mean over i of g_i g_i')."""
+    total = grads.sum(0)
+    own = torch.einsum("nud,nvd->uv", grads, grads)
+    n = grads.shape[0]
+    return (total @ total.T - own) / (n * (n - 1)), own / n
+
+
+def attach_combo_views(agent, snapshot, fit_batches, train_batches, num_envs):
+    """advantages_combo: one c for the snapshot, fit on every train-half chunk (a measurement: does the
+    residual structure hold information the 0.95 view drops?). advantages_comboin: c fit on each batch's
+    own env folds only (intra-batch). Each combination is rescaled to its batch's A_0.95 standard deviation."""
+    preconditioner = actor_preconditioner(snapshot["actor_adam"], agent, actor_beta2(snapshot))
+    fold_grads = [view_fold_gradients(agent, part, preconditioner, num_envs) for part in fit_batches]
+    batch_grads = torch.stack([g.mean(0) for g in fold_grads])
+    stats = {}
+    for target_name, target in (("0.95", COMBO_TARGET), ("mc", len(COMBO_VIEWS) - 1)):
+        signal, energy = cross_gram(batch_grads)
+        c = combo_weights(signal, energy, target)
+        # Cross-fitted efficiency: c from one half of the chunks, scored with the other half's grams.
+        halves = [cross_gram(batch_grads[k::2]) for k in (0, 1)]
+        crossfit = np.mean([efficiency(combo_weights(*halves[k], target), *halves[1 - k], target) for k in (0, 1)])
+        base = efficiency(torch.eye(len(COMBO_VIEWS), dtype=signal.dtype, device=signal.device)[target],
+                          signal, energy, target)
+        stats[target_name] = {
+            "c": [round(float(x), 4) for x in c],
+            "view_eff_rel": [round(efficiency(torch.eye(len(COMBO_VIEWS), dtype=signal.dtype,
+                                                        device=signal.device)[v], signal, energy, target) / base, 4)
+                             for v in range(len(COMBO_VIEWS))],
+            "combo_eff_rel_insample": round(efficiency(c, signal, energy, target) / base, 4),
+            "combo_eff_rel_crossfit": round(float(crossfit) / base, 4),
+            "base_eff": base,
+            "signal_corr": [[round(float(signal[u, v] / (signal[u, u] * signal[v, v]).abs().sqrt()), 3)
+                             for v in range(len(COMBO_VIEWS))] for u in range(len(COMBO_VIEWS))],
+        }
+        if target_name == "0.95":
+            global_c = c
+    views = lambda part: torch.stack([part[f"advantages_{view:g}"] for view in COMBO_VIEWS])
+    intra = []
+    cached = {id(part): grads for part, grads in zip(fit_batches, fold_grads)}
+    for part in train_batches:
+        grads = cached[id(part)]
+        signal, fold_energy = cross_gram(grads)
+        # A full batch averages the folds: its noise energy is the fold noise over the fold count.
+        c_in = combo_weights(signal, signal + (fold_energy - signal) / grads.shape[0])
+        intra.append([round(float(x), 3) for x in c_in])
+        scale = part["advantages_0.95"].std()
+        for key, weights in (("advantages_combo", global_c), ("advantages_comboin", c_in)):
+            combined = (weights.float()[:, None] * views(part)).sum(0)
+            part[key] = combined * (scale / combined.std())
+    stats["intra_c"] = intra
+    print(json.dumps({"combo": stats}), flush=True)
+
+
+def prepare_compat(advantages, config, batch):
+    # The return-maximizing per-sample force: to first order g_i^T P grad J with grad J estimated from the
+    # other samples (the inf-penalty kernel consensus); with a second-order noise cost, the cross-fitted
+    # kernel ridge (compatible function approximation). A fit converged onto these targets moves the head
+    # by the ridge coefficients (a damped natural step); its first gradient is F (F + lambda)^-1 g, not
+    # natural. Centered per state in expectation (E_old[score | s] = 0). Normalized to unit std, so eta is
+    # a temperature in std units, fitted by plain CE onto exp(y_hat / eta).
+    y_hat, stats = compat_advantages(batch["compat_phi"], zscore(advantages), COMPAT_NUM_ENVS)
+    if config.get("verbose", True):
+        print(json.dumps({"compat": stats}), flush=True)
+    return torch.ones_like(y_hat), (y_hat / config["eta"]).exp()
+
+
 def prepare_ppo(advantages, config, batch):
     if config["norm_adv"]:
         return (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+    if config.get("center"):
+        # Raw scale without the batch mean: removes only the self-likelihood term.
+        return advantages - advantages.mean()
     return advantages
 
 
@@ -288,6 +487,8 @@ class Rule:
 
     @property
     def advantage_key(self):
+        if "view" in self.config:
+            return f"advantages_{self.config['view']}"
         return f"advantages_{self.config.get('lam', 0.95):g}"
 
     def __post_init__(self):
@@ -299,7 +500,7 @@ class Rule:
 # The 50M PPO reference (--no-norm-adv --clip-coef-upper 0.2); a PPO snapshot's own args override it.
 PPO_REFERENCE = {"clip": 0.2, "clip_upper": 0.2, "norm_adv": False, "max_grad_norm": 0.5}
 # Training-target GAE lambdas collected per chunk; evaluation always uses 0.95 and 1.0 (Monte Carlo).
-TARGET_LAMBDAS = (0.8, 0.9, 0.95)
+TARGET_LAMBDAS = (0.0, 0.5, 0.8, 0.9, 0.95, 1.0)
 # CE families: (psi, c, eta[, lam]). v10 is ("lin", -, eta). "reach" etas make the target's own
 # chi^2 ~ what one update realizes, so the fit saturates per sample instead of pushing one direction.
 CE_FAMILIES = [
@@ -346,8 +547,11 @@ def default_rules(args, lr_mults):
     ppo_clip = ppo.pop("max_grad_norm")
     awr_clip = float("inf") if hasattr(args, "clip_coef_upper") else float(args.max_grad_norm)
     families = [("ppo", ppo_loss, prepare_ppo, ppo, ppo_clip),
-                ("ppo", ppo_loss, prepare_ppo, {**ppo, "lam": 0.9}, ppo_clip),
-                ("ppo", ppo_loss, prepare_ppo, {**ppo, "b2": 0.9}, ppo_clip)]
+                *[("ppo", ppo_loss, prepare_ppo, {**ppo, "lam": lam}, ppo_clip) for lam in (0.0, 0.5, 0.8, 0.9, 1.0)],
+                ("ppo", ppo_loss, prepare_ppo, {**ppo, "b2": 0.9}, ppo_clip),
+                *[("ppo", ppo_loss, prepare_ppo, {**ppo, "view": view}, ppo_clip) for view in ("combo", "comboin")],
+                ("ppo", ppo_loss, prepare_ppo, {**ppo, "center": True}, ppo_clip),
+                ("ppo", ppo_loss, prepare_ppo, {**ppo, "norm_adv": True}, ppo_clip)]
     families += [("ppo_chi2", ppo_loss, prepare_ppo_chi2, {**ppo, "eta": eta}, ppo_clip) for eta in (1.0, 0.6)]
     families += [("ce", ce_loss, prepare_ce, config, awr_clip) for config in CE_FAMILIES]
     families += [("logreg", logreg_loss, prepare_logreg, config, awr_clip) for config in LOGREG_FAMILIES]
@@ -363,6 +567,7 @@ def default_rules(args, lr_mults):
     families += [("lce", wce_loss, prepare_lce, {"up": 1.0, "down": 0.6, "p": p, "b2": 0.9}, awr_clip)
                  for p in (1.0, 0.5, -0.5, -1.0)]
     families += [("sce", wce_loss, prepare_sce, {"up": 1.0, "down": 0.6, "flat": "down", "b2": 0.9}, awr_clip)]
+    families += [("sce", wce_loss, prepare_sce, {"up": 1.0, "down": 0.6, "center": False, "b2": 0.9}, awr_clip)]
     families += [("hce", wce_loss, prepare_hce, {"up": up, "eta": eta, "b2": 0.9}, awr_clip)
                  for up in (0.7, 1.0) for eta in (1.0, 2.0)]
     families += [("rwce", wce_loss, prepare_rwce, {"eta": eta, "b2": 0.9}, awr_clip) for eta in (1.0, 2.0)]
@@ -372,6 +577,8 @@ def default_rules(args, lr_mults):
     families += [("sce", wce_loss, prepare_sce, {"up": up, "down": down, "flat": True, "b2": 0.9}, awr_clip)
                  for up, down in ((0.2, 0.2), (0.3, 0.3), (0.4, 0.25), (0.4, 0.4), (0.7, 0.4))]
     families += [("wce", wce_loss, prepare_wce, {"eta": eta, "flat": True, "b2": 0.9}, awr_clip) for eta in (2.0, 4.0)]
+    families += [("compat", wce_loss, prepare_compat, {"eta": eta, "b2": 0.9}, awr_clip)
+                 for eta in (2.5, 5.0, 10.0)]
     return [Rule(name, loss, prepare, config, lr, clip)
             for name, loss, prepare, config, clip in families for lr in lr_mults]
 
@@ -486,6 +693,11 @@ def collect(model_module, agent, snapshot, chunks, device, seed):
 
 def snapshot_args(snapshot):
     return argparse.Namespace(**snapshot["args"])
+
+
+def actor_beta2(snapshot):
+    """The actor's Adam beta2: a trainer's --actor-adam-beta2 when it has one, else the optimizer's."""
+    return float(snapshot["args"].get("actor_adam_beta2", snapshot["adam_hyperparameters"]["betas"][1]))
 
 
 def concatenate(batches):
@@ -679,6 +891,20 @@ def bench_snapshot(path, cli, device, model_module):
     # Held-out bins use the held-out set's own z; each training batch its own (as its targets do).
     for part in (*train_batches, eval_data):
         part["zbin"] = torch.bucketize(zscore(part["advantages"]), edges)
+    if any(rule.name == "compat" for rule in rules):
+        global COMPAT_NUM_ENVS
+        COMPAT_NUM_ENVS = args.num_envs
+        _COMPAT_BASES.clear()
+        preconditioner = compat_preconditioner(snapshot["actor_adam"], actor_beta2(snapshot))
+        for part in train_batches:
+            part["compat_phi"] = compat_features(agent, part, preconditioner)
+    # The batch-mean advantage in std units: the weight of the self-likelihood term raw advantages carry.
+    mean_z = torch.stack([part["advantages"].mean() / part["advantages"].std() for part in batches[:half]])
+    print(json.dumps({"advantage_mean_over_std": {"mean": float(mean_z.mean()), "sd": float(mean_z.std()),
+                                                  "min": float(mean_z.min()), "max": float(mean_z.max())}}),
+          flush=True)
+    if any("view" in rule.config for rule in rules):
+        attach_combo_views(agent, snapshot, batches[:half], train_batches, args.num_envs)
     header = {
         "snapshot": str(path), "trainer": snapshot["trainer_module"], "global_step": snapshot["global_step"],
         "learning_rate": snapshot["learning_rate"], "collect_s": collect_s,
