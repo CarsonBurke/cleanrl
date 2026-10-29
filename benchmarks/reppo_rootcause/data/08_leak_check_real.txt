@@ -1,0 +1,24 @@
+
+=== v23_4M: pre-tanh sigma mean 0.443; between-state sd(mu)/sigma per dim [3.27 2.93 2.44 2.91 2.15 1.34] (mean 2.51); action-space between/within sd 0.66/0.28
+    truth split-half corr 0.16;  critic-vs-truth within corr +0.168 (raw, 5% trim); critic sd 0.179 true sd (noise-corrected) 0.285
+    raw across-state slope of Q on a       |w|   1.15  sd(assoc contrast) 0.333  corr(critic, assoc) -0.024  corr(true, assoc) -0.003  partial b_assoc -0.012 [-0.039, +0.014]
+    Frisch-Waugh (linear obs partialled)   |w|   0.48  sd(assoc contrast) 0.122  corr(critic, assoc) -0.017  corr(true, assoc) -0.040  partial b_assoc -0.016 [-0.097, +0.055]
+    slope of Q on tanh(mu(s)) only         |w|   2.66  sd(assoc contrast) 0.884  corr(critic, assoc) -0.011  corr(true, assoc) -0.011  partial b_assoc -0.002 [-0.012, +0.007]
+
+=== v29h8_8M: pre-tanh sigma mean 0.493; between-state sd(mu)/sigma per dim [3.15 2.77 2.63 2.8  2.1  1.34] (mean 2.46); action-space between/within sd 0.70/0.28
+    truth split-half corr 0.14;  critic-vs-truth within corr +0.113 (raw, 5% trim); critic sd 0.116 true sd (noise-corrected) 0.425
+    raw across-state slope of Q on a       |w|   3.23  sd(assoc contrast) 0.725  corr(critic, assoc) +0.068  corr(true, assoc) +0.015  partial b_assoc +0.011 [+0.003, +0.018]
+    Frisch-Waugh (linear obs partialled)   |w|   0.72  sd(assoc contrast) 0.158  corr(critic, assoc) +0.030  corr(true, assoc) -0.012  partial b_assoc +0.023 [-0.016, +0.057]
+    slope of Q on tanh(mu(s)) only         |w|   5.82  sd(assoc contrast) 1.299  corr(critic, assoc) +0.055  corr(true, assoc) +0.012  partial b_assoc +0.005 [+0.000, +0.009]
+
+=== v29h8_12M: pre-tanh sigma mean 0.545; between-state sd(mu)/sigma per dim [2.81 2.32 2.19 2.46 1.94 1.13] (mean 2.14); action-space between/within sd 0.68/0.33
+    truth split-half corr 0.27;  critic-vs-truth within corr +0.092 (raw, 5% trim); critic sd 0.123 true sd (noise-corrected) 0.726
+    raw across-state slope of Q on a       |w|   9.67  sd(assoc contrast) 2.873  corr(critic, assoc) +0.046  corr(true, assoc) +0.017  partial b_assoc +0.002 [+0.001, +0.004]
+    Frisch-Waugh (linear obs partialled)   |w|   1.07  sd(assoc contrast) 0.290  corr(critic, assoc) +0.116  corr(true, assoc) +0.013  partial b_assoc +0.049 [+0.030, +0.069]
+    slope of Q on tanh(mu(s)) only         |w|  29.66  sd(assoc contrast) 9.512  corr(critic, assoc) -0.017  corr(true, assoc) +0.012  partial b_assoc -0.000 [-0.001, +0.000]
+
+=== v23_30M: pre-tanh sigma mean 0.512; between-state sd(mu)/sigma per dim [3.34 2.8  2.43 2.73 2.17 1.12] (mean 2.43); action-space between/within sd 0.70/0.30
+    truth split-half corr 0.13;  critic-vs-truth within corr +0.128 (raw, 5% trim); critic sd 0.195 true sd (noise-corrected) 0.502
+    raw across-state slope of Q on a       |w|  10.37  sd(assoc contrast) 3.112  corr(critic, assoc) +0.001  corr(true, assoc) -0.019  partial b_assoc +0.000 [-0.003, +0.003]
+    Frisch-Waugh (linear obs partialled)   |w|   4.49  sd(assoc contrast) 0.975  corr(critic, assoc) -0.017  corr(true, assoc) -0.030  partial b_assoc -0.003 [-0.011, +0.008]
+    slope of Q on tanh(mu(s)) only         |w|  19.68  sd(assoc contrast) 7.027  corr(critic, assoc) +0.022  corr(true, assoc) -0.023  partial b_assoc +0.001 [-0.000, +0.002]

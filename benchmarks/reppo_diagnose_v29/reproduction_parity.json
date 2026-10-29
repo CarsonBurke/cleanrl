@@ -1,0 +1,249 @@
+{
+  "parent_lam08": {
+    "run": "runs/HalfCheetah-v4__reppo_diagnose_v29_parent_lam08_16M__1__1790481423",
+    "reference": "runs/HalfCheetah-v4__reppo_refresh_v25_lam0p8_50M__1__1790376907",
+    "checks": {
+      "charts/episodic_length": {
+        "matched": 16057,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "charts/episodic_return": {
+        "matched": 16057,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "diagnostics/advantage_corr_heldout": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "diagnostics/advantage_std_ratio": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "diagnostics/dqda_cos_consecutive": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "diagnostics/dqda_norm": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "grad/actor_preclip_norm": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "grad/critic_preclip_norm": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "losses/aux_loss": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "losses/critic_ce": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "losses/q_mse": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "losses/support_clip_frac": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "losses/target_mean": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/actor_objective": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/entropy": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/kl": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/kl_multiplier": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/kl_violation": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/mean_abs_action": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/q_pi": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/saturation": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/std": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/temperature": {
+        "matched": 981,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      }
+    }
+  },
+  "h8_reward": {
+    "run": "runs/HalfCheetah-v4__reppo_diagnose_v29_h8_reward_16M__1__1790481916",
+    "reference": "runs/HalfCheetah-v4__reppo_latentroll_v27_h8_50M__1__1790378891",
+    "checks": {
+      "charts/episodic_length": {
+        "matched": 15823,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "charts/episodic_return": {
+        "matched": 15823,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "diagnostics/advantage_corr_heldout": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "diagnostics/advantage_std_ratio": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "diagnostics/dqda_cos_consecutive": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "diagnostics/dqda_norm": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "grad/actor_preclip_norm": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "grad/critic_preclip_norm": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "losses/aux_loss": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "losses/critic_ce": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "losses/q_mse": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "losses/reward_loss": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "losses/support_clip_frac": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "losses/target_mean": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/actor_objective": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/entropy": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/kl": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/kl_multiplier": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/kl_violation": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/mean_abs_action": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/q_pi": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/saturation": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/std": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      },
+      "policy/temperature": {
+        "matched": 966,
+        "max_absolute_difference": 0.0,
+        "all_identical": true
+      }
+    }
+  }
+}

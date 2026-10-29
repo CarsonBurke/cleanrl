@@ -1,0 +1,26 @@
+
+===== v23_4M: E|G|^2 = 0.778 [0.346, 1.256] P(>0) 1.000 (rms per state 0.882); critic per-state field corr +0.229 [+0.154, +0.481]; critic field rms 1.690
+   feature space                         | b (field energy in span)        | f = b/E|G|^2 | tau/b (1 chunk) | aggregate cos M=1 / 10 / 30 | per-state field corr ceiling M=1 / 10 / 30 / inf
+   const (6 dof)                         | -0.0008 [-0.0068, +0.0081] | not resolved (b <= 0)
+   linear (108 dof)                      | 0.0182 [-0.0180, +0.0619] | 0.023 [-0.023, +0.080] |   7.88 | 0.34 / 0.75 / 0.89 | 0.05 / 0.11 / 0.14 / 0.15 | critic aggregate cos +0.79 [+0.30, +2.51]
+   actor last layer, top 32 PCs (192 dof)| 0.0324 [-0.0158, +0.0917] | 0.042 [-0.020, +0.118] |   7.05 | 0.35 / 0.77 / 0.90 | 0.07 / 0.16 / 0.18 / 0.20 | critic aggregate cos +0.92 [+0.49, +2.97]
+   actor last layer, top 128 PCs (768 dof)| 0.0451 [-0.0604, +0.1566] | 0.058 [-0.078, +0.201] |  20.71 | 0.21 / 0.57 / 0.77 | 0.05 / 0.14 / 0.19 / 0.24 | critic aggregate cos +0.83 [+0.25, +3.13]
+   actor last layer, top 513 PCs (3078 dof)| 0.1151 [-0.1287, +0.3671] | 0.148 [-0.165, +0.472] |  35.85 | 0.16 / 0.47 / 0.67 | 0.06 / 0.18 / 0.26 / 0.38 | critic aggregate cos +0.54 [+0.09, +1.63]
+
+===== v29h8_8M: E|G|^2 = 4.218 [1.339, 8.352] P(>0) 1.000 (rms per state 2.054); critic per-state field corr -0.014 [-0.280, +0.193]; critic field rms 0.865
+   feature space                         | b (field energy in span)        | f = b/E|G|^2 | tau/b (1 chunk) | aggregate cos M=1 / 10 / 30 | per-state field corr ceiling M=1 / 10 / 30 / inf
+   const (6 dof)                         | 0.0059 [-0.0158, +0.0425] | 0.001 [-0.004, +0.010] |   3.85 | 0.45 / 0.85 / 0.94 | 0.02 / 0.03 / 0.04 / 0.04 | critic aggregate cos +1.56 [+0.69, +4.24]
+   linear (108 dof)                      | 0.0508 [-0.0740, +0.2081] | 0.012 [-0.018, +0.049] |   6.01 | 0.38 / 0.79 / 0.91 | 0.04 / 0.09 / 0.10 / 0.11 | critic aggregate cos +1.30 [+0.74, +4.42]
+   actor last layer, top 32 PCs (192 dof)| 0.0707 [-0.1174, +0.3287] | 0.017 [-0.028, +0.078] |   8.13 | 0.33 / 0.74 / 0.89 | 0.04 / 0.10 / 0.11 / 0.13 | critic aggregate cos +1.23 [+0.61, +4.46]
+   actor last layer, top 128 PCs (768 dof)| 0.0385 [-0.3597, +0.4889] | 0.009 [-0.085, +0.116] |  68.14 | 0.12 / 0.36 / 0.55 | 0.01 / 0.03 / 0.05 / 0.10 | critic aggregate cos +1.89 [+0.51, +3.64]
+   actor last layer, top 512 PCs (3072 dof)| 0.0497 [-0.7854, +0.9604] | 0.012 [-0.186, +0.228] | 234.17 | 0.07 / 0.20 / 0.34 | 0.01 / 0.02 / 0.04 / 0.11 | critic aggregate cos +1.40 [+0.17, +2.47]
+
+===== one-iteration rewrite of the critic's action dependence (v55-dual consecutive snapshots; 4096 off-run states, 8 policy actions each)
+ snapshots (4013696, 4030080) on the states of v23_4M
+   all: within-state advantage corr pooled +0.635, per-state median +0.932 (p10 +0.60); gradient field pooled cos +0.635, per-state cos median +0.942 (p10 +0.59); rms |g_k| 1.788, rms |g_k+1 - g_k| 1.414
+   drop top 1% gradient energy: within-state advantage corr pooled +0.690, per-state median +0.932 (p10 +0.60); gradient field pooled cos +0.810, per-state cos median +0.942 (p10 +0.59); rms |g_k| 0.900, rms |g_k+1 - g_k| 0.528
+   policy KL(k || k+1) on these states 0.0167; critic level change sd 0.803 (mean +0.759)
+ snapshots (7913088, 7929472) on the states of v29h8_8M
+   all: within-state advantage corr pooled +0.477, per-state median +0.883 (p10 +0.44); gradient field pooled cos +0.376, per-state cos median +0.913 (p10 +0.40); rms |g_k| 2.567, rms |g_k+1 - g_k| 2.447
+   drop top 1% gradient energy: within-state advantage corr pooled +0.482, per-state median +0.883 (p10 +0.45); gradient field pooled cos +0.505, per-state cos median +0.912 (p10 +0.40); rms |g_k| 1.066, rms |g_k+1 - g_k| 1.202
+   policy KL(k || k+1) on these states 0.0384; critic level change sd 1.310 (mean +0.660)

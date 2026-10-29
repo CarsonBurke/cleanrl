@@ -1,0 +1,184 @@
+144 distinct from-scratch trajectories
+
+F (27): v1_ppobatch_kl0p03_lr1e-3, dualrate_v4_ep4_mb8_lr1.2e-3, replay_v5, replay_v5_actorreplay, replay_v5_nobuffer, replay_gve_v6, v7_q_cw1024, v7_q_lam0p8, vtrace_v11_retrace_buf1, distq_hidden_v13_r1, distq_v12_r1, refresh_v25_lam0p5_50M, latentq_v28_50M, replaytwin_v32_16M, mixtarget_v33_16M, window_v35_kl0p0075_16M, window_v35_kl0p03_16M, dynabranch_v37, dualpg_v39, entanneal_v43_fp32_s50_f1p5, branchadv_v38_fp32, dynabranch_v37_fp32, contrastanchor_v50_k3, contrastanchor_v50_k7, regretprobe_v55_ids, exacttarget_v61_control, exacttarget_v61_l08
+
+R (10): v1_ppobatch_kl0p03_ep4_mb1, dualrate_v4_ep10_mb1, v9_live_ns256, vtrace_v11_buf4, vtrace_v11_buf8, distq_gve_v16, refresh_v25_lam0p8_50M, duel_v26_lam0p95_50M, replaywindow_v52_w4_q, orthoadv_v63
+
+M (16): v1, v1_kl0p3, dualrate_v4_ep4_mb8_lr1.5e-4, replay_v5_ns64, decoupled_v7_all3, decoupled_v7_coupled, decoupled_v7_lr6e-4, v7_q_lam0p99, retrace_v10_buf4, retrace_v10_buf8, latentroll_v27_h8_ent1p0_16M, branchadv_v38, replaywindow_v52_w4_contrast, contrastdist_v51_qctl, contrastlambda_v53_l0.0, contrastlambda_v53_l0.5
+
+U (82): ngpt_v2_cw512, ngpt_v2_cw64, ngpt_beta_v3, v1_ent1p5, v1_ppobatch_kl0p03_lr3e-4, v1_ppobatch_kl0p03_ep4_mb8, dualrate_v4_ep4_mb8, dualrate_v4_ep4_mb8_lr6e-4, qprop_v1, qprop_v1_noqprop, replay_gve_v6_buf1, replay_gve_v6_buf8, decoupled_v7_epoch, decoupled_v7_rolloutnorm, crossfit_v8, crossfit_v8_infold, decoupled_v7_lr1.5e-4, frozenjudge_v9, frozenjudge_v9_live_ns2048, v9_live_ns128, v9_live_ns512, v7_q_cu64, v7_q_noaux, retrace_v10_buf1, v7_q_cu256, v7_q_cu64_au64, v7_q_cu128_au16, vtrace_v11_buf1, vtrace_v11_buf2, distq_hidden_v13_r2, scalar_v14_rewnorm_r1, v7_q_cu128_50M, distq_diff_v15, scalar_v14_r1_50M, distq_gve_pointactor_v17, beta_v18_mode, beta_v18_softplus, beta_noent_v19, beta_hybridgrad_v21, beta_td7explore_v20, clipgauss_v22_s0p1_50M, probe_v23_ns4096_50M, probe_v23_ns4096_kl0p12_50M, refresh_v25_lam0p95_50M, probe_v23_kl0p015_50M, probe_v23_kl0p01_50M, duel_v26_lam0p8_50M, latentroll_v27_full_50M, latentroll_v27_norew_50M, refresh_v25_lam0p8_ns4096_50M, diagnose_v29_h8_reward_16M, diagnose_v29_h8_noreward_16M, modelgrad_v30_w0p5_16M, modelgrad_v30_w1p0_16M, latentroll_v27_h8_ent1p5_16M, replayaug_v34_16M, fast_v36_e128, entanneal_v43, entanneal_v43_m0, entanneal_v43_m0p25, sharpmean_v44, headpop_v45, headpop_v45_mb2048, popanneal_v46_k16, popanneal_v46_k8, crossspread_v47, crossspread_v47_indep, crossspread_v47_same, iterrate_v36_ns128, iterrate_v36_ns256, stepgeom_v48_boxfloor, drifttemp_v49b_c1, contrastdist_v51_8m, contrastlambda_v53_l0.95, ids_v54_belief, ids_v54_lag, regretprobe_v55_dual, calibids_v56, actiongeom_v57_3min, evidencestep_v58, scalarq_v59, exacttarget_v61_l095
+
+X (9): tdreplay_v24_50M, duel_v26buggy_lam0p8_50M, duel_v26buggy_lam0p95_50M, latentq_v28crash_50M, modelgrad_v30_w1p0_h3_16M, dualpg_v39, drifttemp_v49_c1, drifttemp_v49_c3, drifttemp_v49b_c3
+
+classifiable: 135
+
+-- by actor distribution (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+tanh               123  27  10  16  70   0.22 [0.16, 0.30]      0.43 [0.35, 0.52]
+beta                11   0   0   0  11   0.00 [0.00, 0.26]      0.00 [0.00, 0.26]
+clipgauss            1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+
+Fisher exact, dist ('tanh',) vs ('beta', 'clipgauss'), outcome F: 27/123 vs 0/12, two-sided p = 0.124
+Fisher exact, dist ('tanh',) vs ('beta', 'clipgauss'), outcome F+R+M: 53/123 vs 0/12, two-sided p = 0.003
+Fisher exact, lam ('0.95', '0.99') vs ('0.8', '0.5', '1step'), outcome F: 7/61 vs 19/59, two-sided p = 0.008
+Fisher exact, lam ('0.95', '0.99') vs ('0.8', '0.5', '1step'), outcome F+R: 14/61 vs 22/59, two-sided p = 0.111
+Fisher exact, replay (0,) vs (1,), outcome F: 13/79 vs 14/44, two-sided p = 0.068
+Fisher exact, precision ('fp32',) vs ('tf32',), outcome F: 25/116 vs 2/7, two-sided p = 0.648
+Fisher exact, aux_h ('1',) vs ('8',), outcome F: 13/71 vs 14/49, two-sided p = 0.266
+
+===== tanh-Gaussian trajectories only =====
+
+-- by gve_lambda (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+0.95                60   7   7   8  38   0.12 [0.06, 0.22]      0.37 [0.26, 0.49]
+0.8                 54  15   3   6  30   0.28 [0.18, 0.41]      0.44 [0.32, 0.58]
+1step                4   3   0   1   0   0.75 [0.30, 0.95]      1.00 [0.51, 1.00]
+                     3   1   0   0   2   0.33 [0.06, 0.79]      0.33 [0.06, 0.79]
+0.99                 1   0   0   1   0   0.00 [0.00, 0.79]      1.00 [0.21, 1.00]
+0.5                  1   1   0   0   0   1.00 [0.21, 1.00]      1.00 [0.21, 1.00]
+
+-- by KL bound (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+0.03               112  26  10  14  62   0.23 [0.16, 0.32]      0.45 [0.36, 0.54]
+0.1                  4   0   0   1   3   0.00 [0.00, 0.49]      0.25 [0.05, 0.70]
+                     2   0   0   0   2   0.00 [0.00, 0.66]      0.00 [0.00, 0.66]
+0.3                  1   0   0   1   0   0.00 [0.00, 0.79]      1.00 [0.21, 1.00]
+0.12                 1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+0.015                1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+0.01                 1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+0.0075               1   1   0   0   0   1.00 [0.21, 1.00]      1.00 [0.21, 1.00]
+
+-- by entropy target mult (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+0.5                114  27  10  15  62   0.24 [0.17, 0.32]      0.46 [0.37, 0.55]
+                     4   0   0   0   4   0.00 [0.00, 0.49]      0.00 [0.00, 0.49]
+1.5                  2   0   0   0   2   0.00 [0.00, 0.66]      0.00 [0.00, 0.66]
+1.0                  1   0   0   1   0   0.00 [0.00, 0.79]      1.00 [0.21, 1.00]
+0.0                  1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+0.25                 1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+
+-- by temperature source (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+dual               120  26  10  16  68   0.22 [0.15, 0.30]      0.43 [0.35, 0.52]
+drift                1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+ids                  1   1   0   0   0   1.00 [0.21, 1.00]      1.00 [0.21, 1.00]
+calibrated           1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+
+-- by aux horizon (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+1                   71  13   8  10  40   0.18 [0.11, 0.29]      0.44 [0.33, 0.55]
+8                   49  14   2   6  27   0.29 [0.18, 0.42]      0.45 [0.32, 0.59]
+4                    2   0   0   0   2   0.00 [0.00, 0.66]      0.00 [0.00, 0.66]
+0                    1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+
+-- by precision (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+fp32               116  25  10  15  66   0.22 [0.15, 0.30]      0.43 [0.34, 0.52]
+tf32                 7   2   0   1   4   0.29 [0.08, 0.64]      0.43 [0.16, 0.75]
+
+-- by critic type (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+hlgauss            111  24   8  16  63   0.22 [0.15, 0.30]      0.43 [0.34, 0.53]
+distq                6   2   1   0   3   0.33 [0.10, 0.70]      0.50 [0.19, 0.81]
+scalar               3   0   0   0   3   0.00 [0.00, 0.56]      0.00 [0.00, 0.56]
+duel                 2   0   1   0   1   0.00 [0.00, 0.66]      0.50 [0.09, 0.91]
+latentq              1   1   0   0   0   1.00 [0.21, 1.00]      1.00 [0.21, 1.00]
+
+-- by critic width (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+512                119  26  10  16  67   0.22 [0.15, 0.30]      0.44 [0.35, 0.53]
+                     2   0   0   0   2   0.00 [0.00, 0.66]      0.00 [0.00, 0.66]
+64                   1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+1024                 1   1   0   0   0   1.00 [0.21, 1.00]      1.00 [0.21, 1.00]
+
+-- by critic updates (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+128                 71  18   7   6  40   0.25 [0.17, 0.37]      0.44 [0.33, 0.55]
+                    18   2   2   3  11   0.11 [0.03, 0.33]      0.39 [0.20, 0.61]
+32                  18   3   0   6   9   0.17 [0.06, 0.39]      0.50 [0.29, 0.71]
+512                  5   2   0   0   3   0.40 [0.12, 0.77]      0.40 [0.12, 0.77]
+16                   4   2   0   0   2   0.50 [0.15, 0.85]      0.50 [0.15, 0.85]
+64                   3   0   0   0   3   0.00 [0.00, 0.56]      0.00 [0.00, 0.56]
+8                    2   0   1   1   0   0.00 [0.00, 0.66]      1.00 [0.34, 1.00]
+4                    1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+256                  1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+
+-- by rollout shape (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+16x1024            105  25   9  13  58   0.24 [0.17, 0.33]      0.45 [0.36, 0.54]
+16x256               7   0   1   2   4   0.00 [0.00, 0.35]      0.43 [0.16, 0.75]
+16x128               4   2   0   0   2   0.50 [0.15, 0.85]      0.50 [0.15, 0.85]
+16x4096              3   0   0   0   3   0.00 [0.00, 0.56]      0.00 [0.00, 0.56]
+16x64                1   0   0   1   0   0.00 [0.00, 0.79]      1.00 [0.21, 1.00]
+16x2048              1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+16x512               1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+128x128              1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+
+-- by replay / window (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+0                   79  13   7   8  51   0.16 [0.10, 0.26]      0.35 [0.26, 0.46]
+1                   44  14   3   8  19   0.32 [0.20, 0.47]      0.57 [0.42, 0.70]
+
+-- by actor heads (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+1                  119  27  10  16  66   0.23 [0.16, 0.31]      0.45 [0.36, 0.53]
+4                    2   0   0   0   2   0.00 [0.00, 0.66]      0.00 [0.00, 0.66]
+16                   1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+8                    1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+
+-- by learning rate (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+0.0003             113  25  10  14  64   0.22 [0.15, 0.31]      0.43 [0.35, 0.53]
+0.0024               4   0   0   0   4   0.00 [0.00, 0.49]      0.00 [0.00, 0.49]
+0.00015              2   0   0   1   1   0.00 [0.00, 0.66]      0.50 [0.09, 0.91]
+0.0006               2   0   0   1   1   0.00 [0.00, 0.66]      0.50 [0.09, 0.91]
+0.001                1   1   0   0   0   1.00 [0.21, 1.00]      1.00 [0.21, 1.00]
+0.0012               1   1   0   0   0   1.00 [0.21, 1.00]      1.00 [0.21, 1.00]
+
+-- by version era (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+v7-v17              38   5   4   6  23   0.13 [0.06, 0.27]      0.39 [0.26, 0.55]
+v45-v63             25   5   2   4  14   0.20 [0.09, 0.39]      0.44 [0.27, 0.63]
+v1-v6               23   6   2   4  11   0.26 [0.13, 0.46]      0.52 [0.33, 0.71]
+v23-v31             19   2   2   1  14   0.11 [0.03, 0.31]      0.26 [0.12, 0.49]
+v32-v44             18   9   0   1   8   0.50 [0.29, 0.71]      0.56 [0.34, 0.75]
+
+===== tanh, v27+, 16x1024, single actor =====
+
+-- by gve_lambda (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+0.8                 41  12   2   6  21   0.29 [0.18, 0.44]      0.49 [0.34, 0.64]
+                     1   1   0   0   0   1.00 [0.21, 1.00]      1.00 [0.21, 1.00]
+0.95                 1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+
+-- by precision (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+fp32                37  11   2   5  19   0.30 [0.17, 0.46]      0.49 [0.33, 0.64]
+tf32                 6   2   0   1   3   0.33 [0.10, 0.70]      0.50 [0.19, 0.81]
+
+-- by aux horizon (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+8                   40  12   2   6  20   0.30 [0.18, 0.45]      0.50 [0.35, 0.65]
+4                    2   0   0   0   2   0.00 [0.00, 0.66]      0.00 [0.00, 0.66]
+1                    1   1   0   0   0   1.00 [0.21, 1.00]      1.00 [0.21, 1.00]
+
+-- by replay / window (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+0                   36   8   2   5  21   0.22 [0.12, 0.38]      0.42 [0.27, 0.58]
+1                    7   5   0   1   1   0.71 [0.36, 0.92]      0.86 [0.49, 0.97]
+
+-- by temperature source (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+dual                40  12   2   6  20   0.30 [0.18, 0.45]      0.50 [0.35, 0.65]
+drift                1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+ids                  1   1   0   0   0   1.00 [0.21, 1.00]      1.00 [0.21, 1.00]
+calibrated           1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+
+-- by entropy target mult (classifiable trajectories; trapped = F, ever-on-curve = F+R, mixed = M)
+value                n   F   R   M   U   P(F)    95% Wilson  P(F+R+M)    95% Wilson
+0.5                 37  13   2   5  17   0.35 [0.22, 0.51]      0.54 [0.38, 0.69]
+                     2   0   0   0   2   0.00 [0.00, 0.66]      0.00 [0.00, 0.66]
+1.0                  1   0   0   1   0   0.00 [0.00, 0.79]      1.00 [0.21, 1.00]
+1.5                  1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+0.0                  1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]
+0.25                 1   0   0   0   1   0.00 [0.00, 0.79]      0.00 [0.00, 0.79]

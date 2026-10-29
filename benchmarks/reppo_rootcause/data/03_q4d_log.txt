@@ -1,0 +1,42 @@
+
+=== snapshot 1015424
+noise cost J(0)-J(1):   +215.1 [  +172.1,  +255.1]  = 5.0% of J(0)=4341 (published 5.0/12.3/11.0%)
+   relative cost 95% CI [4.0%, 5.8%]; noise amplitudes [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]
+ update slice: cos(direction, actual update) = 1.0000; |update| 0.1728; raw direction norm 0.173
+   noise x0.0: J(c=1)-J(c=0)    +13.8 [   -28.2,   +55.5]; best c on grid +6.00 (gain +128); slope@0 |c|<=0.5:    +28.3 [   -14.5,   +71.3]; slope@0 |c|<=1.0:    +12.4 [    -6.2,   +30.7]  [published fit slope +32.3+-4.2]
+   noise x1.0: J(c=1)-J(c=0)    +60.9 [   +12.9,  +106.4]; best c on grid +6.00 (gain +138); slope@0 |c|<=0.5:    -10.3 [  -171.7,   +89.5]; slope@0 |c|<=1.0:    +53.9 [   +19.4,   +79.4]  [published fit slope +45.4+-5.2]
+   critic surrogate along slice: predicted gain at c=1 +0.0044 scaled; corr(critic curve, true curve) det +0.97 stoch +0.96 over 17 grid points (c in [-2.0,6.0])
+   corr(critic, true det curve) restricted to |c|<=1 (5 points): +0.75
+ ascent slice: cos(direction, actual update) = 0.0704; |update| 0.1728; raw direction norm 0.362
+   noise x0.0: J(c=1)-J(c=0)   -359.2 [  -410.0,  -308.9]; best c on grid +0.50 (gain +141); slope@0 |c|<=0.5:   +676.8 [  +630.7,  +724.3]; slope@0 |c|<=1.0:   +444.5 [  +421.2,  +468.9]  [published fit slope -509.5+-6.1]
+   noise x1.0: J(c=1)-J(c=0)   -332.1 [  -382.3,  -283.6]; best c on grid +0.50 (gain +124); slope@0 |c|<=0.5:   +664.3 [  +609.7,  +718.4]; slope@0 |c|<=1.0:   +465.5 [  +434.0,  +499.2]  [published fit slope -730.8+-7.3]
+   critic surrogate along slice: predicted gain at c=1 -0.0324 scaled; corr(critic curve, true curve) det +0.96 stoch +0.96 over 17 grid points (c in [-2.0,6.0])
+   corr(critic, true det curve) restricted to |c|<=1 (5 points): +0.99
+
+=== snapshot 4013696
+noise cost J(0)-J(1):  +1287.8 [ +1045.8, +1664.4]  = 12.3% of J(0)=10439 (published 5.0/12.3/11.0%)
+   relative cost 95% CI [10.0%, 16.1%]; noise amplitudes [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]
+ update slice: cos(direction, actual update) = 1.0000; |update| 0.1386; raw direction norm 0.139
+   noise x0.0: J(c=1)-J(c=0)     +6.9 [   -41.1,   +52.4]; best c on grid +1.50 (gain +22); slope@0 |c|<=0.5:     -2.1 [   -45.7,   +40.4]; slope@0 |c|<=1.0:    +14.3 [    -4.9,   +33.4]  [published fit slope +14.9+-5.9]
+   noise x1.0: J(c=1)-J(c=0)   -139.2 [  -762.7,  +428.9]; best c on grid +3.50 (gain +131); slope@0 |c|<=0.5:    -12.0 [  -395.0,  +306.8]; slope@0 |c|<=1.0:    -26.2 [  -297.9,  +252.4]  [published fit slope +38.6+-62.2]
+   critic surrogate along slice: predicted gain at c=1 +0.0028 scaled; corr(critic curve, true curve) det +0.50 stoch +0.41 over 17 grid points (c in [-2.0,6.0])
+   corr(critic, true det curve) restricted to |c|<=1 (5 points): +0.85
+ ascent slice: cos(direction, actual update) = 0.0270; |update| 0.1386; raw direction norm 1.228
+   noise x0.0: J(c=1)-J(c=0)  -4847.1 [ -5115.8, -4642.5]; best c on grid +0.00 (gain +0); slope@0 |c|<=0.5:   +417.2 [  -368.5, +1382.2]; slope@0 |c|<=1.0:  +1823.6 [ +1586.9, +2063.3]  [published fit slope +117.3+-22.3]
+   noise x1.0: J(c=1)-J(c=0)  -3966.8 [ -4491.1, -3459.8]; best c on grid +0.00 (gain +0); slope@0 |c|<=0.5:  +1934.2 [  +767.0, +3073.7]; slope@0 |c|<=1.0:  +1956.0 [ +1633.0, +2272.0]  [published fit slope +555.8+-44.8]
+   critic surrogate along slice: predicted gain at c=1 -0.3520 scaled; corr(critic curve, true curve) det +0.92 stoch +0.91 over 17 grid points (c in [-2.0,6.0])
+   corr(critic, true det curve) restricted to |c|<=1 (5 points): +0.92
+
+=== snapshot 7913088
+noise cost J(0)-J(1):  +1371.9 [  +960.7, +1953.1]  = 11.0% of J(0)=12503 (published 5.0/12.3/11.0%)
+   relative cost 95% CI [7.7%, 15.5%]; noise amplitudes [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]
+ update slice: cos(direction, actual update) = 1.0000; |update| 0.1708; raw direction norm 0.171
+   noise x0.0: J(c=1)-J(c=0)   -162.7 [  -521.6,   +53.5]; best c on grid -0.50 (gain +22); slope@0 |c|<=0.5:    -46.2 [  -107.4,   +14.4]; slope@0 |c|<=1.0:    -82.8 [  -221.3,    +1.6]  [published fit slope -23.3+-8.1]
+   noise x1.0: J(c=1)-J(c=0)   -687.1 [ -1802.9,  +281.1]; best c on grid -1.00 (gain +39); slope@0 |c|<=0.5:    +23.7 [  -812.1,  +831.6]; slope@0 |c|<=1.0:   -285.9 [  -771.7,  +191.7]  [published fit slope -180.4+-89.2]
+   critic surrogate along slice: predicted gain at c=1 +0.0052 scaled; corr(critic curve, true curve) det +0.86 stoch +0.80 over 17 grid points (c in [-2.0,6.0])
+   corr(critic, true det curve) restricted to |c|<=1 (5 points): -0.71
+ ascent slice: cos(direction, actual update) = 0.0080; |update| 0.1708; raw direction norm 1.218
+   noise x0.0: J(c=1)-J(c=0)  -3460.7 [ -3513.0, -3413.4]; best c on grid +0.00 (gain +0); slope@0 |c|<=0.5:    -84.9 [  -498.4,  +495.4]; slope@0 |c|<=1.0:   +644.4 [  +325.3, +1011.3]  [published fit slope -3456.3+-9.3]
+   noise x1.0: J(c=1)-J(c=0)  -3403.0 [ -4230.1, -2517.9]; best c on grid +0.00 (gain +0); slope@0 |c|<=0.5:  +1694.8 [  +597.4, +2867.6]; slope@0 |c|<=1.0:  +1275.8 [  +762.9, +1747.7]  [published fit slope +139.7+-61.6]
+   critic surrogate along slice: predicted gain at c=1 -0.4137 scaled; corr(critic curve, true curve) det +0.91 stoch +0.91 over 17 grid points (c in [-2.0,6.0])
+   corr(critic, true det curve) restricted to |c|<=1 (5 points): +0.98

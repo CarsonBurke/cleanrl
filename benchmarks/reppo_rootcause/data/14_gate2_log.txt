@@ -1,0 +1,219 @@
+
+================ checkpoint 1015424: 5000 states, upright rows 1.000, Q mean 42.0, policy std mean 0.322, temperature 0.0030
+1. distribution of the per-state gradient norm
+   post-tanh |dQ/da|            p50 0.429  p90 0.940  p99 1.592  max 10.48  max/p50 24  top-1% energy 0.150  top-5% 0.330  top-1% upright only 0.150  excess kurtosis of |g| 126, of log|g| -0.23
+   pre-tanh |dQ/da (1-a^2)|     p50 0.168  p90 0.443  p99 0.951  max 2.63  max/p50 16  top-1% energy 0.208  top-5% 0.451  top-1% upright only 0.208  excess kurtosis of |g| 20, of log|g| 0.20
+   noise units |sigma dQ/du|    p50 0.047  p90 0.116  p99 0.245  max 0.97  max/p50 21  top-1% energy 0.198  top-5% 0.428  top-1% upright only 0.198  excess kurtosis of |g| 35, of log|g| 0.17
+   excess kurtosis of the pooled components: post-tanh 86, pre-tanh 33 (Gaussian 0)
+   post-tanh: share of var(log|g|) that belongs to the state rather than the sampled action (ICC, 8 fresh actions) 0.86
+   pre-tanh: share of var(log|g|) that belongs to the state rather than the sampled action (ICC, 8 fresh actions) 0.73
+   lag-1 autocorrelation of log|g_pre| along the trajectory +0.18
+2. top-1% states by pre-tanh norm (50 states; 0 inverted; overlap with the post-tanh top-1% 23); medians (means for counts), and Spearman of log|g_pre| with each feature over all states
+   cos(pitch)                           top-1%     0.992   rest     0.985   p-value (Mann-Whitney) 4.5e-02   Spearman +0.01
+   |pitch| (rad)                        top-1%     0.130   rest     0.176   p-value (Mann-Whitney) 4.5e-02   Spearman -0.01
+   |pitch velocity|                     top-1%     1.086   rest     1.297   p-value (Mann-Whitney) 3.9e-01   Spearman -0.06
+   x velocity                           top-1%     5.065   rest     4.690   p-value (Mann-Whitney) 1.9e-02   Spearman +0.04
+   reward                               top-1%     4.197   rest     4.442   p-value (Mann-Whitney) 9.0e-01   Spearman +0.01
+   step in episode                      top-1%   632.500   rest   498.000   p-value (Mann-Whitney) 1.2e-01   Spearman -0.01
+   max_d |tanh(mean)|                   top-1%     0.943   rest     0.965   p-value (Mann-Whitney) 7.6e-02   Spearman -0.16
+   mean_d |tanh(mean)|                  top-1%     0.600   rest     0.634   p-value (Mann-Whitney) 5.8e-02   Spearman -0.17
+   dims with |a| > 0.99                 top-1%     0.160   rest     0.266   p-value (Mann-Whitney) 1.5e-01   Spearman -0.11
+   dims with |a| > 0.9                  top-1%     1.260   rest     1.594   p-value (Mann-Whitney) 3.0e-02   Spearman -0.24
+   policy std (mean over dims)          top-1%     0.310   rest     0.312   p-value (Mann-Whitney) 2.3e-01   Spearman -0.16
+   |noise| of the sample                top-1%     2.339   rest     2.308   p-value (Mann-Whitney) 2.8e-01   Spearman +0.05
+   Mahalanobis of normalised obs        top-1%     3.661   rest     3.908   p-value (Mann-Whitney) 8.2e-03   Spearman +0.01
+   Mahalanobis of critic input (s, a)   top-1%     4.313   rest     4.545   p-value (Mann-Whitney) 5.2e-02   Spearman +0.03
+   10-NN distance of critic input       top-1%     2.050   rest     2.008   p-value (Mann-Whitney) 4.2e-01   Spearman +0.13
+   Q                                    top-1%    41.696   rest    42.268   p-value (Mann-Whitney) 7.4e-05   Spearman -0.18
+   sd of the HL-Gauss distribution      top-1%     1.699   rest     1.659   p-value (Mann-Whitney) 2.3e-10   Spearman +0.28
+   feet on floor                        top-1%     0.080   rest     0.204   p-value (Mann-Whitney) 3.8e-02   Spearman -0.10
+   non-foot geom on floor               top-1%     0.000   rest     0.001   p-value (Mann-Whitney) 8.6e-01   Spearman +0.02
+   |dQ/da| post-tanh                    top-1%     1.547   rest     0.425   p-value (Mann-Whitney) 1.3e-32   Spearman +0.63
+   gait phase (PC1/PC2 of joint angles hold 0.68 of their variance): resultant length of the top-1% phases 0.40 (all rows 0.12; 0 = uniform, 1 = one phase)
+   phase octant:                0      1      2      3      4      5      6      7
+   share of rows             0.15   0.06   0.12   0.09   0.13   0.15   0.05   0.24
+   share of top-1% states    0.10   0.06   0.26   0.10   0.00   0.04   0.04   0.40
+   share of gradient energy  0.14   0.07   0.21   0.09   0.06   0.09   0.05   0.30
+   median |g_pre|            0.17   0.16   0.24   0.19   0.14   0.14   0.19   0.17
+   top-1% states come in runs of consecutive steps: 49 runs, lengths median 1, max 2; episodes hit [0, 4, 7, 11, 14] (lanes), steps [34, 51, 84, 114, 125, 146, 157, 237, 257, 264, 272, 272] ...
+3. action dimensions (bthigh, bshin, bfoot, fthigh, fshin, ffoot)
+   pre-tanh  largest coordinate's share of |g|^2: top-1% 0.81, rest 0.61; participation ratio (1-6) top-1% 1.48, rest 2.14; largest coordinate among top-1%: [0.1, 0.06, 0.0, 0.4, 0.44, 0.0]; share of all energy per coordinate [0.16, 0.13, 0.04, 0.3, 0.27, 0.1]
+   post-tanh largest coordinate's share of |g|^2: top-1% 0.58, rest 0.56; participation ratio (1-6) top-1% 2.37, rest 2.44; largest coordinate among top-1%: [0.1, 0.08, 0.0, 0.52, 0.3, 0.0]; share of all energy per coordinate [0.17, 0.14, 0.02, 0.42, 0.18, 0.05]
+   per-coordinate top-1% energy share (each coordinate ranked on its own), pre-tanh: [0.33, 0.28, 0.23, 0.4, 0.38, 0.23]; post-tanh energy of the spike states by coordinate [0.08, 0.05, 0.01, 0.63, 0.17, 0.07]
+3b. tanh coordinates and saturation
+   components with |a| in [0, 0.5): share 0.321; rms dQ/da 0.193; share of post-tanh energy 0.184; share of pre-tanh energy 0.672; median |dQ/da| 0.071
+   components with |a| in [0.5, 0.9): share 0.414; rms dQ/da 0.243; share of post-tanh energy 0.380; share of pre-tanh energy 0.314; median |dQ/da| 0.098
+   components with |a| in [0.9, 0.99): share 0.221; rms dQ/da 0.301; share of post-tanh energy 0.311; share of pre-tanh energy 0.014; median |dQ/da| 0.157
+   components with |a| in [0.99, 1.01): share 0.044; rms dQ/da 0.429; share of post-tanh energy 0.126; share of pre-tanh energy 0.000; median |dQ/da| 0.217
+   Spearman(|dQ/da_d|, |a_d|) over components +0.27; Spearman(|g_act|, |g_pre|) over states +0.63; median |g_pre| / |g_act| 0.46 (top-1% by post-tanh norm: 0.47)
+   at the mean action a* = tanh(mu): top-1% energy share pre-tanh 0.172; Spearman with the sampled-action norm +0.82
+4. where in the critic the amplitude comes from (Spearman with log|g_act| over states; medians top-1% by post-tanh norm vs rest)
+   decode gain |dQ/dlogits|               Spearman +0.23   top-1%    0.6963   rest    0.6882   ratio   1.01   p1/p99 over states 0.6537 / 0.7150
+   head gain |dQ/dfeat| / |dQ/dlogits|    Spearman +0.50   top-1%    1.5108   rest    1.1105   ratio   1.36   p1/p99 over states 0.7318 / 2.0082
+   encoder gain |dQ/da| / |dQ/dfeat|      Spearman +0.93   top-1%    1.7612   rest    0.5534   ratio   3.18   p1/p99 over states 0.1489 / 1.8340
+   sd of HL-Gauss distribution            Spearman +0.39   top-1%    1.7205   rest    1.6587   ratio   1.04   p1/p99 over states 1.5844 / 1.8194
+   1 / rms of encoder pre-norm            Spearman -0.07   top-1%    2.2136   rest    2.2988   ratio   0.96   p1/p99 over states 1.6409 / 3.0076
+   1 / rms of head pre-norm               Spearman +0.50   top-1%    2.5113   rest    2.1279   ratio   1.18   p1/p99 over states 1.2272 / 2.9597
+   finite-difference slope along the gradient's own direction, relative to the analytic norm (1 = locally linear):
+      h 0.01: top-1% median 1.00 (p10 1.00); rest median 1.00; top-1% energy share of the FD slope 0.151
+      h 0.05: top-1% median 1.00 (p10 0.98); rest median 1.00; top-1% energy share of the FD slope 0.155
+      h 0.20: top-1% median 0.98 (p10 0.94); rest median 1.00; top-1% energy share of the FD slope 0.164
+      h 0.50: top-1% median 0.91 (p10 0.74); rest median 1.00; top-1% energy share of the FD slope 0.216
+5. actor parameter gradient (v60 actor loss, first step of an iteration: every state inside the KL gate)
+   surrogate check: cos(first-order surrogate, exact loss gradient) 1.000000; full-batch norm 0.332; pathwise part alone 0.344 (cos with total 0.985), entropy part 0.060
+   48 minibatches of 2048 rows drawn with replacement, as the trainer does; clip threshold 0.5
+   variant                      full-batch norm  cos w/ unmod (full)   minibatch norm p50 [p10, p90] norm / 0.5  clipped  cos w/ unmod (minibatch)  cos between minibatches
+   unmodified                             0.332                1.000        0.349 [0.315, 0.374]           0.70     0.00              1.000 (p10 1.00)                    0.905
+   without top 1% (pre)                   0.293                0.972        0.309 [0.285, 0.332]           0.62     0.00              0.972 (p10 0.94)                    0.907
+   top 1% only (pre)                      0.104                0.385        0.111 [0.087, 0.134]           0.22     0.00              0.371 (p10 0.23)                    0.812
+   (e) unit per state, pre                0.397                0.829        0.410 [0.398, 0.426]           0.82     0.00              0.832 (p10 0.80)                    0.940
+   (e) unit per state, post               0.375                0.880        0.394 [0.376, 0.409]           0.79     0.00              0.880 (p10 0.86)                    0.922
+   (f) clip p99, pre                      0.319                0.997        0.336 [0.306, 0.362]           0.67     0.00              0.997 (p10 0.99)                    0.909
+   (f) clip p99, post                     0.326                0.999        0.342 [0.310, 0.370]           0.68     0.00              0.999 (p10 1.00)                    0.908
+   clip p90, pre                          0.276                0.975        0.291 [0.268, 0.308]           0.58     0.00              0.975 (p10 0.96)                    0.917
+
+================ checkpoint 4013696: 5000 states, upright rows 0.848, Q mean 75.3, policy std mean 0.541, temperature 0.0225
+1. distribution of the per-state gradient norm
+   post-tanh |dQ/da|            p50 0.678  p90 1.979  p99 6.350  max 102.30  max/p50 151  top-1% energy 0.731  top-5% 0.849  top-1% upright only 0.720  excess kurtosis of |g| 960, of log|g| 0.24
+   pre-tanh |dQ/da (1-a^2)|     p50 0.275  p90 0.900  p99 4.249  max 63.17  max/p50 230  top-1% energy 0.791  top-5% 0.906  top-1% upright only 0.777  excess kurtosis of |g| 1170, of log|g| 0.71
+   noise units |sigma dQ/du|    p50 0.112  p90 0.267  p99 0.736  max 14.21  max/p50 127  top-1% energy 0.791  top-5% 0.861  top-1% upright only 0.790  excess kurtosis of |g| 859, of log|g| 2.15
+   excess kurtosis of the pooled components: post-tanh 1269, pre-tanh 4270 (Gaussian 0)
+   post-tanh: share of var(log|g|) that belongs to the state rather than the sampled action (ICC, 8 fresh actions) 0.92
+   pre-tanh: share of var(log|g|) that belongs to the state rather than the sampled action (ICC, 8 fresh actions) 0.78
+   lag-1 autocorrelation of log|g_pre| along the trajectory +0.51
+2. top-1% states by pre-tanh norm (50 states; 1 inverted; overlap with the post-tanh top-1% 34); medians (means for counts), and Spearman of log|g_pre| with each feature over all states
+   cos(pitch)                           top-1%     0.992   rest     0.979   p-value (Mann-Whitney) 8.7e-05   Spearman +0.50
+   |pitch| (rad)                        top-1%     0.125   rest     0.206   p-value (Mann-Whitney) 8.6e-05   Spearman -0.50
+   |pitch velocity|                     top-1%     1.363   rest     1.240   p-value (Mann-Whitney) 8.4e-01   Spearman +0.20
+   x velocity                           top-1%     9.971   rest     9.551   p-value (Mann-Whitney) 2.1e-03   Spearman +0.38
+   reward                               top-1%     9.604   rest     9.285   p-value (Mann-Whitney) 6.9e-02   Spearman +0.34
+   step in episode                      top-1%   371.500   rest   500.000   p-value (Mann-Whitney) 1.4e-01   Spearman -0.14
+   max_d |tanh(mean)|                   top-1%     0.974   rest     0.937   p-value (Mann-Whitney) 1.9e-08   Spearman +0.46
+   mean_d |tanh(mean)|                  top-1%     0.715   rest     0.605   p-value (Mann-Whitney) 4.5e-05   Spearman +0.44
+   dims with |a| > 0.99                 top-1%     0.300   rest     0.153   p-value (Mann-Whitney) 3.6e-03   Spearman +0.06
+   dims with |a| > 0.9                  top-1%     2.000   rest     1.515   p-value (Mann-Whitney) 4.1e-03   Spearman +0.11
+   policy std (mean over dims)          top-1%     0.374   rest     0.468   p-value (Mann-Whitney) 6.4e-13   Spearman -0.60
+   |noise| of the sample                top-1%     2.481   rest     2.306   p-value (Mann-Whitney) 3.4e-02   Spearman +0.08
+   Mahalanobis of normalised obs        top-1%     4.141   rest     4.023   p-value (Mann-Whitney) 6.5e-01   Spearman -0.35
+   Mahalanobis of critic input (s, a)   top-1%     4.462   rest     4.719   p-value (Mann-Whitney) 1.4e-02   Spearman -0.41
+   10-NN distance of critic input       top-1%     2.132   rest     2.287   p-value (Mann-Whitney) 2.3e-02   Spearman -0.38
+   Q                                    top-1%    85.588   rest    88.444   p-value (Mann-Whitney) 1.6e-05   Spearman +0.16
+   sd of the HL-Gauss distribution      top-1%     3.356   rest     1.775   p-value (Mann-Whitney) 5.4e-23   Spearman +0.17
+   feet on floor                        top-1%     0.040   rest     0.088   p-value (Mann-Whitney) 2.3e-01   Spearman +0.02
+   non-foot geom on floor               top-1%     0.000   rest     0.068   p-value (Mann-Whitney) 5.5e-02   Spearman -0.39
+   |dQ/da| post-tanh                    top-1%     7.788   rest     0.671   p-value (Mann-Whitney) 8.8e-34   Spearman +0.81
+   gait phase (PC1/PC2 of joint angles hold 0.80 of their variance): resultant length of the top-1% phases 0.15 (all rows 0.02; 0 = uniform, 1 = one phase)
+   phase octant:                0      1      2      3      4      5      6      7
+   share of rows             0.18   0.07   0.06   0.17   0.21   0.06   0.07   0.17
+   share of top-1% states    0.34   0.06   0.10   0.12   0.22   0.04   0.02   0.10
+   share of gradient energy  0.59   0.12   0.04   0.08   0.10   0.02   0.01   0.05
+   median |g_pre|            0.33   0.24   0.24   0.32   0.30   0.20   0.20   0.25
+   top-1% states come in runs of consecutive steps: 45 runs, lengths median 1, max 2; episodes hit [0, 4, 7, 11, 14] (lanes), steps [66, 84, 89, 99, 103, 105, 106, 109, 115, 144, 149, 187] ...
+3. action dimensions (bthigh, bshin, bfoot, fthigh, fshin, ffoot)
+   pre-tanh  largest coordinate's share of |g|^2: top-1% 0.94, rest 0.64; participation ratio (1-6) top-1% 1.13, rest 2.08; largest coordinate among top-1%: [0.02, 0.44, 0.02, 0.5, 0.02, 0.0]; share of all energy per coordinate [0.02, 0.64, 0.03, 0.27, 0.03, 0.01]
+   post-tanh largest coordinate's share of |g|^2: top-1% 0.73, rest 0.54; participation ratio (1-6) top-1% 1.72, rest 2.54; largest coordinate among top-1%: [0.04, 0.46, 0.02, 0.48, 0.0, 0.0]; share of all energy per coordinate [0.1, 0.37, 0.16, 0.3, 0.05, 0.02]
+   per-coordinate top-1% energy share (each coordinate ranked on its own), pre-tanh: [0.67, 0.9, 0.65, 0.8, 0.73, 0.7]; post-tanh energy of the spike states by coordinate [0.07, 0.42, 0.18, 0.28, 0.04, 0.02]
+3b. tanh coordinates and saturation
+   components with |a| in [0, 0.5): share 0.320; rms dQ/da 0.942; share of post-tanh energy 0.284; share of pre-tanh energy 0.710; median |dQ/da| 0.097
+   components with |a| in [0.5, 0.9): share 0.427; rms dQ/da 0.955; share of post-tanh energy 0.389; share of pre-tanh energy 0.281; median |dQ/da| 0.131
+   components with |a| in [0.9, 0.99): share 0.228; rms dQ/da 1.069; share of post-tanh energy 0.260; share of pre-tanh energy 0.009; median |dQ/da| 0.287
+   components with |a| in [0.99, 1.01): share 0.026; rms dQ/da 1.620; share of post-tanh energy 0.067; share of pre-tanh energy 0.000; median |dQ/da| 0.531
+   Spearman(|dQ/da_d|, |a_d|) over components +0.29; Spearman(|g_act|, |g_pre|) over states +0.81; median |g_pre| / |g_act| 0.50 (top-1% by post-tanh norm: 0.55)
+   at the mean action a* = tanh(mu): top-1% energy share pre-tanh 0.650; Spearman with the sampled-action norm +0.81
+4. where in the critic the amplitude comes from (Spearman with log|g_act| over states; medians top-1% by post-tanh norm vs rest)
+   decode gain |dQ/dlogits|               Spearman -0.03   top-1%    0.8627   rest    0.6973   ratio   1.24   p1/p99 over states 0.6349 / 0.8850
+   head gain |dQ/dfeat| / |dQ/dlogits|    Spearman +0.56   top-1%    4.5310   rest    1.8838   ratio   2.41   p1/p99 over states 0.8427 / 4.5289
+   encoder gain |dQ/da| / |dQ/dfeat|      Spearman +0.97   top-1%    2.4913   rest    0.4900   ratio   5.08   p1/p99 over states 0.0735 / 2.7616
+   sd of HL-Gauss distribution            Spearman +0.23   top-1%    4.0366   rest    1.7748   ratio   2.27   p1/p99 over states 1.5523 / 4.0812
+   1 / rms of encoder pre-norm            Spearman +0.54   top-1%    2.4036   rest    2.2971   ratio   1.05   p1/p99 over states 0.7965 / 2.8969
+   1 / rms of head pre-norm               Spearman +0.47   top-1%    1.0208   rest    0.9000   ratio   1.13   p1/p99 over states 0.3055 / 1.4292
+   finite-difference slope along the gradient's own direction, relative to the analytic norm (1 = locally linear):
+      h 0.01: top-1% median 1.00 (p10 1.00); rest median 1.00; top-1% energy share of the FD slope 0.731
+      h 0.05: top-1% median 1.00 (p10 0.98); rest median 1.00; top-1% energy share of the FD slope 0.726
+      h 0.20: top-1% median 1.05 (p10 0.91); rest median 1.00; top-1% energy share of the FD slope 0.743
+      h 0.50: top-1% median 1.12 (p10 0.61); rest median 1.01; top-1% energy share of the FD slope 0.674
+5. actor parameter gradient (v60 actor loss, first step of an iteration: every state inside the KL gate)
+   surrogate check: cos(first-order surrogate, exact loss gradient) 1.000000; full-batch norm 0.970; pathwise part alone 1.130 (cos with total 0.939), entropy part 0.400
+   48 minibatches of 2048 rows drawn with replacement, as the trainer does; clip threshold 0.5
+   variant                      full-batch norm  cos w/ unmod (full)   minibatch norm p50 [p10, p90] norm / 0.5  clipped  cos w/ unmod (minibatch)  cos between minibatches
+   unmodified                             0.970                1.000        1.059 [0.878, 1.277]           2.12     1.00              1.000 (p10 1.00)                    0.814
+   without top 1% (pre)                   0.848                0.839        0.860 [0.776, 0.957]           1.72     1.00              0.835 (p10 0.67)                    0.929
+   top 1% only (pre)                      0.678                0.247        0.689 [0.490, 1.051]           1.38     0.85              0.335 (p10 0.02)                    0.740
+   (e) unit per state, pre                3.316                0.496        3.331 [3.240, 3.462]           6.66     1.00              0.505 (p10 0.37)                    0.971
+   (e) unit per state, post               3.167                0.485        3.161 [3.056, 3.308]           6.32     1.00              0.493 (p10 0.39)                    0.970
+   (f) clip p99, pre                      0.868                0.925        0.911 [0.819, 1.021]           1.82     1.00              0.950 (p10 0.83)                    0.911
+   (f) clip p99, post                     0.882                0.921        0.931 [0.835, 1.042]           1.86     1.00              0.945 (p10 0.81)                    0.914
+   clip p90, pre                          0.660                0.816        0.672 [0.633, 0.730]           1.34     1.00              0.836 (p10 0.66)                    0.935
+
+================ checkpoint 7913088: 5000 states, upright rows 1.000, Q mean 105.6, policy std mean 0.487, temperature 0.0357
+1. distribution of the per-state gradient norm
+   post-tanh |dQ/da|            p50 0.778  p90 2.429  p99 9.978  max 118.13  max/p50 152  top-1% energy 0.759  top-5% 0.882  top-1% upright only 0.759  excess kurtosis of |g| 566, of log|g| 1.59
+   pre-tanh |dQ/da (1-a^2)|     p50 0.326  p90 1.265  p99 5.386  max 75.98  max/p50 233  top-1% energy 0.839  top-5% 0.927  top-1% upright only 0.839  excess kurtosis of |g| 679, of log|g| 1.31
+   noise units |sigma dQ/du|    p50 0.128  p90 0.343  p99 1.442  max 14.83  max/p50 116  top-1% energy 0.748  top-5% 0.871  top-1% upright only 0.748  excess kurtosis of |g| 444, of log|g| 2.31
+   excess kurtosis of the pooled components: post-tanh 2010, pre-tanh 3092 (Gaussian 0)
+   post-tanh: share of var(log|g|) that belongs to the state rather than the sampled action (ICC, 8 fresh actions) 0.83
+   pre-tanh: share of var(log|g|) that belongs to the state rather than the sampled action (ICC, 8 fresh actions) 0.65
+   lag-1 autocorrelation of log|g_pre| along the trajectory +0.22
+2. top-1% states by pre-tanh norm (50 states; 0 inverted; overlap with the post-tanh top-1% 37); medians (means for counts), and Spearman of log|g_pre| with each feature over all states
+   cos(pitch)                           top-1%     0.988   rest     0.980   p-value (Mann-Whitney) 3.4e-02   Spearman +0.20
+   |pitch| (rad)                        top-1%     0.158   rest     0.199   p-value (Mann-Whitney) 3.4e-02   Spearman -0.20
+   |pitch velocity|                     top-1%     1.359   rest     1.735   p-value (Mann-Whitney) 6.7e-01   Spearman +0.03
+   x velocity                           top-1%    12.448   rest    12.206   p-value (Mann-Whitney) 3.3e-02   Spearman -0.03
+   reward                               top-1%    12.092   rest    11.899   p-value (Mann-Whitney) 8.0e-02   Spearman -0.11
+   step in episode                      top-1%   526.000   rest   498.500   p-value (Mann-Whitney) 2.0e-01   Spearman -0.06
+   max_d |tanh(mean)|                   top-1%     0.961   rest     0.950   p-value (Mann-Whitney) 2.5e-02   Spearman +0.22
+   mean_d |tanh(mean)|                  top-1%     0.701   rest     0.653   p-value (Mann-Whitney) 4.3e-02   Spearman +0.18
+   dims with |a| > 0.99                 top-1%     0.160   rest     0.185   p-value (Mann-Whitney) 4.1e-01   Spearman +0.09
+   dims with |a| > 0.9                  top-1%     1.980   rest     1.745   p-value (Mann-Whitney) 1.9e-01   Spearman +0.08
+   policy std (mean over dims)          top-1%     0.430   rest     0.485   p-value (Mann-Whitney) 9.0e-14   Spearman -0.45
+   |noise| of the sample                top-1%     2.328   rest     2.308   p-value (Mann-Whitney) 2.6e-01   Spearman +0.13
+   Mahalanobis of normalised obs        top-1%     3.929   rest     3.863   p-value (Mann-Whitney) 3.3e-01   Spearman +0.02
+   Mahalanobis of critic input (s, a)   top-1%     4.546   rest     4.565   p-value (Mann-Whitney) 5.9e-01   Spearman -0.04
+   10-NN distance of critic input       top-1%     2.283   rest     2.095   p-value (Mann-Whitney) 1.5e-02   Spearman +0.04
+   Q                                    top-1%   103.384   rest   108.390   p-value (Mann-Whitney) 1.4e-10   Spearman -0.30
+   sd of the HL-Gauss distribution      top-1%     6.353   rest     1.819   p-value (Mann-Whitney) 2.6e-32   Spearman +0.56
+   feet on floor                        top-1%     0.040   rest     0.082   p-value (Mann-Whitney) 2.9e-01   Spearman -0.06
+   non-foot geom on floor               top-1%     0.000   rest     0.000   p-value (Mann-Whitney) 9.2e-01   Spearman +0.00
+   |dQ/da| post-tanh                    top-1%    15.382   rest     0.771   p-value (Mann-Whitney) 7.5e-34   Spearman +0.79
+   gait phase (PC1/PC2 of joint angles hold 0.85 of their variance): resultant length of the top-1% phases 0.39 (all rows 0.02; 0 = uniform, 1 = one phase)
+   phase octant:                0      1      2      3      4      5      6      7
+   share of rows             0.20   0.05   0.04   0.21   0.22   0.04   0.04   0.21
+   share of top-1% states    0.14   0.04   0.04   0.32   0.28   0.06   0.04   0.08
+   share of gradient energy  0.22   0.01   0.03   0.39   0.21   0.03   0.01   0.10
+   median |g_pre|            0.25   0.27   0.33   0.37   0.39   0.35   0.38   0.34
+   top-1% states come in runs of consecutive steps: 46 runs, lengths median 1, max 2; episodes hit [0, 4, 7, 11, 14] (lanes), steps [88, 102, 113, 122, 194, 196, 201, 211, 236, 264, 284, 290] ...
+3. action dimensions (bthigh, bshin, bfoot, fthigh, fshin, ffoot)
+   pre-tanh  largest coordinate's share of |g|^2: top-1% 0.89, rest 0.66; participation ratio (1-6) top-1% 1.24, rest 1.98; largest coordinate among top-1%: [0.1, 0.54, 0.06, 0.3, 0.0, 0.0]; share of all energy per coordinate [0.04, 0.52, 0.04, 0.37, 0.02, 0.01]
+   post-tanh largest coordinate's share of |g|^2: top-1% 0.67, rest 0.55; participation ratio (1-6) top-1% 2.02, rest 2.47; largest coordinate among top-1%: [0.08, 0.54, 0.08, 0.3, 0.0, 0.0]; share of all energy per coordinate [0.11, 0.46, 0.09, 0.29, 0.04, 0.01]
+   per-coordinate top-1% energy share (each coordinate ranked on its own), pre-tanh: [0.86, 0.88, 0.77, 0.91, 0.74, 0.68]; post-tanh energy of the spike states by coordinate [0.08, 0.52, 0.08, 0.29, 0.02, 0.01]
+3b. tanh coordinates and saturation
+   components with |a| in [0, 0.5): share 0.291; rms dQ/da 1.414; share of post-tanh energy 0.310; share of pre-tanh energy 0.603; median |dQ/da| 0.137
+   components with |a| in [0.5, 0.9): share 0.418; rms dQ/da 1.458; share of post-tanh energy 0.473; share of pre-tanh energy 0.392; median |dQ/da| 0.171
+   components with |a| in [0.9, 0.99): share 0.260; rms dQ/da 1.091; share of post-tanh energy 0.165; share of pre-tanh energy 0.005; median |dQ/da| 0.309
+   components with |a| in [0.99, 1.01): share 0.031; rms dQ/da 1.779; share of post-tanh energy 0.052; share of pre-tanh energy 0.000; median |dQ/da| 0.555
+   Spearman(|dQ/da_d|, |a_d|) over components +0.26; Spearman(|g_act|, |g_pre|) over states +0.79; median |g_pre| / |g_act| 0.48 (top-1% by post-tanh norm: 0.56)
+   at the mean action a* = tanh(mu): top-1% energy share pre-tanh 0.836; Spearman with the sampled-action norm +0.72
+4. where in the critic the amplitude comes from (Spearman with log|g_act| over states; medians top-1% by post-tanh norm vs rest)
+   decode gain |dQ/dlogits|               Spearman +0.57   top-1%    1.4738   rest    0.6998   ratio   2.11   p1/p99 over states 0.6514 / 1.3589
+   head gain |dQ/dfeat| / |dQ/dlogits|    Spearman +0.52   top-1%    6.3806   rest    1.8244   ratio   3.50   p1/p99 over states 1.3974 / 6.3432
+   encoder gain |dQ/da| / |dQ/dfeat|      Spearman +0.94   top-1%    1.9854   rest    0.5776   ratio   3.44   p1/p99 over states 0.1551 / 2.7207
+   sd of HL-Gauss distribution            Spearman +0.57   top-1%    6.4151   rest    1.8194   ratio   3.53   p1/p99 over states 1.6081 / 6.1376
+   1 / rms of encoder pre-norm            Spearman +0.19   top-1%    2.5415   rest    2.4653   ratio   1.03   p1/p99 over states 1.9675 / 3.1144
+   1 / rms of head pre-norm               Spearman +0.19   top-1%    0.5806   rest    0.5885   ratio   0.99   p1/p99 over states 0.4133 / 0.8949
+   finite-difference slope along the gradient's own direction, relative to the analytic norm (1 = locally linear):
+      h 0.01: top-1% median 1.00 (p10 1.00); rest median 1.00; top-1% energy share of the FD slope 0.759
+      h 0.05: top-1% median 1.00 (p10 0.97); rest median 1.00; top-1% energy share of the FD slope 0.752
+      h 0.20: top-1% median 1.01 (p10 0.78); rest median 1.00; top-1% energy share of the FD slope 0.654
+      h 0.50: top-1% median 0.87 (p10 0.48); rest median 1.04; top-1% energy share of the FD slope 0.329
+5. actor parameter gradient (v60 actor loss, first step of an iteration: every state inside the KL gate)
+   surrogate check: cos(first-order surrogate, exact loss gradient) 1.000000; full-batch norm 0.925; pathwise part alone 1.322 (cos with total 0.777), entropy part 0.839
+   48 minibatches of 2048 rows drawn with replacement, as the trainer does; clip threshold 0.5
+   variant                      full-batch norm  cos w/ unmod (full)   minibatch norm p50 [p10, p90] norm / 0.5  clipped  cos w/ unmod (minibatch)  cos between minibatches
+   unmodified                             0.925                1.000        1.167 [0.922, 1.581]           2.33     1.00              1.000 (p10 1.00)                    0.503
+   without top 1% (pre)                   0.813                0.674        0.869 [0.754, 0.985]           1.74     1.00              0.623 (p10 0.30)                    0.840
+   top 1% only (pre)                      1.037                0.263        1.229 [0.995, 1.639]           2.46     1.00              0.455 (p10 0.17)                    0.634
+   (e) unit per state, pre                5.220                0.523        5.286 [5.086, 5.458]          10.57     1.00              0.430 (p10 0.23)                    0.968
+   (e) unit per state, post               3.788                0.527        3.850 [3.685, 4.018]           7.70     1.00              0.437 (p10 0.24)                    0.957
+   (f) clip p99, pre                      0.779                0.842        0.885 [0.755, 1.011]           1.77     1.00              0.812 (p10 0.56)                    0.758
+   (f) clip p99, post                     0.762                0.876        0.869 [0.769, 1.004]           1.74     1.00              0.846 (p10 0.65)                    0.727
+   clip p90, pre                          0.740                0.661        0.761 [0.697, 0.869]           1.52     1.00              0.619 (p10 0.28)                    0.895

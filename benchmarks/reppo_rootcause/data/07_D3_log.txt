@@ -1,0 +1,538 @@
+
+===== v23_4M: step 4013696 lam 0.95 upright 1.0000 (oracle 1.0000)
+[v23_4M|all|linear(108) | ref sf_gae0.99] |V*|^2: OO 9.309e-02, OS 4.065e-02, SS 3.947e-02 -> combined 5.762e-02 [-4.28e-02, 2.07e-01] P(>0) 0.843 weights [0.33, 0.44, 0.23]
+    critic       cos +0.740 [+0.256, +2.487] | gain +0.1776 [+0.0712, +0.2761] P(>0) 1.000 | a via O +0.0950, via S +0.3437 | |V| 0.3105 own-rel +0.962
+    critic_star  cos +0.613 [+0.165, +2.033] | gain +0.1472 [+0.0413, +0.2551] P(>0) 0.996 | a via O +0.0746, via S +0.2870 | |V| 0.3122 own-rel +0.981
+    sf_gae0.8    cos +0.811 [+0.123, +1.756] | gain +0.1946 [+0.0011, +0.3284] P(>0) 0.976 | a via O +0.1747, via S +0.2271 | |V| 0.3225 own-rel +0.508
+    sf_gae0.95   cos +0.635 [-0.093, +1.069] | gain +0.1523 [-0.0582, +0.3105] P(>0) 0.909 | a via O +0.1473, via S +0.1620 | |V| 0.3966 own-rel +0.415
+    sf_gae0.99   cos +0.309 [-0.613, +0.651] | gain +0.0741 [-0.1318, +0.2599] P(>0) 0.716 | a via O +0.0749, via S +0.0727 | |V| 0.5428 own-rel +0.134
+    sf_target    cos +0.561 [-0.212, +1.150] | gain +0.1346 [-0.0667, +0.2863] P(>0) 0.890 | a via O +0.1132, via S +0.1791 | |V| 0.4147 own-rel +0.430
+    cv_combo     cos +0.614 [-0.078, +1.100] | gain +0.1475 [-0.0531, +0.3016] P(>0) 0.910 | a via O +0.1347, via S +0.1720 | |V| 0.3960 own-rel +0.425
+    critic vs sf_gae0.95: gain diff +0.0252 [-0.1486, +0.2303] P(critic better) 0.750 | kappa=cos_c*cos_sf +0.448 [+0.150, +0.593] | critic ~ 34252 SF samples
+    critic vs sf_gae0.8: gain diff -0.0170 [-0.1755, +0.1764] P(critic better) 0.597 | kappa=cos_c*cos_sf +0.551 [+0.188, +0.755] | critic ~ 15938 SF samples
+    critic vs sf_target: gain diff +0.0430 [-0.1275, +0.2412] P(critic better) 0.791 | kappa=cos_c*cos_sf +0.428 [+0.142, +0.584] | critic ~ 39312 SF samples
+[v23_4M|all|linear(108) | ref sf_gae0.95] |V*|^2: OO 9.309e-02, OS 5.842e-02, SS 6.521e-02 -> combined 6.600e-02 [-3.98e-03, 1.71e-01] P(>0) 0.964 weights [0.13, 0.44, 0.43]
+    critic       cos +0.674 [+0.312, +1.797] | gain +0.1731 [+0.0835, +0.2546] P(>0) 1.000 | a via O +0.0950, via S +0.2343 | |V| 0.3105 own-rel +0.962
+    critic_star  cos +0.510 [+0.171, +1.438] | gain +0.1311 [+0.0451, +0.2177] P(>0) 1.000 | a via O +0.0746, via S +0.1726 | |V| 0.3122 own-rel +0.981
+    sf_gae0.8    cos +0.708 [+0.223, +0.891] | gain +0.1820 [+0.0126, +0.2970] P(>0) 0.986 | a via O +0.1747, via S +0.1882 | |V| 0.3225 own-rel +0.508
+    sf_gae0.95   cos +0.606 [-0.057, +0.724] | gain +0.1558 [-0.0346, +0.2866] P(>0) 0.941 | a via O +0.1473, via S +0.1644 | |V| 0.3966 own-rel +0.415
+    sf_gae0.99   cos +0.386 [-0.634, +0.641] | gain +0.0991 [-0.0888, +0.2452] P(>0) 0.821 | a via O +0.0749, via S +0.1184 | |V| 0.5428 own-rel +0.134
+    sf_target    cos +0.540 [-0.160, +0.717] | gain +0.1387 [-0.0426, +0.2682] P(>0) 0.925 | a via O +0.1132, via S +0.1656 | |V| 0.4147 own-rel +0.430
+    cv_combo     cos +0.595 [-0.086, +0.727] | gain +0.1528 [-0.0330, +0.2802] P(>0) 0.942 | a via O +0.1347, via S +0.1711 | |V| 0.3960 own-rel +0.425
+    critic vs sf_gae0.95: gain diff +0.0173 [-0.1207, +0.1925] P(critic better) 0.750 | kappa=cos_c*cos_sf +0.437 [+0.177, +0.525] | critic ~ 18841 SF samples
+    critic vs sf_gae0.8: gain diff -0.0089 [-0.1377, +0.1549] P(critic better) 0.644 | kappa=cos_c*cos_sf +0.537 [+0.223, +0.678] | critic ~ 7842 SF samples
+    critic vs sf_target: gain diff +0.0344 [-0.1047, +0.2045] P(critic better) 0.796 | kappa=cos_c*cos_sf +0.417 [+0.172, +0.514] | critic ~ 21879 SF samples
+[v23_4M|all|lastlayer(3078) | ref sf_gae0.99] |V*|^2: OO 2.846e-01, OS 7.565e-02, SS 3.956e-01 -> combined 2.023e-01 [-2.55e-01, 8.43e-01] P(>0) 0.776 weights [0.37, 0.48, 0.15]
+    critic       cos +0.843 [+0.295, +2.936] | gain +0.3793 [+0.1317, +0.6302] P(>0) 0.999 | a via O +0.2034, via S +0.6747 | |V| 0.9040 own-rel +0.973
+    critic_star  cos +0.603 [+0.032, +2.255] | gain +0.2711 [+0.0002, +0.5421] P(>0) 0.975 | a via O +0.1226, via S +0.5552 | |V| 0.9167 own-rel +0.986
+    sf_gae0.8    cos +0.893 [+0.265, +2.129] | gain +0.4016 [+0.0379, +0.6470] P(>0) 0.987 | a via O +0.3794, via S +0.4435 | |V| 0.8190 own-rel +0.521
+    sf_gae0.95   cos +0.660 [+0.031, +1.420] | gain +0.2970 [-0.0901, +0.5715] P(>0) 0.927 | a via O +0.2659, via S +0.3752 | |V| 0.9671 own-rel +0.357
+    sf_gae0.99   cos +0.244 [-0.675, +0.678] | gain +0.1099 [-0.2530, +0.4610] P(>0) 0.686 | a via O +0.0540, via S +0.2822 | |V| 1.4021 own-rel +0.201
+    sf_target    cos +0.573 [-0.108, +1.328] | gain +0.2576 [-0.1104, +0.5400] P(>0) 0.904 | a via O +0.2098, via S +0.3842 | |V| 0.9941 own-rel +0.375
+    cv_combo     cos +0.613 [-0.041, +1.336] | gain +0.2758 [-0.0901, +0.5525] P(>0) 0.915 | a via O +0.2359, via S +0.3789 | |V| 0.9448 own-rel +0.337
+    critic vs sf_gae0.95: gain diff +0.0824 [-0.2118, +0.4766] P(critic better) 0.811 | kappa=cos_c*cos_sf +0.392 [+0.109, +0.532] | critic ~ 146192 SF samples
+    critic vs sf_gae0.8: gain diff -0.0223 [-0.2962, +0.3683] P(critic better) 0.612 | kappa=cos_c*cos_sf +0.463 [+0.133, +0.662] | critic ~ 93420 SF samples
+    critic vs sf_target: gain diff +0.1218 [-0.1737, +0.5188] P(critic better) 0.833 | kappa=cos_c*cos_sf +0.382 [+0.106, +0.536] | critic ~ 156751 SF samples
+[v23_4M|all|lastlayer(3078) | ref sf_gae0.95] |V*|^2: OO 2.846e-01, OS 2.572e-01, SS 3.340e-01 -> combined 2.919e-01 [-1.88e-02, 7.18e-01] P(>0) 0.965 weights [0.14, 0.46, 0.4]
+    critic       cos +0.711 [+0.358, +1.847] | gain +0.3842 [+0.1984, +0.5726] P(>0) 1.000 | a via O +0.2034, via S +0.4914 | |V| 0.9040 own-rel +0.973
+    critic_star  cos +0.509 [+0.149, +1.333] | gain +0.2747 [+0.0739, +0.4719] P(>0) 0.999 | a via O +0.1226, via S +0.3611 | |V| 0.9167 own-rel +0.986
+    sf_gae0.8    cos +0.732 [+0.345, +0.992] | gain +0.3954 [+0.0761, +0.6069] P(>0) 0.998 | a via O +0.3794, via S +0.4102 | |V| 0.8190 own-rel +0.521
+    sf_gae0.95   cos +0.561 [+0.010, +0.668] | gain +0.3031 [-0.0369, +0.5274] P(>0) 0.951 | a via O +0.2659, via S +0.3454 | |V| 0.9671 own-rel +0.357
+    sf_gae0.99   cos +0.291 [-0.530, +0.549] | gain +0.1571 [-0.1655, +0.4313] P(>0) 0.790 | a via O +0.0540, via S +0.2588 | |V| 1.4021 own-rel +0.201
+    sf_target    cos +0.499 [-0.109, +0.674] | gain +0.2695 [-0.0630, +0.4932] P(>0) 0.938 | a via O +0.2098, via S +0.3402 | |V| 0.9941 own-rel +0.375
+    cv_combo     cos +0.529 [-0.033, +0.658] | gain +0.2856 [-0.0514, +0.5114] P(>0) 0.950 | a via O +0.2359, via S +0.3463 | |V| 0.9448 own-rel +0.337
+    critic vs sf_gae0.95: gain diff +0.0812 [-0.1285, +0.3977] P(critic better) 0.855 | kappa=cos_c*cos_sf +0.397 [+0.158, +0.472] | critic ~ 36948 SF samples
+    critic vs sf_gae0.8: gain diff -0.0111 [-0.2202, +0.3035] P(critic better) 0.681 | kappa=cos_c*cos_sf +0.469 [+0.203, +0.588] | critic ~ 21753 SF samples
+    critic vs sf_target: gain diff +0.1148 [-0.1017, +0.4400] P(critic better) 0.877 | kappa=cos_c*cos_sf +0.387 [+0.151, +0.480] | critic ~ 39988 SF samples
+[v23_4M|all|actor_params(full) | ref sf_gae0.99] |V*|^2: OO 5.404e-01, OS 2.650e-01, SS 5.780e-01 -> combined 4.101e-01 [-4.44e-01, 1.63e+00] P(>0) 0.800 weights [0.32, 0.5, 0.18]
+    critic       cos +0.925 [+0.355, +3.549] | gain +0.5924 [+0.2880, +0.8672] P(>0) 1.000 | a via O +0.2904, via S +0.9704 | |V| 1.1583 own-rel +0.962
+    critic_star  cos +0.707 [+0.178, +2.656] | gain +0.4530 [+0.1151, +0.7734] P(>0) 0.997 | a via O +0.1949, via S +0.8104 | |V| 1.1785 own-rel +0.982
+    sf_gae0.8    cos +0.871 [+0.307, +2.222] | gain +0.5577 [+0.0935, +0.8699] P(>0) 0.993 | a via O +0.5321, via S +0.6080 | |V| 1.1444 own-rel +0.484
+    sf_gae0.95   cos +0.668 [+0.096, +1.469] | gain +0.4277 [-0.1051, +0.7903] P(>0) 0.941 | a via O +0.4075, via S +0.4792 | |V| 1.3477 own-rel +0.342
+    sf_gae0.99   cos +0.286 [-0.520, +0.633] | gain +0.1833 [-0.3178, +0.6251] P(>0) 0.712 | a via O +0.1393, via S +0.3038 | |V| 1.9027 own-rel +0.160
+    sf_target    cos +0.546 [-0.114, +1.354] | gain +0.3498 [-0.1750, +0.7222] P(>0) 0.903 | a via O +0.3020, via S +0.4955 | |V| 1.3780 own-rel +0.352
+    cv_combo     cos +0.606 [+0.019, +1.280] | gain +0.3881 [-0.1067, +0.7565] P(>0) 0.925 | a via O +0.3488, via S +0.4935 | |V| 1.3260 own-rel +0.331
+    critic vs sf_gae0.95: gain diff +0.1647 [-0.2195, +0.6658] P(critic better) 0.870 | kappa=cos_c*cos_sf +0.440 [+0.157, +0.557] | critic ~ 333145 SF samples
+    critic vs sf_gae0.8: gain diff +0.0347 [-0.3158, +0.5025] P(critic better) 0.741 | kappa=cos_c*cos_sf +0.518 [+0.199, +0.689] | critic ~ 213106 SF samples
+    critic vs sf_target: gain diff +0.2426 [-0.1493, +0.7533] P(critic better) 0.907 | kappa=cos_c*cos_sf +0.430 [+0.151, +0.565] | critic ~ 352723 SF samples
+[v23_4M|all|actor_params(full) | ref sf_gae0.95] |V*|^2: OO 5.404e-01, OS 5.492e-01, SS 6.207e-01 -> combined 5.755e-01 [-2.31e-02, 1.39e+00] P(>0) 0.966 weights [0.12, 0.49, 0.38]
+    critic       cos +0.741 [+0.410, +1.851] | gain +0.5624 [+0.3254, +0.7765] P(>0) 1.000 | a via O +0.2904, via S +0.6997 | |V| 1.1583 own-rel +0.962
+    critic_star  cos +0.538 [+0.199, +1.393] | gain +0.4081 [+0.1522, +0.6598] P(>0) 1.000 | a via O +0.1949, via S +0.5156 | |V| 1.1785 own-rel +0.982
+    sf_gae0.8    cos +0.711 [+0.327, +0.924] | gain +0.5392 [+0.1003, +0.7904] P(>0) 0.996 | a via O +0.5321, via S +0.5469 | |V| 1.1444 own-rel +0.484
+    sf_gae0.95   cos +0.568 [+0.029, +0.668] | gain +0.4307 [-0.0527, +0.7274] P(>0) 0.954 | a via O +0.4075, via S +0.4606 | |V| 1.3477 own-rel +0.342
+    sf_gae0.99   cos +0.316 [-0.390, +0.548] | gain +0.2394 [-0.2092, +0.5734] P(>0) 0.820 | a via O +0.1393, via S +0.3394 | |V| 1.9027 own-rel +0.160
+    sf_target    cos +0.477 [-0.174, +0.654] | gain +0.3615 [-0.1156, +0.6642] P(>0) 0.930 | a via O +0.3020, via S +0.4447 | |V| 1.3780 own-rel +0.352
+    cv_combo     cos +0.526 [-0.038, +0.646] | gain +0.3989 [-0.0637, +0.7097] P(>0) 0.949 | a via O +0.3488, via S +0.4659 | |V| 1.3260 own-rel +0.331
+    critic vs sf_gae0.95: gain diff +0.1317 [-0.1786, +0.5610] P(critic better) 0.884 | kappa=cos_c*cos_sf +0.417 [+0.176, +0.483] | critic ~ 43113 SF samples
+    critic vs sf_gae0.8: gain diff +0.0232 [-0.2566, +0.4152] P(critic better) 0.751 | kappa=cos_c*cos_sf +0.491 [+0.226, +0.591] | critic ~ 25508 SF samples
+    critic vs sf_target: gain diff +0.2009 [-0.1168, +0.6332] P(critic better) 0.923 | kappa=cos_c*cos_sf +0.408 [+0.169, +0.489] | critic ~ 45984 SF samples
+
+===== v29h8_8M: step 8011392 lam 0.8 upright 1.0000 (oracle 1.0000)
+[v29h8_8M|all|linear(108) | ref sf_gae0.99] |V*|^2: OO 2.042e-02, OS 1.735e-02, SS -1.052e-02 -> combined 1.259e-02 [-3.13e-01, 4.91e-01] P(>0) 0.450 weights [0.3, 0.49, 0.2]
+    critic       cos +3.185 [+0.020, +4.479] | gain +0.3573 [-0.0422, +0.7828] P(>0) 0.954 | a via O +0.3823, via S +0.3282 | |V| 0.4689 own-rel +0.994
+    critic_star  cos +2.951 [-0.172, +4.380] | gain +0.3311 [-0.1005, +0.7747] P(>0) 0.939 | a via O +0.3869, via S +0.2616 | |V| 0.4324 own-rel +0.996
+    sf_gae0.8    cos +2.223 [-0.145, +3.247] | gain +0.2495 [-0.1658, +0.6303] P(>0) 0.864 | a via O +0.3449, via S +0.1366 | |V| 0.6951 own-rel +0.756
+    sf_gae0.95   cos +1.926 [+0.169, +2.578] | gain +0.2161 [-0.1860, +0.5554] P(>0) 0.801 | a via O +0.2908, via S +0.1016 | |V| 0.7501 own-rel +0.549
+    sf_gae0.99   cos +0.099 [-0.868, +0.888] | gain +0.0111 [-0.3399, +0.4017] P(>0) 0.455 | a via O +0.0209, via S -0.0127 | |V| 0.8301 own-rel -0.015
+    sf_target    cos +2.239 [-0.096, +3.162] | gain +0.2512 [-0.1587, +0.6207] P(>0) 0.866 | a via O +0.3443, via S +0.1415 | |V| 0.6671 own-rel +0.728
+    cv_combo     cos +1.915 [+0.200, +2.603] | gain +0.2149 [-0.1857, +0.5570] P(>0) 0.803 | a via O +0.2871, via S +0.1073 | |V| 0.7753 own-rel +0.578
+    critic vs sf_gae0.95: gain diff +0.1412 [-0.1060, +0.4314] P(critic better) 0.924 | kappa=cos_c*cos_sf +0.476 [-0.050, +0.822] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.1078 [-0.0339, +0.3139] P(critic better) 0.951 | kappa=cos_c*cos_sf +0.514 [-0.063, +0.981] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.1061 [-0.0483, +0.3205] P(critic better) 0.944 | kappa=cos_c*cos_sf +0.536 [-0.065, +1.036] | critic ~ nan SF samples
+[v29h8_8M|all|linear(108) | ref sf_gae0.95] |V*|^2: OO 2.042e-02, OS 2.181e-01, SS 3.090e-01 -> combined 2.164e-01 [-8.06e-02, 6.61e-01] P(>0) 0.887 weights [0.19, 0.43, 0.39]
+    critic       cos +1.226 [+0.900, +3.384] | gain +0.5704 [+0.2548, +0.8893] P(>0) 1.000 | a via O +0.3823, via S +0.6522 | |V| 0.4689 own-rel +0.994
+    critic_star  cos +1.194 [+0.818, +3.234] | gain +0.5555 [+0.2339, +0.8889] P(>0) 1.000 | a via O +0.3869, via S +0.6302 | |V| 0.4324 own-rel +0.996
+    sf_gae0.8    cos +0.906 [+0.579, +1.782] | gain +0.4217 [+0.0435, +0.7049] P(>0) 0.986 | a via O +0.3449, via S +0.4848 | |V| 0.6951 own-rel +0.756
+    sf_gae0.95   cos +0.749 [+0.298, +0.964] | gain +0.3482 [-0.0469, +0.6172] P(>0) 0.944 | a via O +0.2908, via S +0.4119 | |V| 0.7501 own-rel +0.549
+    sf_gae0.99   cos +0.118 [-1.264, +0.620] | gain +0.0550 [-0.3043, +0.4034] P(>0) 0.540 | a via O +0.0209, via S +0.0918 | |V| 0.8301 own-rel -0.015
+    sf_target    cos +0.898 [+0.564, +1.701] | gain +0.4179 [+0.0392, +0.6919] P(>0) 0.987 | a via O +0.3443, via S +0.4804 | |V| 0.6671 own-rel +0.728
+    cv_combo     cos +0.758 [+0.338, +0.973] | gain +0.3526 [-0.0396, +0.6230] P(>0) 0.954 | a via O +0.2871, via S +0.4229 | |V| 0.7753 own-rel +0.578
+    critic vs sf_gae0.95: gain diff +0.2221 [+0.0959, +0.4784] P(critic better) 0.996 | kappa=cos_c*cos_sf +0.760 [+0.361, +0.877] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.1487 [+0.0476, +0.3561] P(critic better) 0.992 | kappa=cos_c*cos_sf +0.821 [+0.427, +1.054] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.1524 [+0.0512, +0.3636] P(critic better) 0.993 | kappa=cos_c*cos_sf +0.855 [+0.443, +1.101] | critic ~ nan SF samples
+[v29h8_8M|all|lastlayer(3078) | ref sf_gae0.99] |V*|^2: OO -1.535e-01, OS 2.308e-01, SS -9.412e-02 -> combined 6.132e-02 [-1.51e+00, 2.29e+00] P(>0) 0.443 weights [0.25, 0.52, 0.23]
+    critic       cos +2.910 [+0.202, +4.169] | gain +0.7206 [-0.1321, +1.5678] P(>0) 0.951 | a via O +0.7653, via S +0.6909 | |V| 0.9894 own-rel +0.993
+    critic_star  cos +2.702 [-0.099, +3.843] | gain +0.6691 [-0.2232, +1.5778] P(>0) 0.929 | a via O +0.7543, via S +0.6076 | |V| 0.9244 own-rel +0.995
+    sf_gae0.8    cos +2.012 [-0.206, +2.652] | gain +0.4983 [-0.3500, +1.2699] P(>0) 0.842 | a via O +0.6614, via S +0.3329 | |V| 1.5281 own-rel +0.701
+    sf_gae0.95   cos +1.845 [+0.179, +2.141] | gain +0.4570 [-0.3856, +1.1771] P(>0) 0.799 | a via O +0.5836, via S +0.2736 | |V| 1.6303 own-rel +0.524
+    sf_gae0.99   cos +0.297 [-0.403, +0.857] | gain +0.0735 [-0.6889, +0.8197] P(>0) 0.505 | a via O +0.1281, via S -0.0522 | |V| 1.8024 own-rel -0.029
+    sf_target    cos +2.009 [-0.156, +2.634] | gain +0.4976 [-0.3385, +1.2638] P(>0) 0.845 | a via O +0.6558, via S +0.3392 | |V| 1.4756 own-rel +0.671
+    cv_combo     cos +1.891 [+0.201, +2.206] | gain +0.4682 [-0.3801, +1.1899] P(>0) 0.812 | a via O +0.5952, via S +0.2924 | |V| 1.6841 own-rel +0.558
+    critic vs sf_gae0.95: gain diff +0.2637 [-0.1404, +0.8147] P(critic better) 0.938 | kappa=cos_c*cos_sf +0.442 [-0.081, +0.753] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.2223 [-0.0663, +0.6516] P(critic better) 0.951 | kappa=cos_c*cos_sf +0.472 [-0.089, +0.904] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.2231 [-0.0626, +0.6637] P(critic better) 0.950 | kappa=cos_c*cos_sf +0.488 [-0.092, +0.934] | critic ~ nan SF samples
+[v29h8_8M|all|lastlayer(3078) | ref sf_gae0.95] |V*|^2: OO -1.535e-01, OS 9.515e-01, SS 1.393e+00 -> combined 9.511e-01 [-3.46e-01, 2.92e+00] P(>0) 0.886 weights [0.17, 0.41, 0.42]
+    critic       cos +1.194 [+0.866, +3.875] | gain +1.1649 [+0.5799, +1.7862] P(>0) 1.000 | a via O +0.7653, via S +1.2618 | |V| 0.9894 own-rel +0.993
+    critic_star  cos +1.171 [+0.835, +3.716] | gain +1.1424 [+0.5398, +1.7923] P(>0) 1.000 | a via O +0.7543, via S +1.2359 | |V| 0.9244 own-rel +0.995
+    sf_gae0.8    cos +0.883 [+0.580, +1.777] | gain +0.8611 [+0.1301, +1.4325] P(>0) 0.992 | a via O +0.6614, via S +0.9884 | |V| 1.5281 own-rel +0.701
+    sf_gae0.95   cos +0.739 [+0.355, +0.977] | gain +0.7208 [-0.0742, +1.2953] P(>0) 0.955 | a via O +0.5836, via S +0.8546 | |V| 1.6303 own-rel +0.524
+    sf_gae0.99   cos +0.186 [-0.974, +0.619] | gain +0.1811 [-0.5496, +0.8114] P(>0) 0.600 | a via O +0.1281, via S +0.2475 | |V| 1.8024 own-rel -0.029
+    sf_target    cos +0.868 [+0.558, +1.716] | gain +0.8465 [+0.1175, +1.4058] P(>0) 0.992 | a via O +0.6558, via S +0.9716 | |V| 1.4756 own-rel +0.671
+    cv_combo     cos +0.764 [+0.408, +1.101] | gain +0.7447 [-0.0471, +1.3042] P(>0) 0.963 | a via O +0.5952, via S +0.8827 | |V| 1.6841 own-rel +0.558
+    critic vs sf_gae0.95: gain diff +0.4441 [+0.1793, +0.9766] P(critic better) 0.997 | kappa=cos_c*cos_sf +0.715 [+0.370, +0.786] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.3038 [+0.0560, +0.7492] P(critic better) 0.988 | kappa=cos_c*cos_sf +0.762 [+0.419, +0.931] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.3184 [+0.0717, +0.7695] P(critic better) 0.991 | kappa=cos_c*cos_sf +0.789 [+0.433, +0.968] | critic ~ nan SF samples
+[v29h8_8M|all|actor_params(full) | ref sf_gae0.99] |V*|^2: OO -1.019e+00, OS 1.142e+00, SS 1.512e-01 -> combined 4.505e-01 [-2.94e+00, 4.93e+00] P(>0) 0.540 weights [0.21, 0.55, 0.24]
+    critic       cos +1.748 [+0.232, +4.945] | gain +1.1732 [+0.0404, +2.3124] P(>0) 0.979 | a via O +1.0888, via S +1.2147 | |V| 1.7457 own-rel +0.992
+    critic_star  cos +1.519 [-0.053, +4.724] | gain +1.0198 [-0.1852, +2.2262] P(>0) 0.955 | a via O +1.0197, via S +1.0199 | |V| 1.6147 own-rel +0.994
+    sf_gae0.8    cos +1.159 [-0.070, +2.797] | gain +0.7777 [-0.2873, +1.7879] P(>0) 0.903 | a via O +0.8863, via S +0.7000 | |V| 2.3916 own-rel +0.639
+    sf_gae0.95   cos +0.997 [+0.060, +2.205] | gain +0.6690 [-0.3669, +1.6729] P(>0) 0.854 | a via O +0.8384, via S +0.4913 | |V| 2.7357 own-rel +0.462
+    sf_gae0.99   cos +0.381 [-0.179, +0.898] | gain +0.2559 [-0.6015, +1.1232] P(>0) 0.639 | a via O +0.3482, via S +0.0461 | |V| 3.2797 own-rel +0.014
+    sf_target    cos +1.194 [-0.004, +2.966] | gain +0.8013 [-0.2466, +1.7940] P(>0) 0.917 | a via O +0.8911, via S +0.7342 | |V| 2.3474 own-rel +0.614
+    cv_combo     cos +1.017 [+0.058, +2.333] | gain +0.6827 [-0.3513, +1.6853] P(>0) 0.861 | a via O +0.8473, via S +0.5199 | |V| 2.8466 own-rel +0.497
+    critic vs sf_gae0.95: gain diff +0.5041 [-0.1136, +1.2874] P(critic better) 0.954 | kappa=cos_c*cos_sf +0.429 [+0.016, +0.644] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.3954 [-0.0928, +1.1350] P(critic better) 0.957 | kappa=cos_c*cos_sf +0.491 [+0.019, +0.835] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.3718 [-0.1462, +1.1351] P(critic better) 0.948 | kappa=cos_c*cos_sf +0.500 [+0.019, +0.842] | critic ~ nan SF samples
+[v29h8_8M|all|actor_params(full) | ref sf_gae0.95] |V*|^2: OO -1.019e+00, OS 2.294e+00, SS 3.461e+00 -> combined 2.142e+00 [-9.64e-01, 6.80e+00] P(>0) 0.881 weights [0.19, 0.42, 0.39]
+    critic       cos +1.258 [+0.918, +3.390] | gain +1.8414 [+0.8927, +2.8327] P(>0) 1.000 | a via O +1.0888, via S +2.0780 | |V| 1.7457 own-rel +0.992
+    critic_star  cos +1.208 [+0.850, +3.041] | gain +1.7686 [+0.7656, +2.8155] P(>0) 1.000 | a via O +1.0197, via S +1.9898 | |V| 1.6147 own-rel +0.994
+    sf_gae0.8    cos +0.843 [+0.491, +1.455] | gain +1.2334 [+0.1350, +2.0852] P(>0) 0.989 | a via O +0.8863, via S +1.5188 | |V| 2.3916 own-rel +0.639
+    sf_gae0.95   cos +0.714 [+0.349, +0.986] | gain +1.0451 [-0.0394, +1.8583] P(>0) 0.970 | a via O +0.8384, via S +1.2652 | |V| 2.7357 own-rel +0.462
+    sf_gae0.99   cos +0.257 [-0.418, +0.616] | gain +0.3761 [-0.4614, +1.0830] P(>0) 0.751 | a via O +0.3482, via S +0.4098 | |V| 3.2797 own-rel +0.014
+    sf_target    cos +0.834 [+0.476, +1.421] | gain +1.2205 [+0.1424, +2.0632] P(>0) 0.990 | a via O +0.8911, via S +1.5074 | |V| 2.3474 own-rel +0.614
+    cv_combo     cos +0.737 [+0.396, +1.082] | gain +1.0790 [+0.0045, +1.8937] P(>0) 0.977 | a via O +0.8473, via S +1.3131 | |V| 2.8466 own-rel +0.497
+    critic vs sf_gae0.95: gain diff +0.7963 [+0.4121, +1.6186] P(critic better) 0.999 | kappa=cos_c*cos_sf +0.673 [+0.326, +0.743] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.6080 [+0.2348, +1.3660] P(critic better) 0.998 | kappa=cos_c*cos_sf +0.770 [+0.394, +0.954] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.6209 [+0.2360, +1.4054] P(critic better) 0.998 | kappa=cos_c*cos_sf +0.784 [+0.396, +0.978] | critic ~ nan SF samples
+
+===== v23_12M: step 12009088 lam 0.95 upright 0.9762 (oracle 0.9727)
+[v23_12M|all|linear(108) | ref sf_gae0.99] |V*|^2: OO -1.569e-01, OS -2.793e-01, SS 2.750e-01 -> combined -1.503e-01 [-9.71e-01, 8.19e-01] P(>0) 0.328 weights [0.65, 0.26, 0.09]
+    critic       cos +nan [-0.449, +1.573] | gain +0.0842 [-0.1925, +0.3570] P(>0) 0.714 | a via O +0.0591, via S +0.2001 | |V| 0.2906 own-rel +0.922
+    critic_star  cos +nan [-1.786, +1.062] | gain -0.1199 [-0.5446, +0.2802] P(>0) 0.288 | a via O -0.0890, via S -0.2233 | |V| 0.2865 own-rel +0.940
+    sf_gae0.8    cos +nan [-1.520, +1.225] | gain -0.0377 [-0.4546, +0.3485] P(>0) 0.448 | a via O -0.0549, via S +0.0293 | |V| 0.6522 own-rel +0.201
+    sf_gae0.95   cos +nan [-1.138, +1.207] | gain -0.0346 [-0.4049, +0.3711] P(>0) 0.427 | a via O -0.0648, via S +0.0962 | |V| 1.2023 own-rel +0.041
+    sf_gae0.99   cos +nan [-1.442, +0.926] | gain -0.0480 [-0.4449, +0.3973] P(>0) 0.365 | a via O -0.0970, via S +0.0955 | |V| 2.8785 own-rel +0.033
+    sf_target    cos +nan [-1.288, +1.207] | gain -0.0548 [-0.4182, +0.3390] P(>0) 0.386 | a via O -0.0860, via S +0.0798 | |V| 1.2396 own-rel +0.014
+    cv_combo     cos +nan [-1.139, +1.271] | gain -0.0335 [-0.4063, +0.3783] P(>0) 0.434 | a via O -0.0409, via S -0.0037 | |V| 1.1880 own-rel -0.012
+    critic vs sf_gae0.95: gain diff +0.1188 [-0.3580, +0.5389] P(critic better) 0.700 | kappa=cos_c*cos_sf +0.070 [-0.131, +0.251] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.1219 [-0.3410, +0.5612] P(critic better) 0.704 | kappa=cos_c*cos_sf +0.129 [-0.235, +0.456] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.1390 [-0.3372, +0.5534] P(critic better) 0.727 | kappa=cos_c*cos_sf +0.068 [-0.127, +0.251] | critic ~ nan SF samples
+[v23_12M|all|linear(108) | ref sf_gae0.95] |V*|^2: OO -1.569e-01, OS -7.795e-02, SS 5.859e-02 -> combined -3.559e-02 [-4.75e-01, 4.57e-01] P(>0) 0.411 weights [0.17, 0.42, 0.41]
+    critic       cos +nan [-0.124, +2.953] | gain +0.1798 [-0.0356, +0.3873] P(>0) 0.953 | a via O +0.0591, via S +0.2770 | |V| 0.2906 own-rel +0.922
+    critic_star  cos +nan [-0.928, +1.728] | gain +0.0384 [-0.2755, +0.3363] P(>0) 0.605 | a via O -0.0890, via S +0.1215 | |V| 0.2865 own-rel +0.940
+    sf_gae0.8    cos +nan [-0.903, +1.491] | gain +0.0313 [-0.2879, +0.3339] P(>0) 0.548 | a via O -0.0549, via S +0.1066 | |V| 0.6522 own-rel +0.201
+    sf_gae0.95   cos +nan [-0.414, +0.858] | gain -0.0091 [-0.3118, +0.3074] P(>0) 0.469 | a via O -0.0648, via S +0.0487 | |V| 1.2023 own-rel +0.041
+    sf_gae0.99   cos +nan [-0.955, +0.840] | gain -0.0159 [-0.3229, +0.2944] P(>0) 0.409 | a via O -0.0970, via S +0.0402 | |V| 2.8785 own-rel +0.033
+    sf_target    cos +nan [-0.507, +0.703] | gain -0.0259 [-0.3307, +0.2783] P(>0) 0.429 | a via O -0.0860, via S +0.0357 | |V| 1.2396 own-rel +0.014
+    cv_combo     cos +nan [-0.578, +0.876] | gain -0.0088 [-0.3126, +0.3055] P(>0) 0.462 | a via O -0.0409, via S +0.0213 | |V| 1.1880 own-rel -0.012
+    critic vs sf_gae0.95: gain diff +0.1890 [-0.2030, +0.5108] P(critic better) 0.853 | kappa=cos_c*cos_sf +0.150 [-0.021, +0.295] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.1486 [-0.2330, +0.4709] P(critic better) 0.829 | kappa=cos_c*cos_sf +0.276 [-0.040, +0.489] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.2057 [-0.1818, +0.5221] P(critic better) 0.870 | kappa=cos_c*cos_sf +0.145 [-0.021, +0.293] | critic ~ nan SF samples
+[v23_12M|all|lastlayer(3078) | ref sf_gae0.99] |V*|^2: OO 1.670e+00, OS 5.930e-01, SS 4.016e-02 -> combined 1.176e+00 [-2.01e+00, 6.45e+00] P(>0) 0.678 weights [0.6, 0.29, 0.11]
+    critic       cos -0.112 [-0.840, +0.522] | gain -0.1220 [-0.7388, +0.4023] P(>0) 0.344 | a via O -0.2884, via S +0.3903 | |V| 0.5730 own-rel +0.905
+    critic_star  cos -0.634 [-2.246, +0.177] | gain -0.6879 [-1.7226, +0.2282] P(>0) 0.079 | a via O -0.6438, via S -0.8936 | |V| 0.6048 own-rel +0.940
+    sf_gae0.8    cos -0.243 [-1.457, +0.655] | gain -0.2637 [-1.0309, +0.6370] P(>0) 0.321 | a via O -0.2686, via S -0.2350 | |V| 1.3096 own-rel +0.045
+    sf_gae0.95   cos +0.091 [-0.723, +0.751] | gain +0.0987 [-0.6978, +0.9664] P(>0) 0.553 | a via O +0.1282, via S -0.0333 | |V| 2.5604 own-rel -0.013
+    sf_gae0.99   cos +0.070 [-0.863, +0.720] | gain +0.0754 [-0.6839, +1.0243] P(>0) 0.511 | a via O +0.1008, via S +0.0068 | |V| 5.8838 own-rel +0.001
+    sf_target    cos +0.088 [-0.852, +0.830] | gain +0.0956 [-0.7177, +0.9723] P(>0) 0.547 | a via O +0.1243, via S -0.0276 | |V| 2.6476 own-rel -0.008
+    cv_combo     cos +0.057 [-0.822, +0.760] | gain +0.0622 [-0.7252, +0.9165] P(>0) 0.529 | a via O +0.1304, via S -0.2424 | |V| 2.5238 own-rel -0.073
+    critic vs sf_gae0.95: gain diff -0.2207 [-1.4595, +0.7634] P(critic better) 0.387 | kappa=cos_c*cos_sf -0.048 [-0.238, +0.118] | critic ~ 960 SF samples
+    critic vs sf_gae0.8: gain diff +0.1417 [-1.0149, +1.0112] P(critic better) 0.575 | kappa=cos_c*cos_sf -0.093 [-0.420, +0.226] | critic ~ 96 SF samples
+    critic vs sf_target: gain diff -0.2176 [-1.4643, +0.7619] P(critic better) 0.380 | kappa=cos_c*cos_sf -0.046 [-0.236, +0.114] | critic ~ 1041 SF samples
+[v23_12M|all|lastlayer(3078) | ref sf_gae0.95] |V*|^2: OO 1.670e+00, OS 3.282e-01, SS -8.248e-02 -> combined 4.364e-01 [-1.62e+00, 2.96e+00] P(>0) 0.634 weights [0.18, 0.48, 0.34]
+    critic       cos +0.271 [-0.347, +1.231] | gain +0.1790 [-0.3067, +0.5612] P(>0) 0.771 | a via O -0.2884, via S +0.5650 | |V| 0.5730 own-rel +0.905
+    critic_star  cos -0.385 [-1.623, +0.600] | gain -0.2546 [-1.0229, +0.3978] P(>0) 0.247 | a via O -0.6438, via S +0.0223 | |V| 0.6048 own-rel +0.940
+    sf_gae0.8    cos -0.247 [-1.524, +0.577] | gain -0.1635 [-0.8372, +0.5878] P(>0) 0.365 | a via O -0.2686, via S -0.0028 | |V| 1.3096 own-rel +0.045
+    sf_gae0.95   cos +0.094 [-0.564, +0.549] | gain +0.0620 [-0.6297, +0.7660] P(>0) 0.548 | a via O +0.1282, via S -0.0322 | |V| 2.5604 own-rel -0.013
+    sf_gae0.99   cos +0.058 [-0.752, +0.695] | gain +0.0382 [-0.5851, +0.7466] P(>0) 0.515 | a via O +0.1008, via S -0.0145 | |V| 5.8838 own-rel +0.001
+    sf_target    cos +0.095 [-0.582, +0.559] | gain +0.0625 [-0.6327, +0.7562] P(>0) 0.553 | a via O +0.1243, via S -0.0220 | |V| 2.6476 own-rel -0.008
+    cv_combo     cos +0.050 [-0.631, +0.558] | gain +0.0328 [-0.6576, +0.7224] P(>0) 0.524 | a via O +0.1304, via S -0.1020 | |V| 2.5238 own-rel -0.073
+    critic vs sf_gae0.95: gain diff +0.1170 [-0.9063, +1.0134] P(critic better) 0.623 | kappa=cos_c*cos_sf +0.070 [-0.095, +0.179] | critic ~ 18208 SF samples
+    critic vs sf_gae0.8: gain diff +0.3425 [-0.6689, +1.1709] P(critic better) 0.738 | kappa=cos_c*cos_sf +0.137 [-0.173, +0.314] | critic ~ 3805 SF samples
+    critic vs sf_target: gain diff +0.1165 [-0.8793, +1.0028] P(critic better) 0.628 | kappa=cos_c*cos_sf +0.068 [-0.096, +0.176] | critic ~ 19559 SF samples
+[v23_12M|all|actor_params(full) | ref sf_gae0.99] |V*|^2: OO 2.865e+00, OS -3.251e+00, SS 3.592e+00 -> combined 9.411e-01 [-4.09e+00, 8.68e+00] P(>0) 0.589 weights [0.51, 0.33, 0.16]
+    critic       cos +0.118 [-0.438, +0.845] | gain +0.1143 [-0.5099, +0.6577] P(>0) 0.663 | a via O -0.2604, via S +0.7885 | |V| 0.9629 own-rel +0.914
+    critic_star  cos -0.544 [-1.623, +0.393] | gain -0.5281 [-1.4740, +0.3776] P(>0) 0.147 | a via O -0.5103, via S -0.5782 | |V| 0.9145 own-rel +0.925
+    sf_gae0.8    cos -0.060 [-1.035, +0.879] | gain -0.0582 [-0.9701, +0.9707] P(>0) 0.454 | a via O -0.1779, via S +0.2530 | |V| 2.0380 own-rel +0.056
+    sf_gae0.95   cos +0.090 [-0.712, +0.703] | gain +0.0872 [-0.7115, +0.9713] P(>0) 0.529 | a via O -0.0275, via S +0.3817 | |V| 3.6800 own-rel +0.051
+    sf_gae0.99   cos -0.134 [-1.085, +0.429] | gain -0.1296 [-1.1353, +0.7371] P(>0) 0.376 | a via O -0.4036, via S +0.4459 | |V| 8.0553 own-rel +0.055
+    sf_target    cos +0.052 [-0.874, +0.670] | gain +0.0502 [-0.7605, +0.9405] P(>0) 0.498 | a via O -0.0741, via S +0.3696 | |V| 3.7529 own-rel +0.039
+    cv_combo     cos +0.052 [-0.747, +0.625] | gain +0.0506 [-0.6871, +0.9047] P(>0) 0.500 | a via O -0.0099, via S +0.1874 | |V| 3.6460 own-rel -0.006
+    critic vs sf_gae0.95: gain diff +0.0271 [-1.1358, +0.9435] P(critic better) 0.580 | kappa=cos_c*cos_sf +0.031 [-0.108, +0.162] | critic ~ 3089 SF samples
+    critic vs sf_gae0.8: gain diff +0.1725 [-0.9735, +1.1446] P(critic better) 0.629 | kappa=cos_c*cos_sf +0.056 [-0.179, +0.265] | critic ~ 787 SF samples
+    critic vs sf_target: gain diff +0.0641 [-1.0837, +0.9618] P(critic better) 0.603 | kappa=cos_c*cos_sf +0.030 [-0.105, +0.161] | critic ~ 3222 SF samples
+[v23_12M|all|actor_params(full) | ref sf_gae0.95] |V*|^2: OO 2.865e+00, OS -1.011e-01, SS 6.898e-01 -> combined 6.429e-01 [-2.19e+00, 4.55e+00] P(>0) 0.617 weights [0.12, 0.38, 0.51]
+    critic       cos +0.555 [-0.108, +1.856] | gain +0.4448 [-0.1075, +0.8541] P(>0) 0.957 | a via O -0.2604, via S +0.8224 | |V| 0.9629 own-rel +0.914
+    critic_star  cos -0.066 [-0.909, +1.101] | gain -0.0527 [-0.7706, +0.6279] P(>0) 0.458 | a via O -0.5103, via S +0.2021 | |V| 0.9145 own-rel +0.925
+    sf_gae0.8    cos +0.060 [-1.026, +0.692] | gain +0.0482 [-0.7826, +0.9025] P(>0) 0.508 | a via O -0.1779, via S +0.2026 | |V| 2.0380 own-rel +0.056
+    sf_gae0.95   cos +0.120 [-0.432, +0.470] | gain +0.0960 [-0.5986, +0.8379] P(>0) 0.547 | a via O -0.0275, via S +0.1874 | |V| 3.6800 own-rel +0.051
+    sf_gae0.99   cos -0.028 [-0.967, +0.466] | gain -0.0225 [-0.7335, +0.5826] P(>0) 0.453 | a via O -0.4036, via S +0.1744 | |V| 8.0553 own-rel +0.055
+    sf_target    cos +0.088 [-0.479, +0.448] | gain +0.0702 [-0.6243, +0.7804] P(>0) 0.528 | a via O -0.0741, via S +0.1740 | |V| 3.7529 own-rel +0.039
+    cv_combo     cos +0.074 [-0.513, +0.438] | gain +0.0592 [-0.5988, +0.7317] P(>0) 0.525 | a via O -0.0099, via S +0.1048 | |V| 3.6460 own-rel -0.006
+    critic vs sf_gae0.95: gain diff +0.3489 [-0.6062, +1.1560] P(critic better) 0.821 | kappa=cos_c*cos_sf +0.121 [-0.018, +0.232] | critic ~ 146188 SF samples
+    critic vs sf_gae0.8: gain diff +0.3966 [-0.6347, +1.2935] P(critic better) 0.812 | kappa=cos_c*cos_sf +0.218 [-0.034, +0.347] | critic ~ 39783 SF samples
+    critic vs sf_target: gain diff +0.3747 [-0.5514, +1.1617] P(critic better) 0.836 | kappa=cos_c*cos_sf +0.119 [-0.018, +0.227] | critic ~ 152331 SF samples
+[v23_12M|upright|linear(108) | ref sf_gae0.99] |V*|^2: OO -1.661e-01, OS -5.068e-01, SS -1.554e-01 -> combined -2.511e-01 [-1.17e+00, 8.07e-01] P(>0) 0.261 weights [0.65, 0.25, 0.1]
+    critic       cos +nan [-0.527, +1.905] | gain +0.0872 [-0.1836, +0.3537] P(>0) 0.730 | a via O +0.0714, via S +0.1651 | |V| 0.2981 own-rel +0.926
+    critic_star  cos +nan [-2.469, +0.863] | gain -0.1334 [-0.5672, +0.2636] P(>0) 0.270 | a via O -0.0859, via S -0.2855 | |V| 0.2940 own-rel +0.943
+    sf_gae0.8    cos +nan [-2.281, +1.346] | gain -0.1170 [-0.5770, +0.3241] P(>0) 0.340 | a via O -0.0988, via S -0.1827 | |V| 0.6195 own-rel +0.185
+    sf_gae0.95   cos +nan [-1.970, +1.333] | gain -0.1633 [-0.5602, +0.3972] P(>0) 0.295 | a via O -0.1753, via S -0.1176 | |V| 0.8904 own-rel -0.055
+    sf_gae0.99   cos +nan [-2.876, +1.155] | gain -0.2164 [-0.6752, +0.4416] P(>0) 0.245 | a via O -0.2686, via S -0.0824 | |V| 1.8869 own-rel -0.044
+    sf_target    cos +nan [-2.193, +1.018] | gain -0.2130 [-0.6116, +0.3661] P(>0) 0.254 | a via O -0.2203, via S -0.1853 | |V| 0.8749 own-rel -0.156
+    cv_combo     cos +nan [-1.868, +1.346] | gain -0.1696 [-0.5754, +0.3988] P(>0) 0.292 | a via O -0.1471, via S -0.2526 | |V| 0.8635 own-rel -0.151
+    critic vs sf_gae0.95: gain diff +0.2505 [-0.3833, +0.7001] P(critic better) 0.791 | kappa=cos_c*cos_sf +0.098 [-0.150, +0.319] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.2042 [-0.2883, +0.6592] P(critic better) 0.801 | kappa=cos_c*cos_sf +0.141 [-0.229, +0.458] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.3002 [-0.3329, +0.7415] P(critic better) 0.819 | kappa=cos_c*cos_sf +0.100 [-0.150, +0.319] | critic ~ nan SF samples
+[v23_12M|upright|linear(108) | ref sf_gae0.95] |V*|^2: OO -1.661e-01, OS -1.561e-01, SS -4.391e-02 -> combined -1.096e-01 [-5.84e-01, 4.19e-01] P(>0) 0.295 weights [0.17, 0.4, 0.43]
+    critic       cos +nan [-0.095, +3.419] | gain +0.1835 [-0.0397, +0.3835] P(>0) 0.951 | a via O +0.0714, via S +0.2800 | |V| 0.2981 own-rel +0.926
+    critic_star  cos +nan [-1.203, +1.862] | gain +0.0366 [-0.2749, +0.3344] P(>0) 0.596 | a via O -0.0859, via S +0.1143 | |V| 0.2940 own-rel +0.943
+    sf_gae0.8    cos +nan [-1.109, +1.568] | gain -0.0281 [-0.3591, +0.3367] P(>0) 0.425 | a via O -0.0988, via S +0.0306 | |V| 0.6195 own-rel +0.185
+    sf_gae0.95   cos +nan [-0.756, +0.945] | gain -0.1102 [-0.4526, +0.3169] P(>0) 0.320 | a via O -0.1753, via S -0.0493 | |V| 0.8904 own-rel -0.055
+    sf_gae0.99   cos +nan [-1.877, +0.993] | gain -0.1372 [-0.5221, +0.3157] P(>0) 0.263 | a via O -0.2686, via S -0.0555 | |V| 1.8869 own-rel -0.044
+    sf_target    cos +nan [-1.158, +0.747] | gain -0.1512 [-0.4873, +0.3042] P(>0) 0.272 | a via O -0.2203, via S -0.0876 | |V| 0.8749 own-rel -0.156
+    cv_combo     cos +nan [-0.921, +0.901] | gain -0.1142 [-0.4629, +0.3244] P(>0) 0.324 | a via O -0.1471, via S -0.0852 | |V| 0.8635 own-rel -0.151
+    critic vs sf_gae0.95: gain diff +0.2937 [-0.2126, +0.6429] P(critic better) 0.884 | kappa=cos_c*cos_sf +0.206 [-0.025, +0.373] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.2116 [-0.1905, +0.5527] P(critic better) 0.870 | kappa=cos_c*cos_sf +0.296 [-0.044, +0.495] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.3347 [-0.1797, +0.6796] P(critic better) 0.904 | kappa=cos_c*cos_sf +0.210 [-0.025, +0.370] | critic ~ nan SF samples
+[v23_12M|upright|lastlayer(3078) | ref sf_gae0.99] |V*|^2: OO 1.761e+00, OS -9.009e-01, SS -2.247e+00 -> combined 3.955e-01 [-3.14e+00, 5.94e+00] P(>0) 0.522 weights [0.55, 0.33, 0.12]
+    critic       cos -0.305 [-1.178, +0.406] | gain -0.1917 [-0.8010, +0.3403] P(>0) 0.257 | a via O -0.2680, via S +0.0359 | |V| 0.5879 own-rel +0.911
+    critic_star  cos -1.138 [-2.729, +0.032] | gain -0.7159 [-1.7632, +0.1905] P(>0) 0.065 | a via O -0.6382, via S -1.0854 | |V| 0.6201 own-rel +0.944
+    sf_gae0.8    cos -0.787 [-2.038, +0.533] | gain -0.4949 [-1.2579, +0.5162] P(>0) 0.217 | a via O -0.3965, via S -0.9706 | |V| 1.2271 own-rel -0.063
+    sf_gae0.95   cos -0.293 [-1.273, +0.768] | gain -0.1842 [-1.0127, +0.9501] P(>0) 0.380 | a via O -0.0542, via S -0.7651 | |V| 1.9569 own-rel -0.224
+    sf_gae0.99   cos -0.493 [-1.782, +0.612] | gain -0.3102 [-1.2283, +0.9979] P(>0) 0.311 | a via O -0.2198, via S -0.5482 | |V| 4.0984 own-rel -0.134
+    sf_target    cos -0.331 [-1.299, +0.724] | gain -0.2084 [-1.0096, +0.9261] P(>0) 0.366 | a via O -0.0733, via S -0.8088 | |V| 1.9718 own-rel -0.240
+    cv_combo     cos -0.372 [-1.396, +0.711] | gain -0.2337 [-1.0432, +0.8914] P(>0) 0.356 | a via O -0.0662, via S -1.0052 | |V| 1.9044 own-rel -0.320
+    critic vs sf_gae0.95: gain diff -0.0075 [-1.4820, +0.9905] P(critic better) 0.484 | kappa=cos_c*cos_sf -0.098 [-0.305, +0.123] | critic ~ 14579 SF samples
+    critic vs sf_gae0.8: gain diff +0.3032 [-0.9263, +1.1029] P(critic better) 0.654 | kappa=cos_c*cos_sf -0.156 [-0.495, +0.210] | critic ~ 4714 SF samples
+    critic vs sf_target: gain diff +0.0167 [-1.4750, +0.9934] P(critic better) 0.498 | kappa=cos_c*cos_sf -0.097 [-0.300, +0.122] | critic ~ 14827 SF samples
+[v23_12M|upright|lastlayer(3078) | ref sf_gae0.95] |V*|^2: OO 1.761e+00, OS -1.060e-01, SS -8.567e-01 -> combined -7.836e-02 [-2.42e+00, 2.56e+00] P(>0) 0.458 weights [0.15, 0.5, 0.35]
+    critic       cos +nan [-0.542, +1.428] | gain +0.1139 [-0.3900, +0.5290] P(>0) 0.706 | a via O -0.2680, via S +0.4290 | |V| 0.5879 own-rel +0.911
+    critic_star  cos +nan [-2.255, +0.779] | gain -0.3019 [-1.0014, +0.3737] P(>0) 0.212 | a via O -0.6382, via S -0.0537 | |V| 0.6201 own-rel +0.944
+    sf_gae0.8    cos +nan [-2.217, +0.543] | gain -0.3816 [-1.0467, +0.4853] P(>0) 0.234 | a via O -0.3965, via S -0.3617 | |V| 1.2271 own-rel -0.063
+    sf_gae0.95   cos +nan [-1.026, +0.571] | gain -0.2118 [-0.9773, +0.7299] P(>0) 0.357 | a via O -0.0542, via S -0.4378 | |V| 1.9569 own-rel -0.224
+    sf_gae0.99   cos +nan [-2.280, +0.608] | gain -0.2996 [-1.1194, +0.6855] P(>0) 0.288 | a via O -0.2198, via S -0.3653 | |V| 4.0984 own-rel -0.134
+    sf_target    cos +nan [-1.000, +0.586] | gain -0.2282 [-0.9847, +0.7251] P(>0) 0.348 | a via O -0.0733, via S -0.4474 | |V| 1.9718 own-rel -0.240
+    cv_combo     cos +nan [-1.271, +0.559] | gain -0.2524 [-0.9837, +0.6776] P(>0) 0.341 | a via O -0.0662, via S -0.5202 | |V| 1.9044 own-rel -0.320
+    critic vs sf_gae0.95: gain diff +0.3257 [-0.8811, +1.2657] P(critic better) 0.693 | kappa=cos_c*cos_sf +0.058 [-0.133, +0.197] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.4954 [-0.6239, +1.2568] P(critic better) 0.797 | kappa=cos_c*cos_sf +0.093 [-0.233, +0.303] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.3420 [-0.8855, +1.2827] P(critic better) 0.701 | kappa=cos_c*cos_sf +0.058 [-0.133, +0.197] | critic ~ nan SF samples
+[v23_12M|upright|actor_params(full) | ref sf_gae0.99] |V*|^2: OO 3.025e+00, OS -4.986e+00, SS 3.247e-01 -> combined -1.162e-01 [-5.68e+00, 8.22e+00] P(>0) 0.452 weights [0.49, 0.33, 0.18]
+    critic       cos +nan [-0.578, +0.730] | gain +0.0386 [-0.5515, +0.6168] P(>0) 0.586 | a via O -0.2526, via S +0.5653 | |V| 0.9877 own-rel +0.917
+    critic_star  cos +nan [-2.216, +0.331] | gain -0.5579 [-1.5121, +0.3408] P(>0) 0.129 | a via O -0.5105, via S -0.7258 | |V| 0.9379 own-rel +0.927
+    sf_gae0.8    cos +nan [-1.661, +0.827] | gain -0.2902 [-1.2202, +0.8629] P(>0) 0.335 | a via O -0.2540, via S -0.3806 | |V| 1.9900 own-rel -0.002
+    sf_gae0.95   cos +nan [-1.214, +0.719] | gain -0.1791 [-0.9906, +0.9562] P(>0) 0.375 | a via O -0.1780, via S -0.1820 | |V| 3.1973 own-rel -0.038
+    sf_gae0.99   cos +nan [-1.758, +0.455] | gain -0.4774 [-1.3520, +0.7401] P(>0) 0.232 | a via O -0.7577, via S +0.0493 | |V| 6.5806 own-rel +0.007
+    sf_target    cos +nan [-1.236, +0.754] | gain -0.2438 [-1.0635, +0.8997] P(>0) 0.342 | a via O -0.2482, via S -0.2323 | |V| 3.1997 own-rel -0.066
+    cv_combo     cos +nan [-1.178, +0.686] | gain -0.2259 [-0.9719, +0.8849] P(>0) 0.354 | a via O -0.1657, via S -0.3830 | |V| 3.1537 own-rel -0.111
+    critic vs sf_gae0.95: gain diff +0.2177 [-1.1692, +1.0919] P(critic better) 0.647 | kappa=cos_c*cos_sf +0.012 [-0.130, +0.168] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.3288 [-0.9451, +1.2779] P(critic better) 0.697 | kappa=cos_c*cos_sf +0.019 [-0.208, +0.243] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.2824 [-1.0872, +1.1542] P(critic better) 0.672 | kappa=cos_c*cos_sf +0.012 [-0.129, +0.166] | critic ~ nan SF samples
+[v23_12M|upright|actor_params(full) | ref sf_gae0.95] |V*|^2: OO 3.025e+00, OS -5.691e-01, SS -3.855e-01 -> combined -6.136e-02 [-3.45e+00, 4.00e+00] P(>0) 0.467 weights [0.12, 0.4, 0.48]
+    critic       cos +nan [-0.151, +2.667] | gain +0.3981 [-0.1297, +0.8239] P(>0) 0.942 | a via O -0.2526, via S +0.7457 | |V| 0.9877 own-rel +0.917
+    critic_star  cos +nan [-1.220, +1.058] | gain -0.1083 [-0.7878, +0.5686] P(>0) 0.405 | a via O -0.5105, via S +0.1516 | |V| 0.9379 own-rel +0.927
+    sf_gae0.8    cos +nan [-1.431, +0.730] | gain -0.1612 [-0.9949, +0.8248] P(>0) 0.386 | a via O -0.2540, via S -0.1012 | |V| 1.9900 own-rel -0.002
+    sf_gae0.95   cos +nan [-0.634, +0.528] | gain -0.1465 [-0.8389, +0.8134] P(>0) 0.382 | a via O -0.1780, via S -0.1206 | |V| 3.1973 own-rel -0.038
+    sf_gae0.99   cos +nan [-1.661, +0.512] | gain -0.3180 [-0.9411, +0.5322] P(>0) 0.264 | a via O -0.7577, via S -0.0884 | |V| 6.5806 own-rel +0.007
+    sf_target    cos +nan [-0.807, +0.503] | gain -0.1959 [-0.8838, +0.7454] P(>0) 0.346 | a via O -0.2482, via S -0.1546 | |V| 3.1997 own-rel -0.066
+    cv_combo     cos +nan [-0.836, +0.501] | gain -0.1898 [-0.8175, +0.7049] P(>0) 0.343 | a via O -0.1657, via S -0.2094 | |V| 3.1537 own-rel -0.111
+    critic vs sf_gae0.95: gain diff +0.5446 [-0.5750, +1.3247] P(critic better) 0.865 | kappa=cos_c*cos_sf +0.125 [-0.024, +0.244] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.5593 [-0.5857, +1.4333] P(critic better) 0.861 | kappa=cos_c*cos_sf +0.200 [-0.047, +0.340] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.5940 [-0.4958, +1.3645] P(critic better) 0.880 | kappa=cos_c*cos_sf +0.124 [-0.024, +0.238] | critic ~ nan SF samples
+
+===== v29h8_12M: step 12009088 lam 0.8 upright 0.9334 (oracle 0.9473)
+[v29h8_12M|all|linear(108) | ref sf_gae0.99] |V*|^2: OO -1.828e-01, OS -1.653e-01, SS -5.574e-01 -> combined -2.155e-01 [-7.89e-01, 2.38e-01] P(>0) 0.152 weights [0.43, 0.46, 0.11]
+    critic       cos +nan [-0.885, +4.675] | gain +0.2160 [-0.1733, +0.6625] P(>0) 0.850 | a via O +0.1129, via S +0.3627 | |V| 0.3186 own-rel +0.952
+    critic_star  cos +nan [-1.605, +3.995] | gain +0.1185 [-0.2611, +0.5577] P(>0) 0.706 | a via O +0.1568, via S +0.0703 | |V| 0.2515 own-rel +0.961
+    sf_gae0.8    cos +nan [-4.395, +1.498] | gain -0.2138 [-0.5620, +0.2697] P(>0) 0.226 | a via O -0.1281, via S -0.5080 | |V| 0.4586 own-rel +0.159
+    sf_gae0.95   cos +nan [-3.063, +1.239] | gain -0.3261 [-0.6348, +0.2513] P(>0) 0.166 | a via O -0.2442, via S -0.6921 | |V| 0.5955 own-rel -0.684
+    sf_gae0.99   cos +nan [-1.645, +1.947] | gain -0.2249 [-0.6248, +0.2922] P(>0) 0.224 | a via O -0.1547, via S -0.5219 | |V| 1.0680 own-rel -0.489
+    sf_target    cos +nan [-3.639, +1.509] | gain -0.1878 [-0.5375, +0.2775] P(>0) 0.255 | a via O -0.0984, via S -0.5142 | |V| 0.4348 own-rel +0.094
+    cv_combo     cos +nan [-3.403, +1.633] | gain -0.3272 [-0.6417, +0.2567] P(>0) 0.168 | a via O -0.2481, via S -0.6559 | |V| 0.6195 own-rel -0.503
+    critic vs sf_gae0.95: gain diff +0.5421 [-0.1509, +0.9250] P(critic better) 0.931 | kappa=cos_c*cos_sf +0.363 [-0.266, +0.820] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.4298 [-0.1903, +0.8394] P(critic better) 0.912 | kappa=cos_c*cos_sf +0.471 [-0.338, +1.161] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.4038 [-0.2061, +0.8265] P(critic better) 0.898 | kappa=cos_c*cos_sf +0.497 [-0.351, +1.186] | critic ~ nan SF samples
+[v29h8_12M|all|linear(108) | ref sf_gae0.95] |V*|^2: OO -1.828e-01, OS -1.454e-01, SS -2.425e-01 -> combined -1.793e-01 [-5.75e-01, 1.46e-01] P(>0) 0.122 weights [0.17, 0.55, 0.28]
+    critic       cos +nan [-0.638, +4.296] | gain +0.2226 [-0.0771, +0.5791] P(>0) 0.910 | a via O +0.1129, via S +0.2940 | |V| 0.3186 own-rel +0.952
+    critic_star  cos +nan [-0.218, +3.304] | gain +0.1705 [-0.0651, +0.4086] P(>0) 0.922 | a via O +0.1568, via S +0.1735 | |V| 0.2515 own-rel +0.961
+    sf_gae0.8    cos +nan [-0.680, +2.070] | gain -0.1504 [-0.4874, +0.2604] P(>0) 0.262 | a via O -0.1281, via S -0.1784 | |V| 0.4586 own-rel +0.159
+    sf_gae0.95   cos +nan [-1.153, +1.214] | gain -0.2999 [-0.5845, +0.2348] P(>0) 0.162 | a via O -0.2442, via S -0.4072 | |V| 0.5955 own-rel -0.684
+    sf_gae0.99   cos +nan [-2.345, +1.382] | gain -0.2471 [-0.6074, +0.2330] P(>0) 0.194 | a via O -0.1547, via S -0.3859 | |V| 1.0680 own-rel -0.489
+    sf_target    cos +nan [-0.636, +2.079] | gain -0.1374 [-0.4719, +0.2719] P(>0) 0.285 | a via O -0.0984, via S -0.1909 | |V| 0.4348 own-rel +0.094
+    cv_combo     cos +nan [-1.504, +1.339] | gain -0.2861 [-0.5839, +0.2262] P(>0) 0.175 | a via O -0.2481, via S -0.3526 | |V| 0.6195 own-rel -0.503
+    critic vs sf_gae0.95: gain diff +0.5226 [-0.1547, +0.9090] P(critic better) 0.935 | kappa=cos_c*cos_sf +0.374 [-0.124, +0.605] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.3730 [-0.1977, +0.7809] P(critic better) 0.905 | kappa=cos_c*cos_sf +0.485 [-0.155, +0.873] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.3600 [-0.2144, +0.7711] P(critic better) 0.892 | kappa=cos_c*cos_sf +0.512 [-0.159, +0.899] | critic ~ nan SF samples
+[v29h8_12M|all|lastlayer(3078) | ref sf_gae0.99] |V*|^2: OO -5.572e-01, OS -5.719e-01, SS -1.359e+00 -> combined -6.364e-01 [-3.17e+00, 1.65e+00] P(>0) 0.257 weights [0.43, 0.48, 0.09]
+    critic       cos +nan [-0.664, +6.569] | gain +0.8193 [-0.2054, +2.0429] P(>0) 0.927 | a via O +0.5124, via S +1.1741 | |V| 0.7098 own-rel +0.951
+    critic_star  cos +nan [-1.393, +5.506] | gain +0.5498 [-0.5892, +1.7900] P(>0) 0.825 | a via O +0.5676, via S +0.5308 | |V| 0.5532 own-rel +0.959
+    sf_gae0.8    cos +nan [-2.557, +1.124] | gain -0.2102 [-0.9806, +0.7361] P(>0) 0.322 | a via O -0.1949, via S -0.2632 | |V| 1.1584 own-rel +0.206
+    sf_gae0.95   cos +nan [-1.935, +1.047] | gain -0.2788 [-0.9284, +0.6140] P(>0) 0.271 | a via O -0.2323, via S -0.5843 | |V| 1.6921 own-rel -0.246
+    sf_gae0.99   cos +nan [-1.418, +1.269] | gain -0.2399 [-0.9898, +0.7320] P(>0) 0.284 | a via O -0.1969, via S -0.4680 | |V| 2.9049 own-rel -0.161
+    sf_target    cos +nan [-2.307, +1.176] | gain -0.1925 [-0.9024, +0.6912] P(>0) 0.323 | a via O -0.1669, via S -0.2897 | |V| 1.0789 own-rel +0.133
+    cv_combo     cos +nan [-2.098, +1.332] | gain -0.2544 [-0.9498, +0.7035] P(>0) 0.288 | a via O -0.2069, via S -0.5299 | |V| 1.7367 own-rel -0.163
+    critic vs sf_gae0.95: gain diff +1.0981 [-0.0912, +2.0561] P(critic better) 0.972 | kappa=cos_c*cos_sf +0.484 [-0.130, +0.964] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +1.0294 [-0.0445, +1.9320] P(critic better) 0.972 | kappa=cos_c*cos_sf +0.707 [-0.176, +1.449] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +1.0118 [-0.0862, +1.9492] P(critic better) 0.965 | kappa=cos_c*cos_sf +0.759 [-0.184, +1.517] | critic ~ nan SF samples
+[v29h8_12M|all|lastlayer(3078) | ref sf_gae0.95] |V*|^2: OO -5.572e-01, OS -3.931e-01, SS -7.046e-01 -> combined -4.899e-01 [-2.12e+00, 1.05e+00] P(>0) 0.227 weights [0.17, 0.61, 0.22]
+    critic       cos +nan [-0.284, +6.370] | gain +0.6979 [-0.0362, +1.5603] P(>0) 0.971 | a via O +0.5124, via S +0.7622 | |V| 0.7098 own-rel +0.951
+    critic_star  cos +nan [+0.043, +5.967] | gain +0.4809 [-0.1552, +1.1122] P(>0) 0.934 | a via O +0.5676, via S +0.4649 | |V| 0.5532 own-rel +0.959
+    sf_gae0.8    cos +nan [-0.862, +1.788] | gain -0.1501 [-0.8255, +0.6554] P(>0) 0.348 | a via O -0.1949, via S -0.0884 | |V| 1.1584 own-rel +0.206
+    sf_gae0.95   cos +nan [-0.642, +1.244] | gain -0.2813 [-0.9011, +0.5352] P(>0) 0.262 | a via O -0.2323, via S -0.4164 | |V| 1.6921 own-rel -0.246
+    sf_gae0.99   cos +nan [-1.016, +1.711] | gain -0.2440 [-0.9623, +0.6165] P(>0) 0.287 | a via O -0.1969, via S -0.3404 | |V| 2.9049 own-rel -0.161
+    sf_target    cos +nan [-0.759, +1.618] | gain -0.1495 [-0.7943, +0.6054] P(>0) 0.344 | a via O -0.1669, via S -0.1226 | |V| 1.0789 own-rel +0.133
+    cv_combo     cos +nan [-0.841, +1.838] | gain -0.2481 [-0.8931, +0.6088] P(>0) 0.290 | a via O -0.2069, via S -0.3467 | |V| 1.7367 own-rel -0.163
+    critic vs sf_gae0.95: gain diff +0.9792 [-0.0467, +1.7541] P(critic better) 0.972 | kappa=cos_c*cos_sf +0.412 [-0.026, +0.599] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.8480 [-0.0771, +1.5642] P(critic better) 0.969 | kappa=cos_c*cos_sf +0.602 [-0.033, +0.891] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.8474 [-0.0875, +1.5726] P(critic better) 0.966 | kappa=cos_c*cos_sf +0.647 [-0.033, +0.939] | critic ~ nan SF samples
+[v29h8_12M|all|actor_params(full) | ref sf_gae0.99] |V*|^2: OO -5.264e-02, OS 1.314e-01, SS -1.236e+00 -> combined -1.679e-01 [-8.03e+00, 9.02e+00] P(>0) 0.436 weights [0.4, 0.44, 0.17]
+    critic       cos +nan [-0.460, +4.734] | gain +1.3995 [-0.3925, +3.6095] P(>0) 0.916 | a via O +1.1069, via S +1.6783 | |V| 1.3321 own-rel +0.952
+    critic_star  cos +nan [-0.635, +3.648] | gain +0.9330 [-0.6250, +2.8541] P(>0) 0.850 | a via O +1.0976, via S +0.8438 | |V| 1.0102 own-rel +0.961
+    sf_gae0.8    cos +nan [-1.347, +1.264] | gain -0.0507 [-1.4091, +1.5537] P(>0) 0.439 | a via O -0.1946, via S +0.2616 | |V| 2.1099 own-rel +0.274
+    sf_gae0.95   cos +nan [-1.421, +0.850] | gain -0.3150 [-1.5282, +1.2571] P(>0) 0.319 | a via O -0.3505, via S -0.1893 | |V| 3.0693 own-rel -0.014
+    sf_gae0.99   cos +nan [-1.146, +1.036] | gain -0.0471 [-1.4060, +1.5250] P(>0) 0.407 | a via O +0.0254, via S -0.2389 | |V| 5.1724 own-rel -0.046
+    sf_target    cos +nan [-1.180, +1.222] | gain -0.0205 [-1.3297, +1.4482] P(>0) 0.466 | a via O -0.1402, via S +0.2509 | |V| 1.9923 own-rel +0.218
+    cv_combo     cos +nan [-1.430, +0.946] | gain -0.2880 [-1.5209, +1.3233] P(>0) 0.323 | a via O -0.3410, via S -0.1067 | |V| 3.1315 own-rel +0.047
+    critic vs sf_gae0.95: gain diff +1.7145 [-0.2233, +3.3085] P(critic better) 0.961 | kappa=cos_c*cos_sf +0.456 [-0.147, +0.840] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +1.4502 [-0.1927, +2.9204] P(critic better) 0.958 | kappa=cos_c*cos_sf +0.663 [-0.198, +1.212] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +1.4200 [-0.2802, +2.9299] P(critic better) 0.946 | kappa=cos_c*cos_sf +0.702 [-0.200, +1.262] | critic ~ nan SF samples
+[v29h8_12M|all|actor_params(full) | ref sf_gae0.95] |V*|^2: OO -5.264e-02, OS -1.076e+00, SS -1.301e-01 -> combined -5.986e-01 [-5.53e+00, 5.28e+00] P(>0) 0.364 weights [0.13, 0.51, 0.36]
+    critic       cos +nan [-0.339, +5.537] | gain +1.0766 [-0.1378, +2.6132] P(>0) 0.953 | a via O +1.1069, via S +1.0686 | |V| 1.3321 own-rel +0.952
+    critic_star  cos +nan [-0.370, +4.265] | gain +0.6974 [-0.3125, +1.8092] P(>0) 0.910 | a via O +1.0976, via S +0.6430 | |V| 1.0102 own-rel +0.961
+    sf_gae0.8    cos +nan [-0.314, +1.701] | gain +0.0913 [-1.0793, +1.2964] P(>0) 0.527 | a via O -0.1946, via S +0.3281 | |V| 2.1099 own-rel +0.274
+    sf_gae0.95   cos +nan [-0.521, +0.755] | gain -0.2214 [-1.3366, +1.0735] P(>0) 0.354 | a via O -0.3505, via S -0.0424 | |V| 3.0693 own-rel -0.014
+    sf_gae0.99   cos +nan [-0.702, +1.073] | gain -0.0436 [-1.2985, +1.2410] P(>0) 0.422 | a via O +0.0254, via S -0.1124 | |V| 5.1724 own-rel -0.046
+    sf_target    cos +nan [-0.183, +1.660] | gain +0.0920 [-1.0743, +1.2275] P(>0) 0.537 | a via O -0.1402, via S +0.2952 | |V| 1.9923 own-rel +0.218
+    cv_combo     cos +nan [-0.554, +0.811] | gain -0.1725 [-1.2940, +1.1232] P(>0) 0.366 | a via O -0.3410, via S +0.0522 | |V| 3.1315 own-rel +0.047
+    critic vs sf_gae0.95: gain diff +1.2980 [-0.2097, +2.5588] P(critic better) 0.954 | kappa=cos_c*cos_sf +0.351 [-0.049, +0.506] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.9853 [-0.3265, +2.2416] P(critic better) 0.940 | kappa=cos_c*cos_sf +0.510 [-0.075, +0.748] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.9846 [-0.4044, +2.2401] P(critic better) 0.932 | kappa=cos_c*cos_sf +0.540 [-0.076, +0.781] | critic ~ nan SF samples
+[v29h8_12M|upright|linear(108) | ref sf_gae0.99] |V*|^2: OO -2.064e-01, OS -1.853e-01, SS -6.333e-01 -> combined -2.396e-01 [-8.75e-01, 2.53e-01] P(>0) 0.173 weights [0.46, 0.44, 0.1]
+    critic       cos +nan [-0.949, +4.976] | gain +0.2296 [-0.1796, +0.7015] P(>0) 0.845 | a via O +0.1241, via S +0.3972 | |V| 0.3419 own-rel +0.956
+    critic_star  cos +nan [-1.359, +3.738] | gain +0.1333 [-0.2626, +0.5912] P(>0) 0.717 | a via O +0.1705, via S +0.0833 | |V| 0.2695 own-rel +0.967
+    sf_gae0.8    cos +nan [-2.791, +1.426] | gain -0.2229 [-0.6044, +0.2799] P(>0) 0.230 | a via O -0.1361, via S -0.5381 | |V| 0.4929 own-rel +0.166
+    sf_gae0.95   cos +nan [-2.155, +1.253] | gain -0.3398 [-0.6569, +0.2548] P(>0) 0.171 | a via O -0.2556, via S -0.7342 | |V| 0.6400 own-rel -0.674
+    sf_gae0.99   cos +nan [-1.545, +1.459] | gain -0.2340 [-0.6353, +0.3036] P(>0) 0.228 | a via O -0.1615, via S -0.5521 | |V| 1.1469 own-rel -0.481
+    sf_target    cos +nan [-2.500, +1.454] | gain -0.1952 [-0.5754, +0.2930] P(>0) 0.261 | a via O -0.1052, via S -0.5446 | |V| 0.4670 own-rel +0.101
+    cv_combo     cos +nan [-2.633, +1.288] | gain -0.3404 [-0.6741, +0.2799] P(>0) 0.172 | a via O -0.2589, via S -0.6947 | |V| 0.6662 own-rel -0.492
+    critic vs sf_gae0.95: gain diff +0.5693 [-0.1838, +0.9758] P(critic better) 0.927 | kappa=cos_c*cos_sf +0.359 [-0.252, +0.800] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.4525 [-0.2197, +0.8628] P(critic better) 0.905 | kappa=cos_c*cos_sf +0.466 [-0.346, +1.106] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.4248 [-0.2431, +0.8391] P(critic better) 0.890 | kappa=cos_c*cos_sf +0.492 [-0.353, +1.161] | critic ~ nan SF samples
+[v29h8_12M|upright|linear(108) | ref sf_gae0.95] |V*|^2: OO -2.064e-01, OS -1.636e-01, SS -2.761e-01 -> combined -2.020e-01 [-6.43e-01, 1.58e-01] P(>0) 0.133 weights [0.19, 0.54, 0.27]
+    critic       cos +nan [-0.647, +4.087] | gain +0.2381 [-0.0979, +0.6340] P(>0) 0.916 | a via O +0.1241, via S +0.3204 | |V| 0.3419 own-rel +0.956
+    critic_star  cos +nan [-0.314, +3.488] | gain +0.1876 [-0.0587, +0.4547] P(>0) 0.929 | a via O +0.1705, via S +0.1916 | |V| 0.2695 own-rel +0.967
+    sf_gae0.8    cos +nan [-1.257, +1.718] | gain -0.1576 [-0.4934, +0.2804] P(>0) 0.266 | a via O -0.1361, via S -0.1863 | |V| 0.4929 own-rel +0.166
+    sf_gae0.95   cos +nan [-1.402, +1.636] | gain -0.3139 [-0.6155, +0.2418] P(>0) 0.171 | a via O -0.2556, via S -0.4315 | |V| 0.6400 own-rel -0.674
+    sf_gae0.99   cos +nan [-1.679, +2.014] | gain -0.2586 [-0.6296, +0.2355] P(>0) 0.188 | a via O -0.1615, via S -0.4097 | |V| 1.1469 own-rel -0.481
+    sf_target    cos +nan [-1.353, +1.846] | gain -0.1436 [-0.4785, +0.2834] P(>0) 0.290 | a via O -0.1052, via S -0.1998 | |V| 0.4670 own-rel +0.101
+    cv_combo     cos +nan [-1.470, +1.663] | gain -0.2991 [-0.6150, +0.2513] P(>0) 0.174 | a via O -0.2589, via S -0.3724 | |V| 0.6662 own-rel -0.492
+    critic vs sf_gae0.95: gain diff +0.5520 [-0.1730, +0.9666] P(critic better) 0.926 | kappa=cos_c*cos_sf +0.372 [-0.138, +0.616] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.3957 [-0.2229, +0.8229] P(critic better) 0.899 | kappa=cos_c*cos_sf +0.483 [-0.182, +0.872] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.3817 [-0.2370, +0.8172] P(critic better) 0.886 | kappa=cos_c*cos_sf +0.510 [-0.185, +0.913] | critic ~ nan SF samples
+[v29h8_12M|upright|lastlayer(3078) | ref sf_gae0.99] |V*|^2: OO -6.329e-01, OS -6.415e-01, SS -1.462e+00 -> combined -7.051e-01 [-3.74e+00, 1.89e+00] P(>0) 0.273 weights [0.49, 0.43, 0.08]
+    critic       cos +nan [-0.802, +6.537] | gain +0.8610 [-0.2611, +2.1970] P(>0) 0.921 | a via O +0.5408, via S +1.2632 | |V| 0.7606 own-rel +0.955
+    critic_star  cos +nan [-1.343, +5.371] | gain +0.5783 [-0.5834, +1.8690] P(>0) 0.824 | a via O +0.5949, via S +0.5598 | |V| 0.5914 own-rel +0.964
+    sf_gae0.8    cos +nan [-3.109, +2.092] | gain -0.2246 [-1.0088, +0.7719] P(>0) 0.310 | a via O -0.2095, via S -0.2794 | |V| 1.2391 own-rel +0.206
+    sf_gae0.95   cos +nan [-2.688, +1.545] | gain -0.2943 [-1.0028, +0.6811] P(>0) 0.267 | a via O -0.2489, via S -0.6013 | |V| 1.8179 own-rel -0.239
+    sf_gae0.99   cos +nan [-2.134, +1.404] | gain -0.2473 [-1.0562, +0.7763] P(>0) 0.287 | a via O -0.2050, via S -0.4672 | |V| 3.1297 own-rel -0.149
+    sf_target    cos +nan [-2.827, +2.060] | gain -0.2069 [-0.9517, +0.7479] P(>0) 0.319 | a via O -0.1813, via S -0.3092 | |V| 1.1531 own-rel +0.131
+    cv_combo     cos +nan [-2.675, +1.585] | gain -0.2672 [-1.0254, +0.7589] P(>0) 0.287 | a via O -0.2212, via S -0.5420 | |V| 1.8667 own-rel -0.156
+    critic vs sf_gae0.95: gain diff +1.1553 [-0.1491, +2.1228] P(critic better) 0.954 | kappa=cos_c*cos_sf +0.474 [-0.158, +0.947] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +1.0856 [-0.0923, +1.9253] P(critic better) 0.968 | kappa=cos_c*cos_sf +0.695 [-0.205, +1.387] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +1.0679 [-0.1469, +1.9350] P(critic better) 0.959 | kappa=cos_c*cos_sf +0.747 [-0.222, +1.442] | critic ~ nan SF samples
+[v29h8_12M|upright|lastlayer(3078) | ref sf_gae0.95] |V*|^2: OO -6.329e-01, OS -4.524e-01, SS -7.903e-01 -> combined -5.591e-01 [-2.38e+00, 1.18e+00] P(>0) 0.226 weights [0.2, 0.59, 0.21]
+    critic       cos +nan [-0.275, +7.321] | gain +0.7424 [-0.0576, +1.6604] P(>0) 0.963 | a via O +0.5408, via S +0.8179 | |V| 0.7606 own-rel +0.955
+    critic_star  cos +nan [-0.244, +5.539] | gain +0.5096 [-0.1544, +1.2429] P(>0) 0.932 | a via O +0.5949, via S +0.4932 | |V| 0.5914 own-rel +0.964
+    sf_gae0.8    cos +nan [-1.627, +1.411] | gain -0.1622 [-0.8542, +0.6807] P(>0) 0.339 | a via O -0.2095, via S -0.0943 | |V| 1.2391 own-rel +0.206
+    sf_gae0.95   cos +nan [-1.121, +1.275] | gain -0.2975 [-0.9793, +0.6022] P(>0) 0.258 | a via O -0.2489, via S -0.4348 | |V| 1.8179 own-rel -0.239
+    sf_gae0.99   cos +nan [-1.760, +1.636] | gain -0.2532 [-1.0392, +0.6650] P(>0) 0.277 | a via O -0.2050, via S -0.3493 | |V| 3.1297 own-rel -0.149
+    sf_target    cos +nan [-1.550, +1.361] | gain -0.1627 [-0.8193, +0.6546] P(>0) 0.340 | a via O -0.1813, via S -0.1323 | |V| 1.1531 own-rel +0.131
+    cv_combo     cos +nan [-1.383, +1.511] | gain -0.2611 [-0.9887, +0.6667] P(>0) 0.284 | a via O -0.2212, via S -0.3589 | |V| 1.8667 own-rel -0.156
+    critic vs sf_gae0.95: gain diff +1.0399 [-0.0874, +1.8189] P(critic better) 0.967 | kappa=cos_c*cos_sf +0.408 [-0.032, +0.579] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +0.9046 [-0.1358, +1.6671] P(critic better) 0.961 | kappa=cos_c*cos_sf +0.599 [-0.046, +0.876] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +0.9051 [-0.1433, +1.6653] P(critic better) 0.956 | kappa=cos_c*cos_sf +0.644 [-0.047, +0.931] | critic ~ nan SF samples
+[v29h8_12M|upright|actor_params(full) | ref sf_gae0.99] |V*|^2: OO -7.467e-02, OS 1.600e-01, SS -1.309e+00 -> combined -1.491e-01 [-9.37e+00, 9.77e+00] P(>0) 0.455 weights [0.4, 0.45, 0.15]
+    critic       cos +nan [-0.527, +4.553] | gain +1.4859 [-0.4017, +4.0131] P(>0) 0.924 | a via O +1.1696, via S +1.8042 | |V| 1.4271 own-rel +0.955
+    critic_star  cos +nan [-0.643, +3.239] | gain +0.9900 [-0.6739, +3.0562] P(>0) 0.851 | a via O +1.1567, via S +0.8989 | |V| 1.0813 own-rel +0.965
+    sf_gae0.8    cos +nan [-1.434, +1.104] | gain -0.0623 [-1.5255, +1.7292] P(>0) 0.454 | a via O -0.2080, via S +0.2830 | |V| 2.2587 own-rel +0.274
+    sf_gae0.95   cos +nan [-1.445, +0.799] | gain -0.3363 [-1.6750, +1.2331] P(>0) 0.330 | a via O -0.3726, via S -0.1876 | |V| 3.2915 own-rel -0.012
+    sf_gae0.99   cos +nan [-1.316, +0.930] | gain -0.0359 [-1.5667, +1.4498] P(>0) 0.422 | a via O +0.0288, via S -0.2357 | |V| 5.5529 own-rel -0.042
+    sf_target    cos +nan [-1.400, +1.113] | gain -0.0313 [-1.4534, +1.6370] P(>0) 0.477 | a via O -0.1514, via S +0.2709 | |V| 2.1322 own-rel +0.218
+    cv_combo     cos +nan [-1.568, +0.829] | gain -0.3088 [-1.6223, +1.3126] P(>0) 0.336 | a via O -0.3620, via S -0.0983 | |V| 3.3589 own-rel +0.049
+    critic vs sf_gae0.95: gain diff +1.8223 [-0.2902, +3.7034] P(critic better) 0.955 | kappa=cos_c*cos_sf +0.451 [-0.131, +0.834] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +1.5482 [-0.2796, +3.1515] P(critic better) 0.958 | kappa=cos_c*cos_sf +0.658 [-0.195, +1.222] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +1.5172 [-0.4011, +3.1376] P(critic better) 0.949 | kappa=cos_c*cos_sf +0.697 [-0.198, +1.279] | critic ~ nan SF samples
+[v29h8_12M|upright|actor_params(full) | ref sf_gae0.95] |V*|^2: OO -7.467e-02, OS -1.226e+00, SS -1.267e-01 -> combined -7.050e-01 [-6.25e+00, 5.38e+00] P(>0) 0.372 weights [0.13, 0.53, 0.33]
+    critic       cos +nan [-0.335, +4.278] | gain +1.1518 [-0.1806, +2.7688] P(>0) 0.954 | a via O +1.1696, via S +1.1468 | |V| 1.4271 own-rel +0.955
+    critic_star  cos +nan [-0.378, +2.961] | gain +0.7423 [-0.3481, +1.9182] P(>0) 0.911 | a via O +1.1567, via S +0.6850 | |V| 1.0813 own-rel +0.965
+    sf_gae0.8    cos +nan [-0.364, +1.500] | gain +0.0868 [-1.1672, +1.3958] P(>0) 0.527 | a via O -0.2080, via S +0.3525 | |V| 2.2587 own-rel +0.274
+    sf_gae0.95   cos +nan [-0.622, +0.862] | gain -0.2439 [-1.4532, +1.0579] P(>0) 0.360 | a via O -0.3726, via S -0.0385 | |V| 3.2915 own-rel -0.012
+    sf_gae0.99   cos +nan [-0.745, +1.084] | gain -0.0361 [-1.4162, +1.2158] P(>0) 0.433 | a via O +0.0288, via S -0.1112 | |V| 5.5529 own-rel -0.042
+    sf_target    cos +nan [-0.225, +1.445] | gain +0.0865 [-1.1552, +1.2990] P(>0) 0.543 | a via O -0.1514, via S +0.3166 | |V| 2.1322 own-rel +0.218
+    cv_combo     cos +nan [-0.648, +0.985] | gain -0.1941 [-1.3770, +1.1039] P(>0) 0.378 | a via O -0.3620, via S +0.0637 | |V| 3.3589 own-rel +0.049
+    critic vs sf_gae0.95: gain diff +1.3957 [-0.2971, +2.8137] P(critic better) 0.955 | kappa=cos_c*cos_sf +0.350 [-0.060, +0.514] | critic ~ nan SF samples
+    critic vs sf_gae0.8: gain diff +1.0650 [-0.3918, +2.3975] P(critic better) 0.944 | kappa=cos_c*cos_sf +0.510 [-0.090, +0.755] | critic ~ nan SF samples
+    critic vs sf_target: gain diff +1.0653 [-0.4410, +2.3870] P(critic better) 0.940 | kappa=cos_c*cos_sf +0.540 [-0.092, +0.793] | critic ~ nan SF samples
+
+===== v23_30M: step 30015104 lam 0.95 upright 0.9839 (oracle 0.9805)
+[v23_30M|all|linear(108) | ref sf_gae0.99] |V*|^2: OO 2.232e-01, OS 1.943e-01, SS -1.321e+00 -> combined 1.417e-01 [-4.86e-01, 1.14e+00] P(>0) 0.613 weights [0.65, 0.3, 0.05]
+    critic       cos +0.215 [-0.509, +1.435] | gain +0.0808 [-0.2001, +0.3786] P(>0) 0.708 | a via O +0.0148, via S +0.3529 | |V| 0.3350 own-rel +0.905
+    critic_star  cos -0.066 [-1.158, +0.944] | gain -0.0247 [-0.3274, +0.3226] P(>0) 0.431 | a via O -0.0872, via S +0.2465 | |V| 0.2542 own-rel +0.844
+    sf_gae0.8    cos -0.123 [-1.413, +0.841] | gain -0.0463 [-0.4009, +0.3746] P(>0) 0.388 | a via O -0.0622, via S +0.0217 | |V| 0.8152 own-rel +0.312
+    sf_gae0.95   cos +0.390 [-0.818, +1.354] | gain +0.1469 [-0.3109, +0.6070] P(>0) 0.658 | a via O +0.2165, via S -0.2062 | |V| 1.0778 own-rel +0.086
+    sf_gae0.99   cos -0.016 [-1.499, +0.952] | gain -0.0060 [-0.4542, +0.5599] P(>0) 0.487 | a via O +0.1133, via S -0.7703 | |V| 1.7143 own-rel -0.449
+    sf_target    cos +0.265 [-0.968, +1.190] | gain +0.0998 [-0.3356, +0.5705] P(>0) 0.603 | a via O +0.1488, via S -0.1394 | |V| 1.0834 own-rel +0.092
+    cv_combo     cos +0.562 [-0.636, +1.657] | gain +0.2116 [-0.2892, +0.6897] P(>0) 0.734 | a via O +0.2845, via S -0.1505 | |V| 1.1799 own-rel +0.220
+    critic vs sf_gae0.95: gain diff -0.0660 [-0.5679, +0.3756] P(critic better) 0.508 | kappa=cos_c*cos_sf +0.075 [-0.153, +0.266] | critic ~ 5703 SF samples
+    critic vs sf_gae0.8: gain diff +0.1271 [-0.3016, +0.5068] P(critic better) 0.751 | kappa=cos_c*cos_sf +0.099 [-0.218, +0.355] | critic ~ 2923 SF samples
+    critic vs sf_target: gain diff -0.0190 [-0.5139, +0.4065] P(critic better) 0.561 | kappa=cos_c*cos_sf +0.075 [-0.157, +0.267] | critic ~ 5771 SF samples
+[v23_30M|all|linear(108) | ref sf_gae0.95] |V*|^2: OO 2.232e-01, OS 2.333e-01, SS 1.004e-01 -> combined 2.013e-01 [-2.48e-01, 9.35e-01] P(>0) 0.742 weights [0.31, 0.47, 0.22]
+    critic       cos +0.299 [-0.349, +1.452] | gain +0.1341 [-0.1325, +0.4040] P(>0) 0.834 | a via O +0.0148, via S +0.3809 | |V| 0.3350 own-rel +0.905
+    critic_star  cos +0.088 [-0.817, +0.971] | gain +0.0393 [-0.2652, +0.3636] P(>0) 0.603 | a via O -0.0872, via S +0.3093 | |V| 0.2542 own-rel +0.844
+    sf_gae0.8    cos -0.012 [-1.261, +0.606] | gain -0.0056 [-0.3564, +0.3733] P(>0) 0.450 | a via O -0.0622, via S +0.1358 | |V| 0.8152 own-rel +0.312
+    sf_gae0.95   cos +0.396 [-0.555, +0.748] | gain +0.1777 [-0.2584, +0.5680] P(>0) 0.719 | a via O +0.2165, via S +0.0932 | |V| 1.0778 own-rel +0.086
+    sf_gae0.99   cos +0.039 [-1.396, +0.747] | gain +0.0174 [-0.3763, +0.4939] P(>0) 0.521 | a via O +0.1133, via S -0.1296 | |V| 1.7143 own-rel -0.449
+    sf_target    cos +0.299 [-0.737, +0.696] | gain +0.1339 [-0.2836, +0.5378] P(>0) 0.652 | a via O +0.1488, via S +0.1004 | |V| 1.0834 own-rel +0.092
+    cv_combo     cos +0.544 [-0.263, +0.965] | gain +0.2440 [-0.2309, +0.6416] P(>0) 0.794 | a via O +0.2845, via S +0.1590 | |V| 1.1799 own-rel +0.220
+    critic vs sf_gae0.95: gain diff -0.0436 [-0.5041, +0.3820] P(critic better) 0.553 | kappa=cos_c*cos_sf +0.124 [-0.102, +0.276] | critic ~ 7662 SF samples
+    critic vs sf_gae0.8: gain diff +0.1396 [-0.2768, +0.5024] P(critic better) 0.791 | kappa=cos_c*cos_sf +0.164 [-0.147, +0.369] | critic ~ 3696 SF samples
+    critic vs sf_target: gain diff +0.0001 [-0.4588, +0.4221] P(critic better) 0.604 | kappa=cos_c*cos_sf +0.124 [-0.101, +0.276] | critic ~ 7759 SF samples
+[v23_30M|all|lastlayer(3078) | ref sf_gae0.99] |V*|^2: OO 7.105e-01, OS 1.106e+00, SS 3.270e-02 -> combined 8.090e-01 [-1.10e+00, 4.13e+00] P(>0) 0.710 weights [0.62, 0.33, 0.05]
+    critic       cos +0.179 [-0.317, +1.096] | gain +0.1614 [-0.2822, +0.5596] P(>0) 0.778 | a via O +0.0402, via S +1.0758 | |V| 0.6095 own-rel +0.875
+    critic_star  cos -0.121 [-0.888, +0.660] | gain -0.1092 [-0.6710, +0.3950] P(>0) 0.358 | a via O -0.2208, via S +0.8419 | |V| 0.4755 own-rel +0.817
+    sf_gae0.8    cos +0.261 [-0.511, +1.079] | gain +0.2345 [-0.3635, +0.7874] P(>0) 0.722 | a via O +0.1890, via S +0.5470 | |V| 1.7800 own-rel +0.228
+    sf_gae0.95   cos +0.580 [-0.084, +1.314] | gain +0.5219 [-0.2038, +1.1719] P(>0) 0.884 | a via O +0.5127, via S +0.5784 | |V| 2.5217 own-rel +0.249
+    sf_gae0.99   cos +0.266 [-0.544, +0.778] | gain +0.2391 [-0.4551, +0.9991] P(>0) 0.693 | a via O +0.2732, via S +0.0081 | |V| 4.0464 own-rel +0.002
+    sf_target    cos +0.516 [-0.207, +1.253] | gain +0.4644 [-0.2302, +1.1034] P(>0) 0.862 | a via O +0.4390, via S +0.6242 | |V| 2.5204 own-rel +0.238
+    cv_combo     cos +0.634 [-0.011, +1.410] | gain +0.5700 [-0.1711, +1.2538] P(>0) 0.906 | a via O +0.5426, via S +0.7317 | |V| 2.7382 own-rel +0.347
+    critic vs sf_gae0.95: gain diff -0.3605 [-1.1765, +0.4295] P(critic better) 0.307 | kappa=cos_c*cos_sf +0.064 [-0.090, +0.182] | critic ~ 3742 SF samples
+    critic vs sf_gae0.8: gain diff -0.0731 [-0.7510, +0.5572] P(critic better) 0.511 | kappa=cos_c*cos_sf +0.091 [-0.124, +0.245] | critic ~ 1591 SF samples
+    critic vs sf_target: gain diff -0.3030 [-1.1133, +0.4699] P(critic better) 0.342 | kappa=cos_c*cos_sf +0.064 [-0.091, +0.180] | critic ~ 3737 SF samples
+[v23_30M|all|lastlayer(3078) | ref sf_gae0.95] |V*|^2: OO 7.105e-01, OS 1.293e+00, SS 1.584e+00 -> combined 1.148e+00 [-3.98e-01, 3.77e+00] P(>0) 0.896 weights [0.34, 0.49, 0.17]
+    critic       cos +0.188 [-0.195, +1.146] | gain +0.2016 [-0.2088, +0.5752] P(>0) 0.839 | a via O +0.0402, via S +0.6580 | |V| 0.6095 own-rel +0.875
+    critic_star  cos -0.049 [-0.569, +0.675] | gain -0.0524 [-0.5862, +0.4084] P(>0) 0.436 | a via O -0.2208, via S +0.4264 | |V| 0.4755 own-rel +0.817
+    sf_gae0.8    cos +0.236 [-0.524, +0.572] | gain +0.2526 [-0.3279, +0.7935] P(>0) 0.735 | a via O +0.1890, via S +0.4710 | |V| 1.7800 own-rel +0.228
+    sf_gae0.95   cos +0.506 [-0.061, +0.690] | gain +0.5425 [-0.1504, +1.1287] P(>0) 0.905 | a via O +0.5127, via S +0.6282 | |V| 2.5217 own-rel +0.249
+    sf_gae0.99   cos +0.280 [-0.510, +0.687] | gain +0.3001 [-0.3576, +0.9940] P(>0) 0.750 | a via O +0.2732, via S +0.3605 | |V| 4.0464 own-rel +0.002
+    sf_target    cos +0.451 [-0.172, +0.654] | gain +0.4831 [-0.1948, +1.0691] P(>0) 0.881 | a via O +0.4390, via S +0.6163 | |V| 2.5204 own-rel +0.238
+    cv_combo     cos +0.556 [+0.063, +0.769] | gain +0.5960 [-0.0966, +1.2283] P(>0) 0.933 | a via O +0.5426, via S +0.7463 | |V| 2.7382 own-rel +0.347
+    critic vs sf_gae0.95: gain diff -0.3409 [-1.1049, +0.4436] P(critic better) 0.323 | kappa=cos_c*cos_sf +0.080 [-0.065, +0.182] | critic ~ 2733 SF samples
+    critic vs sf_gae0.8: gain diff -0.0510 [-0.7080, +0.5869] P(critic better) 0.550 | kappa=cos_c*cos_sf +0.113 [-0.093, +0.248] | critic ~ 1060 SF samples
+    critic vs sf_target: gain diff -0.2815 [-1.0423, +0.4691] P(critic better) 0.366 | kappa=cos_c*cos_sf +0.080 [-0.067, +0.183] | critic ~ 2729 SF samples
+[v23_30M|all|actor_params(full) | ref sf_gae0.99] |V*|^2: OO 9.031e-01, OS 1.016e+00, SS 5.970e+00 -> combined 1.092e+00 [-4.15e+00, 7.00e+00] P(>0) 0.647 weights [0.76, 0.21, 0.03]
+    critic       cos +0.082 [-0.730, +1.191] | gain +0.0852 [-0.8702, +1.0400] P(>0) 0.569 | a via O -0.1552, via S +1.9336 | |V| 1.2495 own-rel +0.909
+    critic_star  cos -0.288 [-1.366, +0.608] | gain -0.3014 [-1.2923, +0.7653] P(>0) 0.293 | a via O -0.4776, via S +1.2232 | |V| 0.9445 own-rel +0.869
+    sf_gae0.8    cos +0.021 [-0.815, +0.901] | gain +0.0217 [-0.7964, +0.8255] P(>0) 0.514 | a via O -0.1393, via S +0.9397 | |V| 3.1691 own-rel +0.216
+    sf_gae0.95   cos +0.510 [-0.361, +1.626] | gain +0.5328 [-0.4420, +1.3910] P(>0) 0.811 | a via O +0.4224, via S +1.2641 | |V| 4.3947 own-rel +0.217
+    sf_gae0.99   cos +0.215 [-0.794, +1.232] | gain +0.2252 [-0.8613, +1.3256] P(>0) 0.646 | a via O +0.1351, via S +0.7937 | |V| 7.5216 own-rel +0.106
+    sf_target    cos +0.401 [-0.455, +1.412] | gain +0.4187 [-0.5448, +1.2992] P(>0) 0.759 | a via O +0.2767, via S +1.3661 | |V| 4.4288 own-rel +0.211
+    cv_combo     cos +0.551 [-0.325, +1.682] | gain +0.5761 [-0.4320, +1.4120] P(>0) 0.837 | a via O +0.4376, via S +1.5148 | |V| 4.6746 own-rel +0.292
+    critic vs sf_gae0.95: gain diff -0.4476 [-1.6868, +0.7833] P(critic better) 0.317 | kappa=cos_c*cos_sf +0.019 [-0.160, +0.180] | critic ~ 1831 SF samples
+    critic vs sf_gae0.8: gain diff +0.0636 [-1.0109, +0.9971] P(critic better) 0.576 | kappa=cos_c*cos_sf +0.027 [-0.227, +0.263] | critic ~ 899 SF samples
+    critic vs sf_target: gain diff -0.3334 [-1.5515, +0.8361] P(critic better) 0.379 | kappa=cos_c*cos_sf +0.019 [-0.159, +0.179] | critic ~ 1861 SF samples
+[v23_30M|all|actor_params(full) | ref sf_gae0.95] |V*|^2: OO 9.031e-01, OS 1.856e+00, SS 4.190e+00 -> combined 1.966e+00 [-1.47e+00, 6.28e+00] P(>0) 0.851 weights [0.36, 0.44, 0.2]
+    critic       cos +0.224 [-0.352, +1.469] | gain +0.3141 [-0.5424, +1.1398] P(>0) 0.758 | a via O -0.1552, via S +1.2576 | |V| 1.2495 own-rel +0.909
+    critic_star  cos -0.046 [-0.764, +0.896] | gain -0.0650 [-0.9424, +0.8183] P(>0) 0.451 | a via O -0.4776, via S +0.7483 | |V| 0.9445 own-rel +0.869
+    sf_gae0.8    cos +0.072 [-0.878, +0.498] | gain +0.1011 [-0.6882, +0.7942] P(>0) 0.561 | a via O -0.1393, via S +0.6981 | |V| 3.1691 own-rel +0.216
+    sf_gae0.95   cos +0.418 [-0.210, +0.787] | gain +0.5862 [-0.3291, +1.2966] P(>0) 0.876 | a via O +0.4224, via S +0.9534 | |V| 4.3947 own-rel +0.217
+    sf_gae0.99   cos +0.269 [-0.662, +0.812] | gain +0.3776 [-0.5919, +1.2420] P(>0) 0.742 | a via O +0.1351, via S +0.7386 | |V| 7.5216 own-rel +0.106
+    sf_target    cos +0.338 [-0.340, +0.681] | gain +0.4739 [-0.4343, +1.2045] P(>0) 0.819 | a via O +0.2767, via S +0.9452 | |V| 4.4288 own-rel +0.211
+    cv_combo     cos +0.454 [-0.123, +0.873] | gain +0.6363 [-0.2675, +1.3361] P(>0) 0.894 | a via O +0.4376, via S +1.1082 | |V| 4.6746 own-rel +0.292
+    critic vs sf_gae0.95: gain diff -0.2721 [-1.3565, +0.8669] P(critic better) 0.439 | kappa=cos_c*cos_sf +0.071 [-0.102, +0.192] | critic ~ 7636 SF samples
+    critic vs sf_gae0.8: gain diff +0.2130 [-0.7449, +1.1021] P(critic better) 0.728 | kappa=cos_c*cos_sf +0.099 [-0.145, +0.270] | critic ~ 3556 SF samples
+    critic vs sf_target: gain diff -0.1598 [-1.2288, +0.8891] P(critic better) 0.507 | kappa=cos_c*cos_sf +0.071 [-0.103, +0.188] | critic ~ 7769 SF samples
+[v23_30M|upright|linear(108) | ref sf_gae0.99] |V*|^2: OO 2.324e-01, OS 1.496e-01, SS -1.255e+00 -> combined 1.364e-01 [-5.09e-01, 1.16e+00] P(>0) 0.584 weights [0.68, 0.27, 0.05]
+    critic       cos +0.255 [-0.509, +1.203] | gain +0.0943 [-0.1969, +0.3916] P(>0) 0.726 | a via O +0.0184, via S +0.3892 | |V| 0.3400 own-rel +0.908
+    critic_star  cos -0.035 [-0.979, +0.848] | gain -0.0128 [-0.3565, +0.3386] P(>0) 0.456 | a via O -0.0849, via S +0.2769 | |V| 0.2576 own-rel +0.850
+    sf_gae0.8    cos -0.146 [-1.371, +0.858] | gain -0.0538 [-0.4260, +0.4165] P(>0) 0.403 | a via O -0.0745, via S +0.0262 | |V| 0.8234 own-rel +0.315
+    sf_gae0.95   cos +0.359 [-0.797, +1.205] | gain +0.1325 [-0.3458, +0.6945] P(>0) 0.627 | a via O +0.2035, via S -0.1788 | |V| 1.0753 own-rel +0.105
+    sf_gae0.99   cos -0.110 [-1.387, +0.969] | gain -0.0407 [-0.5254, +0.6401] P(>0) 0.457 | a via O +0.0914, via S -0.7663 | |V| 1.6374 own-rel -0.468
+    sf_target    cos +0.229 [-1.007, +1.102] | gain +0.0847 [-0.3717, +0.6508] P(>0) 0.574 | a via O +0.1361, via S -0.1347 | |V| 1.0763 own-rel +0.094
+    cv_combo     cos +0.547 [-0.561, +1.517] | gain +0.2018 [-0.3252, +0.7701] P(>0) 0.700 | a via O +0.2736, via S -0.1131 | |V| 1.1847 own-rel +0.245
+    critic vs sf_gae0.95: gain diff -0.0382 [-0.6596, +0.4286] P(critic better) 0.538 | kappa=cos_c*cos_sf +0.088 [-0.146, +0.282] | critic ~ 8541 SF samples
+    critic vs sf_gae0.8: gain diff +0.1481 [-0.3237, +0.5390] P(critic better) 0.772 | kappa=cos_c*cos_sf +0.114 [-0.207, +0.365] | critic ~ 4536 SF samples
+    critic vs sf_target: gain diff +0.0096 [-0.5781, +0.4446] P(critic better) 0.587 | kappa=cos_c*cos_sf +0.088 [-0.145, +0.284] | critic ~ 8559 SF samples
+[v23_30M|upright|linear(108) | ref sf_gae0.95] |V*|^2: OO 2.324e-01, OS 2.188e-01, SS 1.218e-01 -> combined 2.010e-01 [-2.78e-01, 9.59e-01] P(>0) 0.728 weights [0.33, 0.44, 0.23]
+    critic       cos +0.331 [-0.283, +1.564] | gain +0.1486 [-0.1256, +0.4270] P(>0) 0.855 | a via O +0.0184, via S +0.4041 | |V| 0.3400 own-rel +0.908
+    critic_star  cos +0.122 [-0.641, +1.201] | gain +0.0549 [-0.2704, +0.3817] P(>0) 0.617 | a via O -0.0849, via S +0.3322 | |V| 0.2576 own-rel +0.850
+    sf_gae0.8    cos -0.017 [-1.208, +0.616] | gain -0.0077 [-0.3536, +0.4241] P(>0) 0.450 | a via O -0.0745, via S +0.1436 | |V| 0.8234 own-rel +0.315
+    sf_gae0.95   cos +0.384 [-0.543, +0.787] | gain +0.1723 [-0.2759, +0.6333] P(>0) 0.687 | a via O +0.2035, via S +0.1133 | |V| 1.0753 own-rel +0.105
+    sf_gae0.99   cos +0.004 [-1.367, +0.770] | gain +0.0018 [-0.4174, +0.5819] P(>0) 0.501 | a via O +0.0914, via S -0.1174 | |V| 1.6374 own-rel -0.468
+    sf_target    cos +0.285 [-0.749, +0.754] | gain +0.1277 [-0.3017, +0.6013] P(>0) 0.632 | a via O +0.1361, via S +0.1112 | |V| 1.0763 own-rel +0.094
+    cv_combo     cos +0.540 [-0.267, +1.012] | gain +0.2419 [-0.2373, +0.7001] P(>0) 0.771 | a via O +0.2736, via S +0.1829 | |V| 1.1847 own-rel +0.245
+    critic vs sf_gae0.95: gain diff -0.0238 [-0.5646, +0.4403] P(critic better) 0.577 | kappa=cos_c*cos_sf +0.138 [-0.099, +0.290] | critic ~ 9610 SF samples
+    critic vs sf_gae0.8: gain diff +0.1563 [-0.2950, +0.5181] P(critic better) 0.807 | kappa=cos_c*cos_sf +0.180 [-0.139, +0.375] | critic ~ 4799 SF samples
+    critic vs sf_target: gain diff +0.0208 [-0.5245, +0.4732] P(critic better) 0.627 | kappa=cos_c*cos_sf +0.138 [-0.099, +0.293] | critic ~ 9631 SF samples
+[v23_30M|upright|lastlayer(3078) | ref sf_gae0.99] |V*|^2: OO 7.425e-01, OS 1.108e+00, SS -9.694e-01 -> combined 7.632e-01 [-1.18e+00, 4.22e+00] P(>0) 0.708 weights [0.65, 0.3, 0.05]
+    critic       cos +0.201 [-0.363, +1.137] | gain +0.1759 [-0.2817, +0.5931] P(>0) 0.793 | a via O +0.0442, via S +1.1069 | |V| 0.6188 own-rel +0.880
+    critic_star  cos -0.114 [-1.023, +0.728] | gain -0.0995 [-0.7023, +0.4300] P(>0) 0.386 | a via O -0.2209, via S +0.8572 | |V| 0.4808 own-rel +0.824
+    sf_gae0.8    cos +0.247 [-0.524, +1.018] | gain +0.2158 [-0.3773, +0.8261] P(>0) 0.709 | a via O +0.1947, via S +0.3454 | |V| 1.7897 own-rel +0.212
+    sf_gae0.95   cos +0.582 [-0.086, +1.498] | gain +0.5084 [-0.2363, +1.2133] P(>0) 0.866 | a via O +0.5377, via S +0.3513 | |V| 2.4732 own-rel +0.216
+    sf_gae0.99   cos +0.239 [-0.617, +1.002] | gain +0.2085 [-0.5488, +1.0813] P(>0) 0.656 | a via O +0.2882, via S -0.2523 | |V| 3.8424 own-rel -0.066
+    sf_target    cos +0.519 [-0.210, +1.448] | gain +0.4535 [-0.2635, +1.1500] P(>0) 0.845 | a via O +0.4612, via S +0.4109 | |V| 2.4836 own-rel +0.209
+    cv_combo     cos +0.641 [-0.008, +1.712] | gain +0.5597 [-0.1933, +1.2749] P(>0) 0.892 | a via O +0.5657, via S +0.5280 | |V| 2.7006 own-rel +0.324
+    critic vs sf_gae0.95: gain diff -0.3325 [-1.2551, +0.5103] P(critic better) 0.345 | kappa=cos_c*cos_sf +0.071 [-0.091, +0.196] | critic ~ 4855 SF samples
+    critic vs sf_gae0.8: gain diff -0.0399 [-0.7564, +0.6189] P(critic better) 0.559 | kappa=cos_c*cos_sf +0.098 [-0.125, +0.269] | critic ~ 2213 SF samples
+    critic vs sf_target: gain diff -0.2776 [-1.1664, +0.5078] P(critic better) 0.378 | kappa=cos_c*cos_sf +0.071 [-0.092, +0.194] | critic ~ 4902 SF samples
+[v23_30M|upright|lastlayer(3078) | ref sf_gae0.95] |V*|^2: OO 7.425e-01, OS 1.330e+00, SS 1.320e+00 -> combined 1.119e+00 [-4.90e-01, 3.84e+00] P(>0) 0.875 weights [0.36, 0.46, 0.18]
+    critic       cos +0.205 [-0.188, +1.080] | gain +0.2172 [-0.2268, +0.6138] P(>0) 0.850 | a via O +0.0442, via S +0.6849 | |V| 0.6188 own-rel +0.880
+    critic_star  cos -0.037 [-0.561, +0.768] | gain -0.0386 [-0.5992, +0.4625] P(>0) 0.468 | a via O -0.2209, via S +0.4429 | |V| 0.4808 own-rel +0.824
+    sf_gae0.8    cos +0.230 [-0.438, +0.573] | gain +0.2431 [-0.3542, +0.8218] P(>0) 0.729 | a via O +0.1947, via S +0.3945 | |V| 1.7897 own-rel +0.212
+    sf_gae0.95   cos +0.507 [-0.069, +0.710] | gain +0.5366 [-0.2044, +1.1748] P(>0) 0.893 | a via O +0.5377, via S +0.5338 | |V| 2.4732 own-rel +0.216
+    sf_gae0.99   cos +0.252 [-0.617, +0.686] | gain +0.2670 [-0.4335, +1.0355] P(>0) 0.713 | a via O +0.2882, via S +0.2261 | |V| 3.8424 own-rel -0.066
+    sf_target    cos +0.453 [-0.165, +0.680] | gain +0.4789 [-0.2259, +1.1061] P(>0) 0.868 | a via O +0.4612, via S +0.5267 | |V| 2.4836 own-rel +0.209
+    cv_combo     cos +0.561 [+0.047, +0.775] | gain +0.5929 [-0.1484, +1.2286] P(>0) 0.924 | a via O +0.5657, via S +0.6625 | |V| 2.7006 own-rel +0.324
+    critic vs sf_gae0.95: gain diff -0.3194 [-1.1639, +0.5081] P(critic better) 0.363 | kappa=cos_c*cos_sf +0.088 [-0.072, +0.192] | critic ~ 3224 SF samples
+    critic vs sf_gae0.8: gain diff -0.0258 [-0.7540, +0.6344] P(critic better) 0.601 | kappa=cos_c*cos_sf +0.121 [-0.100, +0.270] | critic ~ 1344 SF samples
+    critic vs sf_target: gain diff -0.2617 [-1.0825, +0.5146] P(critic better) 0.403 | kappa=cos_c*cos_sf +0.087 [-0.072, +0.194] | critic ~ 3257 SF samples
+[v23_30M|upright|actor_params(full) | ref sf_gae0.99] |V*|^2: OO 9.407e-01, OS 9.855e-01, SS 5.158e+00 -> combined 1.112e+00 [-4.24e+00, 8.27e+00] P(>0) 0.621 weights [0.73, 0.23, 0.04]
+    critic       cos +0.079 [-0.748, +1.149] | gain +0.0838 [-0.8740, +1.0521] P(>0) 0.564 | a via O -0.1563, via S +1.9715 | |V| 1.2698 own-rel +0.910
+    critic_star  cos -0.292 [-1.313, +0.630] | gain -0.3079 [-1.2976, +0.7686] P(>0) 0.287 | a via O -0.4839, via S +1.2393 | |V| 0.9588 own-rel +0.871
+    sf_gae0.8    cos +0.009 [-0.885, +0.780] | gain +0.0095 [-0.8496, +0.8610] P(>0) 0.492 | a via O -0.1431, via S +0.8300 | |V| 3.2085 own-rel +0.210
+    sf_gae0.95   cos +0.510 [-0.420, +1.297] | gain +0.5382 [-0.5190, +1.4450] P(>0) 0.797 | a via O +0.4319, via S +1.1522 | |V| 4.4093 own-rel +0.205
+    sf_gae0.99   cos +0.201 [-0.848, +1.120] | gain +0.2121 [-0.9361, +1.3493] P(>0) 0.629 | a via O +0.1317, via S +0.6891 | |V| 7.4853 own-rel +0.092
+    sf_target    cos +0.403 [-0.531, +1.106] | gain +0.4249 [-0.6183, +1.3614] P(>0) 0.737 | a via O +0.2829, via S +1.2621 | |V| 4.4516 own-rel +0.201
+    cv_combo     cos +0.558 [-0.374, +1.397] | gain +0.5887 [-0.4708, +1.4740] P(>0) 0.834 | a via O +0.4464, via S +1.4196 | |V| 4.6991 own-rel +0.284
+    critic vs sf_gae0.95: gain diff -0.4544 [-1.7676, +0.8569] P(critic better) 0.325 | kappa=cos_c*cos_sf +0.019 [-0.163, +0.186] | critic ~ 1715 SF samples
+    critic vs sf_gae0.8: gain diff +0.0743 [-0.9828, +0.9975] P(critic better) 0.595 | kappa=cos_c*cos_sf +0.026 [-0.218, +0.267] | critic ~ 859 SF samples
+    critic vs sf_target: gain diff -0.3411 [-1.6159, +0.8798] P(critic better) 0.376 | kappa=cos_c*cos_sf +0.019 [-0.166, +0.184] | critic ~ 1750 SF samples
+[v23_30M|upright|actor_params(full) | ref sf_gae0.95] |V*|^2: OO 9.407e-01, OS 1.904e+00, SS 3.994e+00 -> combined 2.042e+00 [-1.67e+00, 7.23e+00] P(>0) 0.829 weights [0.34, 0.44, 0.22]
+    critic       cos +0.220 [-0.324, +1.299] | gain +0.3145 [-0.5320, +1.1825] P(>0) 0.768 | a via O -0.1563, via S +1.2865 | |V| 1.2698 own-rel +0.910
+    critic_star  cos -0.049 [-0.714, +0.871] | gain -0.0694 [-0.9330, +0.8588] P(>0) 0.442 | a via O -0.4839, via S +0.7640 | |V| 0.9588 own-rel +0.871
+    sf_gae0.8    cos +0.069 [-0.725, +0.530] | gain +0.0981 [-0.7240, +0.8005] P(>0) 0.560 | a via O -0.1431, via S +0.6573 | |V| 3.2085 own-rel +0.210
+    sf_gae0.95   cos +0.414 [-0.163, +0.823] | gain +0.5923 [-0.3757, +1.3100] P(>0) 0.855 | a via O +0.4319, via S +0.9057 | |V| 4.4093 own-rel +0.205
+    sf_gae0.99   cos +0.252 [-0.688, +0.755] | gain +0.3603 [-0.6310, +1.2500] P(>0) 0.719 | a via O +0.1317, via S +0.6787 | |V| 7.4853 own-rel +0.092
+    sf_target    cos +0.337 [-0.278, +0.704] | gain +0.4813 [-0.4593, +1.2378] P(>0) 0.801 | a via O +0.2829, via S +0.9001 | |V| 4.4516 own-rel +0.201
+    cv_combo     cos +0.455 [-0.093, +0.888] | gain +0.6508 [-0.3258, +1.3495] P(>0) 0.884 | a via O +0.4464, via S +1.0684 | |V| 4.6991 own-rel +0.284
+    critic vs sf_gae0.95: gain diff -0.2777 [-1.4058, +0.8897] P(critic better) 0.436 | kappa=cos_c*cos_sf +0.071 [-0.099, +0.198] | critic ~ 7107 SF samples
+    critic vs sf_gae0.8: gain diff +0.2164 [-0.7285, +1.0997] P(critic better) 0.733 | kappa=cos_c*cos_sf +0.098 [-0.134, +0.272] | critic ~ 3371 SF samples
+    critic vs sf_target: gain diff -0.1668 [-1.2593, +0.9042] P(critic better) 0.505 | kappa=cos_c*cos_sf +0.071 [-0.098, +0.197] | critic ~ 7260 SF samples

@@ -1,0 +1,42 @@
+
+=== v29 H8 @ 8.01M  lambda 0.8  T 0.0415  rows 16384  recoverable-u rows 16382
+eps reconstruction: mean -0.0016 sd 1.0026 (expect 0, 1);  KL(new||old) mean 0.0260 median 0.0209;  rms |dmu|/sigma 0.204;  sd(logratio) 0.232
+update: mean sum_d dlog sigma +0.0871 (sd over states 0.064);  squashed entropy change +0.1369 nats -> T x dH = +0.00569 (entropy part of the soft objective, same units as the gains below)
+--- baseline / predictor: post-update critic (trained through this iteration)
+    sd(A) 1.199  (1%/99% -3.67/+1.70, max|A| 47.8)   critic-predicted gain +0.00007 (iid se 0.00019, lane se 0.00017)
+    realised-gain estimate [raw A              | full log-ratio  ]: -0.00627  iid se 0.00212  lane-boot se 0.00279  per-row sd 0.272  lag-1 autocorr +0.026
+    realised-gain estimate [raw A              | linear mean part]: -0.00466  iid se 0.00193  lane-boot se 0.00224  per-row sd 0.247  lag-1 autocorr +0.003
+    realised-gain estimate [A winsorised 0.5%  | full log-ratio  ]: -0.00588  iid se 0.00170  lane-boot se 0.00233  per-row sd 0.218  lag-1 autocorr +0.048
+    realised-gain estimate [A winsorised 0.5%  | linear mean part]: -0.00435  iid se 0.00153  lane-boot se 0.00174  per-row sd 0.195  lag-1 autocorr +0.018
+    realised-gain estimate [A winsorised 2.5%  | full log-ratio  ]: -0.00494  iid se 0.00132  lane-boot se 0.00165  per-row sd 0.169  lag-1 autocorr +0.040
+    realised-gain estimate [A winsorised 2.5%  | linear mean part]: -0.00335  iid se 0.00117  lane-boot se 0.00108  per-row sd 0.150  lag-1 autocorr +0.013
+--- baseline / predictor: pre-update critic (the one the actor started climbing)
+    sd(A) 1.164  (1%/99% -4.02/+1.68, max|A| 31.8)   critic-predicted gain -0.00475 (iid se 0.00018, lane se 0.00025)
+    realised-gain estimate [raw A              | full log-ratio  ]: -0.00622  iid se 0.00219  lane-boot se 0.00334  per-row sd 0.280  lag-1 autocorr +0.079
+    realised-gain estimate [raw A              | linear mean part]: -0.00409  iid se 0.00198  lane-boot se 0.00287  per-row sd 0.253  lag-1 autocorr +0.064
+    realised-gain estimate [A winsorised 0.5%  | full log-ratio  ]: -0.00602  iid se 0.00180  lane-boot se 0.00265  per-row sd 0.231  lag-1 autocorr +0.069
+    realised-gain estimate [A winsorised 0.5%  | linear mean part]: -0.00414  iid se 0.00160  lane-boot se 0.00212  per-row sd 0.204  lag-1 autocorr +0.039
+    realised-gain estimate [A winsorised 2.5%  | full log-ratio  ]: -0.00513  iid se 0.00139  lane-boot se 0.00174  per-row sd 0.179  lag-1 autocorr +0.057
+    realised-gain estimate [A winsorised 2.5%  | linear mean part]: -0.00317  iid se 0.00122  lane-boot se 0.00134  per-row sd 0.157  lag-1 autocorr +0.033
+    scale: +10 return per iteration == +0.00100 in these units
+
+=== v29 H8 @ 12.01M  lambda 0.8  T 0.0271  rows 16384  recoverable-u rows 16380
+eps reconstruction: mean -0.0018 sd 1.0027 (expect 0, 1);  KL(new||old) mean 0.0430 median 0.0257;  rms |dmu|/sigma 0.283;  sd(logratio) 0.291
+update: mean sum_d dlog sigma -0.0860 (sd over states 0.088);  squashed entropy change -0.0811 nats -> T x dH = -0.00219 (entropy part of the soft objective, same units as the gains below)
+--- baseline / predictor: post-update critic (trained through this iteration)
+    sd(A) 1.631  (1%/99% -4.02/+2.53, max|A| 68.9)   critic-predicted gain +0.02200 (iid se 0.00074, lane se 0.00155)
+    realised-gain estimate [raw A              | full log-ratio  ]: +0.00631  iid se 0.00331  lane-boot se 0.00289  per-row sd 0.424  lag-1 autocorr +0.008
+    realised-gain estimate [raw A              | linear mean part]: +0.00074  iid se 0.00392  lane-boot se 0.00363  per-row sd 0.502  lag-1 autocorr -0.021
+    realised-gain estimate [A winsorised 0.5%  | full log-ratio  ]: +0.00460  iid se 0.00240  lane-boot se 0.00208  per-row sd 0.308  lag-1 autocorr +0.047
+    realised-gain estimate [A winsorised 0.5%  | linear mean part]: +0.00027  iid se 0.00235  lane-boot se 0.00206  per-row sd 0.301  lag-1 autocorr +0.013
+    realised-gain estimate [A winsorised 2.5%  | full log-ratio  ]: +0.00455  iid se 0.00187  lane-boot se 0.00168  per-row sd 0.239  lag-1 autocorr +0.020
+    realised-gain estimate [A winsorised 2.5%  | linear mean part]: +0.00035  iid se 0.00179  lane-boot se 0.00151  per-row sd 0.230  lag-1 autocorr +0.001
+--- baseline / predictor: pre-update critic (the one the actor started climbing)
+    sd(A) 1.695  (1%/99% -3.88/+2.72, max|A| 67.6)   critic-predicted gain +0.00636 (iid se 0.00031, lane se 0.00048)
+    realised-gain estimate [raw A              | full log-ratio  ]: +0.00826  iid se 0.00330  lane-boot se 0.00405  per-row sd 0.423  lag-1 autocorr -0.021
+    realised-gain estimate [raw A              | linear mean part]: -0.00051  iid se 0.00385  lane-boot se 0.00318  per-row sd 0.493  lag-1 autocorr -0.021
+    realised-gain estimate [A winsorised 0.5%  | full log-ratio  ]: +0.00736  iid se 0.00265  lane-boot se 0.00342  per-row sd 0.339  lag-1 autocorr +0.022
+    realised-gain estimate [A winsorised 0.5%  | linear mean part]: -0.00041  iid se 0.00256  lane-boot se 0.00241  per-row sd 0.328  lag-1 autocorr +0.006
+    realised-gain estimate [A winsorised 2.5%  | full log-ratio  ]: +0.00725  iid se 0.00223  lane-boot se 0.00329  per-row sd 0.285  lag-1 autocorr +0.005
+    realised-gain estimate [A winsorised 2.5%  | linear mean part]: -0.00035  iid se 0.00211  lane-boot se 0.00214  per-row sd 0.270  lag-1 autocorr -0.006
+    scale: +10 return per iteration == +0.00100 in these units

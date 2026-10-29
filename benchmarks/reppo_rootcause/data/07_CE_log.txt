@@ -1,0 +1,124 @@
+== C(ii). corr(E[n real steps + critic V'], H=400 truth), within-state over 8 fresh actions, noise removed from both sides
+ all 512 states: true within-state variance 0.0514, truth(32 rollouts) reliability 0.386
+   Q_critic(s, a) direct: +0.147 [+0.127, +0.280]
+   n=  1: +0.053 [-0.180, +0.515]   sd(E label) / sd(truth) 1.10
+   n=  5: +0.889 [+0.856, +0.923]   sd(E label) / sd(truth) 0.93
+   n= 10: +0.985 [+0.959, +1.011]   sd(E label) / sd(truth) 1.00
+   n= 25: +0.992 [+0.973, +1.009]   sd(E label) / sd(truth) 0.99
+   n= 50: +1.002 [+0.991, +1.014]   sd(E label) / sd(truth) 0.99
+   n=100: +0.998 [+0.994, +1.002]   sd(E label) / sd(truth) 1.00
+   n=200: +1.000 [+1.000, +1.001]   sd(E label) / sd(truth) 1.00
+   n=400: +1.000 [+1.000, +1.000]   sd(E label) / sd(truth) 1.00
+ drop top 1% critic-energy states (6 states): true within-state variance 0.0473, truth(32 rollouts) reliability 0.372
+   Q_critic(s, a) direct: +0.188 [+0.114, +0.260]
+   n=  1: +0.447 [+0.378, +0.514]   sd(E label) / sd(truth) 0.54
+   n=  5: +0.897 [+0.863, +0.931]   sd(E label) / sd(truth) 0.90
+   n= 10: +0.987 [+0.962, +1.016]   sd(E label) / sd(truth) 0.99
+   n= 25: +0.994 [+0.974, +1.013]   sd(E label) / sd(truth) 0.99
+   n= 50: +1.003 [+0.991, +1.016]   sd(E label) / sd(truth) 0.99
+   n=100: +0.998 [+0.994, +1.003]   sd(E label) / sd(truth) 1.00
+   n=200: +1.000 [+1.000, +1.001]   sd(E label) / sd(truth) 1.00
+   n=400: +1.000 [+1.000, +1.000]   sd(E label) / sd(truth) 1.00
+
+== C(i)/(iii): rewards alone vs critic V' alone. NOT separable from the arrays for n >= 5 (no reward-only partial sums).
+   n = 1 is separable in the action-gradient sense:
+   generator JSON model_based.*.reward_share (FD energy of r(s,a) alone / FD energy of r + gamma V'(f(s,a))) = 0.0011-0.0015,
+   i.e. <= 4% of the 1-step label's action-gradient amplitude is reward; the exactly-known control-cost part, recomputed here:
+   pre-tanh h=0.1: control-cost FD energy / 1-step-label FD energy: pooled 0.00019, per-state median 0.0023, p90 0.0165
+   pre-tanh h=0.3: control-cost FD energy / 1-step-label FD energy: pooled 0.00024, per-state median 0.0024, p90 0.0153
+
+== C(CRN) + E. single-rollout labels (what one branch delivers), correlation with the true advantage (truth-side noise removed)
+   CRN  : the K actions of a state share one rollout index; label_k = G_n(k, m) - mean_j G_n(j, m)
+   noCRN: every action uses a different rollout index (independent future noise), same centring
+   r_n  : reliability of one CRN-centred label = var(E label) / (var(E label) + branch noise)
+ all 512 states
+   n     CRN K=8  K=4    K=2   | noCRN K=8 | branch-noise var: CRN-centred / uncentred | r_n   | ceiling rho_n
+     1   -0.023  +0.071  +0.133 | -0.009    | 0.0004 / 0.0036                         | 0.993 | +0.053
+     5   +0.358  +0.367  +0.599 | +0.338    | 0.2250 / 0.3369                         | 0.165 | +0.889
+    10   +0.352  +0.335  +0.345 | +0.274    | 0.3634 / 0.5137                         | 0.124 | +0.985
+    25   +0.225  +0.246  +0.270 | +0.210    | 0.9136 / 1.0767                         | 0.052 | +0.992
+    50   +0.178  +0.195  +0.192 | +0.204    | 1.6046 / 1.7675                         | 0.030 | +1.002
+   100   +0.160  +0.146  +0.119 | +0.118    | 2.2953 / 2.4620                         | 0.022 | +0.998
+   200   +0.143  +0.149  +0.145 | +0.138    | 2.6449 / 2.8141                         | 0.019 | +1.000
+   400   +0.137  +0.143  +0.118 | +0.139    | 2.7050 / 2.8748                         | 0.019 | +1.000
+ drop top 1% critic-energy states (6 states)
+   n     CRN K=8  K=4    K=2   | noCRN K=8 | branch-noise var: CRN-centred / uncentred | r_n   | ceiling rho_n
+     1   +0.447  +0.446  +0.417 | +0.440    | 0.0000 / 0.0003                         | 0.997 | +0.447
+     5   +0.537  +0.530  +0.585 | +0.440    | 0.0681 / 0.1197                         | 0.362 | +0.897
+    10   +0.398  +0.407  +0.387 | +0.360    | 0.2391 / 0.3383                         | 0.163 | +0.987
+    25   +0.237  +0.236  +0.234 | +0.208    | 0.8021 / 0.9273                         | 0.054 | +0.994
+    50   +0.187  +0.177  +0.206 | +0.180    | 1.4969 / 1.6260                         | 0.030 | +1.003
+   100   +0.150  +0.153  +0.147 | +0.143    | 2.1857 / 2.3192                         | 0.021 | +0.998
+   200   +0.128  +0.130  +0.148 | +0.152    | 2.5307 / 2.6654                         | 0.018 | +1.000
+   400   +0.127  +0.136  +0.138 | +0.126    | 2.5886 / 2.7231                         | 0.018 | +1.000
+
+   the ordinary on-policy sample at the same snapshot (one action a0 per state, one rollout, no branching):
+ all 512 states: Var A_true(s, a0) = 0.0633
+   lambda=0.8: per-(s,a) sampling variance 0.0818 -> sampling-only signal share 0.436; single label minus critic V vs A_true corr +0.083
+   lambda=0.95: per-(s,a) sampling variance 0.3816 -> sampling-only signal share 0.142; single label minus critic V vs A_true corr +0.199
+ drop top 1% critic-energy states (6 states): Var A_true(s, a0) = 0.0576
+   lambda=0.8: per-(s,a) sampling variance 0.0535 -> sampling-only signal share 0.518; single label minus critic V vs A_true corr +0.224
+   lambda=0.95: per-(s,a) sampling variance 0.3276 -> sampling-only signal share 0.150; single label minus critic V vs A_true corr +0.188
+
+== E. information per env step.
+   Estimating the label's mean field from N labels proceeds at rate r/(1-r) per label (r = label reliability); the field it converges to
+   has correlation rho_n with the true advantage (the ceiling). Vine: K actions x n steps = K n env steps buy K-1 contrasts.
+   Ordinary sample: one label per env step with share s; rate s/(1-s). 'speed' below = vine rate per env step / ordinary rate.
+ all 512 states
+   ordinary share 0.436 (1M, lambda 0.8, sampling noise only), rate 0.774/step
+      n=  1: ceiling +0.05, r_n 0.993; speed K=2   95.53x  K=4  143.29x  K=8  167.17x
+      n=  5: ceiling +0.89, r_n 0.165; speed K=2    0.03x  K=4    0.04x  K=8    0.04x
+      n= 10: ceiling +0.98, r_n 0.124; speed K=2    0.01x  K=4    0.01x  K=8    0.02x
+      n= 25: ceiling +0.99, r_n 0.052; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+      n= 50: ceiling +1.00, r_n 0.030; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+      n=100: ceiling +1.00, r_n 0.022; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+   ordinary share 0.142 (1M, lambda 0.95, sampling noise only), rate 0.166/step
+      n=  1: ceiling +0.05, r_n 0.993; speed K=2  445.72x  K=4  668.57x  K=8  780.00x
+      n=  5: ceiling +0.89, r_n 0.165; speed K=2    0.12x  K=4    0.18x  K=8    0.21x
+      n= 10: ceiling +0.98, r_n 0.124; speed K=2    0.04x  K=4    0.06x  K=8    0.07x
+      n= 25: ceiling +0.99, r_n 0.052; speed K=2    0.01x  K=4    0.01x  K=8    0.01x
+      n= 50: ceiling +1.00, r_n 0.030; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+      n=100: ceiling +1.00, r_n 0.022; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+   ordinary share 0.050 (4M-8M measured (bootstrap error included)), rate 0.053/step
+      n=  1: ceiling +0.05, r_n 0.993; speed K=2 1405.66x  K=4 2108.49x  K=8 2459.90x
+      n=  5: ceiling +0.89, r_n 0.165; speed K=2    0.38x  K=4    0.56x  K=8    0.66x
+      n= 10: ceiling +0.98, r_n 0.124; speed K=2    0.13x  K=4    0.20x  K=8    0.23x
+      n= 25: ceiling +0.99, r_n 0.052; speed K=2    0.02x  K=4    0.03x  K=8    0.04x
+      n= 50: ceiling +1.00, r_n 0.030; speed K=2    0.01x  K=4    0.01x  K=8    0.01x
+      n=100: ceiling +1.00, r_n 0.022; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+   ordinary share 0.070 (same, upper), rate 0.075/step
+      n=  1: ceiling +0.05, r_n 0.993; speed K=2  982.90x  K=4 1474.36x  K=8 1720.08x
+      n=  5: ceiling +0.89, r_n 0.165; speed K=2    0.26x  K=4    0.39x  K=8    0.46x
+      n= 10: ceiling +0.98, r_n 0.124; speed K=2    0.09x  K=4    0.14x  K=8    0.16x
+      n= 25: ceiling +0.99, r_n 0.052; speed K=2    0.01x  K=4    0.02x  K=8    0.03x
+      n= 50: ceiling +1.00, r_n 0.030; speed K=2    0.00x  K=4    0.01x  K=8    0.01x
+      n=100: ceiling +1.00, r_n 0.022; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+ drop top 1% critic-energy states (6 states)
+   ordinary share 0.518 (1M, lambda 0.8, sampling noise only), rate 1.076/step
+      n=  1: ceiling +0.45, r_n 0.997; speed K=2  149.79x  K=4  224.68x  K=8  262.13x
+      n=  5: ceiling +0.90, r_n 0.362; speed K=2    0.05x  K=4    0.08x  K=8    0.09x
+      n= 10: ceiling +0.99, r_n 0.163; speed K=2    0.01x  K=4    0.01x  K=8    0.02x
+      n= 25: ceiling +0.99, r_n 0.054; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+      n= 50: ceiling +1.00, r_n 0.030; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+      n=100: ceiling +1.00, r_n 0.021; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+   ordinary share 0.150 (1M, lambda 0.95, sampling noise only), rate 0.176/step
+      n=  1: ceiling +0.45, r_n 0.997; speed K=2  916.28x  K=4 1374.42x  K=8 1603.49x
+      n=  5: ceiling +0.90, r_n 0.362; speed K=2    0.32x  K=4    0.48x  K=8    0.56x
+      n= 10: ceiling +0.99, r_n 0.163; speed K=2    0.06x  K=4    0.08x  K=8    0.10x
+      n= 25: ceiling +0.99, r_n 0.054; speed K=2    0.01x  K=4    0.01x  K=8    0.01x
+      n= 50: ceiling +1.00, r_n 0.030; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+      n=100: ceiling +1.00, r_n 0.021; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+   ordinary share 0.050 (4M-8M measured (bootstrap error included)), rate 0.053/step
+      n=  1: ceiling +0.45, r_n 0.997; speed K=2 3063.57x  K=4 4595.36x  K=8 5361.25x
+      n=  5: ceiling +0.90, r_n 0.362; speed K=2    1.08x  K=4    1.62x  K=8    1.89x
+      n= 10: ceiling +0.99, r_n 0.163; speed K=2    0.18x  K=4    0.28x  K=8    0.32x
+      n= 25: ceiling +0.99, r_n 0.054; speed K=2    0.02x  K=4    0.03x  K=8    0.04x
+      n= 50: ceiling +1.00, r_n 0.030; speed K=2    0.01x  K=4    0.01x  K=8    0.01x
+      n=100: ceiling +1.00, r_n 0.021; speed K=2    0.00x  K=4    0.00x  K=8    0.00x
+   ordinary share 0.070 (same, upper), rate 0.075/step
+      n=  1: ceiling +0.45, r_n 0.997; speed K=2 2142.20x  K=4 3213.30x  K=8 3748.85x
+      n=  5: ceiling +0.90, r_n 0.362; speed K=2    0.75x  K=4    1.13x  K=8    1.32x
+      n= 10: ceiling +0.99, r_n 0.163; speed K=2    0.13x  K=4    0.19x  K=8    0.23x
+      n= 25: ceiling +0.99, r_n 0.054; speed K=2    0.02x  K=4    0.02x  K=8    0.03x
+      n= 50: ceiling +1.00, r_n 0.030; speed K=2    0.00x  K=4    0.01x  K=8    0.01x
+      n=100: ceiling +1.00, r_n 0.021; speed K=2    0.00x  K=4    0.00x  K=8    0.00x

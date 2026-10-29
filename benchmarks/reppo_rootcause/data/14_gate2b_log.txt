@@ -1,0 +1,60 @@
+
+===== checkpoint 1015424: value distribution at the 50 top-1% states (pre-tanh norm) against the rest; bin width 2.00, core = mode +- 6.0
+   low tail  mass: top-1% mean 0.0007 (median 0.0000), rest mean 0.0000 (median 0.00001); mean distance from the mode top-1% -16.0, rest -9.4; share of dQ/da (projection on the total): top-1% energy-weighted +0.41, median +0.00; rest energy-weighted +0.00, median +0.00
+   core      mass: top-1% mean 0.9992 (median 0.9999), rest mean 1.0000 (median 0.99997); mean distance from the mode top-1% +0.0, rest +0.0; share of dQ/da (projection on the total): top-1% energy-weighted +0.60, median +1.00; rest energy-weighted +1.00, median +1.00
+   high tail mass: top-1% mean 0.0001 (median 0.0000), rest mean 0.0000 (median 0.00001); mean distance from the mode top-1% +8.2, rest +8.0; share of dQ/da (projection on the total): top-1% energy-weighted -0.01, median -0.00; rest energy-weighted -0.00, median +0.00
+   states ranked by tail mass: the top 1% / 5% / 20% hold 0.05 / 0.13 / 0.36 of the gradient energy; Spearman(tail mass, |g_pre|) +0.22; states with tail mass > 5%: 0.000 of rows, 0.00 of energy
+   realised discounted reward over the next 100 steps, top-1%: mean 27.37, p10 24.29, share more than 5 below the median (28.2) 0.044  (n 45)
+   realised discounted reward over the next 100 steps, rest: mean 27.89, p10 25.00, share more than 5 below the median (28.2) 0.040  (n 4460)
+
+===== checkpoint 4013696: value distribution at the 50 top-1% states (pre-tanh norm) against the rest; bin width 2.00, core = mode +- 6.0
+   low tail  mass: top-1% mean 0.0631 (median 0.0068), rest mean 0.0013 (median 0.00031); mean distance from the mode top-1% -16.8, rest -10.9; share of dQ/da (projection on the total): top-1% energy-weighted +0.84, median +0.28; rest energy-weighted +0.13, median +0.00
+   core      mass: top-1% mean 0.9174 (median 0.9835), rest mean 0.9983 (median 0.99967); mean distance from the mode top-1% -0.1, rest -0.1; share of dQ/da (projection on the total): top-1% energy-weighted +0.10, median +0.53; rest energy-weighted +0.86, median +1.00
+   high tail mass: top-1% mean 0.0195 (median 0.0004), rest mean 0.0003 (median 0.00001); mean distance from the mode top-1% +9.9, rest +8.2; share of dQ/da (projection on the total): top-1% energy-weighted +0.06, median -0.00; rest energy-weighted +0.01, median +0.00
+   states ranked by tail mass: the top 1% / 5% / 20% hold 0.70 / 0.77 / 0.86 of the gradient energy; Spearman(tail mass, |g_pre|) +0.41; states with tail mass > 5%: 0.009 of rows, 0.70 of energy
+   realised discounted reward over the next 100 steps, top-1%: mean 53.25, p10 22.49, share more than 5 below the median (60.4) 0.239  (n 46)
+   realised discounted reward over the next 100 steps, rest: mean 50.41, p10 -1.20, share more than 5 below the median (60.4) 0.253  (n 4459)
+
+===== checkpoint 7913088: value distribution at the 50 top-1% states (pre-tanh norm) against the rest; bin width 2.00, core = mode +- 6.0
+   low tail  mass: top-1% mean 0.1756 (median 0.1028), rest mean 0.0048 (median 0.00095); mean distance from the mode top-1% -18.2, rest -10.7; share of dQ/da (projection on the total): top-1% energy-weighted +0.94, median +0.91; rest energy-weighted +0.33, median +0.02
+   core      mass: top-1% mean 0.8086 (median 0.8798), rest mean 0.9944 (median 0.99904); mean distance from the mode top-1% -0.3, rest -0.1; share of dQ/da (projection on the total): top-1% energy-weighted +0.05, median +0.09; rest energy-weighted +0.61, median +0.98
+   high tail mass: top-1% mean 0.0158 (median 0.0001), rest mean 0.0008 (median 0.00001); mean distance from the mode top-1% +8.2, rest +8.0; share of dQ/da (projection on the total): top-1% energy-weighted +0.01, median +0.00; rest energy-weighted +0.06, median +0.00
+   states ranked by tail mass: the top 1% / 5% / 20% hold 0.72 / 0.87 / 0.94 of the gradient energy; Spearman(tail mass, |g_pre|) +0.47; states with tail mass > 5%: 0.027 of rows, 0.84 of energy
+   realised discounted reward over the next 100 steps, top-1%: mean 73.19, p10 63.94, share more than 5 below the median (77.5) 0.395  (n 43)
+   realised discounted reward over the next 100 steps, rest: mean 73.39, p10 63.53, share more than 5 below the median (77.5) 0.315  (n 4462)
+
+===== v23_4M: critic vs branching truth by size of the critic's gradient, 512 oracle states (chunk top-1% energy share 0.74; chunk p99 of |g| 4.42)
+   bottom 50% n 256  mean |g_critic|   0.284  true slope along it  +0.044 (se 0.080)  ratio true / claimed +0.15 [-0.41, +0.68]  true |g|^2   0.410  critic |g|^2    0.090
+   50-90%     n 204  mean |g_critic|   0.788  true slope along it  +0.539 (se 0.123)  ratio true / claimed +0.68 [+0.38, +1.00]  true |g|^2   2.349  critic |g|^2    0.694
+   90-95%     n  26  mean |g_critic|   1.709  true slope along it  +1.506 (se 0.517)  ratio true / claimed +0.88 [+0.31, +1.51]  true |g|^2   9.167  critic |g|^2    2.949
+   95-99%     n  20  mean |g_critic|   2.646  true slope along it  +1.722 (se 0.429)  ratio true / claimed +0.65 [+0.33, +1.05]  true |g|^2   7.327  critic |g|^2    7.503
+   top 1%     n   6  mean |g_critic|  15.831  true slope along it  +4.565 (se 2.536)  ratio true / claimed +0.29 [-0.03, +1.22]  true |g|^2  80.591  critic |g|^2  568.440
+   truth: states ranked by |g_true|^2 on one third of the rollouts, energy from the other two: top 1% / 5% / 20% hold 0.20 / 0.20 / 0.46 (a lower bound on the truth's concentration); critic on the same 512 states: 0.89 / 0.94 / 0.98; Spearman(|g_critic|, split-half true energy) +0.19
+   pooled calibration: slope of the true projection on |g_critic| through the origin +0.19; without the top 1% +0.61
+
+===== v29h8_8M: critic vs branching truth by size of the critic's gradient, 512 oracle states (chunk top-1% energy share 0.50; chunk p99 of |g| 3.04)
+   bottom 50% n 256  mean |g_critic|   0.179  true slope along it  +0.009 (se 0.127)  ratio true / claimed +0.05 [-1.23, +1.38]  true |g|^2   1.390  critic |g|^2    0.037
+   50-90%     n 204  mean |g_critic|   0.537  true slope along it  +0.423 (se 0.274)  ratio true / claimed +0.79 [-0.22, +1.77]  true |g|^2  12.394  critic |g|^2    0.328
+   90-95%     n  26  mean |g_critic|   1.294  true slope along it  +0.181 (se 1.675)  ratio true / claimed +0.14 [-2.22, +2.94]  true |g|^2  65.197  critic |g|^2    1.695
+   95-99%     n  20  mean |g_critic|   2.041  true slope along it  +2.260 (se 0.770)  ratio true / claimed +1.11 [+0.29, +1.86]  true |g|^2  25.017  critic |g|^2    4.283
+   top 1%     n   6  mean |g_critic|   5.079  true slope along it  +7.120 (se 5.828)  ratio true / claimed +1.40 [-0.63, +4.29]  true |g|^2 196.657  critic |g|^2   29.564
+   truth: states ranked by |g_true|^2 on one third of the rollouts, energy from the other two: top 1% / 5% / 20% hold 0.46 / 0.65 / 0.74 (a lower bound on the truth's concentration); critic on the same 512 states: 0.44 / 0.69 / 0.89; Spearman(|g_critic|, split-half true energy) +0.12
+   pooled calibration: slope of the true projection on |g_critic| through the origin +0.82; without the top 1% +0.61
+
+===== v23_12M: critic vs branching truth by size of the critic's gradient, 512 oracle states (chunk top-1% energy share 0.79; chunk p99 of |g| 5.83)
+   bottom 50% n 256  mean |g_critic|   0.222  true slope along it  +0.216 (se 0.120)  ratio true / claimed +0.97 [-0.04, +1.99]  true |g|^2   4.027  critic |g|^2    0.057
+   50-90%     n 204  mean |g_critic|   0.663  true slope along it  +1.229 (se 0.486)  ratio true / claimed +1.85 [+0.77, +3.66]  true |g|^2  78.190  critic |g|^2    0.510
+   90-95%     n  26  mean |g_critic|   1.821  true slope along it  +0.495 (se 1.680)  ratio true / claimed +0.27 [-1.66, +2.01]  true |g|^2 -58.009  critic |g|^2    3.392
+   95-99%     n  20  mean |g_critic|   3.269  true slope along it  +2.721 (se 2.710)  ratio true / claimed +0.83 [-0.46, +2.60]  true |g|^2 119.445  critic |g|^2   11.194
+   top 1%     n   6  mean |g_critic|   8.311  true slope along it  +9.933 (se 3.132)  ratio true / claimed +1.20 [+0.41, +2.43]  true |g|^2 118.982  critic |g|^2   80.357
+   truth: states ranked by |g_true|^2 on one third of the rollouts, energy from the other two: top 1% / 5% / 20% hold 0.75 / 0.86 / 0.93 (a lower bound on the truth's concentration); critic on the same 512 states: 0.50 / 0.77 / 0.93; Spearman(|g_critic|, split-half true energy) +0.08
+   pooled calibration: slope of the true projection on |g_critic| through the origin +0.94; without the top 1% +1.04
+
+===== v23_30M: critic vs branching truth by size of the critic's gradient, 512 oracle states (chunk top-1% energy share 0.70; chunk p99 of |g| 7.35)
+   bottom 50% n 256  mean |g_critic|   0.273  true slope along it  +0.153 (se 0.150)  ratio true / claimed +0.56 [-0.52, +1.65]  true |g|^2   0.211  critic |g|^2    0.086
+   50-90%     n 204  mean |g_critic|   0.888  true slope along it  +1.397 (se 0.319)  ratio true / claimed +1.57 [+0.89, +2.34]  true |g|^2  24.447  critic |g|^2    0.931
+   90-95%     n  26  mean |g_critic|   2.278  true slope along it  +2.335 (se 1.822)  ratio true / claimed +1.02 [-0.36, +2.96]  true |g|^2 118.234  critic |g|^2    5.315
+   95-99%     n  20  mean |g_critic|   4.563  true slope along it  +2.161 (se 1.343)  ratio true / claimed +0.47 [-0.07, +1.06]  true |g|^2  41.894  critic |g|^2   22.624
+   top 1%     n   6  mean |g_critic|  11.157  true slope along it  -5.202 (se 2.896)  ratio true / claimed -0.47 [-1.02, -0.01]  true |g|^2  92.856  critic |g|^2  137.061
+   truth: states ranked by |g_true|^2 on one third of the rollouts, energy from the other two: top 1% / 5% / 20% hold 0.35 / 0.69 / 0.86 (a lower bound on the truth's concentration); critic on the same 512 states: 0.47 / 0.78 / 0.94; Spearman(|g_critic|, split-half true energy) +0.17
+   pooled calibration: slope of the true projection on |g_critic| through the origin +0.19; without the top 1% +0.77

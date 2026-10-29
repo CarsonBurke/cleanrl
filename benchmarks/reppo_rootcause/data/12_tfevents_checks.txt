@@ -1,0 +1,85 @@
+reppo_refresh_v25_lam0p8_50M
+  charts/episodic_return            4985      9374     10457     11035     11448     12527     12801     13285
+  eval/deterministic_return         5751     10849     11733     12108     12724     14541     14955     15042
+  policy/std                       0.443     0.450     0.480     0.480     0.495     0.452     0.464     0.448
+  losses/q_mse                     0.482     0.867     0.809     0.701     0.854     2.009     1.951     1.550
+  probe/slope_beta                   nan       nan       nan       nan       nan       nan       nan       nan
+reppo_probe_v23_50M
+  charts/episodic_return            8008     10561     11127     11289     11496     11352     11390     11213
+  eval/deterministic_return         8699     10943     12015     12366     12640     12738     12837     12998
+  policy/std                       0.442     0.469     0.485     0.494     0.491     0.505     0.506     0.516
+  losses/q_mse                     1.368     3.788     4.262     4.485     3.477     5.939     5.578     6.384
+  probe/slope_beta                   nan       nan       nan       nan       nan       nan       nan       nan
+reppo_refresh_v25_lam0p95_50M
+  charts/episodic_return            6042      8967     10784     11382     11760     11781     11644     11696
+  eval/deterministic_return         6592     10045     12072     12772     12909     13107     12974     12964
+  policy/std                       0.408     0.442     0.480     0.487     0.497     0.505     0.514     0.515
+  losses/q_mse                     0.491     2.235     4.954     4.879     3.221     4.758     6.471     6.571
+  probe/slope_beta                   nan       nan       nan       nan       nan       nan       nan       nan
+reppo_latentroll_v27_h8_50M
+  charts/episodic_return            8412     10851     11497     11465       nan       nan       nan       nan
+  eval/deterministic_return         9538     12149     12260     12659       nan       nan       nan       nan
+  policy/std                       0.463     0.511     0.527     0.528       nan       nan       nan       nan
+  losses/q_mse                     0.821     1.460     1.247     1.524       nan       nan       nan       nan
+  probe/slope_beta                   nan       nan       nan       nan       nan       nan       nan       nan
+marks (M): [4, 8, 12, 16, 20, 30, 40, 49.5]
+reppo_noisefork_v60_base
+  M    n_ep   mean  median  crash%  tumble_cost  det   det-mean  noise_cost(non-crash)  std
+  1.00  1000    3992    4133   19.3       219      4354     362       143        0.402
+  2.00  1000    5869    5877    9.9       144      6686     817       673        0.404
+  3.00  1000    7667    7805    4.6       178      8846    1179      1001        0.441
+  4.00  1000    9010    9226    4.6       243     10030    1021       778        0.472
+  5.00  1000    9797   10153    6.0       344     11234    1438      1093        0.492
+  6.00  1000   10238   10713    7.3       435     12078    1839      1404        0.503
+  7.00  1000   10675   11076    6.4       338     12481    1807      1468        0.500
+  7.50   996   10899   11189    5.6       248     12643    1744      1497        0.499
+reppo_probe_v23_50M
+  M    n_ep   mean  median  crash%  tumble_cost  det   det-mean  noise_cost(non-crash)  std
+  4.00  2000    7959    8035    2.1        85      8886     927       842        0.442
+  8.00  2000   10517   10801    4.5       259     11205     688       429        0.467
+ 12.00  2000   11094   11512    5.8       378     12003     908       530        0.486
+ 16.00  2000   11225   11732    6.4       462     12358    1133       671        0.496
+ 20.00  2000   11476   11826    4.1       283     12651    1175       892        0.494
+ 30.00  2000   11362   11926    9.3       530     12702    1340       810        0.503
+ 40.00  2000   11348   12135   10.9       711     12950    1602       890        0.506
+ 49.00  1988   11215   12237   14.9      1010     13061    1846       836        0.516
+reppo_refresh_v25_lam0p8_50M
+  M    n_ep   mean  median  crash%  tumble_cost  det   det-mean  noise_cost(non-crash)  std
+  4.00  2000    5273    5130   13.0       381      6635    1362       981        0.442
+  8.00  2000    9322    9659    5.4       358     10880    1558      1200        0.450
+ 12.00  2000   10420   10673    3.0       215     11784    1364      1149        0.482
+ 16.00  2000   11046   11178    1.8       107     12164    1118      1011        0.485
+ 20.00  2000   11497   11662    2.2       137     12726    1229      1092        0.495
+ 30.00  2000   12521   13152    8.6       617     14539    2018      1402        0.456
+ 40.00  2000   12856   13530   11.2       621     15005    2149      1528        0.463
+ 49.00  1988   13204   13718    9.0       439     15005    1800      1361        0.450
+
+reppo_noisefork_v60_base: 275 std points after 3.5M, median step gap 16384
+  std mean 0.493; diff sd 0.0191 (3.9% of mean); median |diff| 0.0111 (2.2%); lag-1 of diffs -0.31
+  detrended std sd 0.0159 (3.2%); entropy diff sd 0.316
+  episodes per iteration: median 16; per-iteration return sd after detrending: mean 362, median 118; iteration-to-iteration diff sd: mean 497, median 136
+    mean   return on std, lag -1: slope   -14275 +-  1097 per unit sigma, corr -0.611, implied swing per 1 sd of std jitter   -226
+    mean   return on std, lag +0: slope    -9697 +-  1262 per unit sigma, corr -0.409, implied swing per 1 sd of std jitter   -154
+    mean   return on std, lag +1: slope    -1293 +-  1385 per unit sigma, corr -0.036, implied swing per 1 sd of std jitter    -21
+    median return on std, lag -1: slope    -2487 +-   425 per unit sigma, corr -0.334, implied swing per 1 sd of std jitter    -39
+    median return on std, lag +0: slope    -2296 +-   428 per unit sigma, corr -0.308, implied swing per 1 sd of std jitter    -36
+    median return on std, lag +1: slope    -1345 +-   443 per unit sigma, corr -0.179, implied swing per 1 sd of std jitter    -21
+
+reppo_latentroll_v27_h8_50M: 754 std points after 3.5M, median step gap 16384
+  std mean 0.509; diff sd 0.0191 (3.8% of mean); median |diff| 0.0107 (2.1%); lag-1 of diffs -0.33
+  detrended std sd 0.0161 (3.2%); entropy diff sd 0.318
+  episodes per iteration: median 16; per-iteration return sd after detrending: mean 385, median 121; iteration-to-iteration diff sd: mean 521, median 120
+    mean   return on std, lag -1: slope   -15667 +-   677 per unit sigma, corr -0.632, implied swing per 1 sd of std jitter   -252
+    mean   return on std, lag +0: slope   -11396 +-   779 per unit sigma, corr -0.451, implied swing per 1 sd of std jitter   -183
+    mean   return on std, lag +1: slope    -2361 +-   872 per unit sigma, corr -0.068, implied swing per 1 sd of std jitter    -38
+    median return on std, lag -1: slope    -2971 +-   253 per unit sigma, corr -0.394, implied swing per 1 sd of std jitter    -48
+    median return on std, lag +0: slope    -3031 +-   251 per unit sigma, corr -0.403, implied swing per 1 sd of std jitter    -49
+    median return on std, lag +1: slope    -2112 +-   264 per unit sigma, corr -0.279, implied swing per 1 sd of std jitter    -34
+
+reppo_noisefork_v60_base: crashed episodes per rollout mean 0.97 (sd 0.90) of ~16
+  std     : detrended sd 0.0159; per crashed episode finishing in the same rollout +0.0091, in the next +0.0047; R^2 0.33; residual sd 0.0130; corr with crashes in episodes wholly AFTER the log point -0.049
+  entropy : detrended sd 0.2636; per crashed episode finishing in the same rollout +0.1140, in the next +0.0599; R^2 0.19; residual sd 0.2368; corr with crashes in episodes wholly AFTER the log point -0.038
+
+reppo_latentroll_v27_h8_50M: crashed episodes per rollout mean 0.87 (sd 0.92) of ~16
+  std     : detrended sd 0.0161; per crashed episode finishing in the same rollout +0.0094, in the next +0.0045; R^2 0.38; residual sd 0.0127; corr with crashes in episodes wholly AFTER the log point -0.033
+  entropy : detrended sd 0.2733; per crashed episode finishing in the same rollout +0.1304, in the next +0.0704; R^2 0.26; residual sd 0.2347; corr with crashes in episodes wholly AFTER the log point -0.027

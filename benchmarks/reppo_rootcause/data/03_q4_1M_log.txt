@@ -1,0 +1,37 @@
+== LEVEL (published: corr 0.93, err sd 0.90, between sd 2.3)
+  state boot: corr +0.930 [+0.830,+0.968]; err_sd +0.903 [+0.724,+1.125]; between_sd +2.318 [+1.429,+3.379]; bias -0.597 [-0.673,-0.516]
+  lane boot : corr +0.930 [+0.829,+0.967]; err_sd +0.903 [+0.464,+1.211]; between_sd +2.318 [+1.291,+3.420]; bias -0.597 [-0.907,-0.233]
+== WITHIN-STATE over 8 fresh actions (published: corr 0.11, 0.15 corrected, true sd 0.22, critic sd 0.21)
+  state boot: corr_raw +0.109 [+0.092,+0.208]; corr_corrected +0.149 [+0.126,+0.283]; corr_splithalf +0.148 [+0.126,+0.285]; reliability +0.542 [+0.501,+0.577]; true_sd +0.223 [+0.204,+0.242]; critic_sd +0.206 [+0.067,+0.343]; slope_true_on_critic +0.161 [+0.111,+0.870]
+  lane boot : corr_raw +0.109 [+0.099,+0.198]; corr_corrected +0.149 [+0.131,+0.270]; corr_splithalf +0.148 [+0.131,+0.273]; reliability +0.542 [+0.480,+0.600]; true_sd +0.223 [+0.199,+0.250]; critic_sd +0.206 [+0.068,+0.351]; slope_true_on_critic +0.161 [+0.109,+0.823]
+  top 5% states hold 0.26 of the raw within-state energy; top 1% 0.09
+  trimmed 5%: corr_raw +0.140 [+0.090,+0.186]; corr_corrected +0.211 [+0.139,+0.281]; corr_splithalf +0.212 [+0.139,+0.282]; reliability +0.441 [+0.405,+0.474]; true_sd +0.179 [+0.165,+0.191]; critic_sd +0.068 [+0.063,+0.074]; slope_true_on_critic +0.550 [+0.364,+0.724]
+  per-state Pearson: mean +0.100 +- 0.020, median +0.143, frac>0 0.596
+== ACTION GRADIENT (published, pre-tanh: slope 0.37+-0.12 @h0.1, 0.21+-0.05 @h0.3)
+  action h=0.1 n=312 state boot: slope_true_on_critic -0.013 [-0.145,+0.817]; ascent_ratio +0.229 [-0.231,+0.757]; pooled_corr_raw -0.004 [-0.030,+0.088]; pooled_corr_corrected -0.008 [-0.061,+0.169]; pooled_corr_splithalf -0.008 [-0.065,+0.180]; truth_signal_frac +0.279 [+0.172,+0.368]
+  action h=0.3 n=169 state boot: slope_true_on_critic +0.023 [-0.082,+0.619]; ascent_ratio +0.214 [-0.085,+0.584]; pooled_corr_raw +0.020 [-0.020,+0.144]; pooled_corr_corrected +0.030 [-0.030,+0.214]; pooled_corr_splithalf +0.028 [-0.028,+0.205]; truth_signal_frac +0.458 [+0.364,+0.534]
+  pre    h=0.1 n=512 state boot: slope_true_on_critic +0.372 [+0.270,+1.711]; ascent_ratio +1.169 [+0.608,+1.815]; pooled_corr_raw +0.081 [+0.049,+0.136]; pooled_corr_corrected +0.182 [+0.118,+0.299]; pooled_corr_splithalf +0.193 [+0.126,+0.326]; truth_signal_frac +0.200 [+0.136,+0.264]
+  pre    h=0.1         lane boot : slope_true_on_critic +0.372 [+0.263,+1.686]; ascent_ratio +1.169 [+0.551,+1.734]; pooled_corr_raw +0.081 [+0.041,+0.134]; pooled_corr_corrected +0.182 [+0.100,+0.283]; pooled_corr_splithalf +0.193 [+0.107,+0.309]; truth_signal_frac +0.200 [+0.122,+0.278]
+  pre    h=0.3 n=512 state boot: slope_true_on_critic +0.211 [+0.158,+0.883]; ascent_ratio +0.535 [+0.289,+0.809]; pooled_corr_raw +0.114 [+0.089,+0.177]; pooled_corr_corrected +0.174 [+0.136,+0.274]; pooled_corr_splithalf +0.175 [+0.136,+0.276]; truth_signal_frac +0.426 [+0.370,+0.475]
+  pre    h=0.3         lane boot : slope_true_on_critic +0.211 [+0.155,+0.904]; ascent_ratio +0.535 [+0.231,+0.874]; pooled_corr_raw +0.114 [+0.091,+0.181]; pooled_corr_corrected +0.174 [+0.138,+0.276]; pooled_corr_splithalf +0.175 [+0.139,+0.278]; truth_signal_frac +0.426 [+0.368,+0.478]
+  pre h=0.1 on states WITH valid action pairs (n=312): slope_true_on_critic +0.288 [+0.044,+1.202]; ascent_ratio +0.631 [+0.016,+1.291]; pooled_corr_raw +0.080 [+0.004,+0.129]; pooled_corr_corrected +0.195 [+0.010,+0.337]; pooled_corr_splithalf +0.207 [+0.012,+0.389]; truth_signal_frac +0.169 [+0.085,+0.249]
+  pre h=0.1 on states WITHOUT (saturated; n=200)   : slope_true_on_critic +2.027 [+0.797,+3.776]; ascent_ratio +2.384 [+1.228,+3.562]; pooled_corr_raw +0.151 [+0.065,+0.249]; pooled_corr_corrected +0.307 [+0.152,+0.456]; pooled_corr_splithalf +0.326 [+0.170,+0.489]; truth_signal_frac +0.243 [+0.126,+0.341]
+  pre h=0.3 on states WITH valid action pairs (n=169): slope_true_on_critic +0.170 [+0.143,+0.892]; ascent_ratio +0.390 [+0.104,+0.771]; pooled_corr_raw +0.150 [+0.064,+0.235]; pooled_corr_corrected +0.228 [+0.101,+0.370]; pooled_corr_splithalf +0.222 [+0.097,+0.359]; truth_signal_frac +0.434 [+0.339,+0.521]
+  pre h=0.3 on states WITHOUT (saturated; n=343)   : slope_true_on_critic +0.714 [+0.358,+1.078]; ascent_ratio +0.664 [+0.273,+1.036]; pooled_corr_raw +0.131 [+0.061,+0.197]; pooled_corr_corrected +0.201 [+0.093,+0.303]; pooled_corr_splithalf +0.206 [+0.096,+0.312]; truth_signal_frac +0.422 [+0.351,+0.484]
+  states with any |a0|>0.95: 0.654; mean |a0| 0.634; frac of action coords |a0|>0.95: 0.163
+  critic pre-grad energy: top 5% states hold 0.92; slope contribution by state is weighted by this
+== SELF-CONSISTENCY within state (published: corr of Q with its own r + gamma V'(f(s,a)) = -0.33)
+  state boot: corr(residual, -adv_err) +0.429 [+0.266,+0.542]; corr(Q, r+gV') -0.331 [-0.438,+0.500]; corr(r+gV', truth) raw +0.040 [-0.138,+0.383]; rms lookahead +0.234 [+0.103,+0.374]; rms critic adv +0.192 [+0.063,+0.320]; rms residual +0.349 [+0.093,+0.588]
+== HORIZON SWEEP: within-state sd of the t-step truth (critic bootstrap after t) and critic corr with it
+  t=  1: true within sd 0.250 (reliability 1.00); critic corr raw -0.331 corrected -0.331; slope true on critic -0.403
+  t=  5: true within sd 0.208 (reliability 0.93); critic corr raw +0.071 corrected +0.074; slope true on critic +0.075
+  t= 10: true within sd 0.224 (reliability 0.90); critic corr raw +0.165 corrected +0.174; slope true on critic +0.189
+  t= 25: true within sd 0.223 (reliability 0.78); critic corr raw +0.135 corrected +0.153; slope true on critic +0.166
+  t= 50: true within sd 0.224 (reliability 0.67); critic corr raw +0.115 corrected +0.141; slope true on critic +0.153
+  t=100: true within sd 0.224 (reliability 0.58); critic corr raw +0.111 corrected +0.145; slope true on critic +0.158
+  t=200: true within sd 0.225 (reliability 0.55); critic corr raw +0.110 corrected +0.148; slope true on critic +0.161
+  t=400: true within sd 0.223 (reliability 0.54); critic corr raw +0.109 corrected +0.149; slope true on critic +0.161
+== VARIANCE DECOMPOSITION @1M (scaled^2)
+  between-state var 5.371; within-state true var 0.0499; critic error var 0.816; MC(H=400) single-rollout noise var 2.787
+  lambda 0.8: checkpoint weights [0.36  0.43  0.175 0.035 0.    0.    0.    0.   ]; lambda-return sampling-noise var 0.0934; within-state var of E[G^lam] 0.0290; signal share 0.237; analytic sigma_A^2 c^2/(1-c^2) = 0.0840
+  lambda 0.95: checkpoint weights [0.098 0.204 0.235 0.297 0.138 0.027 0.001 0.   ]; lambda-return sampling-noise var 0.4084; within-state var of E[G^lam] 0.0389; signal share 0.087; analytic sigma_A^2 c^2/(1-c^2) = 0.3825

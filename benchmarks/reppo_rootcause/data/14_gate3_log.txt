@@ -1,0 +1,157 @@
+
+================ v60 checkpoint 1015424: 5000 sampled states, 5000 upright; lane sample counts 63528-63529 (one more iteration moves a lane's statistics by ~0.0161 of the gap)
+   lane statistics: per dimension, lanes' cumulative sd (min / median / max), max/min, lanes' mean spread (max - min) in units of the median cumulative sd and of the gait sd, gait sd in normalised units (gait sd / median cumulative sd), gait mean offset in gait sds
+       0 rootz       sd   0.169 /   0.179 /   0.193  ratio  1.14   mean spread 0.185 cum-sd,  0.39 gait-sd   gait sd   0.085 =  0.48 normalised units   offset +0.76
+       1 pitch       sd   0.905 /   0.982 /   1.086  ratio  1.20   mean spread 0.092 cum-sd,  0.30 gait-sd   gait sd   0.301 =  0.31 normalised units   offset -1.46
+       2 bthigh      sd   0.321 /   0.335 /   0.342  ratio  1.07   mean spread 0.066 cum-sd,  0.06 gait-sd   gait sd   0.387 =  1.16 normalised units   offset +0.07
+       3 bshin       sd   0.331 /   0.343 /   0.348  ratio  1.05   mean spread 0.031 cum-sd,  0.03 gait-sd   gait sd   0.360 =  1.05 normalised units   offset -0.14
+       4 bfoot       sd   0.275 /   0.285 /   0.289  ratio  1.05   mean spread 0.052 cum-sd,  0.05 gait-sd   gait sd   0.270 =  0.95 normalised units   offset -0.14
+       5 fthigh      sd   0.475 /   0.482 /   0.487  ratio  1.02   mean spread 0.052 cum-sd,  0.05 gait-sd   gait sd   0.549 =  1.14 normalised units   offset -0.08
+       6 fshin       sd   0.343 /   0.349 /   0.355  ratio  1.03   mean spread 0.052 cum-sd,  0.06 gait-sd   gait sd   0.320 =  0.92 normalised units   offset -0.15
+       7 ffoot       sd   0.269 /   0.273 /   0.275  ratio  1.02   mean spread 0.069 cum-sd,  0.08 gait-sd   gait sd   0.251 =  0.92 normalised units   offset +0.15
+       8 vx          sd   1.838 /   1.926 /   1.966  ratio  1.07   mean spread 0.074 cum-sd,  0.11 gait-sd   gait sd   1.338 =  0.69 normalised units   offset +1.53
+       9 vz          sd   0.961 /   0.977 /   0.988  ratio  1.03   mean spread 0.003 cum-sd,  0.00 gait-sd   gait sd   1.041 =  1.07 normalised units   offset -0.02
+      10 pitch_vel   sd   1.772 /   1.802 /   1.847  ratio  1.04   mean spread 0.006 cum-sd,  0.01 gait-sd   gait sd   1.879 =  1.04 normalised units   offset -0.01
+      11 bthigh_vel  sd   7.401 /   7.742 /   7.919  ratio  1.07   mean spread 0.002 cum-sd,  0.00 gait-sd   gait sd   9.490 =  1.23 normalised units   offset -0.00
+      12 bshin_vel   sd   7.573 /   7.724 /   7.912  ratio  1.04   mean spread 0.002 cum-sd,  0.00 gait-sd   gait sd   7.591 =  0.98 normalised units   offset +0.00
+      13 bfoot_vel   sd   7.091 /   7.306 /   7.358  ratio  1.04   mean spread 0.001 cum-sd,  0.00 gait-sd   gait sd   7.141 =  0.98 normalised units   offset -0.00
+      14 fthigh_vel  sd   9.335 /   9.492 /   9.716  ratio  1.04   mean spread 0.004 cum-sd,  0.00 gait-sd   gait sd  11.068 =  1.17 normalised units   offset -0.01
+      15 fshin_vel   sd   9.542 /   9.688 /   9.891  ratio  1.04   mean spread 0.002 cum-sd,  0.00 gait-sd   gait sd  10.172 =  1.05 normalised units   offset +0.01
+      16 ffoot_vel   sd   6.599 /   6.648 /   6.709  ratio  1.02   mean spread 0.004 cum-sd,  0.00 gait-sd   gait sd   6.819 =  1.03 normalised units   offset +0.01
+   pitch: lane cumulative sd [1.061, 0.935, 0.977, 0.908, 1.083, 1.0, 0.949, 1.031, 1.035, 0.966, 0.99, 0.93, 0.905, 0.947, 1.086, 0.988]; lane cumulative mean [0.598, 0.633, 0.646, 0.61, 0.62, 0.615, 0.621, 0.689, 0.667, 0.638, 0.65, 0.64, 0.632, 0.616, 0.642, 0.634]
+      gait: mean +0.194, sd 0.301, p1..p99 [-0.290, +1.170]; that interval in normalised units, by lane: narrowest [-0.86, +0.49], median width 1.49, widest [-1.02, +0.59]; a variable normalised by its own gait statistics would span 4.85
+   pitch_vel: lane cumulative sd [1.847, 1.805, 1.805, 1.808, 1.807, 1.804, 1.783, 1.772, 1.8, 1.799, 1.792, 1.799, 1.829, 1.837, 1.787, 1.799]; lane cumulative mean [0.011, 0.011, 0.01, 0.01, 0.012, 0.011, 0.006, 0.007, 0.01, 0.006, 0.006, 0.007, 0.012, 0.015, 0.004, 0.004]
+      gait: mean -0.010, sd 1.879, p1..p99 [-3.920, +5.165]; that interval in normalised units, by lane: narrowest [-2.13, +2.79], median width 5.04, widest [-2.22, +2.91]; a variable normalised by its own gait statistics would span 4.84
+   gait sd in normalised units over all 17 dims and 16 lanes: min 0.28 (pitch), median 1.02, max 1.28; dims whose gait sd is under 0.5 normalised units in the median lane: ['rootz', 'pitch']
+   the same physical gait state read through the 16 lanes: sd across lanes of each network input, in units of that input's within-gait sd
+          rootz      pitch     bthigh      bshin      bfoot     fthigh      fshin      ffoot         vx         vz  pitch_vel  bthigh_ve  bshin_vel  bfoot_vel  fthigh_ve  fshin_vel  ffoot_vel
+          0.098      0.112      0.023      0.015      0.018      0.014      0.018      0.022      0.048      0.007      0.010      0.017      0.013      0.010      0.012      0.009      0.004   (rms over states)
+          0.144      0.174      0.049      0.037      0.042      0.024      0.025      0.030      0.074      0.017      0.029      0.036      0.031      0.024      0.024      0.021      0.009   (99th percentile state)
+          0.567      0.736      0.217      0.159      0.206      0.083      0.118      0.116      0.385      0.087      0.167      0.175      0.144      0.102      0.089      0.092      0.048   (largest difference between any two lanes at any state)
+   17-D input: rms distance of one lane's reading from the lane-average reading 0.089; one environment step moves the input by a median 4.993 (p10 3.547); within-gait rms radius 4.040
+   policy at the same physical state under two different lanes: KL median 0.1455, mean 0.3463, p90 0.8875, worst lane pair (mean over states) 1.6368; v60's per-iteration KL bound is 0.03. Mean-action displacement from the lane-average policy: rms 0.566 policy sds (6-D norm), worst lane 1.174; log-std rms spread 0.017
+   critic at the same physical (state, action) under the 16 lanes: sd of Q across lanes 0.203 (median 0.105); sd of Q across states 1.34; within-state sd of Q over 8 policy actions 0.124 (median 0.046); sd across lanes of the within-state advantage 0.089 = 1.14 of the lane-average advantage's rms 0.078
+      correlation between two lanes' rankings of the same 8 actions at the same state: median over states 0.963, p10 0.774
+      dQ/da at the same (state, action) under two lanes: cosine median 0.989, p10 0.835; norm max/min over lanes: median state 1.52, p90 2.95, top-1% states by norm 1.75
+      with pitch alone read through the median lane's statistics in every lane: between-lane policy KL mean 0.1259, median 0.0558; sd of Q across lanes 0.112 (median 0.101)
+      with pitch_vel alone read through the median lane's statistics in every lane: between-lane policy KL mean 0.3364, median 0.1416; sd of Q across lanes 0.137 (median 0.103)
+      without the most deviant lane (0): policy KL between two lanes median 0.1204, mean 0.2637; sd of Q across lanes 0.191 (median 0.081); advantage sd across lanes 0.091
+      sensitivity to +0.05 normalised units of pitch    : policy mean moves 0.553 policy sds (median), Q moves by 0.104 (median |dQ|)
+      sensitivity to +0.05 normalised units of pitch_vel: policy mean moves 0.168 policy sds (median), Q moves by 0.029 (median |dQ|)
+      sensitivity to +0.05 normalised units of rootz    : policy mean moves 0.249 policy sds (median), Q moves by 0.024 (median |dQ|)
+      sensitivity to +0.05 normalised units of vx       : policy mean moves 0.105 policy sds (median), Q moves by 0.135 (median |dQ|)
+      sensitivity to +0.05 normalised units of bthigh   : policy mean moves 0.096 policy sds (median), Q moves by 0.010 (median |dQ|)
+      between-lane policy KL by lane (mean against the other 15): [0.9242, 0.2511, 0.1983, 0.2621, 0.6179, 0.2456, 0.2343, 0.4562, 0.2723, 0.2043, 0.2176, 0.3202, 0.402, 0.3513, 0.3897, 0.1936]
+
+================ v60 checkpoint 4013696: 5000 sampled states, 4242 upright; lane sample counts 251107-251108 (one more iteration moves a lane's statistics by ~0.0041 of the gap)
+   lane statistics: per dimension, lanes' cumulative sd (min / median / max), max/min, lanes' mean spread (max - min) in units of the median cumulative sd and of the gait sd, gait sd in normalised units (gait sd / median cumulative sd), gait mean offset in gait sds
+       0 rootz       sd   0.126 /   0.132 /   0.142  ratio  1.12   mean spread 0.075 cum-sd,  0.11 gait-sd   gait sd   0.087 =  0.66 normalised units   offset +0.58
+       1 pitch       sd   0.664 /   0.737 /   0.841  ratio  1.27   mean spread 0.079 cum-sd,  0.35 gait-sd   gait sd   0.164 =  0.22 normalised units   offset -1.85
+       2 bthigh      sd   0.409 /   0.416 /   0.418  ratio  1.02   mean spread 0.024 cum-sd,  0.02 gait-sd   gait sd   0.499 =  1.20 normalised units   offset +0.08
+       3 bshin       sd   0.346 /   0.349 /   0.354  ratio  1.02   mean spread 0.075 cum-sd,  0.06 gait-sd   gait sd   0.437 =  1.25 normalised units   offset +0.05
+       4 bfoot       sd   0.295 /   0.299 /   0.303  ratio  1.03   mean spread 0.048 cum-sd,  0.04 gait-sd   gait sd   0.326 =  1.09 normalised units   offset +0.06
+       5 fthigh      sd   0.483 /   0.488 /   0.491  ratio  1.02   mean spread 0.034 cum-sd,  0.04 gait-sd   gait sd   0.407 =  0.84 normalised units   offset -0.16
+       6 fshin       sd   0.367 /   0.371 /   0.378  ratio  1.03   mean spread 0.026 cum-sd,  0.02 gait-sd   gait sd   0.455 =  1.23 normalised units   offset -0.03
+       7 ffoot       sd   0.264 /   0.265 /   0.266  ratio  1.01   mean spread 0.034 cum-sd,  0.03 gait-sd   gait sd   0.273 =  1.03 normalised units   offset -0.19
+       8 vx          sd   2.942 /   2.989 /   3.033  ratio  1.03   mean spread 0.080 cum-sd,  0.12 gait-sd   gait sd   2.019 =  0.68 normalised units   offset +1.75
+       9 vz          sd   0.943 /   0.947 /   0.952  ratio  1.01   mean spread 0.003 cum-sd,  0.00 gait-sd   gait sd   0.970 =  1.02 normalised units   offset -0.02
+      10 pitch_vel   sd   1.974 /   2.011 /   2.051  ratio  1.04   mean spread 0.004 cum-sd,  0.00 gait-sd   gait sd   2.134 =  1.06 normalised units   offset -0.02
+      11 bthigh_vel  sd   9.010 /   9.145 /   9.200  ratio  1.02   mean spread 0.002 cum-sd,  0.00 gait-sd   gait sd  10.208 =  1.12 normalised units   offset +0.01
+      12 bshin_vel   sd   8.190 /   8.306 /   8.461  ratio  1.03   mean spread 0.002 cum-sd,  0.00 gait-sd   gait sd  10.528 =  1.27 normalised units   offset +0.00
+      13 bfoot_vel   sd   7.271 /   7.367 /   7.444  ratio  1.02   mean spread 0.002 cum-sd,  0.00 gait-sd   gait sd   7.782 =  1.06 normalised units   offset +0.00
+      14 fthigh_vel  sd   9.035 /   9.140 /   9.256  ratio  1.02   mean spread 0.003 cum-sd,  0.00 gait-sd   gait sd   7.901 =  0.86 normalised units   offset +0.01
+      15 fshin_vel   sd   9.388 /   9.505 /   9.623  ratio  1.03   mean spread 0.001 cum-sd,  0.00 gait-sd   gait sd  10.151 =  1.07 normalised units   offset -0.01
+      16 ffoot_vel   sd   6.382 /   6.413 /   6.460  ratio  1.01   mean spread 0.002 cum-sd,  0.00 gait-sd   gait sd   6.526 =  1.02 normalised units   offset -0.01
+   pitch: lane cumulative sd [0.804, 0.738, 0.716, 0.679, 0.753, 0.665, 0.664, 0.728, 0.841, 0.736, 0.684, 0.795, 0.741, 0.73, 0.761, 0.816]; lane cumulative mean [0.179, 0.163, 0.151, 0.147, 0.156, 0.132, 0.142, 0.168, 0.19, 0.164, 0.149, 0.171, 0.152, 0.15, 0.162, 0.172]
+      gait: mean -0.144, sd 0.164, p1..p99 [-0.444, +0.197]; that interval in normalised units, by lane: narrowest [-0.75, +0.01], median width 0.87, widest [-0.88, +0.08]; a variable normalised by its own gait statistics would span 3.90
+   pitch_vel: lane cumulative sd [2.048, 1.998, 2.014, 1.974, 2.051, 2.023, 1.979, 2.008, 2.026, 1.992, 1.997, 1.986, 2.023, 2.005, 2.041, 2.016]; lane cumulative mean [-0.043, -0.046, -0.048, -0.046, -0.044, -0.046, -0.048, -0.049, -0.045, -0.046, -0.05, -0.046, -0.045, -0.044, -0.048, -0.048]
+      gait: mean -0.096, sd 2.134, p1..p99 [-4.841, +5.228]; that interval in normalised units, by lane: narrowest [-2.34, +2.57], median width 5.01, widest [-2.43, +2.67]; a variable normalised by its own gait statistics would span 4.72
+   gait sd in normalised units over all 17 dims and 16 lanes: min 0.20 (pitch), median 1.05, max 1.29; dims whose gait sd is under 0.5 normalised units in the median lane: ['pitch']
+   the same physical gait state read through the 16 lanes: sd across lanes of each network input, in units of that input's within-gait sd
+          rootz      pitch     bthigh      bshin      bfoot     fthigh      fshin      ffoot         vx         vz  pitch_vel  bthigh_ve  bshin_vel  bfoot_vel  fthigh_ve  fshin_vel  ffoot_vel
+          0.057      0.092      0.008      0.016      0.014      0.014      0.010      0.009      0.043      0.003      0.011      0.006      0.009      0.007      0.006      0.007      0.004   (rms over states)
+          0.125      0.185      0.016      0.021      0.024      0.016      0.019      0.010      0.051      0.008      0.028      0.011      0.020      0.015      0.017      0.014      0.008   (99th percentile state)
+          0.817      2.175      0.059      0.084      0.101      0.062      0.077      0.039      0.179      0.032      0.111      0.047      0.086      0.068      0.082      0.068      0.038   (largest difference between any two lanes at any state)
+   17-D input: rms distance of one lane's reading from the lane-average reading 0.065; one environment step moves the input by a median 4.542 (p10 3.549); within-gait rms radius 4.180
+   policy at the same physical state under two different lanes: KL median 0.0596, mean 0.2036, p90 0.3975, worst lane pair (mean over states) 0.7546; v60's per-iteration KL bound is 0.03. Mean-action displacement from the lane-average policy: rms 0.431 policy sds (6-D norm), worst lane 0.720; log-std rms spread 0.015
+   critic at the same physical (state, action) under the 16 lanes: sd of Q across lanes 0.470 (median 0.251); sd of Q across states 6.61; within-state sd of Q over 8 policy actions 0.446 (median 0.112); sd across lanes of the within-state advantage 0.234 = 0.67 of the lane-average advantage's rms 0.350
+      correlation between two lanes' rankings of the same 8 actions at the same state: median over states 0.978, p10 0.823
+      dQ/da at the same (state, action) under two lanes: cosine median 0.993, p10 0.887; norm max/min over lanes: median state 1.38, p90 2.75, top-1% states by norm 8.32
+      with pitch alone read through the median lane's statistics in every lane: between-lane policy KL mean 0.1105, median 0.0327; sd of Q across lanes 0.346 (median 0.240)
+      with pitch_vel alone read through the median lane's statistics in every lane: between-lane policy KL mean 0.2040, median 0.0594; sd of Q across lanes 0.420 (median 0.251)
+      without the most deviant lane (15): policy KL between two lanes median 0.0567, mean 0.1768; sd of Q across lanes 0.438 (median 0.258); advantage sd across lanes 0.200
+      sensitivity to +0.05 normalised units of pitch    : policy mean moves 0.701 policy sds (median), Q moves by 0.167 (median |dQ|)
+      sensitivity to +0.05 normalised units of pitch_vel: policy mean moves 0.229 policy sds (median), Q moves by 0.077 (median |dQ|)
+      sensitivity to +0.05 normalised units of rootz    : policy mean moves 0.299 policy sds (median), Q moves by 0.044 (median |dQ|)
+      sensitivity to +0.05 normalised units of vx       : policy mean moves 0.079 policy sds (median), Q moves by 0.366 (median |dQ|)
+      sensitivity to +0.05 normalised units of bthigh   : policy mean moves 0.163 policy sds (median), Q moves by 0.036 (median |dQ|)
+      between-lane policy KL by lane (mean against the other 15): [0.2019, 0.1111, 0.1152, 0.2309, 0.1609, 0.2121, 0.2136, 0.2073, 0.2701, 0.1153, 0.2153, 0.3892, 0.1451, 0.1346, 0.1438, 0.3911]
+
+================ v60 checkpoint 7913088: 5000 sampled states, 5000 upright; lane sample counts 495063-495064 (one more iteration moves a lane's statistics by ~0.0021 of the gap)
+   lane statistics: per dimension, lanes' cumulative sd (min / median / max), max/min, lanes' mean spread (max - min) in units of the median cumulative sd and of the gait sd, gait sd in normalised units (gait sd / median cumulative sd), gait mean offset in gait sds
+       0 rootz       sd   0.117 /   0.125 /   0.139  ratio  1.19   mean spread 0.071 cum-sd,  0.11 gait-sd   gait sd   0.083 =  0.66 normalised units   offset +0.51
+       1 pitch       sd   0.878 /   0.939 /   1.507  ratio  1.72   mean spread 0.174 cum-sd,  0.93 gait-sd   gait sd   0.176 =  0.19 normalised units   offset -1.42
+       2 bthigh      sd   0.469 /   0.482 /   0.484  ratio  1.03   mean spread 0.020 cum-sd,  0.02 gait-sd   gait sd   0.563 =  1.17 normalised units   offset +0.07
+       3 bshin       sd   0.399 /   0.402 /   0.409  ratio  1.03   mean spread 0.037 cum-sd,  0.03 gait-sd   gait sd   0.455 =  1.13 normalised units   offset +0.00
+       4 bfoot       sd   0.325 /   0.327 /   0.330  ratio  1.02   mean spread 0.045 cum-sd,  0.04 gait-sd   gait sd   0.369 =  1.13 normalised units   offset +0.15
+       5 fthigh      sd   0.475 /   0.486 /   0.499  ratio  1.05   mean spread 0.052 cum-sd,  0.05 gait-sd   gait sd   0.520 =  1.07 normalised units   offset -0.15
+       6 fshin       sd   0.406 /   0.416 /   0.425  ratio  1.05   mean spread 0.054 cum-sd,  0.05 gait-sd   gait sd   0.474 =  1.14 normalised units   offset +0.09
+       7 ffoot       sd   0.271 /   0.272 /   0.276  ratio  1.02   mean spread 0.039 cum-sd,  0.04 gait-sd   gait sd   0.287 =  1.05 normalised units   offset +0.04
+       8 vx          sd   3.515 /   3.763 /   3.817  ratio  1.09   mean spread 0.216 cum-sd,  0.34 gait-sd   gait sd   2.407 =  0.64 normalised units   offset +1.40
+       9 vz          sd   0.949 /   0.961 /   0.978  ratio  1.03   mean spread 0.007 cum-sd,  0.01 gait-sd   gait sd   0.993 =  1.03 normalised units   offset -0.04
+      10 pitch_vel   sd   2.172 /   2.205 /   2.225  ratio  1.02   mean spread 0.006 cum-sd,  0.01 gait-sd   gait sd   2.484 =  1.13 normalised units   offset -0.01
+      11 bthigh_vel  sd   9.810 /  10.115 /  10.259  ratio  1.05   mean spread 0.002 cum-sd,  0.00 gait-sd   gait sd  11.562 =  1.14 normalised units   offset +0.01
+      12 bshin_vel   sd   9.467 /   9.647 /   9.744  ratio  1.03   mean spread 0.004 cum-sd,  0.00 gait-sd   gait sd  11.097 =  1.15 normalised units   offset -0.01
+      13 bfoot_vel   sd   7.676 /   7.728 /   7.790  ratio  1.01   mean spread 0.003 cum-sd,  0.00 gait-sd   gait sd   8.386 =  1.09 normalised units   offset +0.01
+      14 fthigh_vel  sd   9.398 /   9.672 /   9.857  ratio  1.05   mean spread 0.003 cum-sd,  0.00 gait-sd   gait sd  11.474 =  1.19 normalised units   offset -0.00
+      15 fshin_vel   sd   9.692 /   9.862 /   9.994  ratio  1.03   mean spread 0.001 cum-sd,  0.00 gait-sd   gait sd  10.498 =  1.06 normalised units   offset -0.01
+      16 ffoot_vel   sd   6.431 /   6.472 /   6.537  ratio  1.02   mean spread 0.001 cum-sd,  0.00 gait-sd   gait sd   6.485 =  1.00 normalised units   offset -0.00
+   pitch: lane cumulative sd [0.885, 0.88, 0.901, 0.957, 1.507, 0.989, 1.024, 1.002, 0.894, 0.973, 1.018, 0.878, 0.943, 0.889, 0.889, 0.935]; lane cumulative mean [0.07, 0.073, 0.097, 0.094, 0.234, 0.094, 0.088, 0.098, 0.076, 0.093, 0.093, 0.075, 0.084, 0.083, 0.075, 0.105]
+      gait: mean -0.159, sd 0.176, p1..p99 [-0.483, +0.248]; that interval in normalised units, by lane: narrowest [-0.48, +0.01], median width 0.78, widest [-0.64, +0.20]; a variable normalised by its own gait statistics would span 4.15
+   pitch_vel: lane cumulative sd [2.21, 2.204, 2.172, 2.196, 2.225, 2.214, 2.212, 2.212, 2.212, 2.196, 2.195, 2.187, 2.208, 2.193, 2.206, 2.183]; lane cumulative mean [-0.066, -0.067, -0.068, -0.065, -0.056, -0.063, -0.066, -0.069, -0.068, -0.067, -0.069, -0.067, -0.064, -0.064, -0.069, -0.067]
+      gait: mean -0.085, sd 2.484, p1..p99 [-5.259, +5.061]; that interval in normalised units, by lane: narrowest [-2.34, +2.30], median width 4.68, widest [-2.39, +2.36]; a variable normalised by its own gait statistics would span 4.15
+   gait sd in normalised units over all 17 dims and 16 lanes: min 0.12 (pitch), median 1.09, max 1.22; dims whose gait sd is under 0.5 normalised units in the median lane: ['pitch']
+   the same physical gait state read through the 16 lanes: sd across lanes of each network input, in units of that input's within-gait sd
+          rootz      pitch     bthigh      bshin      bfoot     fthigh      fshin      ffoot         vx         vz  pitch_vel  bthigh_ve  bshin_vel  bfoot_vel  fthigh_ve  fshin_vel  ffoot_vel
+          0.063      0.123      0.009      0.012      0.011      0.019      0.017      0.010      0.107      0.007      0.006      0.011      0.008      0.005      0.011      0.010      0.005   (rms over states)
+          0.149      0.250      0.017      0.017      0.017      0.030      0.029      0.015      0.127      0.017      0.013      0.023      0.021      0.011      0.024      0.023      0.010   (99th percentile state)
+          0.845      2.267      0.079      0.062      0.069      0.130      0.110      0.070      0.564      0.095      0.063      0.106      0.091      0.039      0.117      0.085      0.051   (largest difference between any two lanes at any state)
+   17-D input: rms distance of one lane's reading from the lane-average reading 0.095; one environment step moves the input by a median 4.657 (p10 3.656); within-gait rms radius 4.250
+   policy at the same physical state under two different lanes: KL median 0.1213, mean 0.6235, p90 1.4200, worst lane pair (mean over states) 3.7183; v60's per-iteration KL bound is 0.03. Mean-action displacement from the lane-average policy: rms 0.759 policy sds (6-D norm), worst lane 2.123; log-std rms spread 0.021
+   critic at the same physical (state, action) under the 16 lanes: sd of Q across lanes 1.077 (median 0.679); sd of Q across states 8.30; within-state sd of Q over 8 policy actions 0.535 (median 0.122); sd across lanes of the within-state advantage 0.374 = 1.08 of the lane-average advantage's rms 0.345
+      correlation between two lanes' rankings of the same 8 actions at the same state: median over states 0.930, p10 0.683
+      dQ/da at the same (state, action) under two lanes: cosine median 0.987, p10 0.680; norm max/min over lanes: median state 2.06, p90 14.92, top-1% states by norm 12.41
+      with pitch alone read through the median lane's statistics in every lane: between-lane policy KL mean 0.2305, median 0.0453; sd of Q across lanes 0.750 (median 0.701)
+      with pitch_vel alone read through the median lane's statistics in every lane: between-lane policy KL mean 0.6182, median 0.1209; sd of Q across lanes 1.039 (median 0.674)
+      without the most deviant lane (4): policy KL between two lanes median 0.0945, mean 0.3214; sd of Q across lanes 0.539 (median 0.318); advantage sd across lanes 0.216
+      sensitivity to +0.05 normalised units of pitch    : policy mean moves 1.036 policy sds (median), Q moves by 0.223 (median |dQ|)
+      sensitivity to +0.05 normalised units of pitch_vel: policy mean moves 0.300 policy sds (median), Q moves by 0.069 (median |dQ|)
+      sensitivity to +0.05 normalised units of rootz    : policy mean moves 0.353 policy sds (median), Q moves by 0.052 (median |dQ|)
+      sensitivity to +0.05 normalised units of vx       : policy mean moves 0.088 policy sds (median), Q moves by 0.510 (median |dQ|)
+      sensitivity to +0.05 normalised units of bthigh   : policy mean moves 0.195 policy sds (median), Q moves by 0.048 (median |dQ|)
+      between-lane policy KL by lane (mean against the other 15): [0.4495, 0.516, 0.5566, 0.3338, 2.7376, 0.4515, 0.7357, 0.3764, 0.4431, 0.351, 0.6071, 0.4812, 0.4889, 0.4978, 0.4521, 0.4968]
+
+===== v23_4M (on-policy chunk, 1.000 upright)
+   pitch      lane cumulative sd min / median / max 0.482 / 0.562 / 0.682 (ratio 1.42); chunk upright sd 0.143 = 0.26 normalised units; lane mean spread 0.39 gait sds
+   pitch_vel  lane cumulative sd min / median / max 1.780 / 1.857 / 1.905 (ratio 1.07); chunk upright sd 2.199 = 1.18 normalised units; lane mean spread 0.00 gait sds
+   all dims: lane sd ratio max/min [1.21, 1.42, 1.02, 1.06, 1.02, 1.03, 1.02, 1.02, 1.03, 1.01, 1.07, 1.01, 1.02, 1.02, 1.05, 1.01, 1.01]
+
+===== v29h8_8M (on-policy chunk, 1.000 upright)
+   pitch      lane cumulative sd min / median / max 0.879 / 0.927 / 1.133 (ratio 1.29); chunk upright sd 0.174 = 0.19 normalised units; lane mean spread 0.36 gait sds
+   pitch_vel  lane cumulative sd min / median / max 2.092 / 2.123 / 2.148 (ratio 1.03); chunk upright sd 2.367 = 1.11 normalised units; lane mean spread 0.00 gait sds
+   all dims: lane sd ratio max/min [1.14, 1.29, 1.02, 1.05, 1.02, 1.06, 1.02, 1.02, 1.08, 1.03, 1.03, 1.03, 1.03, 1.02, 1.04, 1.03, 1.01]
+
+===== v23_12M (on-policy chunk, 0.976 upright)
+   pitch      lane cumulative sd min / median / max 0.723 / 0.817 / 1.105 (ratio 1.53); chunk upright sd 0.969 = 1.19 normalised units; lane mean spread 0.09 gait sds
+   pitch_vel  lane cumulative sd min / median / max 2.113 / 2.152 / 2.175 (ratio 1.03); chunk upright sd 2.388 = 1.11 normalised units; lane mean spread 0.01 gait sds
+   all dims: lane sd ratio max/min [1.17, 1.53, 1.02, 1.03, 1.02, 1.04, 1.03, 1.01, 1.06, 1.05, 1.03, 1.02, 1.02, 1.02, 1.06, 1.03, 1.02]
+
+===== v29h8_12M (on-policy chunk, 0.933 upright)
+   pitch      lane cumulative sd min / median / max 0.934 / 1.055 / 1.205 (ratio 1.29); chunk upright sd 1.349 = 1.28 normalised units; lane mean spread 0.05 gait sds
+   pitch_vel  lane cumulative sd min / median / max 2.179 / 2.197 / 2.214 (ratio 1.02); chunk upright sd 2.385 = 1.09 normalised units; lane mean spread 0.00 gait sds
+   all dims: lane sd ratio max/min [1.15, 1.29, 1.01, 1.05, 1.01, 1.07, 1.03, 1.02, 1.04, 1.05, 1.02, 1.02, 1.03, 1.02, 1.04, 1.03, 1.02]
+
+===== v23_30M (on-policy chunk, 0.984 upright)
+   pitch      lane cumulative sd min / median / max 0.867 / 0.923 / 1.825 (ratio 2.10); chunk upright sd 0.814 = 0.88 normalised units; lane mean spread 0.42 gait sds
+   pitch_vel  lane cumulative sd min / median / max 2.223 / 2.257 / 2.273 (ratio 1.02); chunk upright sd 2.300 = 1.02 normalised units; lane mean spread 0.01 gait sds
+   all dims: lane sd ratio max/min [1.44, 2.1, 1.05, 1.08, 1.02, 1.14, 1.08, 1.01, 1.07, 1.11, 1.02, 1.06, 1.04, 1.01, 1.18, 1.09, 1.03]

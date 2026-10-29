@@ -1,0 +1,12 @@
+v23_4M | linear(108), ref sf_gae0.99
+   critic (as is)                             gain +0.1776 [+0.0712, +0.2761] P(>0) 1.000
+   critic rows permuted #0                    gain +0.0091 [-0.1157, +0.1270] P(>0) 0.552
+   critic rows permuted #1                    gain +0.0459 [-0.0796, +0.1731] P(>0) 0.754
+   critic rows permuted #2                    gain -0.0125 [-0.1335, +0.1133] P(>0) 0.432
+   sf_gae1 (independent unbiased estimator)   gain +0.0284 [-0.1677, +0.2220] P(>0) 0.562
+v29h8_8M | linear(108), ref sf_gae0.99
+   critic (as is)                             gain +0.3573 [-0.0422, +0.7828] P(>0) 0.954
+   critic rows permuted #0                    gain +0.1296 [-0.1195, +0.3809] P(>0) 0.846
+   critic rows permuted #1                    gain +0.1139 [-0.1236, +0.3642] P(>0) 0.826
+   critic rows permuted #2                    gain +0.0955 [-0.1127, +0.3198] P(>0) 0.815
+   sf_gae1 (independent unbiased estimator)   gain -0.1419 [-0.4727, +0.3036] P(>0) 0.266

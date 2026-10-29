@@ -1,0 +1,20 @@
+== (a) aliasing of the decoded mean, y in [99, 101] ==
+max |decode(project(y)) - y| = 3.05e-05; sd of the error = 9.80e-06  (action contrasts are ~0.03-0.22)
+
+== (b) CE gradient w.r.t. the predicted mean (prediction = label shape at m) ==
+m - y =  0.01, predicted sd 1.5: dCE/dm = +0.00437   (m - y)/s^2 = +0.00444
+m - y =  0.01, predicted sd 2.5: dCE/dm = +0.00160   (m - y)/s^2 = +0.00160
+m - y =  0.05, predicted sd 1.5: dCE/dm = +0.02214   (m - y)/s^2 = +0.02222
+m - y =  0.05, predicted sd 2.5: dCE/dm = +0.00800   (m - y)/s^2 = +0.00800
+m - y =  0.20, predicted sd 1.5: dCE/dm = +0.08880   (m - y)/s^2 = +0.08889
+m - y =  0.20, predicted sd 2.5: dCE/dm = +0.03200   (m - y)/s^2 = +0.03200
+m - y =  1.00, predicted sd 1.5: dCE/dm = +0.44452   (m - y)/s^2 = +0.44444
+m - y =  1.00, predicted sd 2.5: dCE/dm = +0.16000   (m - y)/s^2 = +0.16000
+m - y =  3.00, predicted sd 1.5: dCE/dm = +1.33341   (m - y)/s^2 = +1.33333
+m - y =  3.00, predicted sd 2.5: dCE/dm = +0.48000   (m - y)/s^2 = +0.48000
+m - y =  6.00, predicted sd 1.5: dCE/dm = +2.66659   (m - y)/s^2 = +2.66667
+m - y =  6.00, predicted sd 2.5: dCE/dm = +0.96000   (m - y)/s^2 = +0.96000
+
+== (c) learning a 1%-variance action contrast: CE vs MSE, identical trunk and data ==
+ce   | it1: corr +0.26 sd ratio 0.75 lvl err 0.77 | it3: corr +0.65 sd ratio 0.80 lvl err 0.64 | it6: corr +0.86 sd ratio 0.91 lvl err 0.61
+mse  | it1: corr +0.67 sd ratio 0.67 lvl err 0.70 | it3: corr +0.88 sd ratio 0.90 lvl err 0.67 | it6: corr +0.87 sd ratio 1.01 lvl err 0.62

@@ -1,0 +1,269 @@
+
+===== v23_4M: step 4013696 lam 0.95 T 0.0335 | recon {'obs': 0.0, 'a0': 0.0, 'critic_q': 2.288818359375e-05, 'critic_grad_a0': 0.00039196014404296875, 'u_c_vs_saved_baseline_rms': 0.06817384326904297, 'star': 8.791685104370117e-07}
+field rms: critic 0.690, critic_star 0.425, sf_gae0 2.359, sf_gae0.8 2.658, sf_gae0.95 3.738, sf_gae0.99 6.133, sf_target 3.710, sf_criticA 1.272
+
+--- truth horizon 300: per-state signal share (rollout split-half) fd_a0_h0.2 0.270, fd_star_h0.2 0.189, fd_a0_h0.05 0.064, fd_star_h0.05 0.079, fresh 0.456, both 0.377
+
+[v23_4M H300 all | const(6)] oracle units 512, chunk rows 15872
+  truth=both: |V*|^2 U-stat 1.122e-02 [-8.24e-03, 4.64e-02] P(>0) 0.805; truth-aggregate reliability 0.584
+    critic       gain -0.0341 [-0.1156, +0.0505] P(>0) 0.229 | cos -0.322 [-1.772, +0.553] | own reliability +0.964
+    critic_star  gain -0.0267 [-0.1056, +0.0525] P(>0) 0.271 | cos -0.252 [-1.661, +0.614] | own reliability +0.978
+    sf_gae0      gain -0.0973 [-0.1911, +0.0288] P(>0) 0.062 | cos -0.918 [-2.944, +0.174] | own reliability +0.597
+    sf_gae0.8    gain +0.0138 [-0.1378, +0.1519] P(>0) 0.558 | cos +0.130 [-1.399, +1.856] | own reliability -0.924
+    sf_gae0.95   gain -0.0019 [-0.1374, +0.1374] P(>0) 0.523 | cos -0.018 [-1.690, +1.735] | own reliability -0.478
+    sf_gae0.99   gain -0.0249 [-0.1400, +0.1181] P(>0) 0.414 | cos -0.235 [-1.822, +1.320] | own reliability -0.047
+    sf_target    gain -0.0282 [-0.1426, +0.1166] P(>0) 0.404 | cos -0.266 [-1.894, +1.451] | own reliability +0.186
+    sf_criticA   gain -0.0139 [-0.1080, +0.0882] P(>0) 0.410 | cos -0.131 [-1.541, +0.972] | own reliability +0.876
+    critic - sf_gae0.95: gain diff -0.0322 [-0.1888, +0.0998] P(critic > sf_gae0.95) 0.334; ratio +17.55 (median +0.17, IQR -0.54..+0.86)
+    critic - sf_target: gain diff -0.0059 [-0.1586, +0.1015] P(critic > sf_target) 0.420; ratio +1.21 (median +0.39, IQR -0.34..+0.97)
+  truth=fd_a0_h0.2: |V*|^2 U-stat -1.517e-03 [-3.33e-02, 5.88e-02] P(>0) 0.416; truth-aggregate reliability -0.076
+    critic       gain -0.0368 [-0.1592, +0.0905] P(>0) 0.295 | cos +nan [-2.242, +1.039] | own reliability +0.964
+    critic_star  gain -0.0334 [-0.1494, +0.0903] P(>0) 0.310 | cos +nan [-2.397, +1.141] | own reliability +0.978
+    sf_gae0      gain -0.0951 [-0.2327, +0.0525] P(>0) 0.133 | cos +nan [-3.757, +0.418] | own reliability +0.597
+    sf_gae0.8    gain +0.0067 [-0.1602, +0.1759] P(>0) 0.533 | cos +nan [-2.111, +2.628] | own reliability -0.924
+    sf_gae0.95   gain -0.0086 [-0.1684, +0.1697] P(>0) 0.494 | cos +nan [-2.159, +2.523] | own reliability -0.478
+    sf_gae0.99   gain -0.0325 [-0.1798, +0.1490] P(>0) 0.397 | cos +nan [-2.252, +1.952] | own reliability -0.047
+    sf_target    gain -0.0295 [-0.1739, +0.1437] P(>0) 0.416 | cos +nan [-2.162, +1.875] | own reliability +0.186
+    sf_criticA   gain -0.0203 [-0.1497, +0.1148] P(>0) 0.394 | cos +nan [-2.280, +1.349] | own reliability +0.876
+    critic - sf_gae0.95: gain diff -0.0282 [-0.2123, +0.1253] P(critic > sf_gae0.95) 0.356; ratio +4.27 (median +0.39, IQR -0.44..+1.11)
+    critic - sf_target: gain diff -0.0074 [-0.1747, +0.1200] P(critic > sf_target) 0.404; ratio +1.25 (median +0.57, IQR -0.21..+1.17)
+  truth=fresh: |V*|^2 U-stat 1.301e-02 [-8.89e-03, 5.00e-02] P(>0) 0.807; truth-aggregate reliability 0.634
+    critic       gain -0.0314 [-0.1214, +0.0596] P(>0) 0.274 | cos -0.276 [-1.434, +0.771] | own reliability +0.964
+    critic_star  gain -0.0200 [-0.1067, +0.0659] P(>0) 0.334 | cos -0.176 [-1.186, +0.813] | own reliability +0.978
+    sf_gae0      gain -0.0994 [-0.1966, +0.0306] P(>0) 0.080 | cos -0.871 [-2.475, +0.253] | own reliability +0.597
+    sf_gae0.8    gain +0.0209 [-0.1444, +0.1685] P(>0) 0.586 | cos +0.183 [-1.434, +1.723] | own reliability -0.924
+    sf_gae0.95   gain +0.0047 [-0.1407, +0.1566] P(>0) 0.542 | cos +0.042 [-1.412, +1.570] | own reliability -0.478
+    sf_gae0.99   gain -0.0173 [-0.1451, +0.1309] P(>0) 0.464 | cos -0.152 [-1.528, +1.355] | own reliability -0.047
+    sf_target    gain -0.0270 [-0.1511, +0.1323] P(>0) 0.420 | cos -0.237 [-1.468, +1.300] | own reliability +0.186
+    sf_criticA   gain -0.0075 [-0.1106, +0.0952] P(>0) 0.457 | cos -0.066 [-1.163, +1.184] | own reliability +0.876
+    critic - sf_gae0.95: gain diff -0.0362 [-0.2044, +0.1056] P(critic > sf_gae0.95) 0.331; ratio -6.63 (median +0.17, IQR -0.46..+0.81)
+    critic - sf_target: gain diff -0.0044 [-0.1676, +0.1100] P(critic > sf_target) 0.444; ratio +1.16 (median +0.38, IQR -0.27..+0.96)
+
+[v23_4M H300 all | linear(108)] oracle units 512, chunk rows 15872
+  truth=both: |V*|^2 U-stat 1.179e-01 [-3.58e-02, 3.64e-01] P(>0) 0.909; truth-aggregate reliability 0.452
+    critic       gain +0.1058 [-0.0283, +0.2428] P(>0) 0.934 | cos +0.308 [-0.107, +1.220] | own reliability +0.973
+    critic_star  gain +0.0817 [-0.0552, +0.2193] P(>0) 0.877 | cos +0.238 [-0.210, +0.931] | own reliability +0.987
+    sf_gae0      gain +0.0289 [-0.1591, +0.1838] P(>0) 0.624 | cos +0.084 [-0.459, +0.864] | own reliability +0.749
+    sf_gae0.8    gain +0.1872 [-0.0423, +0.3546] P(>0) 0.944 | cos +0.545 [-0.128, +1.589] | own reliability +0.540
+    sf_gae0.95   gain +0.1628 [-0.0709, +0.3421] P(>0) 0.901 | cos +0.474 [-0.217, +1.573] | own reliability +0.437
+    sf_gae0.99   gain +0.0960 [-0.1451, +0.3002] P(>0) 0.763 | cos +0.280 [-0.452, +1.245] | own reliability +0.198
+    sf_target    gain +0.1363 [-0.1000, +0.3188] P(>0) 0.861 | cos +0.397 [-0.298, +1.515] | own reliability +0.490
+    sf_criticA   gain +0.1282 [-0.0238, +0.2759] P(>0) 0.951 | cos +0.374 [-0.070, +1.278] | own reliability +0.904
+    critic - sf_gae0.95: gain diff -0.0570 [-0.2492, +0.1842] P(critic > sf_gae0.95) 0.406; ratio +0.65 (median +0.68, IQR +0.31..+1.18)
+    critic - sf_target: gain diff -0.0305 [-0.2292, +0.2158] P(critic > sf_target) 0.467; ratio +0.78 (median +0.69, IQR +0.27..+1.29)
+  truth=fd_a0_h0.2: |V*|^2 U-stat 1.186e-01 [-1.99e-01, 5.30e-01] P(>0) 0.718; truth-aggregate reliability 0.235
+    critic       gain +0.0878 [-0.1070, +0.2808] P(>0) 0.801 | cos +0.255 [-0.311, +1.229] | own reliability +0.973
+    critic_star  gain +0.0472 [-0.1572, +0.2409] P(>0) 0.670 | cos +0.137 [-0.502, +0.962] | own reliability +0.987
+    sf_gae0      gain +0.0081 [-0.2336, +0.2371] P(>0) 0.525 | cos +0.024 [-0.717, +1.018] | own reliability +0.749
+    sf_gae0.8    gain +0.2018 [-0.0808, +0.4296] P(>0) 0.909 | cos +0.586 [-0.223, +2.105] | own reliability +0.540
+    sf_gae0.95   gain +0.1734 [-0.1167, +0.4144] P(>0) 0.860 | cos +0.503 [-0.323, +1.875] | own reliability +0.437
+    sf_gae0.99   gain +0.0819 [-0.2100, +0.3510] P(>0) 0.676 | cos +0.238 [-0.638, +1.335] | own reliability +0.198
+    sf_target    gain +0.1483 [-0.1372, +0.3947] P(>0) 0.826 | cos +0.430 [-0.429, +1.712] | own reliability +0.490
+    sf_criticA   gain +0.1085 [-0.1030, +0.3208] P(>0) 0.842 | cos +0.315 [-0.302, +1.458] | own reliability +0.904
+    critic - sf_gae0.95: gain diff -0.0855 [-0.3578, +0.2209] P(critic > sf_gae0.95) 0.357; ratio +0.51 (median +0.48, IQR +0.03..+1.01)
+    critic - sf_target: gain diff -0.0604 [-0.3374, +0.2438] P(critic > sf_target) 0.391; ratio +0.59 (median +0.47, IQR -0.03..+1.06)
+  truth=fresh: |V*|^2 U-stat 7.612e-02 [-7.53e-02, 3.28e-01] P(>0) 0.761; truth-aggregate reliability 0.368
+    critic       gain +0.1237 [-0.0206, +0.2738] P(>0) 0.956 | cos +0.448 [-0.098, +1.885] | own reliability +0.973
+    critic_star  gain +0.1162 [-0.0336, +0.2696] P(>0) 0.936 | cos +0.421 [-0.123, +1.757] | own reliability +0.987
+    sf_gae0      gain +0.0497 [-0.1442, +0.2096] P(>0) 0.706 | cos +0.180 [-0.567, +1.318] | own reliability +0.749
+    sf_gae0.8    gain +0.1726 [-0.0469, +0.3503] P(>0) 0.927 | cos +0.626 [-0.201, +2.047] | own reliability +0.540
+    sf_gae0.95   gain +0.1522 [-0.0796, +0.3452] P(>0) 0.891 | cos +0.552 [-0.338, +1.918] | own reliability +0.437
+    sf_gae0.99   gain +0.1100 [-0.1449, +0.3143] P(>0) 0.792 | cos +0.399 [-0.529, +1.599] | own reliability +0.198
+    sf_target    gain +0.1243 [-0.1072, +0.3198] P(>0) 0.841 | cos +0.450 [-0.453, +1.779] | own reliability +0.490
+    sf_criticA   gain +0.1480 [-0.0067, +0.3033] P(>0) 0.971 | cos +0.536 [-0.022, +2.126] | own reliability +0.904
+    critic - sf_gae0.95: gain diff -0.0285 [-0.2172, +0.2069] P(critic > sf_gae0.95) 0.510; ratio +0.81 (median +0.85, IQR +0.43..+1.48)
+    critic - sf_target: gain diff -0.0005 [-0.1979, +0.2431] P(critic > sf_target) 0.577; ratio +1.00 (median +0.85, IQR +0.36..+1.52)
+
+[v23_4M H300 all | lastlayer(3078)] oracle units 512, chunk rows 15872
+  truth=both: |V*|^2 U-stat 3.620e-01 [-3.73e-01, 1.43e+00] P(>0) 0.797; truth-aggregate reliability 0.296
+    critic       gain +0.1851 [-0.1469, +0.5154] P(>0) 0.870 | cos +0.308 [-0.248, +1.605] | own reliability +0.979
+    critic_star  gain +0.0914 [-0.2592, +0.4256] P(>0) 0.709 | cos +0.152 [-0.517, +1.166] | own reliability +0.989
+    sf_gae0      gain +0.1174 [-0.2338, +0.4378] P(>0) 0.737 | cos +0.195 [-0.366, +1.222] | own reliability +0.750
+    sf_gae0.8    gain +0.4215 [+0.0125, +0.6978] P(>0) 0.979 | cos +0.701 [+0.020, +2.442] | own reliability +0.549
+    sf_gae0.95   gain +0.3270 [-0.1070, +0.6337] P(>0) 0.922 | cos +0.544 [-0.166, +2.035] | own reliability +0.399
+    sf_gae0.99   gain +0.1385 [-0.2855, +0.5028] P(>0) 0.713 | cos +0.230 [-0.518, +1.311] | own reliability +0.251
+    sf_target    gain +0.2947 [-0.1508, +0.6179] P(>0) 0.894 | cos +0.490 [-0.269, +1.880] | own reliability +0.445
+    sf_criticA   gain +0.2323 [-0.1170, +0.5923] P(>0) 0.909 | cos +0.386 [-0.188, +1.882] | own reliability +0.924
+    critic - sf_gae0.95: gain diff -0.1419 [-0.4904, +0.3920] P(critic > sf_gae0.95) 0.359; ratio +0.57 (median +0.60, IQR +0.19..+1.18)
+    critic - sf_target: gain diff -0.1096 [-0.4874, +0.4287] P(critic > sf_target) 0.395; ratio +0.63 (median +0.60, IQR +0.15..+1.20)
+  truth=fd_a0_h0.2: |V*|^2 U-stat 6.395e-02 [-1.60e+00, 2.26e+00] P(>0) 0.494; truth-aggregate reliability 0.026
+    critic       gain +0.1100 [-0.4391, +0.6552] P(>0) 0.662 | cos +0.435 [-0.803, +1.638] | own reliability +0.979
+    critic_star  gain -0.0099 [-0.5743, +0.5429] P(>0) 0.494 | cos -0.039 [-1.070, +1.155] | own reliability +0.989
+    sf_gae0      gain +0.0188 [-0.4887, +0.5155] P(>0) 0.525 | cos +0.074 [-0.890, +1.068] | own reliability +0.750
+    sf_gae0.8    gain +0.4263 [-0.1045, +0.8525] P(>0) 0.932 | cos +1.686 [-0.170, +2.341] | own reliability +0.549
+    sf_gae0.95   gain +0.3236 [-0.2433, +0.7780] P(>0) 0.857 | cos +1.280 [-0.404, +2.048] | own reliability +0.399
+    sf_gae0.99   gain +0.0904 [-0.4598, +0.5942] P(>0) 0.621 | cos +0.358 [-0.850, +1.515] | own reliability +0.251
+    sf_target    gain +0.3021 [-0.2812, +0.7678] P(>0) 0.835 | cos +1.195 [-0.462, +1.936] | own reliability +0.445
+    sf_criticA   gain +0.1468 [-0.4238, +0.7189] P(>0) 0.701 | cos +0.580 [-0.665, +1.953] | own reliability +0.924
+    critic - sf_gae0.95: gain diff -0.2136 [-0.7697, +0.5403] P(critic > sf_gae0.95) 0.315; ratio +0.34 (median +0.35, IQR -0.30..+1.04)
+    critic - sf_target: gain diff -0.1921 [-0.8100, +0.5607] P(critic > sf_target) 0.332; ratio +0.36 (median +0.33, IQR -0.35..+1.04)
+  truth=fresh: |V*|^2 U-stat 3.123e-01 [-3.52e-01, 1.36e+00] P(>0) 0.750; truth-aggregate reliability 0.295
+    critic       gain +0.2602 [-0.0593, +0.5790] P(>0) 0.938 | cos +0.466 [-0.114, +1.779] | own reliability +0.979
+    critic_star  gain +0.1927 [-0.1457, +0.5228] P(>0) 0.873 | cos +0.345 [-0.291, +1.483] | own reliability +0.989
+    sf_gae0      gain +0.2160 [-0.1174, +0.4918] P(>0) 0.892 | cos +0.387 [-0.186, +1.570] | own reliability +0.750
+    sf_gae0.8    gain +0.4167 [+0.0147, +0.7297] P(>0) 0.978 | cos +0.746 [+0.016, +2.156] | own reliability +0.549
+    sf_gae0.95   gain +0.3304 [-0.1233, +0.6581] P(>0) 0.918 | cos +0.591 [-0.223, +1.716] | own reliability +0.399
+    sf_gae0.99   gain +0.1867 [-0.2865, +0.5490] P(>0) 0.769 | cos +0.334 [-0.527, +1.298] | own reliability +0.251
+    sf_target    gain +0.2872 [-0.1657, +0.6099] P(>0) 0.887 | cos +0.514 [-0.300, +1.644] | own reliability +0.445
+    sf_criticA   gain +0.3178 [-0.0282, +0.6501] P(>0) 0.962 | cos +0.569 [-0.049, +2.081] | own reliability +0.924
+    critic - sf_gae0.95: gain diff -0.0702 [-0.4146, +0.4266] P(critic > sf_gae0.95) 0.488; ratio +0.79 (median +0.84, IQR +0.43..+1.41)
+    critic - sf_target: gain diff -0.0270 [-0.3932, +0.4623] P(critic > sf_target) 0.527; ratio +0.91 (median +0.85, IQR +0.40..+1.52)
+
+[v23_4M H300 all | actor_params(full)] oracle units 64, chunk rows 15872
+  truth=both: |V*|^2 U-stat 5.016e+01 [-4.75e+01, 1.74e+02] P(>0) 0.815; truth-aggregate reliability 0.303
+    critic       gain +2.1984 [-0.7464, +5.3614] P(>0) 0.921 | cos +0.310 [-0.109, +1.266] | own reliability +0.971
+    critic_star  gain +1.3062 [-1.9147, +4.5909] P(>0) 0.782 | cos +0.184 [-0.299, +1.017] | own reliability +0.987
+    sf_gae0.8    gain +4.9273 [+0.4991, +8.2393] P(>0) 0.987 | cos +0.696 [+0.061, +2.136] | own reliability +0.528
+    sf_gae0.95   gain +3.9316 [-0.7553, +7.2427] P(>0) 0.950 | cos +0.555 [-0.098, +1.821] | own reliability +0.373
+    sf_target    gain +3.3001 [-1.3257, +6.7632] P(>0) 0.905 | cos +0.466 [-0.199, +1.618] | own reliability +0.419
+    critic - sf_gae0.95: gain diff -1.7332 [-5.6790, +3.8528] P(critic > sf_gae0.95) 0.323; ratio +0.56 (median +0.61, IQR +0.29..+1.07)
+    critic - sf_target: gain diff -1.1017 [-5.2559, +4.7191] P(critic > sf_target) 0.389; ratio +0.67 (median +0.62, IQR +0.23..+1.17)
+  truth=fd_a0_h0.2: |V*|^2 U-stat 6.257e+00 [-2.22e+02, 2.49e+02] P(>0) 0.512; truth-aggregate reliability 0.019
+    critic       gain +1.0301 [-3.7187, +5.7756] P(>0) 0.663 | cos +0.412 [-0.679, +1.156] | own reliability +0.971
+    critic_star  gain -0.1685 [-5.5481, +5.1357] P(>0) 0.481 | cos -0.067 [-1.162, +0.886] | own reliability +0.987
+    sf_gae0.8    gain +4.8771 [-0.8558, +9.5250] P(>0) 0.949 | cos +1.950 [-0.121, +2.726] | own reliability +0.528
+    sf_gae0.95   gain +3.7256 [-2.1683, +9.0433] P(>0) 0.874 | cos +1.489 [-0.315, +2.188] | own reliability +0.373
+    sf_target    gain +3.1810 [-2.7058, +8.2685] P(>0) 0.846 | cos +1.272 [-0.397, +2.081] | own reliability +0.419
+    critic - sf_gae0.95: gain diff -2.6955 [-8.4764, +4.6422] P(critic > sf_gae0.95) 0.267; ratio +0.28 (median +0.27, IQR -0.25..+0.87)
+    critic - sf_target: gain diff -2.1509 [-8.1497, +5.3904] P(critic > sf_target) 0.325; ratio +0.32 (median +0.26, IQR -0.31..+0.95)
+  truth=fresh: |V*|^2 U-stat 4.600e+01 [-4.24e+01, 1.72e+02] P(>0) 0.803; truth-aggregate reliability 0.317
+    critic       gain +3.3667 [-0.0750, +6.7599] P(>0) 0.973 | cos +0.496 [+0.012, +2.114] | own reliability +0.971
+    critic_star  gain +2.7810 [-0.9638, +6.5420] P(>0) 0.927 | cos +0.410 [-0.162, +1.700] | own reliability +0.987
+    sf_gae0.8    gain +4.9775 [+0.6461, +7.9956] P(>0) 0.989 | cos +0.734 [+0.084, +2.660] | own reliability +0.528
+    sf_gae0.95   gain +4.1375 [-0.3560, +7.4195] P(>0) 0.955 | cos +0.610 [-0.063, +2.314] | own reliability +0.373
+    sf_target    gain +3.4191 [-1.2398, +6.8420] P(>0) 0.912 | cos +0.504 [-0.174, +2.205] | own reliability +0.419
+    critic - sf_gae0.95: gain diff -0.7708 [-4.2951, +4.7912] P(critic > sf_gae0.95) 0.475; ratio +0.81 (median +0.91, IQR +0.56..+1.45)
+    critic - sf_target: gain diff -0.0524 [-3.8020, +5.8675] P(critic > sf_target) 0.553; ratio +0.98 (median +0.94, IQR +0.57..+1.58)
+
+--- truth horizon 100: per-state signal share (rollout split-half) fd_a0_h0.2 0.291, fd_star_h0.2 0.219, fd_a0_h0.05 0.053, fd_star_h0.05 0.075, fresh 0.481, both 0.408
+
+[v23_4M H100 all | const(6)] oracle units 512, chunk rows 15872
+  truth=both: |V*|^2 U-stat 1.069e-02 [-7.25e-03, 4.40e-02] P(>0) 0.804; truth-aggregate reliability 0.595
+    critic       gain -0.0439 [-0.1178, +0.0372] P(>0) 0.145 | cos -0.424 [-1.980, +0.468] | own reliability +0.964
+    critic_star  gain -0.0363 [-0.1085, +0.0408] P(>0) 0.181 | cos -0.351 [-1.726, +0.476] | own reliability +0.978
+    sf_gae0      gain -0.0970 [-0.1853, +0.0211] P(>0) 0.057 | cos -0.938 [-2.639, +0.111] | own reliability +0.597
+    sf_gae0.8    gain +0.0058 [-0.1334, +0.1398] P(>0) 0.539 | cos +0.057 [-1.462, +1.690] | own reliability -0.924
+    sf_gae0.95   gain -0.0151 [-0.1364, +0.1238] P(>0) 0.473 | cos -0.146 [-1.653, +1.446] | own reliability -0.478
+    sf_gae0.99   gain -0.0394 [-0.1426, +0.1003] P(>0) 0.342 | cos -0.381 [-1.928, +1.190] | own reliability -0.047
+    sf_target    gain -0.0385 [-0.1431, +0.1032] P(>0) 0.342 | cos -0.373 [-1.740, +1.242] | own reliability +0.186
+    sf_criticA   gain -0.0234 [-0.1125, +0.0731] P(>0) 0.328 | cos -0.227 [-1.772, +0.813] | own reliability +0.876
+    critic - sf_gae0.95: gain diff -0.0287 [-0.1839, +0.0909] P(critic > sf_gae0.95) 0.328; ratio +2.90 (median +0.28, IQR -0.62..+0.99)
+    critic - sf_target: gain diff -0.0054 [-0.1542, +0.0936] P(critic > sf_target) 0.409; ratio +1.14 (median +0.54, IQR -0.27..+1.12)
+  truth=fd_a0_h0.2: |V*|^2 U-stat -8.805e-04 [-2.88e-02, 5.17e-02] P(>0) 0.430; truth-aggregate reliability -0.048
+    critic       gain -0.0482 [-0.1612, +0.0743] P(>0) 0.219 | cos +nan [-2.539, +0.811] | own reliability +0.964
+    critic_star  gain -0.0460 [-0.1615, +0.0778] P(>0) 0.220 | cos +nan [-2.504, +0.823] | own reliability +0.978
+    sf_gae0      gain -0.0950 [-0.2194, +0.0479] P(>0) 0.116 | cos +nan [-3.748, +0.444] | own reliability +0.597
+    sf_gae0.8    gain -0.0022 [-0.1579, +0.1659] P(>0) 0.511 | cos +nan [-2.370, +2.235] | own reliability -0.924
+    sf_gae0.95   gain -0.0250 [-0.1660, +0.1507] P(>0) 0.442 | cos +nan [-2.395, +1.973] | own reliability -0.478
+    sf_gae0.99   gain -0.0490 [-0.1783, +0.1223] P(>0) 0.330 | cos +nan [-2.851, +1.545] | own reliability -0.047
+    sf_target    gain -0.0425 [-0.1776, +0.1264] P(>0) 0.355 | cos +nan [-2.625, +1.765] | own reliability +0.186
+    sf_criticA   gain -0.0335 [-0.1506, +0.1039] P(>0) 0.312 | cos +nan [-2.234, +1.233] | own reliability +0.876
+    critic - sf_gae0.95: gain diff -0.0232 [-0.2040, +0.1057] P(critic > sf_gae0.95) 0.348; ratio +1.93 (median +0.47, IQR -0.48..+1.18)
+    critic - sf_target: gain diff -0.0058 [-0.1631, +0.1040] P(critic > sf_target) 0.394; ratio +1.14 (median +0.66, IQR -0.12..+1.24)
+  truth=fresh: |V*|^2 U-stat 1.349e-02 [-6.69e-03, 4.93e-02] P(>0) 0.832; truth-aggregate reliability 0.663
+    critic       gain -0.0395 [-0.1268, +0.0487] P(>0) 0.201 | cos -0.340 [-1.385, +0.544] | own reliability +0.964
+    critic_star  gain -0.0266 [-0.1078, +0.0546] P(>0) 0.267 | cos -0.229 [-1.160, +0.670] | own reliability +0.978
+    sf_gae0      gain -0.0990 [-0.1935, +0.0293] P(>0) 0.074 | cos -0.852 [-2.136, +0.256] | own reliability +0.597
+    sf_gae0.8    gain +0.0139 [-0.1434, +0.1568] P(>0) 0.566 | cos +0.120 [-1.392, +1.560] | own reliability -0.924
+    sf_gae0.95   gain -0.0052 [-0.1422, +0.1451] P(>0) 0.515 | cos -0.045 [-1.489, +1.392] | own reliability -0.478
+    sf_gae0.99   gain -0.0299 [-0.1442, +0.1180] P(>0) 0.409 | cos -0.257 [-1.518, +1.119] | own reliability -0.047
+    sf_target    gain -0.0346 [-0.1528, +0.1218] P(>0) 0.394 | cos -0.298 [-1.574, +1.155] | own reliability +0.186
+    sf_criticA   gain -0.0134 [-0.1136, +0.0870] P(>0) 0.416 | cos -0.115 [-1.107, +1.004] | own reliability +0.876
+    critic - sf_gae0.95: gain diff -0.0343 [-0.2036, +0.1000] P(critic > sf_gae0.95) 0.325; ratio +7.54 (median +0.18, IQR -0.55..+0.85)
+    critic - sf_target: gain diff -0.0049 [-0.1641, +0.1018] P(critic > sf_target) 0.429; ratio +1.14 (median +0.44, IQR -0.31..+1.01)
+
+[v23_4M H100 all | linear(108)] oracle units 512, chunk rows 15872
+  truth=both: |V*|^2 U-stat 1.127e-01 [-3.84e-02, 3.57e-01] P(>0) 0.908; truth-aggregate reliability 0.464
+    critic       gain +0.1014 [-0.0325, +0.2387] P(>0) 0.929 | cos +0.302 [-0.100, +1.309] | own reliability +0.973
+    critic_star  gain +0.0798 [-0.0596, +0.2172] P(>0) 0.873 | cos +0.238 [-0.218, +1.048] | own reliability +0.987
+    sf_gae0      gain +0.0322 [-0.1506, +0.1935] P(>0) 0.642 | cos +0.096 [-0.462, +0.964] | own reliability +0.749
+    sf_gae0.8    gain +0.1879 [-0.0412, +0.3577] P(>0) 0.946 | cos +0.560 [-0.132, +1.985] | own reliability +0.540
+    sf_gae0.95   gain +0.1583 [-0.0717, +0.3412] P(>0) 0.891 | cos +0.471 [-0.236, +1.755] | own reliability +0.437
+    sf_gae0.99   gain +0.0887 [-0.1525, +0.3011] P(>0) 0.749 | cos +0.264 [-0.511, +1.241] | own reliability +0.198
+    sf_target    gain +0.1245 [-0.1082, +0.3114] P(>0) 0.843 | cos +0.371 [-0.334, +1.648] | own reliability +0.490
+    sf_criticA   gain +0.1223 [-0.0293, +0.2709] P(>0) 0.940 | cos +0.364 [-0.101, +1.443] | own reliability +0.904
+    critic - sf_gae0.95: gain diff -0.0568 [-0.2552, +0.1821] P(critic > sf_gae0.95) 0.400; ratio +0.64 (median +0.64, IQR +0.27..+1.13)
+    critic - sf_target: gain diff -0.0231 [-0.2267, +0.2200] P(critic > sf_target) 0.482; ratio +0.81 (median +0.68, IQR +0.23..+1.27)
+  truth=fd_a0_h0.2: |V*|^2 U-stat 1.043e-01 [-2.00e-01, 5.03e-01] P(>0) 0.711; truth-aggregate reliability 0.233
+    critic       gain +0.0887 [-0.0988, +0.2869] P(>0) 0.816 | cos +0.275 [-0.390, +1.369] | own reliability +0.973
+    critic_star  gain +0.0469 [-0.1557, +0.2560] P(>0) 0.665 | cos +0.145 [-0.646, +1.158] | own reliability +0.987
+    sf_gae0      gain +0.0053 [-0.2295, +0.2212] P(>0) 0.527 | cos +0.016 [-0.739, +1.109] | own reliability +0.749
+    sf_gae0.8    gain +0.2076 [-0.0715, +0.4277] P(>0) 0.919 | cos +0.643 [-0.195, +2.391] | own reliability +0.540
+    sf_gae0.95   gain +0.1719 [-0.1093, +0.4201] P(>0) 0.860 | cos +0.532 [-0.324, +2.084] | own reliability +0.437
+    sf_gae0.99   gain +0.0773 [-0.2133, +0.3589] P(>0) 0.669 | cos +0.239 [-0.729, +1.375] | own reliability +0.198
+    sf_target    gain +0.1364 [-0.1458, +0.3855] P(>0) 0.812 | cos +0.422 [-0.439, +1.918] | own reliability +0.490
+    sf_criticA   gain +0.1034 [-0.1096, +0.3165] P(>0) 0.824 | cos +0.320 [-0.367, +1.406] | own reliability +0.904
+    critic - sf_gae0.95: gain diff -0.0832 [-0.3568, +0.2232] P(critic > sf_gae0.95) 0.364; ratio +0.52 (median +0.48, IQR +0.04..+1.09)
+    critic - sf_target: gain diff -0.0477 [-0.3241, +0.2617] P(critic > sf_target) 0.421; ratio +0.65 (median +0.48, IQR -0.04..+1.09)
+  truth=fresh: |V*|^2 U-stat 7.919e-02 [-6.66e-02, 3.26e-01] P(>0) 0.792; truth-aggregate reliability 0.398
+    critic       gain +0.1142 [-0.0262, +0.2575] P(>0) 0.948 | cos +0.406 [-0.116, +1.742] | own reliability +0.973
+    critic_star  gain +0.1128 [-0.0330, +0.2613] P(>0) 0.940 | cos +0.401 [-0.126, +1.750] | own reliability +0.987
+    sf_gae0      gain +0.0592 [-0.1249, +0.2161] P(>0) 0.743 | cos +0.210 [-0.472, +1.448] | own reliability +0.749
+    sf_gae0.8    gain +0.1683 [-0.0527, +0.3391] P(>0) 0.928 | cos +0.598 [-0.206, +2.075] | own reliability +0.540
+    sf_gae0.95   gain +0.1447 [-0.0913, +0.3320] P(>0) 0.883 | cos +0.514 [-0.346, +1.945] | own reliability +0.437
+    sf_gae0.99   gain +0.1000 [-0.1504, +0.3009] P(>0) 0.769 | cos +0.355 [-0.531, +1.593] | own reliability +0.198
+    sf_target    gain +0.1126 [-0.1169, +0.3095] P(>0) 0.823 | cos +0.400 [-0.474, +1.824] | own reliability +0.490
+    sf_criticA   gain +0.1413 [-0.0124, +0.2909] P(>0) 0.966 | cos +0.502 [-0.048, +2.139] | own reliability +0.904
+    critic - sf_gae0.95: gain diff -0.0305 [-0.2179, +0.2008] P(critic > sf_gae0.95) 0.506; ratio +0.79 (median +0.81, IQR +0.39..+1.44)
+    critic - sf_target: gain diff +0.0016 [-0.1909, +0.2323] P(critic > sf_target) 0.577; ratio +1.01 (median +0.82, IQR +0.28..+1.48)
+
+[v23_4M H100 all | lastlayer(3078)] oracle units 512, chunk rows 15872
+  truth=both: |V*|^2 U-stat 3.381e-01 [-3.71e-01, 1.36e+00] P(>0) 0.780; truth-aggregate reliability 0.302
+    critic       gain +0.2072 [-0.1124, +0.5334] P(>0) 0.902 | cos +0.356 [-0.208, +1.543] | own reliability +0.979
+    critic_star  gain +0.1251 [-0.2120, +0.4573] P(>0) 0.772 | cos +0.215 [-0.453, +1.160] | own reliability +0.989
+    sf_gae0      gain +0.1226 [-0.2322, +0.4484] P(>0) 0.750 | cos +0.211 [-0.368, +1.153] | own reliability +0.750
+    sf_gae0.8    gain +0.4087 [-0.0120, +0.6897] P(>0) 0.971 | cos +0.703 [-0.017, +2.174] | own reliability +0.549
+    sf_gae0.95   gain +0.2985 [-0.1369, +0.6189] P(>0) 0.904 | cos +0.513 [-0.221, +1.833] | own reliability +0.399
+    sf_gae0.99   gain +0.1005 [-0.3190, +0.4795] P(>0) 0.669 | cos +0.173 [-0.617, +1.127] | own reliability +0.251
+    sf_target    gain +0.2477 [-0.1818, +0.5818] P(>0) 0.856 | cos +0.426 [-0.324, +1.720] | own reliability +0.445
+    sf_criticA   gain +0.2477 [-0.0993, +0.5870] P(>0) 0.926 | cos +0.426 [-0.158, +1.654] | own reliability +0.924
+    critic - sf_gae0.95: gain diff -0.0912 [-0.4451, +0.4398] P(critic > sf_gae0.95) 0.431; ratio +0.69 (median +0.71, IQR +0.25..+1.34)
+    critic - sf_target: gain diff -0.0404 [-0.4406, +0.4821] P(critic > sf_target) 0.491; ratio +0.84 (median +0.70, IQR +0.19..+1.44)
+  truth=fd_a0_h0.2: |V*|^2 U-stat 4.967e-02 [-1.43e+00, 2.03e+00] P(>0) 0.501; truth-aggregate reliability 0.023
+    critic       gain +0.1489 [-0.3860, +0.6765] P(>0) 0.712 | cos +0.668 [-0.718, +1.540] | own reliability +0.979
+    critic_star  gain +0.0293 [-0.5245, +0.5774] P(>0) 0.550 | cos +0.132 [-1.048, +1.191] | own reliability +0.989
+    sf_gae0      gain +0.0199 [-0.4753, +0.5354] P(>0) 0.524 | cos +0.089 [-1.007, +1.048] | own reliability +0.750
+    sf_gae0.8    gain +0.4294 [-0.0935, +0.8447] P(>0) 0.936 | cos +1.927 [-0.159, +2.395] | own reliability +0.549
+    sf_gae0.95   gain +0.3147 [-0.2387, +0.7511] P(>0) 0.861 | cos +1.412 [-0.360, +1.925] | own reliability +0.399
+    sf_gae0.99   gain +0.0691 [-0.4744, +0.5970] P(>0) 0.594 | cos +0.310 [-0.894, +1.408] | own reliability +0.251
+    sf_target    gain +0.2708 [-0.2859, +0.7177] P(>0) 0.823 | cos +1.215 [-0.536, +1.927] | own reliability +0.445
+    sf_criticA   gain +0.1720 [-0.3631, +0.7334] P(>0) 0.745 | cos +0.772 [-0.707, +1.631] | own reliability +0.924
+    critic - sf_gae0.95: gain diff -0.1657 [-0.7152, +0.5789] P(critic > sf_gae0.95) 0.358; ratio +0.47 (median +0.45, IQR -0.20..+1.18)
+    critic - sf_target: gain diff -0.1219 [-0.7195, +0.6474] P(critic > sf_target) 0.397; ratio +0.55 (median +0.44, IQR -0.32..+1.20)
+  truth=fresh: |V*|^2 U-stat 3.085e-01 [-3.13e-01, 1.31e+00] P(>0) 0.769; truth-aggregate reliability 0.312
+    critic       gain +0.2655 [-0.0447, +0.5695] P(>0) 0.952 | cos +0.478 [-0.095, +2.266] | own reliability +0.979
+    critic_star  gain +0.2209 [-0.1023, +0.5447] P(>0) 0.904 | cos +0.398 [-0.213, +1.930] | own reliability +0.989
+    sf_gae0      gain +0.2253 [-0.1157, +0.5069] P(>0) 0.906 | cos +0.406 [-0.183, +2.221] | own reliability +0.750
+    sf_gae0.8    gain +0.3880 [-0.0184, +0.7025] P(>0) 0.970 | cos +0.699 [-0.033, +2.720] | own reliability +0.549
+    sf_gae0.95   gain +0.2823 [-0.1624, +0.6063] P(>0) 0.889 | cos +0.508 [-0.294, +2.204] | own reliability +0.399
+    sf_gae0.99   gain +0.1320 [-0.3338, +0.5087] P(>0) 0.701 | cos +0.238 [-0.599, +1.543] | own reliability +0.251
+    sf_target    gain +0.2245 [-0.2094, +0.5778] P(>0) 0.834 | cos +0.404 [-0.360, +2.050] | own reliability +0.445
+    sf_criticA   gain +0.3235 [-0.0048, +0.6470] P(>0) 0.974 | cos +0.582 [-0.013, +2.598] | own reliability +0.924
+    critic - sf_gae0.95: gain diff -0.0168 [-0.3706, +0.4770] P(critic > sf_gae0.95) 0.568; ratio +0.94 (median +0.93, IQR +0.46..+1.64)
+    critic - sf_target: gain diff +0.0410 [-0.3391, +0.5500] P(critic > sf_target) 0.619; ratio +1.18 (median +0.91, IQR +0.32..+1.72)
+
+[v23_4M H100 all | actor_params(full)] oracle units 64, chunk rows 15872
+  truth=both: |V*|^2 U-stat 4.617e+01 [-5.25e+01, 1.72e+02] P(>0) 0.806; truth-aggregate reliability 0.305
+    critic       gain +2.4376 [-0.5951, +5.6343] P(>0) 0.936 | cos +0.359 [-0.076, +1.527] | own reliability +0.971
+    critic_star  gain +1.6580 [-1.6508, +5.1008] P(>0) 0.832 | cos +0.244 [-0.243, +1.245] | own reliability +0.987
+    sf_gae0.8    gain +4.8772 [+0.4494, +8.2056] P(>0) 0.984 | cos +0.718 [+0.047, +2.371] | own reliability +0.528
+    sf_gae0.95   gain +3.7553 [-0.9556, +7.2331] P(>0) 0.935 | cos +0.553 [-0.120, +2.001] | own reliability +0.373
+    sf_target    gain +2.9385 [-1.6967, +6.4259] P(>0) 0.889 | cos +0.432 [-0.245, +1.720] | own reliability +0.419
+    critic - sf_gae0.95: gain diff -1.3178 [-5.1893, +4.3118] P(critic > sf_gae0.95) 0.386; ratio +0.65 (median +0.71, IQR +0.34..+1.21)
+    critic - sf_target: gain diff -0.5010 [-4.6490, +5.3505] P(critic > sf_target) 0.481; ratio +0.83 (median +0.73, IQR +0.29..+1.41)
+  truth=fd_a0_h0.2: |V*|^2 U-stat -2.527e+00 [-2.07e+02, 2.14e+02] P(>0) 0.478; truth-aggregate reliability -0.009
+    critic       gain +1.4959 [-3.4782, +6.4551] P(>0) 0.719 | cos +nan [-0.624, +1.467] | own reliability +0.971
+    critic_star  gain +0.2844 [-5.1986, +6.0024] P(>0) 0.538 | cos +nan [-1.088, +1.183] | own reliability +0.987
+    sf_gae0.8    gain +4.9740 [-0.5071, +9.8184] P(>0) 0.960 | cos +nan [-0.119, +2.723] | own reliability +0.528
+    sf_gae0.95   gain +3.7837 [-2.0243, +8.7754] P(>0) 0.881 | cos +nan [-0.330, +2.041] | own reliability +0.373
+    sf_target    gain +3.0349 [-2.7446, +8.1534] P(>0) 0.844 | cos +nan [-0.417, +1.970] | own reliability +0.419
+    critic - sf_gae0.95: gain diff -2.2877 [-8.0331, +4.9243] P(critic > sf_gae0.95) 0.325; ratio +0.40 (median +0.40, IQR -0.14..+1.04)
+    critic - sf_target: gain diff -1.5390 [-7.6174, +5.9796] P(critic > sf_target) 0.369; ratio +0.49 (median +0.37, IQR -0.25..+1.11)
+  truth=fresh: |V*|^2 U-stat 4.794e+01 [-3.78e+01, 1.70e+02] P(>0) 0.832; truth-aggregate reliability 0.346
+    critic       gain +3.3792 [-0.0250, +6.6887] P(>0) 0.975 | cos +0.488 [+0.002, +2.318] | own reliability +0.971
+    critic_star  gain +3.0316 [-0.6810, +6.5870] P(>0) 0.948 | cos +0.438 [-0.107, +2.064] | own reliability +0.987
+    sf_gae0.8    gain +4.7804 [+0.4946, +7.8349] P(>0) 0.985 | cos +0.690 [+0.069, +2.432] | own reliability +0.528
+    sf_gae0.95   gain +3.7270 [-0.8008, +7.2531] P(>0) 0.937 | cos +0.538 [-0.154, +2.055] | own reliability +0.373
+    sf_target    gain +2.8421 [-1.7632, +6.3591] P(>0) 0.874 | cos +0.410 [-0.272, +1.872] | own reliability +0.419
+    critic - sf_gae0.95: gain diff -0.3478 [-4.0502, +5.0974] P(critic > sf_gae0.95) 0.540; ratio +0.91 (median +0.97, IQR +0.60..+1.61)
+    critic - sf_target: gain diff +0.5371 [-3.4881, +6.3414] P(critic > sf_target) 0.635; ratio +1.19 (median +1.04, IQR +0.57..+1.79)

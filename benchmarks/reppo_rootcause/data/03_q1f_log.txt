@@ -1,0 +1,24 @@
+
+=== v23_4M: action-effect model held-out R^2 on the state-residual: next-obs dims median 0.429 (min 0.099, max 0.732), reward 0.303
+   critic Q(s,a) direct                 adv corr corrected all +0.285 [+0.195,+0.417] | cruising +0.310 [+0.206,+0.487] | within rms 0.313
+   learned 1-step lookahead r+gV'(s')   adv corr corrected all +0.210 [+0.145,+0.317] | cruising +0.235 [+0.146,+0.358] | within rms 0.356
+     reward part only                   adv corr corrected all -0.045 [-0.122,+0.024] | cruising -0.046 [-0.117,+0.025] | within rms 0.010
+     gamma V'(s') part only             adv corr corrected all +0.211 [+0.141,+0.320] | cruising +0.235 [+0.146,+0.349] | within rms 0.356
+
+=== v29h8_8M: action-effect model held-out R^2 on the state-residual: next-obs dims median 0.233 (min 0.075, max 0.690), reward 0.153
+   critic Q(s,a) direct                 adv corr corrected all +0.200 [+0.088,+0.334] | cruising +0.283 [+0.191,+0.383] | within rms 0.184
+   learned 1-step lookahead r+gV'(s')   adv corr corrected all +0.009 [-0.060,+0.088] | cruising +0.031 [-0.069,+0.134] | within rms 0.586
+     reward part only                   adv corr corrected all -0.022 [-0.090,+0.054] | cruising -0.014 [-0.091,+0.071] | within rms 0.008
+     gamma V'(s') part only             adv corr corrected all +0.010 [-0.062,+0.086] | cruising +0.031 [-0.059,+0.126] | within rms 0.587
+
+=== v29h8_12M: action-effect model held-out R^2 on the state-residual: next-obs dims median 0.248 (min -0.069, max 0.521), reward -0.067
+   critic Q(s,a) direct                 adv corr corrected all +0.154 [+0.085,+0.258] | cruising +0.148 [+0.060,+0.311] | within rms 0.229
+   learned 1-step lookahead r+gV'(s')   adv corr corrected all -0.010 [-0.152,+0.107] | cruising +0.078 [+0.041,+0.179] | within rms 0.806
+     reward part only                   adv corr corrected all -0.014 [-0.049,+0.022] | cruising -0.020 [-0.105,+0.034] | within rms 0.010
+     gamma V'(s') part only             adv corr corrected all -0.010 [-0.152,+0.100] | cruising +0.078 [+0.037,+0.180] | within rms 0.805
+
+=== v23_30M: action-effect model held-out R^2 on the state-residual: next-obs dims median 0.055 (min 0.009, max 0.206), reward 0.002
+   critic Q(s,a) direct                 adv corr corrected all +0.233 [+0.145,+0.369] | cruising +0.275 [+0.156,+0.401] | within rms 0.388
+   learned 1-step lookahead r+gV'(s')   adv corr corrected all +0.155 [+0.044,+0.292] | cruising +0.136 [+0.057,+0.217] | within rms 1.233
+     reward part only                   adv corr corrected all -0.044 [-0.132,+0.026] | cruising -0.055 [-0.133,+0.014] | within rms 0.009
+     gamma V'(s') part only             adv corr corrected all +0.155 [+0.050,+0.318] | cruising +0.137 [+0.060,+0.214] | within rms 1.233

@@ -1,0 +1,142 @@
+
+===== v23_4M: step 4013696 lam 0.95 | upright frac 1.0000
+
+[v23_4M all | const(6)] rows 16384
+  ref=sf_gae0.95: |V*|^2 = -9.267e+00 [-4.47e+01, 4.06e+01] P(>0) 0.271
+    critic       cos +nan [-0.115, +5.143] | gain +3.3802 [-0.9653, +7.8657] P(>0) 0.934 | own reliability +0.948 | bias-only cos +nan [-0.121, +5.360]
+    critic_star  cos +nan [-0.177, +4.636] | gain +3.0219 [-1.1946, +7.5118] P(>0) 0.909 | own reliability +0.973 | bias-only cos +nan [-0.183, +4.786]
+    sf_gae0.8    cos +nan [-2.349, +1.166] | gain -2.7457 [-11.8771, +3.6955] P(>0) 0.248 | own reliability -0.755 | bias-only cos +nan [-0.355, +3.485]
+    sf_gae0.95   cos +nan [+0.123, +0.774] | gain -2.4709 [-16.1528, +4.3199] P(>0) 0.271 | own reliability -0.659 | bias-only cos +nan [+1.000, +1.000]
+    sf_gae0.99   cos +nan [-0.965, +1.660] | gain -1.2283 [-12.2986, +4.8203] P(>0) 0.331 | own reliability -0.240 | bias-only cos +nan [+0.767, +3.373]
+    sf_gae1      cos +nan [-2.406, +1.896] | gain -1.0136 [-9.9836, +4.7362] P(>0) 0.341 | own reliability -0.297 | bias-only cos +nan [+0.063, +4.663]
+    sf_target    cos +nan [-0.580, +1.195] | gain -1.3798 [-12.8612, +4.4494] P(>0) 0.325 | own reliability -0.096 | bias-only cos +nan [+0.760, +2.455]
+    cv_combo     cos +nan [-0.318, +1.305] | gain -1.5625 [-13.8863, +4.7400] P(>0) 0.316 | own reliability -0.322 | bias-only cos +nan [+0.930, +3.572]
+    critic - sf_gae0.95: cos diff +nan [-0.726, +4.967] P(critic better) 0.232
+    critic - sf_gae0.8: cos diff +nan [-0.860, +7.447] P(critic better) 0.236
+  ref=sf_gae0.99: |V*|^2 = -1.187e+01 [-1.14e+02, 1.60e+02] P(>0) 0.352
+    critic       cos +nan [-0.243, +6.977] | gain +6.3495 [-1.6703, +14.6805] P(>0) 0.941 | own reliability +0.948 | bias-only cos +nan [-0.251, +7.263]
+    critic_star  cos +nan [-0.284, +6.057] | gain +5.8951 [-2.2537, +14.0782] P(>0) 0.921 | own reliability +0.973 | bias-only cos +nan [-0.289, +6.168]
+    sf_gae0.8    cos +nan [-4.158, +1.390] | gain -2.3797 [-15.0152, +7.0352] P(>0) 0.327 | own reliability -0.755 | bias-only cos +nan [-2.499, +5.237]
+    sf_gae0.95   cos +nan [-2.234, +0.929] | gain -2.3042 [-23.4001, +8.7326] P(>0) 0.331 | own reliability -0.659 | bias-only cos +nan [+0.767, +3.373]
+    sf_gae0.99   cos +nan [+0.108, +0.795] | gain -1.6867 [-22.5015, +9.3546] P(>0) 0.352 | own reliability -0.240 | bias-only cos +nan [+1.000, +1.000]
+    sf_gae1      cos +nan [-0.605, +0.877] | gain -1.8924 [-19.9690, +9.0316] P(>0) 0.350 | own reliability -0.297 | bias-only cos +nan [+0.877, +2.493]
+    sf_target    cos +nan [-0.703, +1.230] | gain -0.2589 [-18.4057, +9.5316] P(>0) 0.406 | own reliability -0.096 | bias-only cos +nan [+0.763, +3.202]
+    cv_combo     cos +nan [-1.222, +1.161] | gain -0.9581 [-20.1695, +9.4017] P(>0) 0.381 | own reliability -0.322 | bias-only cos +nan [+0.939, +4.797]
+    critic - sf_gae0.95: cos diff +nan [-0.764, +7.511] P(critic better) 0.318
+    critic - sf_gae0.8: cos diff +nan [-0.942, +9.881] P(critic better) 0.318
+  ref=sf_gae1: |V*|^2 = -2.607e+01 [-2.42e+02, 2.86e+02] P(>0) 0.348
+    critic       cos +nan [-0.888, +4.504] | gain +7.2796 [-4.8189, +19.1089] P(>0) 0.881 | own reliability +0.948 | bias-only cos +nan [-0.937, +4.723]
+    critic_star  cos +nan [-0.995, +4.369] | gain +6.7293 [-5.4948, +18.3529] P(>0) 0.861 | own reliability +0.973 | bias-only cos +nan [-1.020, +4.458]
+    sf_gae0.8    cos +nan [-3.166, +1.659] | gain -2.0407 [-17.4118, +10.5256] P(>0) 0.378 | own reliability -0.755 | bias-only cos +nan [-3.443, +5.604]
+    sf_gae0.95   cos +nan [-2.088, +1.184] | gain -2.5343 [-26.9703, +11.8524] P(>0) 0.341 | own reliability -0.659 | bias-only cos +nan [+0.063, +4.663]
+    sf_gae0.99   cos +nan [-0.715, +0.863] | gain -2.5222 [-29.7033, +12.4769] P(>0) 0.350 | own reliability -0.240 | bias-only cos +nan [+0.877, +2.493]
+    sf_gae1      cos +nan [+0.135, +0.797] | gain -2.7805 [-28.5151, +12.1600] P(>0) 0.348 | own reliability -0.297 | bias-only cos +nan [+1.000, +1.000]
+    sf_target    cos +nan [-2.230, +1.428] | gain -0.2434 [-21.9838, +12.7143] P(>0) 0.405 | own reliability -0.096 | bias-only cos +nan [+0.317, +4.788]
+    cv_combo     cos +nan [-1.984, +1.305] | gain -0.6924 [-24.7316, +12.8490] P(>0) 0.400 | own reliability -0.322 | bias-only cos +nan [+0.582, +5.041]
+    critic - sf_gae0.95: cos diff +nan [-1.122, +6.128] P(critic better) 0.292
+    critic - sf_gae0.8: cos diff +nan [-1.740, +7.372] P(critic better) 0.288
+
+[v23_4M all | linear(108)] rows 16384
+  ref=sf_gae0.95: |V*|^2 = 2.671e+02 [-1.27e+02, 8.22e+02] P(>0) 0.885
+    critic       cos +0.918 [+0.480, +2.756] | gain +14.9953 [+7.8780, +22.0962] P(>0) 1.000 | own reliability +0.962 | bias-only cos +0.936 [+0.500, +2.840]
+    critic_star  cos +0.676 [+0.246, +2.170] | gain +11.0450 [+3.9086, +18.0714] P(>0) 1.000 | own reliability +0.981 | bias-only cos +0.682 [+0.253, +2.204]
+    sf_gae0.8    cos +0.737 [+0.333, +1.027] | gain +12.0472 [-0.4705, +20.2900] P(>0) 0.971 | own reliability +0.508 | bias-only cos +1.034 [+0.838, +2.081]
+    sf_gae0.95   cos +0.644 [+0.176, +0.714] | gain +10.5233 [-4.9437, +20.2818] P(>0) 0.885 | own reliability +0.415 | bias-only cos +1.000 [+1.000, +1.000]
+    sf_gae0.99   cos +0.464 [-0.472, +0.656] | gain +7.5766 [-7.8203, +17.6367] P(>0) 0.777 | own reliability +0.134 | bias-only cos +1.267 [+0.686, +3.021]
+    sf_gae1      cos +0.344 [-0.757, +0.630] | gain +5.6225 [-8.2997, +14.8535] P(>0) 0.706 | own reliability -0.089 | bias-only cos +nan [-0.077, +3.844]
+    sf_target    cos +0.649 [+0.142, +0.735] | gain +10.5983 [-5.0660, +20.2273] P(>0) 0.895 | own reliability +0.430 | bias-only cos +0.989 [+0.877, +1.507]
+    cv_combo     cos +0.670 [+0.127, +0.731] | gain +10.9488 [-3.8760, +20.3323] P(>0) 0.897 | own reliability +0.425 | bias-only cos +1.028 [+0.957, +1.551]
+    critic - sf_gae0.95: cos diff +0.274 [-0.174, +2.588] P(critic better) 0.794
+    critic - sf_gae0.8: cos diff +0.180 [-0.222, +1.901] P(critic better) 0.755
+  ref=sf_gae0.99: |V*|^2 = 1.617e+02 [-7.37e+02, 1.32e+03] P(>0) 0.576
+    critic       cos +1.730 [+0.541, +5.035] | gain +21.9969 [+10.0047, +33.7009] P(>0) 1.000 | own reliability +0.962 | bias-only cos +1.764 [+0.558, +5.196]
+    critic_star  cos +1.444 [+0.374, +4.153] | gain +18.3651 [+6.8600, +29.8815] P(>0) 1.000 | own reliability +0.981 | bias-only cos +1.459 [+0.381, +4.236]
+    sf_gae0.8    cos +1.143 [+0.185, +2.698] | gain +14.5324 [-2.9319, +27.1170] P(>0) 0.938 | own reliability +0.508 | bias-only cos +1.604 [+0.372, +4.842]
+    sf_gae0.95   cos +0.816 [+0.191, +1.505] | gain +10.3706 [-11.2811, +25.8094] P(>0) 0.777 | own reliability +0.415 | bias-only cos +1.267 [+0.686, +3.021]
+    sf_gae0.99   cos +0.366 [+0.102, +0.657] | gain +4.6538 [-19.4374, +22.1079] P(>0) 0.576 | own reliability +0.134 | bias-only cos +1.000 [+1.000, +1.000]
+    sf_gae1      cos +0.073 [-0.785, +0.620] | gain +0.9291 [-21.9368, +19.9112] P(>0) 0.462 | own reliability -0.089 | bias-only cos +nan [+0.805, +2.190]
+    sf_target    cos +0.901 [+0.143, +1.901] | gain +11.4606 [-10.4424, +26.1745] P(>0) 0.806 | own reliability +0.430 | bias-only cos +1.375 [+0.678, +3.498]
+    cv_combo     cos +0.866 [+0.151, +1.680] | gain +11.0053 [-9.9662, +25.8013] P(>0) 0.799 | own reliability +0.425 | bias-only cos +1.328 [+0.691, +3.268]
+    critic - sf_gae0.95: cos diff +0.914 [-0.161, +3.815] P(critic better) 0.536
+    critic - sf_gae0.8: cos diff +0.587 [-0.355, +2.871] P(critic better) 0.504
+  ref=sf_gae1: |V*|^2 = -1.805e+02 [-1.98e+03, 2.12e+03] P(>0) 0.369
+    critic       cos +nan [+0.372, +4.848] | gain +26.1448 [+8.7696, +43.9939] P(>0) 0.998 | own reliability +0.962 | bias-only cos +nan [+0.388, +5.012]
+    critic_star  cos +nan [+0.168, +4.448] | gain +23.0838 [+4.8728, +40.8907] P(>0) 0.993 | own reliability +0.981 | bias-only cos +nan [+0.170, +4.512]
+    sf_gae0.8    cos +nan [-0.044, +3.206] | gain +17.2459 [-6.0456, +34.4942] P(>0) 0.910 | own reliability +0.508 | bias-only cos +nan [-0.076, +5.583]
+    sf_gae0.95   cos +nan [-0.117, +1.901] | gain +9.9758 [-16.5332, +30.2332] P(>0) 0.706 | own reliability +0.415 | bias-only cos +nan [-0.077, +3.844]
+    sf_gae0.99   cos +nan [+0.023, +0.868] | gain +1.2044 [-30.0453, +28.7765] P(>0) 0.462 | own reliability +0.134 | bias-only cos +nan [+0.805, +2.190]
+    sf_gae1      cos +nan [+0.091, +0.641] | gain -4.0080 [-36.0908, +26.1433] P(>0) 0.369 | own reliability -0.089 | bias-only cos +nan [+1.000, +1.000]
+    sf_target    cos +nan [-0.159, +2.183] | gain +11.4718 [-15.5697, +31.8492] P(>0) 0.742 | own reliability +0.430 | bias-only cos +nan [+0.165, +4.666]
+    cv_combo     cos +nan [-0.038, +1.958] | gain +10.3614 [-14.9235, +30.8880] P(>0) 0.718 | own reliability +0.425 | bias-only cos +nan [+0.010, +4.213]
+    critic - sf_gae0.95: cos diff +nan [-0.306, +3.450] P(critic better) 0.327
+    critic - sf_gae0.8: cos diff +nan [-0.696, +2.525] P(critic better) 0.300
+
+[v23_4M all | lastlayer(3078)] rows 16384
+  ref=sf_gae0.95: |V*|^2 = 1.368e+03 [-4.78e+02, 3.68e+03] P(>0) 0.908
+    critic       cos +0.850 [+0.409, +2.916] | gain +31.4525 [+16.2568, +46.3022] P(>0) 1.000 | own reliability +0.973 | bias-only cos +0.862 [+0.420, +2.985]
+    critic_star  cos +0.625 [+0.189, +2.353] | gain +23.1120 [+6.9498, +38.4251] P(>0) 0.999 | own reliability +0.986 | bias-only cos +0.629 [+0.191, +2.382]
+    sf_gae0.8    cos +0.710 [+0.320, +1.177] | gain +26.2532 [+1.6886, +40.4407] P(>0) 0.984 | own reliability +0.521 | bias-only cos +0.983 [+0.710, +2.026]
+    sf_gae0.95   cos +0.598 [+0.147, +0.655] | gain +22.1055 [-7.4378, +38.7860] P(>0) 0.908 | own reliability +0.357 | bias-only cos +1.000 [+1.000, +1.000]
+    sf_gae0.99   cos +0.448 [-0.391, +0.626] | gain +16.5642 [-13.8092, +34.5570] P(>0) 0.812 | own reliability +0.201 | bias-only cos +0.998 [+0.527, +2.085]
+    sf_gae1      cos +0.370 [-0.530, +0.628] | gain +13.6939 [-14.2407, +31.2331] P(>0) 0.770 | own reliability +0.122 | bias-only cos +1.059 [+0.002, +2.801]
+    sf_target    cos +0.589 [+0.027, +0.671] | gain +21.7736 [-7.5924, +38.8594] P(>0) 0.908 | own reliability +0.375 | bias-only cos +0.962 [+0.735, +1.362]
+    cv_combo     cos +0.599 [+0.045, +0.680] | gain +22.1605 [-7.3705, +39.6811] P(>0) 0.904 | own reliability +0.337 | bias-only cos +1.032 [+0.956, +1.844]
+    critic - sf_gae0.95: cos diff +0.253 [-0.172, +2.788] P(critic better) 0.815
+    critic - sf_gae0.8: cos diff +0.141 [-0.218, +1.900] P(critic better) 0.750
+  ref=sf_gae0.99: |V*|^2 = 1.621e+03 [-3.55e+03, 8.00e+03] P(>0) 0.690
+    critic       cos +1.073 [+0.273, +3.180] | gain +43.1799 [+15.9301, +69.3757] P(>0) 1.000 | own reliability +0.973 | bias-only cos +1.087 [+0.279, +3.259]
+    critic_star  cos +0.883 [+0.076, +2.810] | gain +35.5314 [+5.2431, +63.1505] P(>0) 0.991 | own reliability +0.986 | bias-only cos +0.889 [+0.077, +2.843]
+    sf_gae0.8    cos +0.705 [+0.010, +1.788] | gain +28.3856 [-7.6193, +53.2437] P(>0) 0.928 | own reliability +0.521 | bias-only cos +0.977 [+0.040, +3.015]
+    sf_gae0.95   cos +0.597 [+0.106, +1.016] | gain +24.0151 [-20.1906, +55.0742] P(>0) 0.812 | own reliability +0.357 | bias-only cos +0.998 [+0.527, +2.085]
+    sf_gae0.99   cos +0.449 [+0.109, +0.639] | gain +18.0595 [-35.5671, +54.8351] P(>0) 0.690 | own reliability +0.201 | bias-only cos +1.000 [+1.000, +1.000]
+    sf_gae1      cos +0.358 [-0.257, +0.624] | gain +14.4113 [-39.0792, +53.0724] P(>0) 0.645 | own reliability +0.122 | bias-only cos +1.024 [+0.865, +1.658]
+    sf_target    cos +0.611 [+0.005, +1.071] | gain +24.5902 [-20.8801, +54.5789] P(>0) 0.817 | own reliability +0.375 | bias-only cos +0.998 [+0.370, +2.440]
+    cv_combo     cos +0.602 [+0.043, +1.024] | gain +24.2464 [-20.3649, +55.3903] P(>0) 0.816 | own reliability +0.337 | bias-only cos +1.037 [+0.592, +2.563]
+    critic - sf_gae0.95: cos diff +0.476 [-0.273, +2.601] P(critic better) 0.596
+    critic - sf_gae0.8: cos diff +0.368 [-0.266, +1.987] P(critic better) 0.584
+  ref=sf_gae1: |V*|^2 = 1.865e+03 [-9.56e+03, 1.56e+04] P(>0) 0.591
+    critic       cos +1.216 [+0.124, +3.461] | gain +52.5283 [+11.9245, +92.2074] P(>0) 0.993 | own reliability +0.973 | bias-only cos +1.233 [+0.128, +3.559]
+    critic_star  cos +1.073 [-0.013, +3.275] | gain +46.3238 [-0.7064, +90.9784] P(>0) 0.973 | own reliability +0.986 | bias-only cos +1.080 [-0.013, +3.327]
+    sf_gae0.8    cos +0.782 [-0.103, +1.869] | gain +33.7725 [-15.7080, +70.0125] P(>0) 0.892 | own reliability +0.521 | bias-only cos +1.083 [-0.189, +3.034]
+    sf_gae0.95   cos +0.633 [-0.132, +1.327] | gain +27.3427 [-30.5090, +71.4838] P(>0) 0.770 | own reliability +0.357 | bias-only cos +1.059 [+0.002, +2.801]
+    sf_gae0.99   cos +0.460 [+0.038, +0.691] | gain +19.8475 [-55.7294, +74.6632] P(>0) 0.645 | own reliability +0.201 | bias-only cos +1.024 [+0.865, +1.658]
+    sf_gae1      cos +0.349 [+0.099, +0.627] | gain +15.0938 [-64.9129, +74.8875] P(>0) 0.591 | own reliability +0.122 | bias-only cos +1.000 [+1.000, +1.000]
+    sf_target    cos +0.611 [-0.256, +1.264] | gain +26.4076 [-32.9723, +71.1908] P(>0) 0.760 | own reliability +0.375 | bias-only cos +0.999 [-0.295, +2.701]
+    cv_combo     cos +0.632 [-0.137, +1.335] | gain +27.2809 [-30.4081, +70.9422] P(>0) 0.780 | own reliability +0.337 | bias-only cos +1.088 [+0.078, +3.102]
+    critic - sf_gae0.95: cos diff +0.583 [-0.400, +2.641] P(critic better) 0.471
+    critic - sf_gae0.8: cos diff +0.434 [-0.406, +2.276] P(critic better) 0.462
+
+[v23_4M all | actor_params(full)] rows 16384
+  ref=sf_gae0.95: |V*|^2 = 4.068e+04 [-1.66e+04, 1.14e+05] P(>0) 0.908
+    critic       cos +0.888 [+0.444, +3.073] | gain +179.1107 [+104.4502, +248.0664] P(>0) 1.000 | own reliability +0.962 | bias-only cos +0.905 [+0.460, +3.202]
+    critic_star  cos +0.654 [+0.236, +2.306] | gain +131.9905 [+59.2213, +208.3215] P(>0) 1.000 | own reliability +0.982 | bias-only cos +0.660 [+0.240, +2.342]
+    sf_gae0.8    cos +0.694 [+0.326, +1.019] | gain +140.0040 [+3.0256, +226.9982] P(>0) 0.979 | own reliability +0.484 | bias-only cos +0.998 [+0.765, +1.937]
+    sf_gae0.95   cos +0.585 [+0.147, +0.637] | gain +117.9158 [-45.5314, +209.2117] P(>0) 0.908 | own reliability +0.342 | bias-only cos +1.000 [+1.000, +1.000]
+    sf_gae0.99   cos +0.431 [-0.347, +0.591] | gain +86.8958 [-60.5884, +183.2784] P(>0) 0.825 | own reliability +0.160 | bias-only cos +1.078 [+0.574, +2.749]
+    sf_gae1      cos +0.359 [-0.474, +0.588] | gain +72.3568 [-68.3724, +165.4317] P(>0) 0.787 | own reliability +0.071 | bias-only cos +1.351 [-0.069, +3.231]
+    sf_target    cos +0.564 [-0.006, +0.668] | gain +113.8524 [-49.4836, +208.6315] P(>0) 0.900 | own reliability +0.352 | bias-only cos +0.951 [+0.747, +1.327]
+    cv_combo     cos +0.591 [+0.126, +0.664] | gain +119.2812 [-39.1170, +212.7167] P(>0) 0.913 | own reliability +0.331 | bias-only cos +1.028 [+0.914, +1.482]
+    critic - sf_gae0.95: cos diff +0.303 [-0.135, +2.916] P(critic better) 0.833
+    critic - sf_gae0.8: cos diff +0.194 [-0.178, +2.106] P(critic better) 0.789
+  ref=sf_gae0.99: |V*|^2 = 3.788e+04 [-1.00e+05, 2.08e+05] P(>0) 0.675
+    critic       cos +1.276 [+0.368, +4.472] | gain +248.4201 [+126.2078, +356.9583] P(>0) 1.000 | own reliability +0.962 | bias-only cos +1.301 [+0.382, +4.625]
+    critic_star  cos +1.066 [+0.206, +3.722] | gain +207.4599 [+81.1657, +335.6438] P(>0) 1.000 | own reliability +0.982 | bias-only cos +1.076 [+0.210, +3.798]
+    sf_gae0.8    cos +0.800 [+0.118, +2.158] | gain +155.6569 [-33.2986, +290.9137] P(>0) 0.945 | own reliability +0.484 | bias-only cos +1.150 [+0.236, +3.848]
+    sf_gae0.95   cos +0.630 [+0.095, +1.219] | gain +122.6860 [-96.4468, +281.0764] P(>0) 0.825 | own reliability +0.342 | bias-only cos +1.078 [+0.574, +2.749]
+    sf_gae0.99   cos +0.400 [+0.094, +0.588] | gain +77.7702 [-169.8820, +253.4179] P(>0) 0.675 | own reliability +0.160 | bias-only cos +1.000 [+1.000, +1.000]
+    sf_gae1      cos +0.287 [-0.386, +0.588] | gain +55.8517 [-187.2637, +238.1598] P(>0) 0.612 | own reliability +0.071 | bias-only cos +1.081 [+0.832, +1.919]
+    sf_target    cos +0.652 [-0.077, +1.395] | gain +126.8600 [-100.3587, +303.6080] P(>0) 0.825 | own reliability +0.352 | bias-only cos +1.098 [+0.489, +3.027]
+    cv_combo     cos +0.649 [+0.097, +1.335] | gain +126.3314 [-91.6217, +276.9157] P(>0) 0.838 | own reliability +0.331 | bias-only cos +1.129 [+0.667, +3.006]
+    critic - sf_gae0.95: cos diff +0.646 [-0.212, +3.521] P(critic better) 0.609
+    critic - sf_gae0.8: cos diff +0.477 [-0.212, +2.682] P(critic better) 0.598
+  ref=sf_gae1: |V*|^2 = 3.121e+04 [-2.69e+05, 3.67e+05] P(>0) 0.557
+    critic       cos +1.722 [+0.261, +4.449] | gain +304.1639 [+125.7837, +462.8328] P(>0) 1.000 | own reliability +0.962 | bias-only cos +1.755 [+0.271, +4.619]
+    critic_star  cos +1.524 [+0.152, +4.158] | gain +269.2241 [+75.3237, +463.0362] P(>0) 0.996 | own reliability +0.982 | bias-only cos +1.538 [+0.155, +4.241]
+    sf_gae0.8    cos +1.073 [-0.208, +2.261] | gain +189.5801 [-80.1320, +386.7644] P(>0) 0.914 | own reliability +0.484 | bias-only cos +1.543 [-0.412, +4.512]
+    sf_gae0.95   cos +0.790 [-0.224, +1.376] | gain +139.5265 [-147.3110, +348.1635] P(>0) 0.787 | own reliability +0.342 | bias-only cos +1.351 [-0.069, +3.231]
+    sf_gae0.99   cos +0.432 [-0.025, +0.642] | gain +76.2812 [-258.4384, +332.0691] P(>0) 0.612 | own reliability +0.160 | bias-only cos +1.081 [+0.832, +1.919]
+    sf_gae1      cos +0.266 [+0.076, +0.585] | gain +46.9154 [-309.5921, +335.4379] P(>0) 0.557 | own reliability +0.071 | bias-only cos +1.000 [+1.000, +1.000]
+    sf_target    cos +0.794 [-0.314, +1.561] | gain +140.2753 [-148.4194, +384.1018] P(>0) 0.779 | own reliability +0.352 | bias-only cos +1.338 [-0.281, +3.387]
+    cv_combo     cos +0.812 [-0.159, +1.463] | gain +143.5321 [-144.3930, +349.1177] P(>0) 0.793 | own reliability +0.331 | bias-only cos +1.413 [-0.033, +3.307]
+    critic - sf_gae0.95: cos diff +0.932 [-0.317, +3.681] P(critic better) 0.484
+    critic - sf_gae0.8: cos diff +0.649 [-0.388, +3.078] P(critic better) 0.467

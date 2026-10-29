@@ -1,0 +1,285 @@
+run	last_step	first_step	@500k	@1000k	@2000k	@3000k	@4000k	@6000k	@8000k	@12000k	@16000k	last20
+HalfCheetah-v4__awr_adaptive_trace_ce_v19_50M__1__1790306853	49987008	32000	667	3321	5258	6421	7172	8233	9322	9996	10047	11814
+HalfCheetah-v4__awr_ce_ppo_sepclip_control_v1_50M__1__1790202576	49987008	32000	770	2401	3675	4663	5680	7230	8391	9294	10136	13576
+HalfCheetah-v4__awr_ce_ppo_sepclip_control_v1_lam0p8_50M__1__1790290144	7675008	32000	220	889	2467	3688	4211	4386				4742
+HalfCheetah-v4__awr_ce_ppo_sepclip_control_v1_lrhalf_50M__1__1790203348	49987008	32000	516	2370	4381	5458	6190	7298	8478	9862	10034	11580
+HalfCheetah-v4__awr_ce_ppo_sepclip_control_v1_nogradclip_50M__1__1790204212	26010000	32000	638	2900	4880	5666	6482	7513	8431	9303	9586	9474
+HalfCheetah-v4__awr_ce_rb_anchor_v2_kl0p03_50M__1__1790201222	32000	32000										-244
+HalfCheetah-v4__awr_ce_rb_anchor_v2_kl0p03_ae10_50M__1__1790201498	24497008	32000	157	1301	3376	4171	4740	5923	6796	7851	8814	9663
+HalfCheetah-v4__awr_ce_rb_anchor_v2_kl0p1_50M__1__1790201222	32000	32000										-244
+HalfCheetah-v4__awr_ce_rb_anchor_v2_kl0p1_ae10_50M__1__1790201498	49987008	32000	324	1994	4128	4872	5647	6386	7119	8076	8800	11287
+HalfCheetah-v4__awr_ce_rb_anchor_v2_kl0p1_ae5_50M__1__1790201498	20913008	32000	278	2163	3609	4327	4871	5221	5319	6616	5052	5147
+HalfCheetah-v4__awr_ce_rb_anchor_v2_kl0p1_ae8_50M__1__1790201498	49987008	32000	424	2123	4054	4729	5277	6143	6651	7913	8559	11155
+HalfCheetah-v4__awr_ce_rb_anchor_v2_kl0p3_50M__1__1790201236	32000	32000										-244
+HalfCheetah-v4__awr_ce_rb_anchor_v2_kl0p3_ae10_50M__1__1790201498	24313008	32000	851	2382	3630	4317	4857	5881	6569	7329	8599	9225
+HalfCheetah-v4__awr_ce_tpo_batch_v3_kl0p1_50M__1__1790201498	49987008	32000	485	2236	4191	4990	5762	6743	7466	8598	9260	11116
+HalfCheetah-v4__awr_ce_tpo_batch_v3_kl0p5_50M__1__1790201948	39966000	32000	1028	2739	4085	4825	5540	6360	6824	7301	7833	8795
+HalfCheetah-v4__awr_ce_tpo_penalty_v5_eta1_50M__1__1790203673	7416000	32000	754	2351	1578	3222	3766	4324				4709
+HalfCheetah-v4__awr_ce_tpo_penalty_v5_kl0p01_50M__1__1790203673	14252000	32000	29	478	2111	3441	4247	5406	6331	7421		7938
+HalfCheetah-v4__awr_ce_tpo_penalty_v5_kl0p03_50M__1__1790203673	49987008	32000	150	1240	3120	4493	5399	6461	7329	8196	8912	11407
+HalfCheetah-v4__awr_ce_tpo_sepclip_v4_kl0p1_50M__1__1790202156	49987008	32000	457	2153	4521	5356	5813	6065	6785	7451	8309	11072
+HalfCheetah-v4__awr_ce_tpo_sepclip_v4_kl0p1_noclip_50M__1__1790202581	49987008	32000	292	2159	4114	4833	5442	6634	7575	9022	9553	11071
+HalfCheetah-v4__awr_ce_tpo_sepclip_v4_kl0p2_50M__1__1790202156	49987008	32000	736	2712	4357	5381	6101	7208	7930	8393	9026	10744
+HalfCheetah-v4__awr_ce_v1_kl0p01_50M__1__1790201117	11852000	32000	-13	89	385	602	666	868	1245			2249
+HalfCheetah-v4__awr_ce_v1_kl0p03_50M__1__1790200966	21322000	32000	27	121	499	948	1618	2367	3239	4144	4502	5762
+HalfCheetah-v4__awr_ce_v1_kl0p1_50M__1__1790200966	22141008	32000	127	936	2215	2951	3708	4498	5404	5912	6460	6878
+HalfCheetah-v4__awr_ce_v1_kl0p3_50M__1__1790200966	22245008	32000	729	2225	3907	4556	5071	5752	6412	6329	6769	7126
+HalfCheetah-v4__awr_chi2_ce_v10_eta0p6_50M__1__1790282508	49987008	32000	576	1481	3086	4192	4766	6483	7976	9167	10295	11313
+HalfCheetah-v4__awr_chi2_ce_v10_eta1_50M__1__1790276462	49987008	32000	993	2392	4317	5414	6263	7771	8431	9632	10059	12575
+HalfCheetah-v4__awr_chi2_ce_v10_eta1_lam0p8_50M__1__1790290028	8545008	32000	217	1324	2167	3074	3815	4562	4954			5042
+HalfCheetah-v4__awr_chi2_ce_v10_eta1p4_50M__1__1790276462	49987008	32000	590	2838	4592	5297	5962	7088	7996	9317	10080	11277
+HalfCheetah-v4__awr_chi2_v9_eta1_50M__1__1790276462	18150000	32000	875	2910	4469	1452	4154	4920	1967	3987	2955	5185
+HalfCheetah-v4__awr_hybrid_reach_ce_v17_50M__1__1790298297	30695008	32000	876	2856	4802	5596	6073	6678	7185	7815	8202	8614
+HalfCheetah-v4__awr_hybrid_reach_ce_v17_up1_50M__1__1790298297	30641008	32000	785	2630	4591	5404	5867	6548	7160	8165	8519	10595
+HalfCheetah-v4__awr_linear_force_ce_v15_eta1p3_50M__1__1790295093	30718000	32000	594	2607	4204	4848	5192	5821	6398	7295	8056	9078
+HalfCheetah-v4__awr_linear_force_ce_v15_eta2_50M__1__1790294699	49987008	32000	397	2225	4449	5468	6213	7405	8013	9096	9412	12741
+HalfCheetah-v4__awr_lrr_state_scale_v7_eta1_50M__1__1790204782	49987008	32000	1206	2800	4518	5703	6298	7059	7659	9159	9731	13169
+HalfCheetah-v4__awr_lrr_state_scale_v7_eta2_50M__1__1790204782	30556000	32000	311	1946	3752	4396	4857	5279	5653	7084	8984	10952
+HalfCheetah-v4__awr_lrr_student_t_v8_eta1_50M__1__1790208629	21408000	32000	652	2676	3303	3606	4223	4645	5964	6798	7627	8490
+HalfCheetah-v4__awr_lrr_student_t_v8_eta2_50M__1__1790208629	20737008	32000	207	1653	3271	4073	4480	4807	5353	5615	5755	5867
+HalfCheetah-v4__awr_lrr_v6_eta1_50M__1__1790204363	49987008	32000	1478	3297	4536	5641	6503	7443	8601	8815	9464	11476
+HalfCheetah-v4__awr_lrr_v6_eta2_50M__1__1790204363	49987008	32000	468	2048	4008	5406	6210	7554	8053	9377	9771	12331
+HalfCheetah-v4__awr_pmean_v12_eta0p5_50M__1__1790279483	32000	32000										-244
+HalfCheetah-v4__awr_pmean_v12_eta1_50M__1__1790279483	32000	32000										-244
+HalfCheetah-v4__awr_ppo_chi2w_v1_eta0p6_50M__1__1790291089	49987008	32000	1047	3065	5160	6164	6917	7464	8033	8839	8741	9534
+HalfCheetah-v4__awr_ppo_chi2w_v1_eta1_50M__1__1790291004	49987008	32000	1078	3140	5119	6117	6841	8078	8728	9210	9843	11014
+HalfCheetah-v4__awr_ppo_short_trace_control_v1_50M__1__1790305824	19644000	32000	404	1515	2969	3992	4642	4948	5150	5531	5945	5821
+HalfCheetah-v4__awr_qpost_v11_k1_50M__1__1790279056	27621008	32000	404	2106	4196	4993	5482	6124	6620	7088	7190	7907
+HalfCheetah-v4__awr_short_trace_ce_v18_50M__1__1790305824	19245008	32000	283	1339	2691	3809	4308	4980	5280	5193	4888	4996
+HalfCheetah-v4__awr_short_trace_ce_v18_lam0p95_ctrl__1__1790306872	5842000	32000	872	3023	5201	6319	7225					7725
+HalfCheetah-v4__awr_sign_reach_ce_v16_50M__1__1790296546	49987008	32000	872	3023	5201	6319	7225	8307	8666	9402	10081	12175
+HalfCheetah-v4__awr_tracked_ce_v14_eta0p6_50M__1__1790290156	49987008	32000	1256	3309	5038	5960	6679	7474	8403	9294	10267	13251
+HalfCheetah-v4__awr_tracked_ce_v14_eta1_50M__1__1790290156	44681008	32000	683	2671	4421	5358	6048	6825	7619	8574	9247	10839
+HalfCheetah-v4__capture3_awr_sign_reach_ce_v16_50M__1__1790299181	35012000	32000	872	3023	5201	6319	7225	8307	8666	9402	10081	10576
+HalfCheetah-v4__capture3_ppo_sepclip_control_50M__1__1790299181	24002000	32000	770	2401	3675	4663	5680	7230	8391	9294	10136	12352
+HalfCheetah-v4__capture_awr_chi2_ce_v10_eta1_50M__1__1790282508	40009008	32000	993	2392	4317	5414	6263	7771	8431	9632	10059	11696
+HalfCheetah-v4__capture_awr_sign_reach_ce_v16_50M__1__1790297585	35012000	32000	872	3023	5201	6319	7225	8307	8666	9402	10081	10576
+HalfCheetah-v4__capture_ppo_sepclip_control_50M__1__1790282508	40009008	32000	770	2401	3675	4663	5680	7230	8391	9294	10136	13988
+HalfCheetah-v4__capture_v2_awr_chi2_ce_v10_eta1_50M__1__1790286066	40009008	32000	993	2392	4317	5414	6263	7771	8431	9632	10059	11696
+HalfCheetah-v4__capture_v2_ppo_sepclip_control_50M__1__1790286066	40009008	32000	770	2401	3675	4663	5680	7230	8391	9294	10136	13988
+HalfCheetah-v4__idbd_beta_v2_abl_splitac_silu_hlgauss_delayed_gae32_noadvnorm_sepclip__1__1784076692	8000000	16000	2009	2869	3712	3875	4654	4640	5286			5173
+HalfCheetah-v4__idbd_beta_v2_abl_splitac_silu_hlgauss_delayed_gae32_noadvnorm_sepclip__1__1784076694	EMPTY
+HalfCheetah-v4__idbd_sepclip_papertheta__1__1784151802	800000	16000	1042									948
+HalfCheetah-v4__idbd_td7_papertheta_b32__1__1784151984	45999	999										-346
+HalfCheetah-v4__idbd_td7_v1__1__1784001729	185999	999										7412
+HalfCheetah-v4__idbd_v3_td7critic__1__1784117792	8000000	16000	1167	1666	2196	2462	2195	2299	2709			2739
+HalfCheetah-v4__ppo_baseline_hc8m__1__1785297936	960000	16000	-68	420								424
+HalfCheetah-v4__ppo_baseline_hc8m_v2__1__1785715542	480000	16000	1181									1182
+HalfCheetah-v4__ppo_baseline_ref__1__1785886562	1024000	16000	1217	1473								1500
+HalfCheetah-v4__ppo_continuous_action__1__1788637543	7978000	32000	564	2250	4082	5265	6067	6962	7428			7468
+HalfCheetah-v4__ppo_continuous_action_hostactor__1__1788644969	7978000	32000	495	2169	4132	4957	5434	5914	6126			6122
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787100417	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787100432	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787102417	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787102422	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787102426	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787102430	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787102435	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787102439	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787103709	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787104276	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787104290	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787104299	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787104301	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787104306	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787104308	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787104314	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787104315	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787104323	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787104453	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_batch_disc_dblockactor_v1__1__1787104456	EMPTY
+HalfCheetah-v4__ppo_continuous_action_iterthink_v155_multiscale_obs_dreamkl_hlscalar_k6_v155__1__1781398003	64000	16000										-222
+HalfCheetah-v4__ppo_continuous_action_iterthink_v155_multiscale_obs_dreamkl_hlscalar_k6_v155__1__1781400108	1680000	16000	201	759								614
+HalfCheetah-v4__ppo_continuous_action_iterthink_v24_beta_d3bucket_mtp_entppo_v4_samplemask__1__1787864361	20000	4000										-200
+HalfCheetah-v4__ppo_continuous_action_iterthink_v24_beta_d3bucket_mtp_entppo_v4_samplemask__1__1787864591	20000	4000										-243
+HalfCheetah-v4__ppo_continuous_action_iterthink_v24_beta_d3bucket_mtp_ppoadvnorm_batch_nextlat_v7_std__1__1788495275	48000	32000										-243
+HalfCheetah-v4__ppo_continuous_action_iterthink_v24_beta_d3bucket_mtp_ppoadvnorm_batch_nextlat_v7_std__1__1788495397	540000	32000	1565									1649
+HalfCheetah-v4__ppo_continuous_action_iterthink_v24_beta_d3bucket_mtp_ppoadvnorm_batch_nextlat_v7_std__1__1788495964	999008	32000	1554	2764								2828
+HalfCheetah-v4__ppo_continuous_action_iterthink_v24_beta_d3bucket_mtp_ppoadvnorm_batch_nextlat_v8_headsplit__1__1788499220	999008	32000	1588	2779								2723
+HalfCheetah-v4__ppo_continuous_action_opsd_sfocc_dynphi_varfloor_v1__1__1787949100	7984000	16000	-279	-418	-451	-505	-556	-572	-575			-574
+HalfCheetah-v4__ppo_continuous_action_opsd_sfocc_dynphi_varfloor_v1__1__1787949947	7984000	16000	-341	-350	-470	-531	-559	-532	-572			-572
+HalfCheetah-v4__ppo_continuous_action_opsd_sfocc_v3__1__1787948077	7984000	16000	-169	-345	-435	-462	-470	-452	-367			-366
+HalfCheetah-v4__ppo_continuous_action_probedistill_deepvalue_v1__1__1787696299	EMPTY
+HalfCheetah-v4__ppo_continuous_action_probedistill_deepvalue_v2__1__1787696242	EMPTY
+HalfCheetah-v4__ppo_continuous_action_probedistill_deepvalue_v2__1__1787696274	EMPTY
+HalfCheetah-v4__ppo_continuous_action_probedistill_deepvalue_v2__1__1787696566	EMPTY
+HalfCheetah-v4__ppo_continuous_action_probedistill_deepvalue_v2__1__1787696613	EMPTY
+HalfCheetah-v4__ppo_continuous_action_probedistill_deepvalue_v2__1__1787696656	EMPTY
+HalfCheetah-v4__ppo_continuous_action_probedistill_deepvalue_v2__1__1787696683	EMPTY
+HalfCheetah-v4__ppo_continuous_action_tpomd_spreadtemp_dblockactor_v1__1__1787095790	EMPTY
+HalfCheetah-v4__ppo_continuous_action_tpomd_spreadtemp_dblockactor_v2__1__1787095633	EMPTY
+HalfCheetah-v4__ppo_continuous_action_tpomd_spreadtemp_dblockactor_v2__1__1787095652	EMPTY
+HalfCheetah-v4__ppo_continuous_action_tpomd_spreadtemp_dblockactor_v2__1__1787095667	EMPTY
+HalfCheetah-v4__ppo_situ_factorized_v7_actor_50M__1__1788839284	17559008	32000	916	2451	4612	6180	7069	7712	8472	9669	8923	-272
+HalfCheetah-v4__ppo_situ_factorized_v7_control_50M__1__1788838797	49987008	32000	1027	2492	4543	5847	6862	7119	8030	9389	10132	14397
+HalfCheetah-v4__ppo_situ_reorg_v6_anchor_50M__1__1788838522	49987008	32000	1046	2506	4225	3741	5923	7664	8700	9471	9545	12416
+HalfCheetah-v4__ppo_situ_reorg_v6_baseline_50M__1__1788837607	49987008	32000	1027	2492	4543	5847	6862	7119	8030	9389	10132	14397
+HalfCheetah-v4__ppo_situ_reorg_v6_blend_50M__1__1788837607	49987008	32000	869	2359	4233	5455	6299	7935	8681	9219	9154	12097
+HalfCheetah-v4__ppo_situ_reorg_v6_branch_norm_50M__1__1788837607	49987008	32000	1049	2505	4625	6185	7135	8249	7956	8704	9373	10895
+HalfCheetah-v4__ppo_situ_reorg_v6_gate_only_50M__1__1788837607	19013008	32000	1108	2426	4317	5741	6742	7860	1524	7947	8939	9731
+HalfCheetah-v4__ppo_situ_reorg_v6_product_norm_50M__1__1788837607	39575008	32000	956	2585	4210	5003	5362	7560	8505	9387	9748	10467
+HalfCheetah-v4__ppo_situ_reorg_v6_up_only_50M__1__1788837607	21446000	32000	931	2509	4465	2633	4971	7048	7812	8869	9254	9487
+HalfCheetah-v4__reppo_beta_td7explore_v20__1__1790322363	7995008	32000	3617	5186	6124	6960	7564	8267	8508			8544
+HalfCheetah-v4__reppo_beta_td7explore_v20_nosmooth__1__1790322363	7995008	32000	3868	5217	6083	6535	6929	7851	8325			8368
+HalfCheetah-v4__sepclip_anvil2_fasttracking_v5_half__1__1791179593	7995008	32000	334	1514	4597	5598	6048	7229	8149			8116
+HalfCheetah-v4__sepclip_anvil2_frontier_v4__1__1791177076	EMPTY
+HalfCheetah-v4__sepclip_anvil2_v4_anvil_double__1__1791178528	4614000	32000	369	1091	2560	3182	3424					3645
+HalfCheetah-v4__sepclip_anvil2_v4_anvil_fp32__1__1791178712	6237008	32000	651	2103	3817	4684	4967	5975				6106
+HalfCheetah-v4__sepclip_anvil2_v4_anvil_full__1__1791178287	7995008	32000	620	2783	4800	5491	5972	7311	8366			8394
+HalfCheetah-v4__sepclip_anvil2_v4_anvil_half__1__1791178146	7995008	32000	345	2488	4740	5710	6402	7752	8332			8344
+HalfCheetah-v4__sepclip_anvil2_v4_anvil_quad__1__1791178604	5503008	32000	501	1850	3434	4106	4198					4425
+HalfCheetah-v4__sepclip_anvil2_v4_normuon_double__1__1791178427	5253008	32000	442	2132	3389	4154	4652					5081
+HalfCheetah-v4__sepclip_anvil2_v4_normuon_fast__1__1791178000	7995008	32000	363	1825	3750	5043	5891	7095	8151			8041
+HalfCheetah-v4__sepclip_anvil2_v4_normuon_half__1__1791177102	7995008	32000	386	1238	3682	4806	5500	6161	6849			6971
+HalfCheetah-v4__sepclip_control_8M__1__1790305306	7995008	32000	986	2910	4770	5835	6620	7669	8398			8454
+HalfCheetah-v4__sepclip_critic_transport__1__1791260889	EMPTY
+HalfCheetah-v4__sepclip_dust_v1_backprop__1__1791246627	7995008	32000	986	2910	4770	5835	6620	7669	8398			8454
+HalfCheetah-v4__sepclip_dust_v1_dust__1__1791246731	7995008	32000	433	1243	2518	3561	4444	5369	5764			5760
+HalfCheetah-v4__sepclip_dust_v2_hub16__1__1791247912	32000	32000										-244
+HalfCheetah-v4__sepclip_dust_v2_hub64__1__1791247923	32000	32000										-244
+HalfCheetah-v4__sepclip_dust_v3_hub16__1__1791247991	7995008	32000	513	2127	3922	4636	5058	5879	6246			6257
+HalfCheetah-v4__sepclip_dust_v3_hub64__1__1791248136	7995008	32000	442	2195	3960	4735	5287	5933	6319			6367
+HalfCheetah-v4__sepclip_dust_v4_orthogonal__1__1791248367	3210000	32000	579	2338	4074	4836						5003
+HalfCheetah-v4__sepclip_layer_transport_audit__1__1791260869	EMPTY
+HalfCheetah-v4__sepclip_layer_transport_audit__1__1791320413	EMPTY
+HalfCheetah-v4__sepclip_mechanisms_adam_reference__1__1791240609	7995008	32000	986	2910	4770	5835	6620	7669	8398			8454
+HalfCheetah-v4__sepclip_mechanisms_diagnostic__1__1791241855	EMPTY
+HalfCheetah-v4__sepclip_mechanisms_fisher_adam_control__1__1791241725	7995008	32000	392	2276	4022	5126	5404	6390	6729			6718
+HalfCheetah-v4__sepclip_mechanisms_fisher_anvil__1__1791241458	7995008	32000	344	2056	4835	5525	5818	6489	7285			7276
+HalfCheetah-v4__sepclip_mechanisms_fisher_anvil_small__1__1791241592	7995008	32000	280	1807	4633	5537	5918	7099	7817			7788
+HalfCheetah-v4__sepclip_mechanisms_kfac_radius_control_v9__1__1791242549	7995008	32000	291	2340	4972	5604	5858	6622	7173			7300
+HalfCheetah-v4__sepclip_mechanisms_noise_equalizer__1__1791241318	7995008	32000	602	2327	3828	4584	5038	6083	6540			6566
+HalfCheetah-v4__sepclip_mechanisms_noise_full__1__1791240808	7995008	32000	346	2609	4461	5132	4978	6290	7051			7039
+HalfCheetah-v4__sepclip_mechanisms_noise_large_step__1__1791241052	7995008	32000	640	2124	4153	4505	4475	4288	5293			5295
+HalfCheetah-v4__sepclip_mechanisms_noise_low__1__1791240935	7995008	32000	382	2297	4252	5150	5057	6462	7654			7712
+HalfCheetah-v4__sepclip_mechanisms_noise_zero_control__1__1791241183	7995008	32000	601	2514	3697	4006	4035	4615	5445			5474
+HalfCheetah-v4__sepclip_mechanisms_policy_budget_anvil_v11__1__1791243960	7995008	32000	492	1932	4932	5768	6325	7631	8176			8076
+HalfCheetah-v4__sepclip_mechanisms_policy_budget_cascade_control_v11__1__1791243607	7995008	32000	525	3038	5028	5936	6658	8088	8708			8725
+HalfCheetah-v4__sepclip_mechanisms_rollout_clock__1__1791241877	7995008	32000	525	3038	5028	5936	6658	8088	8708			8725
+HalfCheetah-v4__sepclip_mechanisms_rollout_clock_full__1__1791242016	7995008	32000	655	2701	4777	5797	5903	7478	8801			8571
+HalfCheetah-v4__sepclip_mechanisms_sample_fisher_adam_v9__1__1791242419	7995008	32000	612	2225	4046	4938	5521	6279	6599			6583
+HalfCheetah-v4__sepclip_mechanisms_sample_fisher_anvil_v9__1__1791242275	7995008	32000	324	1927	4471	4982	5273	5860	6428			6437
+HalfCheetah-v4__sepclip_microscopy_critic_historical__1__1791260912	EMPTY
+HalfCheetah-v4__sepclip_microscopy_dense_pg_contracts_repair__1__1791329594	EMPTY
+HalfCheetah-v4__sepclip_microscopy_layer_historical__1__1791260887	EMPTY
+HalfCheetah-v4__sepclip_microscopy_layer_historical_fp64__1__1791320436	EMPTY
+HalfCheetah-v4__sepclip_microscopy_physics_complete__1__1791261028	EMPTY
+HalfCheetah-v4__sepclip_microscopy_representation_historical__1__1791260866	EMPTY
+HalfCheetah-v4__sepclip_microscopy_v12_adam_control__1__1791260590	7995008	32000	986	2910	4770	5835	6620	7669	8398			8454
+HalfCheetah-v4__sepclip_microscopy_v12_anvil_control__1__1791260697	7995008	32000	525	3038	5028	5936	6658	8088	8708			8725
+HalfCheetah-v4__sepclip_modebeta_klrate_v2_mode_50M__1__1790322391	9325008	32000	1074	3228	4562	4968	5128	5380	5451			5577
+HalfCheetah-v4__sepclip_modebeta_klrate_v2_mode_nokl_50M__1__1790322391	9278000	32000	1074	3184	4733	4998	5263	5753	6099			6207
+HalfCheetah-v4__sepclip_modebeta_klrate_v2_softplus_50M__1__1790322391	21707008	32000	770	2401	3675	4663	5680	6790	8021	9521	10252	10718
+HalfCheetah-v4__sepclip_modebeta_linear_v3_50M__1__1790355524	37739008	32000	673	2573	4177	4714	5312	6099	6570	7699	8146	9172
+HalfCheetah-v4__sepclip_modebeta_v1_50M__1__1790322049	19959008	32000	323	1163	3193	4094	1199	4265	4754	4749	5239	5277
+HalfCheetah-v4__sepclip_normuon_causal_bench__1__1791013585	EMPTY
+HalfCheetah-v4__sepclip_normuon_causal_bench__1__1791013764	EMPTY
+HalfCheetah-v4__sepclip_normuon_causal_bench__1__1791014868	EMPTY
+HalfCheetah-v4__sepclip_normuon_history_probe__1__1791014990	EMPTY
+HalfCheetah-v4__sepclip_normuon_history_probe__1__1791015155	EMPTY
+HalfCheetah-v4__sepclip_normuon_reference_audit__1__1791057894	EMPTY
+HalfCheetah-v4__sepclip_normuon_split_v2_actor_hc50m__1__1791013822	32000	32000										-244
+HalfCheetah-v4__sepclip_normuon_split_v2_actor_hc50m__1__1791013855	9561008	32000	569	2341	3700	4071	4364	4615	5026			5279
+HalfCheetah-v4__sepclip_normuon_split_v2_critic_hc50m__1__1791014003	49987008	32000	917	3149	5065	6131	6755	7721	8565	9539	10662	12862
+HalfCheetah-v4__sepclip_polar_express_normuon_v1_hc50m__1__1791012016	9794000	32000	1102	2967	4447	5099	5633	5890	5486			6022
+HalfCheetah-v4__sepclip_polar_express_normuon_v1_lr02_hc50m__1__1791013064	9093008	32000	1237	2827	3266	3393	4036	4909	5025			4943
+HalfCheetah-v4__sepclip_polar_express_normuon_v1_lrhalf_hc50m__1__1791012290	11336000	32000	363	1456	3198	4068	4326	4169	4619			3983
+HalfCheetah-v4__sepclip_reppo_hlgauss_readout_v2_residual_50M__1__1790320998	49987008	32000	456	1590	3187	4208	4848	6002	6889	8403	9382	12047
+HalfCheetah-v4__sepclip_reppo_hlgauss_readout_v2_scalar_50M__1__1790320998	19792000	32000	329	1379	3217	3909	4271	4645	5009	5373	5960	7471
+HalfCheetah-v4__sepclip_reppo_hlgauss_v1_nonormreward_50M__1__1790319805	46055008	32000	478	1730	3351	4061	4468	5112	5587	6311	7450	9027
+HalfCheetah-v4__sepclip_reppo_hlgauss_v1_normreward_50M__1__1790319805	49987008	32000	913	2482	4796	6320	7109	8731	9369	10493	10587	11366
+HalfCheetah-v4__stiglu_fm_v3_gaussian_awr__1__1789240137461358998	7978000	32000	922	1947	3301	3989	4343	4749	4931			4921
+HalfCheetah-v4__td7_auxhlg_v1__1__1784160921	24999	999										-236
+HalfCheetah-v4__td7_betanoise_v1__1__1784159891	527999	999	15462									15558
+HalfCheetah-v4__td7_betanoise_v2__1__1784161390	184999	999										11315
+HalfCheetah-v4__td7_betanoise_v3__1__1784165191	202999	999										10897
+HalfCheetah-v4__td7_betanoise_v4__1__1784166402	157999	999										10551
+HalfCheetah-v4__td7_delightful_pg_v1__1__1785970558	84999	999										4650
+HalfCheetah-v4__td7_dualproj_wppgtr_notr__1__1786042285	502999	999	16434									16493
+HalfCheetah-v4__td7_dualproj_wppgtr_v1__1__1786039449	212999	999										8593
+HalfCheetah-v4__td7_fast_sdnoise_v1__1__1790302633	999999	999	16240	17090								17024
+HalfCheetah-v4__td7_latentq_action_context_v4__1__1790305409	1061999	999	15973	16874								17094
+HalfCheetah-v4__td7_latentq_dual_smooth_v3__1__1790302888	999999	999	15961	17599								17596
+HalfCheetah-v4__td7_latentq_dual_v2__1__1790302318	495999	999	15141									15124
+HalfCheetah-v4__td7_latentq_final_latent_v6__1__1790307964	EMPTY
+HalfCheetah-v4__td7_latentq_final_latent_v6__1__1790307983	407999	999										8473
+HalfCheetah-v4__td7_latentq_hermite_v1__1__1790302566	138999	999										8921
+HalfCheetah-v4__td7_latentq_hermite_v1_order0__1__1790302215	314999	999										12234
+HalfCheetah-v4__td7_latentq_hidden_preaction_v7__1__1790308461	350999	999										9610
+HalfCheetah-v4__td7_latentq_preaction_action_tangent_v6__1__1790310245	2322999	999	15281	16600	16972							17701
+HalfCheetah-v4__td7_latentq_preaction_u_tangent_v7__1__1790310393	2066999	999	15763	16872	17630							17684
+HalfCheetah-v4__td7_latentq_preaction_v5__1__1790306834	312999	999										15726
+HalfCheetah-v4__td7_latentq_preaction_v5__1__1790309009	1388999	999	16070	17558								18256
+HalfCheetah-v4__td7_lesale_compile_rewardpolicy_routed_v6__1__1783707200	218999	999										11321
+HalfCheetah-v4__td7_lesale_compile_rewardpolicy_v5__1__1783706819	38999	999										-404
+HalfCheetah-v4__td7_lesale_compile_rewardtoken_v4__1__1783704853	239999	999										12181
+HalfCheetah-v4__td7_lesale_compileonly_v3__1__1783626260	103999	999										10361
+HalfCheetah-v4__td7_lesale_control_v1__1__1783620523	218999	999										12182
+HalfCheetah-v4__td7_lesale_ctrl_v2__1__1783623911	141999	999										11165
+HalfCheetah-v4__td7_lesale_jedi_aux_v4__1__1783627689	1429999	999	15315	16194								16467
+HalfCheetah-v4__td7_lesale_jedi_canonical_v6__1__1783644434	161999	999										10194
+HalfCheetah-v4__td7_lesale_jedi_endpoint_v5__1__1783641724	211999	999										9455
+HalfCheetah-v4__td7_lesale_jedi_sysctrl_v4__1__1783627601	1741999	999	15174	15889								16198
+HalfCheetah-v4__td7_lesale_lappred_v2__1__1783623911	151999	999										10209
+HalfCheetah-v4__td7_lesale_lejepa_outcomes_v7__1__1783709758	30999	999										-219
+HalfCheetah-v4__td7_lesale_lejepa_refbatch128_v10__1__1783717876	2079999	999	11973	15352	16020							16181
+HalfCheetah-v4__td7_lesale_lejepa_sac_v11__1__1783720309	965999	999	12331	15241								15237
+HalfCheetah-v4__td7_lesale_lejepa_sibling_tokens_v8__1__1783709909	1071999	999	15525	15588								16471
+HalfCheetah-v4__td7_lesale_lewm_jedi_v7__1__1783646387	2107999	999	15021	15847	15870							16216
+HalfCheetah-v4__td7_lesale_lewm_rollout_v8__1__1783648474	26999	999										-225
+HalfCheetah-v4__td7_lesale_lewm_rollout_v8__1__1783648628	1574999	999	15397	16040								16447
+HalfCheetah-v4__td7_lesale_v1_detached__1__1783620523	180999	999										10870
+HalfCheetah-v4__td7_lesale_v1_e2e__1__1783620523	49999	999										1353
+HalfCheetah-v4__td7_lesale_v1_stocksig__1__1783620870	1722999	999	15613	16324								15828
+HalfCheetah-v4__td7_rankgreedy_v1__1__1784156768	178999	999										10740
+HalfCheetah-v4__td7_sdnoise_v1__1__1784158966	999999	999	16178	17124								17102
+HalfCheetah-v4__td7_sdnoise_v2_dg__1__1784170161	269999	999										12698
+HalfCheetah-v4__td7_sdnoise_v2_ou__1__1784167723	309999	999										13388
+HalfCheetah-v4__td7_sdnoise_v2_oudg_8m__1__1784173415	569999	999	16150									16150
+HalfCheetah-v4__td7_sdnoise_v2_oudg_8m__1__1784180849	2159999	999	16240	17017	17197							17289
+HalfCheetah-v4__td7_sdnoise_v2_oudg__1__1784170023	422999	999										16202
+HalfCheetah-v4__td7_sdnoise_v3_anti__1__1784172251	114999	999										9910
+HalfCheetah-v4__td7_softbeta_v1__1__1784164115	106999	999										9227
+HalfCheetah-v4__td7_softgauss_v1__1__1784163146	107999	999										9386
+HalfCheetah-v4__td7_stocksig_hlg_narrow51_v3__1__1784160300	73999	999										-13
+HalfCheetah-v4__td7_stocksig_hlg_narrow_v2b__1__1784159028	162999	999										8809
+HalfCheetah-v4__td7_stocksig_hlgauss_v1__1__1784157978	81999	999										6983
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_dualproj_v3__1__1784246510	1441999	999	16562	17340								17446
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_hlgreward101_policy_betanll_gradequal_v12_1m__1__1784285838	999999	999	15312	15783								15810
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_hlgreward_policy_betanll_gradequal_v11_1m__1__1784285838	999999	999	16139	17158								17161
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_hlgreward_policy_betanll_gradequal_v11__1__1784279544	34999	999										-231
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_hlgreward_policy_betanll_gradequal_v11__1__1784279650	253999	999										11301
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_hlgreward_policy_betanll_lossnorm_v10__1__1784277509	26999	999										-224
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_hlgreward_policy_betanll_lossnorm_v10__1__1784277897	43999	999										-304
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_isometric64_v6__1__1784266038	30999	999										-245
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_isometric64_v6__1__1784266254	864999	999	16333									16775
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_latent64_v5__1__1784256927	EMPTY
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_latent64_v5__1__1784256948	223999	999										11116
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_rawhlgreward101_policy_betanll_gradequal_v13_1m__1__1784285838	999999	999	16024	16939								17189
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_rewardiso_policy_betanll_bounded_v8__1__1784275315	455999	999	16339									16358
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_rewardiso_policy_betanll_v7__1__1784271516	37999	999										-344
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_semantic64_v4__1__1784252064	301999	999										12497
+HalfCheetah-v4__td7_stocksig_sdnoise_lejepa_v2__1__1784244741	254999	999										11036
+HalfCheetah-v4__td7_stocksig_sdnoise_pcactor_b32_v2__1__1784251532	57999	999										-289
+HalfCheetah-v4__td7_stocksig_sdnoise_pcactor_v1__1__1784249097	249999	999										9134
+HalfCheetah-v4__td7_stocksig_sdnoise_v1__1__1784239917	783999	999	16721									17097
+HalfCheetah-v4__td7_v1__1__1783448814	1044999	999	14993	16056								16044
+HalfCheetah-v4__td7_v1b__1__1783458120	626999	999	14061									14513
+HalfCheetah-v4__td7ctx_v2__1__1783464350	255999	999										11695
+HalfCheetah-v4__td7ctx_v3_1__1__1783471142	134999	999										8957
+HalfCheetah-v4__td7ctx_v3_3__1__1783476517	267999	999										10467
+HalfCheetah-v4__td7ctx_v3_4__1__1783489900	177999	999										11419
+HalfCheetah-v4__td7ctx_v3_5__1__1783492496	57999	999										4565
+HalfCheetah-v4__td7ctx_v3__1__1783469413	155999	999										10998
+HalfCheetah-v4__td7hist_v1__1__1783460948	758999	999	14308									15569
+HalfCheetah-v4__td7hop_v1_explore__1__1783453801	315999	999										12717
+HalfCheetah-v4__td7hop_v1_pure__1__1783453798	143999	999										4060
+HalfCheetah-v4__td7hop_v1_sdpg__1__1783453800	137999	999										8923
+HalfCheetah-v4__td7hop_v2_guide__1__1783456240	118999	999										9526
+HalfCheetah-v4__td7hop_v2_press__1__1783456242	90999	999										8868
+HalfCheetah-v4__td7hvm_v1__1__1783459359	251999	999										12242
+HalfCheetah-v4__td7stepmem_v1__1__1783527990	140999	999										10418
+HalfCheetah-v4__td7tap_v1__1__1783458662	259999	999										12734
+HalfCheetah-v4__verify_td7_baseline__1__1786039134	29999	999										-246
+HalfCheetah-v4__verify_td7_stock__1__1786038833	29999	999										-255
+HalfCheetah-v4__verify_td7_wppgtr__1__1786038953	29999	999										-231

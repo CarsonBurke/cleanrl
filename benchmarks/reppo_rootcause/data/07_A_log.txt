@@ -1,0 +1,91 @@
+states 512 actions 58 rollouts 64 checkpoints [1, 5, 10, 25, 50, 100, 200, 400]; FD steps pre [0.1        0.30000001]; CRN dup err 0.0e+00
+
+== 1. pooled reproduction (all 512 states)
+within corr critic vs truth +0.109 (corrected +0.149, reliability 0.542)
+self-consistency corr critic vs own 1-step lookahead -0.331
+true within sd 0.223; critic within sd pooled 0.206, median state 0.046
+pre-tanh h=0.1: slope true-on-critic +0.372
+pre-tanh h=0.3: slope true-on-critic +0.211
+
+== 2. influence
+top-5 states by critic pre-tanh gradient energy: [402, 487, 29, 196, 108] shares [0.862, 0.009, 0.004, 0.004, 0.003]
+top-5 states by critic within-state energy: [402, 446, 403, 108, 2] shares [0.881, 0.005, 0.004, 0.003, 0.003]
+state 402: age 691, critic Q(a0) 13.43, true Q(a0) 3.76 +- 0.80; rest: critic Q median 42.19, true median 42.89
+  its within-state: critic sd 4.371, true sd (noise-corrected) 0.993, corr critic-truth +0.283, corr critic-lookahead1 -0.493
+  h=0.1: |g_critic| 17.46; true rate along critic's unit gradient +4.373 +- 2.275 (|true grad| 8.05, noise rms/dim 2.15); cos(critic, 1-step lookahead FD) -0.401, cos(critic, 5-step) +0.426, cos(1-step, truth) -0.789, cos(5-step, truth) +0.902
+  h=0.3: |g_critic| 17.46; true rate along critic's unit gradient +2.432 +- 0.967 (|true grad| 3.78, noise rms/dim 1.28); cos(critic, 1-step lookahead FD) -0.403, cos(critic, 5-step) +0.357, cos(1-step, truth) -0.878, cos(5-step, truth) +0.911
+
+== 3. statistics by how the field is consumed (pre-tanh space, the reparameterized path)
+   field step delta_a(s) = w(s) g_c(s); true first-order gain = sum_s w(s) g_c(s).g_true(s); reported as
+   G = mean_s(w g_c.g_true) / sqrt(mean_s |w g_c|^2)  (true rate per unit rms step; a perfect field scores rms|g_true|)
+ h=0.1: true gradient rms (noise-corrected, per state) 1.698
+   raw (w=1): the unconstrained sum the actor loss differentiates     | all              G +0.309 [+0.186, +0.534]  = +0.182 of a perfect field's rms
+   raw (w=1): the unconstrained sum the actor loss differentiates     | drop top state   G +0.349 [+0.143, +0.553]  = +0.206 of a perfect field's rms
+   raw (w=1): the unconstrained sum the actor loss differentiates     | drop top 1% |g|  G +0.283 [+0.086, +0.510]  = +0.167 of a perfect field's rms
+   raw (w=1): the unconstrained sum the actor loss differentiates     | drop top 5% |g|  G +0.250 [+0.106, +0.400]  = +0.147 of a perfect field's rms
+   clip |g| at p99                                                    | all              G +0.381 [+0.161, +0.618]  = +0.224 of a perfect field's rms
+   clip |g| at p99                                                    | drop top state   G +0.355 [+0.138, +0.600]  = +0.209 of a perfect field's rms
+   clip |g| at p99                                                    | drop top 1% |g|  G +0.283 [+0.090, +0.485]  = +0.167 of a perfect field's rms
+   clip |g| at p99                                                    | drop top 5% |g|  G +0.250 [+0.104, +0.408]  = +0.147 of a perfect field's rms
+   clip |g| at p90                                                    | all              G +0.328 [+0.138, +0.543]  = +0.193 of a perfect field's rms
+   clip |g| at p90                                                    | drop top state   G +0.313 [+0.123, +0.509]  = +0.184 of a perfect field's rms
+   clip |g| at p90                                                    | drop top 1% |g|  G +0.270 [+0.093, +0.448]  = +0.159 of a perfect field's rms
+   clip |g| at p90                                                    | drop top 5% |g|  G +0.250 [+0.105, +0.400]  = +0.147 of a perfect field's rms
+   unit (w=1/|g|): a per-state trust region                           | all              G +0.314 [+0.156, +0.462]  = +0.185 of a perfect field's rms
+   unit (w=1/|g|): a per-state trust region                           | drop top state   G +0.306 [+0.155, +0.452]  = +0.180 of a perfect field's rms
+ h=0.3: true gradient rms (noise-corrected, per state) 1.006
+   raw (w=1): the unconstrained sum the actor loss differentiates     | all              G +0.175 [+0.137, +0.276]  = +0.174 of a perfect field's rms
+   raw (w=1): the unconstrained sum the actor loss differentiates     | drop top state   G +0.204 [+0.122, +0.287]  = +0.203 of a perfect field's rms
+   raw (w=1): the unconstrained sum the actor loss differentiates     | drop top 1% |g|  G +0.161 [+0.088, +0.239]  = +0.160 of a perfect field's rms
+   raw (w=1): the unconstrained sum the actor loss differentiates     | drop top 5% |g|  G +0.116 [+0.040, +0.189]  = +0.115 of a perfect field's rms
+   clip |g| at p99                                                    | all              G +0.218 [+0.131, +0.311]  = +0.217 of a perfect field's rms
+   clip |g| at p99                                                    | drop top state   G +0.204 [+0.116, +0.287]  = +0.203 of a perfect field's rms
+   clip |g| at p99                                                    | drop top 1% |g|  G +0.161 [+0.081, +0.243]  = +0.160 of a perfect field's rms
+   clip |g| at p99                                                    | drop top 5% |g|  G +0.116 [+0.042, +0.190]  = +0.115 of a perfect field's rms
+   clip |g| at p90                                                    | all              G +0.179 [+0.099, +0.263]  = +0.178 of a perfect field's rms
+   clip |g| at p90                                                    | drop top state   G +0.171 [+0.088, +0.251]  = +0.170 of a perfect field's rms
+   clip |g| at p90                                                    | drop top 1% |g|  G +0.146 [+0.068, +0.226]  = +0.145 of a perfect field's rms
+   clip |g| at p90                                                    | drop top 5% |g|  G +0.114 [+0.041, +0.189]  = +0.114 of a perfect field's rms
+   unit (w=1/|g|): a per-state trust region                           | all              G +0.144 [+0.073, +0.208]  = +0.143 of a perfect field's rms
+   unit (w=1/|g|): a per-state trust region                           | drop top state   G +0.139 [+0.074, +0.205]  = +0.138 of a perfect field's rms
+
+== 4. regression directions (fresh-action within-state advantages; truth noise removed where it biases)
+   slope(truth on critic) = cov/var(critic): unbiased under truth noise; equals 1 for ANY conditional-mean predictor,
+   including an optimally shrunk noisy one. slope(critic on truth) = cov/var(truth signal). r^2 = product.
+   all              truth-on-critic +0.18 [+0.13, +0.99] | critic-on-truth +0.120 [+0.046, +0.234] | r^2 0.022 [0.016, 0.079] | sd ratio critic/true 0.81 [0.27, 1.33]
+   drop top state   truth-on-critic +0.79 [+0.52, +1.05] | critic-on-truth +0.063 [+0.041, +0.087] | r^2 0.050 [0.022, 0.090] | sd ratio critic/true 0.28 [0.26, 0.31]
+   drop top 1% |g|  truth-on-critic +0.79 [+0.52, +1.04] | critic-on-truth +0.062 [+0.040, +0.083] | r^2 0.048 [0.021, 0.084] | sd ratio critic/true 0.28 [0.25, 0.31]
+   drop top 5% |g|  truth-on-critic +0.76 [+0.45, +1.05] | critic-on-truth +0.056 [+0.032, +0.079] | r^2 0.042 [0.015, 0.081] | sd ratio critic/true 0.27 [0.25, 0.30]
+   gradient (pre-tanh FD):
+   h=0.1 all              truth-on-critic +0.37 [+0.27, +1.72] | critic-on-truth +0.089 [+0.023, +0.210] | signed r^2 +0.033 [+0.015, +0.087] | norm ratio 0.49 [0.16, 0.86]
+   h=0.1 drop top state   truth-on-critic +1.13 [+0.41, +1.93] | critic-on-truth +0.038 [+0.016, +0.063] | signed r^2 +0.043 [+0.007, +0.107] | norm ratio 0.18 [0.15, 0.24]
+   h=0.1 drop top 1% |g|  truth-on-critic +1.01 [+0.27, +1.74] | critic-on-truth +0.031 [+0.009, +0.056] | signed r^2 +0.031 [+0.002, +0.088] | norm ratio 0.18 [0.15, 0.23]
+   h=0.1 drop top 5% |g|  truth-on-critic +1.05 [+0.40, +1.67] | critic-on-truth +0.029 [+0.010, +0.056] | signed r^2 +0.030 [+0.004, +0.087] | norm ratio 0.16 [0.14, 0.21]
+   h=0.3 all              truth-on-critic +0.21 [+0.16, +0.88] | critic-on-truth +0.144 [+0.042, +0.342] | signed r^2 +0.030 [+0.019, +0.073] | norm ratio 0.83 [0.28, 1.45]
+   h=0.3 drop top state   truth-on-critic +0.66 [+0.40, +0.94] | critic-on-truth +0.063 [+0.035, +0.092] | signed r^2 +0.041 [+0.015, +0.082] | norm ratio 0.31 [0.27, 0.35]
+   h=0.3 drop top 1% |g|  truth-on-critic +0.57 [+0.28, +0.85] | critic-on-truth +0.047 [+0.023, +0.074] | signed r^2 +0.027 [+0.007, +0.061] | norm ratio 0.29 [0.25, 0.33]
+   h=0.3 drop top 5% |g|  truth-on-critic +0.49 [+0.19, +0.81] | critic-on-truth +0.030 [+0.011, +0.051] | signed r^2 +0.015 [+0.002, +0.039] | norm ratio 0.25 [0.22, 0.28]
+
+== 5. per-state distributions (every state weighted equally; no trimming)
+ reference: H=400 truth
+   critic  Pearson : p10 -0.52 p25 -0.25 p50 +0.14 p75 +0.45 p90 +0.68 mean +0.100 +- 0.020 frac>0 0.60
+   critic  Spearman: p10 -0.52 p25 -0.26 p50 +0.12 p75 +0.45 p90 +0.64 mean +0.087 +- 0.019 frac>0 0.57
+   1-step lookahead Pearson : p10 -0.41 p25 -0.09 p50 +0.25 p75 +0.59 p90 +0.77 mean +0.217 +- 0.019 frac>0 0.69
+   5-step lookahead Pearson : p10 -0.10 p25 +0.26 p50 +0.56 p75 +0.78 p90 +0.90 mean +0.478 +- 0.017 frac>0 0.87
+ reference: 10-step truth (t=10 then critic V'; 2.7x less noise, critic-contaminated)
+   critic  Pearson : p10 -0.65 p25 -0.26 p50 +0.23 p75 +0.55 p90 +0.78 mean +0.132 +- 0.023 frac>0 0.62
+   critic  Spearman: p10 -0.64 p25 -0.24 p50 +0.15 p75 +0.48 p90 +0.76 mean +0.102 +- 0.022 frac>0 0.60
+   1-step lookahead Pearson : p10 -0.49 p25 -0.10 p50 +0.37 p75 +0.72 p90 +0.88 mean +0.273 +- 0.022 frac>0 0.69
+   5-step lookahead Pearson : p10 +0.26 p25 +0.66 p50 +0.88 p75 +0.96 p90 +0.98 mean +0.737 +- 0.015 frac>0 0.95
+   truth split-half (32 vs 32 rollouts) Pearson: p10 -0.28 p25 -0.06 p50 +0.25 p75 +0.60 p90 +0.77 mean +0.243 +- 0.018 frac>0 0.70
+   => mean per-state reliability of the 64-rollout truth 0.391; a perfect predictor's mean per-state Pearson ~ 0.625
+   => critic's disattenuated mean per-state Pearson ~ +0.160
+   10-step truth: split-half mean 0.662, reliability 0.797; critic disattenuated mean per-state Pearson +0.147
+ gradient cosines per state (6-D, pre-tanh):
+   h=0.1 vs H=400  : critic cos p10 -0.51 p25 -0.25 p50 +0.09 p75 +0.38 p90 +0.65 mean +0.070 +- 0.019 frac>0 0.56 | truth split-half cos mean +0.046 -> ceiling ~0.30 -> disattenuated +0.237
+   h=0.1 vs 10-step: critic cos p10 -0.67 p25 -0.35 p50 +0.10 p75 +0.51 p90 +0.76 mean +0.075 +- 0.023 frac>0 0.56 | truth split-half cos mean +0.346 -> ceiling ~0.72 -> disattenuated +0.105
+   h=0.1 vs 1-step : critic cos p10 -0.35 p25 +0.21 p50 +0.61 p75 +0.84 p90 +0.94 mean +0.444 +- 0.022 frac>0 0.81 | truth split-half cos mean +1.000 -> ceiling ~1.00 -> disattenuated +0.444
+   h=0.3 vs H=400  : critic cos p10 -0.60 p25 -0.27 p50 +0.11 p75 +0.43 p90 +0.71 mean +0.078 +- 0.021 frac>0 0.58 | truth split-half cos mean +0.180 -> ceiling ~0.55 -> disattenuated +0.141
+   h=0.3 vs 10-step: critic cos p10 -0.62 p25 -0.29 p50 +0.14 p75 +0.57 p90 +0.80 mean +0.119 +- 0.023 frac>0 0.59 | truth split-half cos mean +0.541 -> ceiling ~0.84 -> disattenuated +0.142
+   h=0.3 vs 1-step : critic cos p10 -0.33 p25 +0.19 p50 +0.61 p75 +0.84 p90 +0.94 mean +0.448 +- 0.022 frac>0 0.82 | truth split-half cos mean +1.000 -> ceiling ~1.00 -> disattenuated +0.448
+ expected cosine of a random 6-D direction: 0 +- 0.41 per state

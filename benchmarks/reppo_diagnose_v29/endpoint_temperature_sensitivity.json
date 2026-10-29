@@ -1,0 +1,338 @@
+[
+  {
+    "snapshot": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__reppo_diagnose_v29_h8_reward_16M__1__1790481916/snapshot_12009088.pt",
+    "comparison": "last_actor_update",
+    "pre_temperature": 0.026985667645931244,
+    "post_temperature": 0.027057209983468056,
+    "branches": {
+      "first_action": {
+        "scaled_raw": {
+          "mean": 0.1646248736763684,
+          "ci95_low": 0.017184776387579283,
+          "ci95_high": 0.30989349503770713,
+          "state_sd": 1.6820741996349617,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.605763371455578,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": 0.02162790382441461,
+          "trajectory_ci95_high": 0.3021568984668828
+        },
+        "pre_temperature_entropy_gain": {
+          "mean": -0.004331806079790956,
+          "ci95_low": -0.03685131009521232,
+          "ci95_high": 0.031173067405694102,
+          "state_sd": 0.3917695999942224,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 0.39234070993308456,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.026609420234731927,
+          "trajectory_ci95_high": 0.018754621105222958
+        },
+        "post_temperature_soft_gain": {
+          "mean": 0.1602815834437015,
+          "ci95_low": 0.023183471247020252,
+          "ci95_high": 0.2947917740026515,
+          "state_sd": 1.596518945567604,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.4869568174588554,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": 0.014558490942252728,
+          "trajectory_ci95_high": 0.29996899848246805
+        }
+      },
+      "full_policy": {
+        "scaled_raw": {
+          "mean": 0.3966115605683382,
+          "ci95_low": 0.25514910640389543,
+          "ci95_high": 0.5367091843815538,
+          "state_sd": 1.6348987796157617,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.578231147114755,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": 0.18816155711665536,
+          "trajectory_ci95_high": 0.6383003660247981
+        },
+        "pre_temperature_entropy_gain": {
+          "mean": 0.0478345580133337,
+          "ci95_low": 0.013733368963449712,
+          "ci95_high": 0.0857035553666304,
+          "state_sd": 0.41447236195086595,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 0.40482536539585356,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": 0.004200062160663523,
+          "trajectory_ci95_high": 0.0928894491191944
+        },
+        "post_temperature_soft_gain": {
+          "mean": 0.44457293390231595,
+          "ci95_low": 0.310265492787724,
+          "ci95_high": 0.5804481887821139,
+          "state_sd": 1.5675824894713832,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.49397011135675,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": 0.2189545038397709,
+          "trajectory_ci95_high": 0.7074153046257763
+        }
+      }
+    }
+  },
+  {
+    "snapshot": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__reppo_diagnose_v29_h8_reward_16M__1__1790481916/snapshot_12009088.pt",
+    "comparison": "update",
+    "pre_temperature": 0.025426914915442467,
+    "post_temperature": 0.027057209983468056,
+    "branches": {
+      "first_action": {
+        "scaled_raw": {
+          "mean": 0.023051755545089772,
+          "ci95_low": -0.12268935828557871,
+          "ci95_high": 0.17146667467121737,
+          "state_sd": 1.716990039807047,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.8549492466271345,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.14063510138108273,
+          "trajectory_ci95_high": 0.16746066574249216
+        },
+        "pre_temperature_entropy_gain": {
+          "mean": -0.006006902174379261,
+          "ci95_low": -0.0399101859448039,
+          "ci95_high": 0.02821638108537501,
+          "state_sd": 0.38850695078349234,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 0.3840847902181602,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.04153248784136917,
+          "trajectory_ci95_high": 0.02387006518239364
+        },
+        "post_temperature_soft_gain": {
+          "mean": 0.016659709399388406,
+          "ci95_low": -0.11214189695325612,
+          "ci95_high": 0.15610521959544923,
+          "state_sd": 1.5674180040534593,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.6742939201953655,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.14064634583398,
+          "trajectory_ci95_high": 0.15045504363573178
+        }
+      },
+      "full_policy": {
+        "scaled_raw": {
+          "mean": 1.0555376028494219,
+          "ci95_low": 0.8886759286918029,
+          "ci95_high": 1.2237053985787838,
+          "state_sd": 1.9599484938056635,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.6839652154591722,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": 0.5627656817272462,
+          "trajectory_ci95_high": 1.5948176026917904
+        },
+        "pre_temperature_entropy_gain": {
+          "mean": -0.17418913974948302,
+          "ci95_low": -0.2020222423787432,
+          "ci95_high": -0.14319304203997768,
+          "state_sd": 0.3337926171111902,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 0.3424345968972402,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.20390820382524563,
+          "trajectory_ci95_high": -0.14391715227365165
+        },
+        "post_temperature_soft_gain": {
+          "mean": 0.87017999471195,
+          "ci95_low": 0.7139077429132573,
+          "ci95_high": 1.0273009879222872,
+          "state_sd": 1.8346550182240111,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.5195907107569713,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": 0.37944606540533365,
+          "trajectory_ci95_high": 1.4029122950443595
+        }
+      }
+    }
+  },
+  {
+    "snapshot": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__reppo_diagnose_v29_h8_reward_16M__1__1790481916/snapshot_8011392.pt",
+    "comparison": "last_actor_update",
+    "pre_temperature": 0.041360899806022644,
+    "post_temperature": 0.04152186959981918,
+    "branches": {
+      "first_action": {
+        "scaled_raw": {
+          "mean": -0.058238434097863404,
+          "ci95_low": -0.16130118826790527,
+          "ci95_high": 0.04425507139678192,
+          "state_sd": 1.2042043691183517,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.1792548929004563,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.15338438281156883,
+          "trajectory_ci95_high": 0.038301862957908335
+        },
+        "pre_temperature_entropy_gain": {
+          "mean": 0.044534416915409186,
+          "ci95_low": 0.009461744916482214,
+          "ci95_high": 0.0790676561738047,
+          "state_sd": 0.42411321162721166,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 0.40798717051015115,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": 0.018659384375026865,
+          "trajectory_ci95_high": 0.07111896219677925
+        },
+        "post_temperature_soft_gain": {
+          "mean": -0.013530696583982146,
+          "ci95_low": -0.11109488930004181,
+          "ci95_high": 0.08208707725066529,
+          "state_sd": 1.1523547040885147,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.1198121309184443,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.11496721796999469,
+          "trajectory_ci95_high": 0.0863302569084055
+        }
+      },
+      "full_policy": {
+        "scaled_raw": {
+          "mean": 0.11824121020057098,
+          "ci95_low": 0.0050258172207002134,
+          "ci95_high": 0.22148631914401823,
+          "state_sd": 1.253577917474257,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.182328758452854,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.09230741269181307,
+          "trajectory_ci95_high": 0.30154410783430785
+        },
+        "pre_temperature_entropy_gain": {
+          "mean": -0.14028207403994372,
+          "ci95_low": -0.17590085065710087,
+          "ci95_high": -0.10205159338230507,
+          "state_sd": 0.4245065657998948,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 0.42614670315343406,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.1862658389248691,
+          "trajectory_ci95_high": -0.09483107137304164
+        },
+        "post_temperature_soft_gain": {
+          "mean": -0.02258681851244475,
+          "ci95_low": -0.13623602619288885,
+          "ci95_high": 0.08132390272567164,
+          "state_sd": 1.2299809973078797,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.146669300815569,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.21243454012289548,
+          "trajectory_ci95_high": 0.1528378710130321
+        }
+      }
+    }
+  },
+  {
+    "snapshot": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__reppo_diagnose_v29_h8_reward_16M__1__1790481916/snapshot_8011392.pt",
+    "comparison": "update",
+    "pre_temperature": 0.036374952644109726,
+    "post_temperature": 0.04152186959981918,
+    "branches": {
+      "first_action": {
+        "scaled_raw": {
+          "mean": -0.06720735708232722,
+          "ci95_low": -0.16416523426024512,
+          "ci95_high": 0.030624360238201198,
+          "state_sd": 1.1406592882071875,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.1476154199663107,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.17129756944148164,
+          "trajectory_ci95_high": 0.036814318441365575
+        },
+        "pre_temperature_entropy_gain": {
+          "mean": 0.015362731757976426,
+          "ci95_low": -0.01428478936643045,
+          "ci95_high": 0.045894395609994074,
+          "state_sd": 0.3583971552084334,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 0.35536524950377285,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.016598084442878382,
+          "trajectory_ci95_high": 0.04407616121805209
+        },
+        "post_temperature_soft_gain": {
+          "mean": -0.04967085742024471,
+          "ci95_low": -0.14497975661836215,
+          "ci95_high": 0.045878624050164414,
+          "state_sd": 1.1168628037426507,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.1059761886978081,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.14073443340067726,
+          "trajectory_ci95_high": 0.05029721502312452
+        }
+      },
+      "full_policy": {
+        "scaled_raw": {
+          "mean": -0.5079961618622073,
+          "ci95_low": -0.6200859586487384,
+          "ci95_high": -0.4048574105161954,
+          "state_sd": 1.2260162583735383,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.2506388220178937,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.6397248253043123,
+          "trajectory_ci95_high": -0.4072741940438212
+        },
+        "pre_temperature_entropy_gain": {
+          "mean": 0.3871681965954419,
+          "ci95_low": 0.3545810768331794,
+          "ci95_high": 0.4199971823107749,
+          "state_sd": 0.37637167714869757,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 0.37846388572566225,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": 0.35955039600596267,
+          "trajectory_ci95_high": 0.4200642672329124
+        },
+        "post_temperature_soft_gain": {
+          "mean": -0.06604514327204819,
+          "ci95_low": -0.17712151879164229,
+          "ci95_high": 0.03738223475060201,
+          "state_sd": 1.1863202534516402,
+          "states": 512,
+          "rollouts": 32,
+          "within_state_mc_se_rms": 1.1715313219144605,
+          "trajectory_clusters": 16,
+          "trajectory_ci95_low": -0.1902844553700813,
+          "trajectory_ci95_high": 0.03031378618203036
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,63 @@
+
+===== v23_4M
+  (a) top-1 / top-5 states hold 0.32 / 0.56 of critic within-state energy
+    all states                 n 512  corr +0.286  amp  1.01  amp/corr   3.54  slope truth-on-critic +0.28 [+0.16, +0.53]  P(slope<1) 1.00  sd_true 0.309
+    drop top 1% critic energy  n 506  corr +0.325  amp  0.69  amp/corr   2.12  slope truth-on-critic +0.47 [+0.37, +0.58]  P(slope<1) 1.00  sd_true 0.299
+    drop top 5% critic energy  n 486  corr +0.307  amp  0.61  amp/corr   2.00  slope truth-on-critic +0.50 [+0.38, +0.61]  P(slope<1) 1.00  sd_true 0.291
+    upright states only        n 512  corr +0.286  amp  1.01  amp/corr   3.54  slope truth-on-critic +0.28 [+0.17, +0.54]  P(slope<1) 1.00  sd_true 0.309
+    upright, drop top 5%       n 486  corr +0.307  amp  0.61  amp/corr   2.00  slope truth-on-critic +0.50 [+0.38, +0.62]  P(slope<1) 1.00  sd_true 0.291
+    per-state gain along unit critic contrast: mean +0.0911 +- 0.0100, median +0.0645, frac > 0 0.65
+  (b) rows inverted (cos pitch < 0) 0.0000; |pitch| > pi/2 (incl. wound-up upright) 0.0000; oracle states not upright 0.000
+    upright            rows 1.0000  pre-tanh std 0.443  mean|tanh mu| 0.602  q_mse    1.406  share of q_mse 1.000  target mean   72.90  critic mean   72.60
+    all rows: pre-tanh std 0.443; upright-rows-only std 0.443; q_mse 1.406; top 1% of rows hold 0.29 of q_mse
+
+===== v29h8_8M
+  (a) top-1 / top-5 states hold 0.16 / 0.46 of critic within-state energy
+    all states                 n 512  corr +0.199  amp  0.44  amp/corr   2.19  slope truth-on-critic +0.46 [+0.17, +0.86]  P(slope<1) 0.99  sd_true 0.420
+    drop top 1% critic energy  n 506  corr +0.232  amp  0.34  amp/corr   1.47  slope truth-on-critic +0.68 [+0.44, +0.90]  P(slope<1) 1.00  sd_true 0.393
+    drop top 5% critic energy  n 486  corr +0.262  amp  0.30  amp/corr   1.14  slope truth-on-critic +0.88 [+0.65, +1.11]  P(slope<1) 0.86  sd_true 0.388
+    upright states only        n 512  corr +0.199  amp  0.44  amp/corr   2.19  slope truth-on-critic +0.46 [+0.19, +0.92]  P(slope<1) 0.99  sd_true 0.420
+    upright, drop top 5%       n 486  corr +0.262  amp  0.30  amp/corr   1.14  slope truth-on-critic +0.88 [+0.63, +1.14]  P(slope<1) 0.82  sd_true 0.388
+    per-state gain along unit critic contrast: mean +0.0992 +- 0.0156, median +0.0760, frac > 0 0.60
+  (b) rows inverted (cos pitch < 0) 0.0000; |pitch| > pi/2 (incl. wound-up upright) 0.0000; oracle states not upright 0.000
+    upright            rows 1.0000  pre-tanh std 0.493  mean|tanh mu| 0.656  q_mse    1.444  share of q_mse 1.000  target mean  105.93  critic mean  106.09
+    all rows: pre-tanh std 0.493; upright-rows-only std 0.493; q_mse 1.444; top 1% of rows hold 0.62 of q_mse
+
+===== v23_12M
+  (a) top-1 / top-5 states hold 0.19 / 0.56 of critic within-state energy
+    all states                 n 512  corr +0.037  amp  0.22  amp/corr   5.89  slope truth-on-critic +0.17 [-0.30, +0.78]  P(slope<1) 0.99  sd_true 1.614
+    drop top 1% critic energy  n 506  corr +0.002  amp  0.16  amp/corr  93.84  slope truth-on-critic +0.01 [-0.40, +0.36]  P(slope<1) 1.00  sd_true 1.386
+    drop top 5% critic energy  n 486  corr +0.056  amp  0.15  amp/corr   2.74  slope truth-on-critic +0.37 [+0.16, +0.59]  P(slope<1) 1.00  sd_true 1.023
+    upright states only        n 498  corr +0.037  amp  0.22  amp/corr   5.76  slope truth-on-critic +0.17 [-0.30, +0.87]  P(slope<1) 0.98  sd_true 1.637
+    upright, drop top 5%       n 473  corr +0.057  amp  0.15  amp/corr   2.66  slope truth-on-critic +0.38 [+0.18, +0.61]  P(slope<1) 1.00  sd_true 1.037
+    per-state gain along unit critic contrast: mean +0.0611 +- 0.0216, median +0.0531, frac > 0 0.60
+  (b) rows inverted (cos pitch < 0) 0.0238; |pitch| > pi/2 (incl. wound-up upright) 0.0443; oracle states not upright 0.027
+    upright            rows 0.9557  pre-tanh std 0.466  mean|tanh mu| 0.635  q_mse   10.153  share of q_mse 0.620  target mean  108.11  critic mean  108.25
+    inverted or wound  rows 0.0443  pre-tanh std 1.076  mean|tanh mu| 0.577  q_mse  134.379  share of q_mse 0.380  target mean   -3.27  critic mean    3.53
+    all rows: pre-tanh std 0.493; upright-rows-only std 0.466; q_mse 15.657; top 1% of rows hold 0.62 of q_mse
+
+===== v29h8_12M
+  (a) top-1 / top-5 states hold 0.19 / 0.53 of critic within-state energy
+    all states                 n 512  corr +0.152  amp  0.20  amp/corr   1.34  slope truth-on-critic +0.74 [+0.24, +1.82]  P(slope<1) 0.72  sd_true 1.118
+    drop top 1% critic energy  n 506  corr +0.216  amp  0.14  amp/corr   0.64  slope truth-on-critic +1.57 [+0.56, +2.85]  P(slope<1) 0.17  sd_true 1.120
+    drop top 5% critic energy  n 486  corr +0.138  amp  0.17  amp/corr   1.26  slope truth-on-critic +0.79 [+0.21, +1.62]  P(slope<1) 0.75  sd_true 0.708
+    upright states only        n 485  corr +0.152  amp  0.20  amp/corr   1.34  slope truth-on-critic +0.74 [+0.23, +1.71]  P(slope<1) 0.74  sd_true 1.149
+    upright, drop top 5%       n 459  corr +0.138  amp  0.17  amp/corr   1.26  slope truth-on-critic +0.80 [+0.20, +1.72]  P(slope<1) 0.75  sd_true 0.729
+    per-state gain along unit critic contrast: mean +0.1252 +- 0.0344, median +0.0447, frac > 0 0.57
+  (b) rows inverted (cos pitch < 0) 0.0666; |pitch| > pi/2 (incl. wound-up upright) 0.1068; oracle states not upright 0.053
+    upright            rows 0.8932  pre-tanh std 0.496  mean|tanh mu| 0.665  q_mse    2.950  share of q_mse 0.993  target mean  112.50  critic mean  112.45
+    inverted or wound  rows 0.1068  pre-tanh std 0.959  mean|tanh mu| 0.151  q_mse    0.170  share of q_mse 0.007  target mean   10.73  critic mean   10.86
+    all rows: pre-tanh std 0.545; upright-rows-only std 0.496; q_mse 2.653; top 1% of rows hold 0.75 of q_mse
+
+===== v23_30M
+  (a) top-1 / top-5 states hold 0.14 / 0.48 of critic within-state energy
+    all states                 n 512  corr +0.220  amp  0.69  amp/corr   3.16  slope truth-on-critic +0.32 [+0.19, +0.50]  P(slope<1) 1.00  sd_true 0.560
+    drop top 1% critic energy  n 506  corr +0.225  amp  0.48  amp/corr   2.16  slope truth-on-critic +0.46 [+0.24, +0.76]  P(slope<1) 1.00  sd_true 0.559
+    drop top 5% critic energy  n 486  corr +0.294  amp  0.43  amp/corr   1.48  slope truth-on-critic +0.68 [+0.47, +0.89]  P(slope<1) 1.00  sd_true 0.449
+    upright states only        n 502  corr +0.216  amp  0.69  amp/corr   3.19  slope truth-on-critic +0.31 [+0.18, +0.52]  P(slope<1) 1.00  sd_true 0.564
+    upright, drop top 5%       n 477  corr +0.295  amp  0.43  amp/corr   1.47  slope truth-on-critic +0.68 [+0.46, +0.89]  P(slope<1) 1.00  sd_true 0.453
+    per-state gain along unit critic contrast: mean +0.1168 +- 0.0216, median +0.1050, frac > 0 0.62
+  (b) rows inverted (cos pitch < 0) 0.0161; |pitch| > pi/2 (incl. wound-up upright) 0.0300; oracle states not upright 0.020
+    upright            rows 0.9700  pre-tanh std 0.501  mean|tanh mu| 0.657  q_mse   16.304  share of q_mse 0.847  target mean  106.62  critic mean  107.62
+    inverted or wound  rows 0.0300  pre-tanh std 0.860  mean|tanh mu| 0.408  q_mse   95.560  share of q_mse 0.153  target mean    6.64  critic mean   12.44
+    all rows: pre-tanh std 0.512; upright-rows-only std 0.501; q_mse 18.679; top 1% of rows hold 0.42 of q_mse

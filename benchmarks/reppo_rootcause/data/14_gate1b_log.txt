@@ -1,0 +1,159 @@
+
+===== v60 checkpoint 1015424: 4995 rows, 5 episodes; advantage sd GAE0.95 0.74
+[1015424 | linear(108)] |V*|^2 -1.023e-01 [-6.08e-01, 4.05e-01] P(>0) 0.306
+    critic             gain +0.2653 [+0.0406, +0.4955] P(>0) 0.990 | vs critic +0.0000 [+0.0000, +0.0000] P(better) 0.000
+    sf_gae0.8          gain -0.0217 [-0.7041, +0.4416] P(>0) 0.434 | vs critic -0.2871 [-0.9188, +0.1458] P(better) 0.081
+    sf_gae0.95         gain -0.1607 [-1.0664, +0.3600] P(>0) 0.276 | vs critic -0.4260 [-1.2566, +0.0485] P(better) 0.040
+    crit_norm_pre      gain +0.0654 [-0.1630, +0.2730] P(>0) 0.722 | vs critic -0.2000 [-0.3666, -0.0394] P(better) 0.006
+    crit_clip_pre      gain +0.2513 [+0.0360, +0.4808] P(>0) 0.988 | vs critic -0.0140 [-0.0431, +0.0106] P(better) 0.129
+    crit_drop1         gain +0.2075 [-0.0112, +0.4294] P(>0) 0.971 | vs critic -0.0578 [-0.1487, +0.0189] P(better) 0.080
+    critic_perm        gain +0.0874 [-0.1778, +0.3183] P(>0) 0.748 | vs critic -0.1780 [-0.4068, +0.0523] P(better) 0.057
+    unit_sum           gain +0.0630 [-0.5678, +0.4518] P(>0) 0.574 | vs critic -0.2023 [-0.6986, +0.0974] P(better) 0.083
+    unit_sum_clippre   gain +0.0544 [-0.5789, +0.4381] P(>0) 0.566 | vs critic -0.2109 [-0.7062, +0.0854] P(better) 0.075
+    unit_sum_critperm  gain -0.0483 [-0.7664, +0.3549] P(>0) 0.381 | vs critic -0.3137 [-0.8936, +0.0221] P(better) 0.037
+    noise_share_critic           +0.071 [+0.016, +0.084]  (valid draws 1.00)
+    noise_share_sf               +1.200 [+0.590, +3.220]  (valid draws 1.00)
+    rho_noise                    +0.044 [-0.359, +0.396]  (valid draws 1.00)
+    expectation_cos_critic_sf    +nan [+0.275, +5.020]  (valid draws 0.30)
+    cos_critic_truth (S only)    +nan [+0.311, +3.785]  (valid draws 0.31)
+    cos_sf_truth (S only)        +nan [-1.244, +0.800]  (valid draws 0.31)
+[1015424 | lastlayer(3078)] |V*|^2 -6.978e-01 [-3.69e+00, 2.47e+00] P(>0) 0.297
+    critic             gain +0.6814 [+0.0652, +1.3050] P(>0) 0.987 | vs critic +0.0000 [+0.0000, +0.0000] P(better) 0.000
+    sf_gae0.8          gain -0.2776 [-2.2251, +0.9084] P(>0) 0.319 | vs critic -0.9590 [-2.9230, +0.2427] P(better) 0.053
+    sf_gae0.95         gain -0.4497 [-2.5990, +0.9176] P(>0) 0.251 | vs critic -1.1311 [-3.2004, +0.1416] P(better) 0.042
+    crit_norm_pre      gain +0.1700 [-0.3275, +0.6844] P(>0) 0.745 | vs critic -0.5114 [-0.9393, -0.1232] P(better) 0.004
+    crit_clip_pre      gain +0.6479 [+0.0380, +1.2665] P(>0) 0.986 | vs critic -0.0335 [-0.0892, +0.0178] P(better) 0.104
+    crit_drop1         gain +0.5474 [-0.0318, +1.1525] P(>0) 0.967 | vs critic -0.1340 [-0.3202, +0.0295] P(better) 0.059
+    critic_perm        gain +0.3277 [-0.4778, +1.0141] P(>0) 0.792 | vs critic -0.3537 [-1.0572, +0.3509] P(better) 0.147
+    unit_sum           gain +0.1360 [-1.2399, +1.1246] P(>0) 0.576 | vs critic -0.5454 [-1.7495, +0.2098] P(better) 0.071
+    unit_sum_clippre   gain +0.1162 [-1.2658, +1.1054] P(>0) 0.559 | vs critic -0.5652 [-1.7571, +0.2003] P(better) 0.067
+    unit_sum_critperm  gain -0.0781 [-1.7529, +0.9718] P(>0) 0.420 | vs critic -0.7595 [-2.2360, +0.1287] P(better) 0.050
+    noise_share_critic           +0.065 [+0.009, +0.080]  (valid draws 1.00)
+    noise_share_sf               +1.246 [+0.590, +3.100]  (valid draws 1.00)
+    rho_noise                    -0.008 [-0.443, +0.286]  (valid draws 0.99)
+    expectation_cos_critic_sf    +nan [+0.341, +7.469]  (valid draws 0.26)
+    cos_critic_truth (S only)    +nan [+0.148, +4.143]  (valid draws 0.30)
+    cos_sf_truth (S only)        +nan [-1.486, +0.809]  (valid draws 0.30)
+[1015424 | actor_params(full)] |V*|^2 -7.008e-01 [-5.19e+00, 4.28e+00] P(>0) 0.348
+    critic             gain +0.9631 [+0.2689, +1.6818] P(>0) 0.997 | vs critic +0.0000 [+0.0000, +0.0000] P(better) 0.000
+    sf_gae0.8          gain -0.1791 [-2.1160, +1.2152] P(>0) 0.360 | vs critic -1.1421 [-3.0482, +0.2865] P(better) 0.057
+    sf_gae0.95         gain -0.3884 [-2.4786, +1.0961] P(>0) 0.291 | vs critic -1.3514 [-3.4237, +0.1763] P(better) 0.040
+    crit_norm_pre      gain +0.3015 [-0.3694, +0.9542] P(>0) 0.811 | vs critic -0.6616 [-1.2807, -0.1189] P(better) 0.009
+    crit_clip_pre      gain +0.9207 [+0.2448, +1.6263] P(>0) 0.996 | vs critic -0.0424 [-0.1168, +0.0247] P(better) 0.101
+    crit_drop1         gain +0.7761 [+0.1039, +1.4586] P(>0) 0.992 | vs critic -0.1869 [-0.4501, +0.0416] P(better) 0.055
+    critic_perm        gain +0.5371 [-0.4416, +1.3694] P(>0) 0.877 | vs critic -0.4260 [-1.1269, +0.2401] P(better) 0.089
+    unit_sum           gain +0.3402 [-1.1716, +1.4216] P(>0) 0.702 | vs critic -0.6228 [-1.8076, +0.3182] P(better) 0.076
+    unit_sum_clippre   gain +0.3147 [-1.1875, +1.3772] P(>0) 0.692 | vs critic -0.6483 [-1.8394, +0.2882] P(better) 0.072
+    unit_sum_critperm  gain +0.0956 [-1.8284, +1.3204] P(>0) 0.522 | vs critic -0.8674 [-2.4581, +0.2561] P(better) 0.056
+    noise_share_critic           +0.074 [-0.021, +0.073]  (valid draws 1.00)
+    noise_share_sf               +1.161 [+0.598, +2.447]  (valid draws 1.00)
+    rho_noise                    +0.006 [-0.814, +0.331]  (valid draws 0.90)
+    expectation_cos_critic_sf    +nan [+0.273, +5.789]  (valid draws 0.28)
+    cos_critic_truth (S only)    +nan [+0.306, +4.528]  (valid draws 0.35)
+    cos_sf_truth (S only)        +nan [-1.199, +0.789]  (valid draws 0.35)
+
+===== v60 checkpoint 4013696: 4995 rows, 5 episodes; advantage sd GAE0.95 2.78
+[4013696 | linear(108)] |V*|^2 1.517e+00 [-1.14e+00, 7.60e+00] P(>0) 0.664
+    critic             gain +0.5324 [-0.1298, +1.6531] P(>0) 0.941 | vs critic +0.0000 [+0.0000, +0.0000] P(better) 0.000
+    sf_gae0.8          gain +1.1018 [-0.4738, +2.7350] P(>0) 0.868 | vs critic +0.5695 [-0.7157, +1.9890] P(better) 0.677
+    sf_gae0.95         gain +0.8370 [-0.9287, +2.2252] P(>0) 0.752 | vs critic +0.3046 [-1.3180, +1.5837] P(better) 0.485
+    crit_norm_pre      gain +0.9901 [+0.0443, +2.8518] P(>0) 0.985 | vs critic +0.4578 [-0.2850, +1.9396] P(better) 0.791
+    crit_clip_pre      gain +0.8241 [-0.0564, +2.3409] P(>0) 0.967 | vs critic +0.2918 [-0.0521, +1.2164] P(better) 0.875
+    crit_drop1         gain +1.1423 [-0.0564, +3.1225] P(>0) 0.967 | vs critic +0.6100 [-0.0882, +2.0581] P(better) 0.895
+    critic_perm        gain -0.2532 [-2.5111, +0.9565] P(>0) 0.484 | vs critic -0.7856 [-3.3446, +0.3207] P(better) 0.114
+    unit_sum           gain +0.8533 [-0.5358, +2.1616] P(>0) 0.856 | vs critic +0.3209 [-0.6782, +1.1735] P(better) 0.609
+    unit_sum_clippre   gain +1.0080 [-0.5316, +2.5891] P(>0) 0.865 | vs critic +0.4757 [-0.6696, +1.7256] P(better) 0.658
+    unit_sum_critperm  gain +0.3880 [-1.3413, +1.4881] P(>0) 0.637 | vs critic -0.1443 [-2.0585, +0.7941] P(better) 0.243
+    noise_share_critic           +0.141 [+0.030, +0.246]  (valid draws 1.00)
+    noise_share_sf               +0.668 [+0.390, +2.591]  (valid draws 1.00)
+    rho_noise                    -0.058 [-0.449, +0.187]  (valid draws 1.00)
+    expectation_cos_critic_sf    +0.572 [+0.169, +2.454]  (valid draws 0.79)
+    cos_critic_truth (S only)    +0.432 [-0.067, +2.147]  (valid draws 0.66)
+    cos_sf_truth (S only)        +0.680 [+0.239, +1.325]  (valid draws 0.66)
+[4013696 | lastlayer(3078)] |V*|^2 6.225e+00 [-6.33e+00, 3.42e+01] P(>0) 0.651
+    critic             gain +0.9212 [-0.3066, +2.5652] P(>0) 0.927 | vs critic +0.0000 [+0.0000, +0.0000] P(better) 0.000
+    sf_gae0.8          gain +1.9084 [-0.7088, +4.7889] P(>0) 0.893 | vs critic +0.9872 [-1.2614, +3.6524] P(better) 0.678
+    sf_gae0.95         gain +1.4864 [-1.6232, +4.0916] P(>0) 0.752 | vs critic +0.5652 [-2.3701, +2.9918] P(better) 0.507
+    crit_norm_pre      gain +1.4004 [+0.0597, +4.1815] P(>0) 0.985 | vs critic +0.4791 [-0.8461, +2.9835] P(better) 0.660
+    crit_clip_pre      gain +1.3316 [-0.0919, +3.5623] P(>0) 0.966 | vs critic +0.4103 [-0.0991, +1.5868] P(better) 0.865
+    crit_drop1         gain +1.9743 [-0.0352, +5.1796] P(>0) 0.972 | vs critic +1.0531 [-0.2029, +3.5143] P(better) 0.884
+    critic_perm        gain -0.3745 [-2.8864, +1.0961] P(>0) 0.436 | vs critic -1.2958 [-4.4222, +0.2710] P(better) 0.076
+    unit_sum           gain +1.5079 [-0.8662, +3.8526] P(>0) 0.863 | vs critic +0.5866 [-1.2328, +2.1571] P(better) 0.602
+    unit_sum_clippre   gain +1.7315 [-0.8439, +4.4448] P(>0) 0.872 | vs critic +0.8102 [-1.1950, +2.8950] P(better) 0.645
+    unit_sum_critperm  gain +0.7329 [-1.5525, +2.4209] P(>0) 0.707 | vs critic -0.1884 [-2.6087, +1.1972] P(better) 0.264
+    noise_share_critic           +0.139 [+0.042, +0.224]  (valid draws 1.00)
+    noise_share_sf               +0.714 [+0.422, +2.018]  (valid draws 1.00)
+    rho_noise                    -0.076 [-0.348, +0.169]  (valid draws 1.00)
+    expectation_cos_critic_sf    +0.603 [+0.244, +2.675]  (valid draws 0.81)
+    cos_critic_truth (S only)    +0.369 [-0.142, +2.302]  (valid draws 0.65)
+    cos_sf_truth (S only)        +0.596 [+0.194, +1.243]  (valid draws 0.65)
+[4013696 | actor_params(full)] |V*|^2 1.109e+01 [-1.85e+01, 7.55e+01] P(>0) 0.588
+    critic             gain +1.8435 [-0.3075, +4.8398] P(>0) 0.946 | vs critic +0.0000 [+0.0000, +0.0000] P(better) 0.000
+    sf_gae0.8          gain +2.7382 [-2.6241, +6.8784] P(>0) 0.803 | vs critic +0.8947 [-2.8769, +3.6191] P(better) 0.590
+    sf_gae0.95         gain +1.9494 [-3.7048, +6.1432] P(>0) 0.689 | vs critic +0.1059 [-4.9345, +3.0906] P(better) 0.372
+    crit_norm_pre      gain +2.8078 [-0.2120, +8.3414] P(>0) 0.944 | vs critic +0.9643 [-0.8031, +4.6720] P(better) 0.729
+    crit_clip_pre      gain +2.3861 [-0.4785, +6.7569] P(>0) 0.933 | vs critic +0.5426 [-0.2587, +2.3941] P(better) 0.804
+    crit_drop1         gain +3.1302 [-0.6140, +8.5249] P(>0) 0.921 | vs critic +1.2867 [-0.5419, +4.7961] P(better) 0.830
+    critic_perm        gain +0.1071 [-2.1934, +2.3167] P(>0) 0.573 | vs critic -1.7364 [-5.8630, +0.3842] P(better) 0.073
+    unit_sum           gain +2.3227 [-1.9222, +6.1961] P(>0) 0.804 | vs critic +0.4792 [-2.5900, +2.5740] P(better) 0.515
+    unit_sum_clippre   gain +2.6256 [-2.0153, +7.2627] P(>0) 0.804 | vs critic +0.7821 [-2.5756, +3.4843] P(better) 0.587
+    unit_sum_critperm  gain +1.3182 [-2.7987, +4.6175] P(>0) 0.672 | vs critic -0.5253 [-4.7018, +1.8260] P(better) 0.209
+    noise_share_critic           +0.160 [+0.039, +0.228]  (valid draws 1.00)
+    noise_share_sf               +0.725 [+0.384, +3.160]  (valid draws 1.00)
+    rho_noise                    -0.022 [-0.490, +0.124]  (valid draws 1.00)
+    expectation_cos_critic_sf    +0.709 [+0.411, +2.397]  (valid draws 0.77)
+    cos_critic_truth (S only)    +0.554 [+0.116, +2.040]  (valid draws 0.59)
+    cos_sf_truth (S only)        +0.585 [+0.097, +1.203]  (valid draws 0.59)
+
+===== v60 checkpoint 7913088: 4995 rows, 5 episodes; advantage sd GAE0.95 2.21
+[7913088 | linear(108)] |V*|^2 -4.851e-02 [-2.96e+00, 3.17e+00] P(>0) 0.461
+    critic             gain +0.3582 [-0.6148, +1.3022] P(>0) 0.792 | vs critic +0.0000 [+0.0000, +0.0000] P(better) 0.000
+    sf_gae0.8          gain -0.5920 [-3.5274, +0.9678] P(>0) 0.244 | vs critic -0.9503 [-4.0061, +0.8292] P(better) 0.135
+    sf_gae0.95         gain -0.5347 [-4.2980, +1.0848] P(>0) 0.278 | vs critic -0.8930 [-4.5846, +0.9264] P(better) 0.155
+    crit_norm_pre      gain +0.4465 [-0.3985, +1.2164] P(>0) 0.872 | vs critic +0.0883 [-0.5305, +1.0536] P(better) 0.537
+    crit_clip_pre      gain +0.5362 [-0.4072, +1.4440] P(>0) 0.881 | vs critic +0.1779 [-0.3949, +1.0733] P(better) 0.667
+    crit_drop1         gain +0.6186 [-0.4689, +1.6189] P(>0) 0.882 | vs critic +0.2604 [-0.5065, +1.3768] P(better) 0.707
+    critic_perm        gain -0.6190 [-2.3264, +1.1358] P(>0) 0.221 | vs critic -0.9772 [-3.1717, +1.3031] P(better) 0.165
+    unit_sum           gain -0.1119 [-2.6796, +1.1438] P(>0) 0.427 | vs critic -0.4701 [-2.8033, +0.5730] P(better) 0.177
+    unit_sum_clippre   gain +0.0009 [-2.8318, +1.3026] P(>0) 0.462 | vs critic -0.3573 [-3.0525, +0.9281] P(better) 0.242
+    unit_sum_critperm  gain -0.8233 [-5.4897, +0.7548] P(>0) 0.175 | vs critic -1.1815 [-5.6290, +0.8197] P(better) 0.098
+    noise_share_critic           +0.232 [+0.037, +0.585]  (valid draws 1.00)
+    noise_share_sf               +1.588 [-2.311, +10.939]  (valid draws 1.00)
+    rho_noise                    +0.110 [-0.612, +0.707]  (valid draws 0.99)
+    expectation_cos_critic_sf    +nan [-1.549, +4.562]  (valid draws 0.23)
+    cos_critic_truth (S only)    +nan [-0.707, +2.770]  (valid draws 0.46)
+    cos_sf_truth (S only)        +nan [-4.048, +0.923]  (valid draws 0.45)
+[7913088 | lastlayer(3078)] |V*|^2 1.952e+00 [-1.03e+01, 1.47e+01] P(>0) 0.630
+    critic             gain +0.4622 [-0.8742, +1.9325] P(>0) 0.747 | vs critic +0.0000 [+0.0000, +0.0000] P(better) 0.000
+    sf_gae0.8          gain -0.6914 [-5.3570, +1.8189] P(>0) 0.331 | vs critic -1.1536 [-6.0647, +1.9681] P(better) 0.253
+    sf_gae0.95         gain -0.1135 [-5.2604, +2.3455] P(>0) 0.493 | vs critic -0.5757 [-5.7779, +2.1734] P(better) 0.355
+    crit_norm_pre      gain +0.6692 [-0.7766, +2.2183] P(>0) 0.795 | vs critic +0.2070 [-0.7612, +1.4563] P(better) 0.625
+    crit_clip_pre      gain +0.8756 [-0.7344, +2.6760] P(>0) 0.829 | vs critic +0.4133 [-0.4747, +1.7239] P(better) 0.779
+    crit_drop1         gain +1.0505 [-0.9515, +3.1417] P(>0) 0.840 | vs critic +0.5883 [-0.7181, +2.2005] P(better) 0.792
+    critic_perm        gain -0.9583 [-3.4367, +1.4613] P(>0) 0.204 | vs critic -1.4205 [-4.2918, +1.5693] P(better) 0.155
+    unit_sum           gain +0.2354 [-3.5557, +2.2596] P(>0) 0.578 | vs critic -0.2268 [-3.6553, +1.4882] P(better) 0.415
+    unit_sum_clippre   gain +0.5245 [-3.2804, +2.6807] P(>0) 0.638 | vs critic +0.0623 [-3.5395, +2.0775] P(better) 0.498
+    unit_sum_critperm  gain -0.7892 [-6.0566, +1.8315] P(>0) 0.278 | vs critic -1.2514 [-6.2748, +1.7956] P(better) 0.193
+    noise_share_critic           +0.246 [+0.062, +0.492]  (valid draws 1.00)
+    noise_share_sf               +1.092 [+0.458, +3.800]  (valid draws 1.00)
+    rho_noise                    +0.119 [-0.286, +0.429]  (valid draws 1.00)
+    expectation_cos_critic_sf    +nan [-0.911, +1.449]  (valid draws 0.44)
+    cos_critic_truth (S only)    +0.331 [-0.531, +1.552]  (valid draws 0.63)
+    cos_sf_truth (S only)        -0.081 [-2.159, +0.850]  (valid draws 0.63)
+[7913088 | actor_params(full)] |V*|^2 3.758e+00 [-2.36e+01, 3.07e+01] P(>0) 0.624
+    critic             gain +1.2568 [-0.4489, +2.9280] P(>0) 0.945 | vs critic +0.0000 [+0.0000, +0.0000] P(better) 0.000
+    sf_gae0.8          gain -1.4500 [-5.8930, +2.1277] P(>0) 0.226 | vs critic -2.7068 [-7.6366, +1.3343] P(better) 0.105
+    sf_gae0.95         gain -0.7058 [-6.7487, +2.8091] P(>0) 0.395 | vs critic -1.9627 [-8.2641, +1.7047] P(better) 0.166
+    crit_norm_pre      gain +1.8182 [+0.0446, +3.6234] P(>0) 0.978 | vs critic +0.5614 [-0.7861, +2.4074] P(better) 0.760
+    crit_clip_pre      gain +1.8787 [+0.1605, +3.6086] P(>0) 0.983 | vs critic +0.6218 [-0.3620, +1.9086] P(better) 0.873
+    crit_drop1         gain +2.2645 [+0.1795, +4.3370] P(>0) 0.981 | vs critic +1.0077 [-0.4600, +2.9483] P(better) 0.913
+    critic_perm        gain -1.4362 [-5.1522, +2.6561] P(>0) 0.244 | vs critic -2.6931 [-6.8645, +1.6522] P(better) 0.111
+    unit_sum           gain +0.3564 [-3.7176, +2.9001] P(>0) 0.617 | vs critic -0.9005 [-4.8455, +1.3787] P(better) 0.248
+    unit_sum_clippre   gain +0.7746 [-3.3999, +3.4246] P(>0) 0.710 | vs critic -0.4822 [-4.6089, +2.0469] P(better) 0.377
+    unit_sum_critperm  gain -1.5145 [-7.9364, +2.6123] P(>0) 0.254 | vs critic -2.7713 [-9.4210, +1.6053] P(better) 0.122
+    noise_share_critic           +0.292 [+0.058, +0.493]  (valid draws 1.00)
+    noise_share_sf               +1.172 [+0.623, +2.496]  (valid draws 1.00)
+    rho_noise                    +0.186 [-0.121, +0.394]  (valid draws 0.99)
+    expectation_cos_critic_sf    +nan [-0.558, +2.817]  (valid draws 0.36)
+    cos_critic_truth (S only)    +0.648 [-0.056, +1.983]  (valid draws 0.62)
+    cos_sf_truth (S only)        -0.364 [-2.163, +0.676]  (valid draws 0.62)

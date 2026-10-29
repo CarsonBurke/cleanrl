@@ -1,0 +1,26 @@
+/home/marvin/Documents/repositories/cleanrl/benchmarks/reppo_rootcause/scripts/03_q4b_robust_1M.py:63: RuntimeWarning: invalid value encountered in divide
+  deriv = (pairs[:, :, :, :, 0] - pairs[:, :, :, :, 1]) / (2 * h[..., None])
+critic within-state energy: top 1% states 0.89, top 5% 0.92; critic within sd: all 0.206, median state 0.046; true (raw incl. noise) median state 0.237
+  the 5 highest-energy states: |a0| max [0.953 0.955 0.835 0.857 0.872] age [261  57 317  90 691] critic V [40.  41.8 41.2 42.8 13.4] true V [40.9 42.8 42.1 42.3  3.8]
+within-state corr (noise-corrected), all states: +0.149 [+0.127,+0.282] | critic-energy top 5% removed: +0.147 [+0.075,+0.214]
+per-state Spearman (raw truth): mean +0.087 +- 0.019; trimmed-set mean +0.072
+  split-half truth-vs-truth per-state Spearman (32 vs 32 rollouts): mean +0.227 -> a perfect critic would score ~0.61 against the 64-rollout truth
+self-consistency corr(Q, r + gamma V'(s')) within state: all -0.331 [-0.441,+0.500] | critic-energy top 5% removed +0.406 [+0.335,+0.474]
+  per-state Pearson: mean +0.427 +- 0.021, median +0.550
+  one-step lookahead vs truth (noise-corrected): all +0.055 [-0.200,+0.518] | trimmed +0.437 [+0.362,+0.511]
+  rms within-state: critic adv 0.056, lookahead 0.108 (trimmed set)
+pre-space h=0.1: slope all +0.372 [+0.269,+1.629] | critic-grad-energy top 5% removed +1.053 [+0.432,+1.676] | pooled corr corrected trimmed +0.173 [+0.070,+0.296]
+     true rate of improvement along the critic's unit gradient (equal state weight): all +0.314 [+0.162,+0.470] | trimmed +0.271 [+0.129,+0.402] ; critic's claimed rate (median |grad|) 0.180, mean 0.268
+     true |grad|: rms (noise-corrected) 1.698; => max achievable equal-weight rate ~ E|g| <= 1.698
+pre-space h=0.3: slope all +0.211 [+0.158,+0.847] | critic-grad-energy top 5% removed +0.490 [+0.173,+0.807] | pooled corr corrected trimmed +0.121 [+0.043,+0.202]
+     true rate of improvement along the critic's unit gradient (equal state weight): all +0.144 [+0.080,+0.209] | trimmed +0.107 [+0.043,+0.172] ; critic's claimed rate (median |grad|) 0.180, mean 0.268
+     true |grad|: rms (noise-corrected) 1.006; => max achievable equal-weight rate ~ E|g| <= 1.006
+horizon structure (within-state, fresh actions): corr(truth_t, truth_400) disattenuated by split halves; sd of the difference
+  t=  1: corr +0.056; signal var t-step 0.0626 vs H400 0.0502; cross-cov 0.0031
+  t=  5: corr +0.896; signal var t-step 0.0439 vs H400 0.0502; cross-cov 0.0420
+  t= 10: corr +0.995; signal var t-step 0.0510 vs H400 0.0502; cross-cov 0.0503
+  t= 25: corr +1.000; signal var t-step 0.0501 vs H400 0.0502; cross-cov 0.0501
+  t= 50: corr +1.007; signal var t-step 0.0508 vs H400 0.0502; cross-cov 0.0508
+  t=100: corr +1.000; signal var t-step 0.0504 vs H400 0.0502; cross-cov 0.0503
+  t=200: corr +1.000; signal var t-step 0.0506 vs H400 0.0502; cross-cov 0.0504
+  t=400: corr +1.000; signal var t-step 0.0502 vs H400 0.0502; cross-cov 0.0502

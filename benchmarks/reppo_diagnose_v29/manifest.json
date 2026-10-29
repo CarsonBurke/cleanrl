@@ -1,0 +1,961 @@
+{
+  "created": 1790481031.1889217,
+  "hypotheses": [
+    "Critic action gradients stop representing useful simulator improvement",
+    "Latent/reward gradients compete with value learning",
+    "Persistent entropy accounts for stochastic/deterministic gap but not primary plateau"
+  ],
+  "design": {
+    "seed": 1,
+    "env": "HalfCheetah-v4",
+    "training_steps": 16100000,
+    "checkpoints": [
+      8000000,
+      12000000,
+      16000000
+    ],
+    "oracle_states": 512,
+    "oracle_rollouts": 32,
+    "max_parallel_runs": 1,
+    "training_and_oracle_time_limit": "3h",
+    "autocull_ref": "reppo_refresh_v25_lam0p8_50M",
+    "autocull_only": "reppo_diagnose_v29",
+    "autocull_enforce": "all",
+    "oracle_threads": 8,
+    "oracle_group_states": 128
+  },
+  "source_sha256": {
+    "cleanrl/reppo/ppo_continuous_action_reppo_latentroll_v27.py": "a057ec278f7d8257b859726fe15199bf23a55364d6d28b1c2de32b507b78d6f6",
+    "cleanrl/reppo/ppo_continuous_action_reppo_refresh_v25.py": "956a8a14edaeaf73c683a929b6051ae1f6006ac791149ca7f4ed814cb267291f",
+    "cleanrl/reppo/ppo_continuous_action_reppo_latentroll_diagnostic_v29.py": "a67c3745d0381c6a6c5bb54ba79e7ae0f575aac7af631df932ac8d8142e335ce",
+    "scripts/reppo_latentroll_oracle.py": "b5f40bba95a01295aa3b961496a20b4f511675132a8cf9dd2cee90e56757511a",
+    "scripts/reppo_oracle.py": "2487c17b677aafe5d31dcbf4bce792b0012f92d334865d8757a6c273378c4df4",
+    "scripts/awr_oracle_advantage.py": "6bd94f69ea02387cfc0925558722760ae0991f231b713982f57151debc960912",
+    "scripts/analyze_reppo_diagnostics.py": "3850e38848ff1b022a65a126db53eeda7972c018b0fdc3a3bba828fe53cbff8f",
+    "cleanrl/shared/graph_step.py": "43569df0461a1f7501d4251e7e5a88afd5d56dec1d15748fd89d3325fc36dec6",
+    "cleanrl/shared/ppo_loop.py": "bffd5912a597367aebccc329f36d1b0dfd417387fe6c2931680001c6fb1b01bb",
+    "cleanrl/shared/host_graph.py": "e4d336e290639c7316642e014232bbcd865c72e2a0acdd2acc91a51886c4aae2",
+    "cleanrl/shared/host_kernel.c": "c433305a69ce7d5838642bd9f78afffff86f80a4e72b4533de579c67fb625cc6",
+    "scripts/reppo_snapshot_gradients.py": "ae6780e073cb23655aff34c2d8ea94afa7342029b26b7043d1ba47c0c499b890",
+    "tests/test_reppo_latentroll_oracle.py": "fb61caa10087f9e62ab42812f7d0f61ee2056f198782983243722eec3b015f00",
+    "tests/test_reppo_latentroll_diagnostic_v29.py": "16d02a27c4aec3e0c136609e52bacdc12d16a8c0df5b76f971fd7a6c840093dd",
+    "tests/test_reppo_snapshot_gradients.py": "f35d8d46004aa51226ca5f28603918f1ff282c7c24217ab17a74b6f7187a4802",
+    "scripts/reppo_policy_gate_analysis.py": "06845686a624f4d4406a6fd0109bc5502315d05452d0b9f4f69a64f4bf725b56",
+    "tests/test_reppo_policy_gate_analysis.py": "3c49366ddde541e753474e44a55b1e6c6140490a9961d412f97cf7c211ae8c52"
+  },
+  "jobs": [
+    {
+      "id": 10299,
+      "name": "reppo_diagnose_v29_parent_lam08_16M",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "cleanrl/reppo/ppo_continuous_action_reppo_refresh_v25.py",
+        "--env-id",
+        "HalfCheetah-v4",
+        "--num-envs",
+        "16",
+        "--exp-name",
+        "reppo_diagnose_v29_parent_lam08_16M",
+        "--total-timesteps",
+        "16100000",
+        "--seed",
+        "1",
+        "--env-threads",
+        "2",
+        "--gve-lambda",
+        "0.8",
+        "--snapshot-steps",
+        "8e6,12e6,16e6",
+        "--compile",
+        "--compile-mode",
+        "reduce-overhead"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 10800000,
+      "readySequence": 9480,
+      "attemptCount": 1,
+      "createdAt": 1790480500557,
+      "updatedAt": 1790481878585,
+      "finishedAt": 1790481878585,
+      "attempts": [
+        {
+          "id": 8174,
+          "jobId": 10299,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1790481419736,
+          "finishedAt": 1790481878585,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/8174"
+        }
+      ]
+    },
+    {
+      "id": 10300,
+      "name": "reppo_diagnose_v29_probe_contracts",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_reppo_latentroll_diagnostic_v29.py",
+        "tests/test_graph_step.py",
+        "-q"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1200000,
+      "readySequence": 9481,
+      "attemptCount": 1,
+      "createdAt": 1790480660110,
+      "updatedAt": 1790481896885,
+      "finishedAt": 1790481896885,
+      "attempts": [
+        {
+          "id": 8176,
+          "jobId": 10300,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1790481892692,
+          "finishedAt": 1790481896885,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/8176"
+        }
+      ]
+    },
+    {
+      "id": 10301,
+      "name": "reppo_diagnose_v29_h8_reward_16M",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "cleanrl/reppo/ppo_continuous_action_reppo_latentroll_diagnostic_v29.py",
+        "--env-id",
+        "HalfCheetah-v4",
+        "--num-envs",
+        "16",
+        "--exp-name",
+        "reppo_diagnose_v29_h8_reward_16M",
+        "--total-timesteps",
+        "16100000",
+        "--seed",
+        "1",
+        "--env-threads",
+        "2",
+        "--aux-horizon",
+        "8",
+        "--reward-loss-coef",
+        "1",
+        "--gradient-diagnostic-interval",
+        "25",
+        "--snapshot-steps",
+        "8e6,12e6,16e6",
+        "--compile",
+        "--compile-mode",
+        "reduce-overhead"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 10800000,
+      "readySequence": 9486,
+      "attemptCount": 1,
+      "createdAt": 1790480684006,
+      "updatedAt": 1790482733907,
+      "finishedAt": 1790482733907,
+      "dependencies": [
+        {
+          "parent": 10300,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790481896885
+        }
+      ],
+      "attempts": [
+        {
+          "id": 8178,
+          "jobId": 10301,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1790481914892,
+          "finishedAt": 1790482733907,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/8178"
+        }
+      ]
+    },
+    {
+      "id": 10302,
+      "name": "reppo_diagnose_v29_h8_noreward_16M",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "cleanrl/reppo/ppo_continuous_action_reppo_latentroll_diagnostic_v29.py",
+        "--env-id",
+        "HalfCheetah-v4",
+        "--num-envs",
+        "16",
+        "--exp-name",
+        "reppo_diagnose_v29_h8_noreward_16M",
+        "--total-timesteps",
+        "16100000",
+        "--seed",
+        "1",
+        "--env-threads",
+        "2",
+        "--aux-horizon",
+        "8",
+        "--reward-loss-coef",
+        "0",
+        "--gradient-diagnostic-interval",
+        "25",
+        "--snapshot-steps",
+        "8e6,12e6,16e6",
+        "--compile",
+        "--compile-mode",
+        "reduce-overhead"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 10800000,
+      "readySequence": 9487,
+      "attemptCount": 1,
+      "createdAt": 1790480684068,
+      "updatedAt": 1790483598907,
+      "finishedAt": 1790483598907,
+      "dependencies": [
+        {
+          "parent": 10300,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790481896885
+        }
+      ],
+      "attempts": [
+        {
+          "id": 8180,
+          "jobId": 10302,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1790482780284,
+          "finishedAt": 1790483598907,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/8180"
+        }
+      ]
+    },
+    {
+      "id": 10303,
+      "name": "reppo_diagnose_v29_oracle_contracts",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_reppo_latentroll_oracle.py",
+        "-q"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1200000,
+      "readySequence": 9482,
+      "attemptCount": 1,
+      "createdAt": 1790480976775,
+      "updatedAt": 1790481914885,
+      "finishedAt": 1790481914885,
+      "attempts": [
+        {
+          "id": 8177,
+          "jobId": 10303,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1790481896892,
+          "finishedAt": 1790481914885,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/8177"
+        }
+      ]
+    },
+    {
+      "id": 10304,
+      "name": "reppo_diagnose_v29_oracle_parent_lam08",
+      "state": "cancelled",
+      "stateReason": "cancelled before start",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/reppo_latentroll_oracle.py",
+        "--run-pattern",
+        "HalfCheetah-v4__reppo_diagnose_v29_parent_lam08_16M__1__*",
+        "--snapshot-steps",
+        "8000000",
+        "12000000",
+        "16000000",
+        "--states",
+        "512",
+        "--rollouts",
+        "32",
+        "--threads",
+        "2"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 10800000,
+      "attemptCount": 0,
+      "createdAt": 1790481000770,
+      "updatedAt": 1790481515937,
+      "finishedAt": 1790481515937,
+      "dependencies": [
+        {
+          "parent": 10299,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790481878585
+        },
+        {
+          "parent": 10303,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790481914885
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 10305,
+      "name": "reppo_diagnose_v29_oracle_h8_reward",
+      "state": "cancelled",
+      "stateReason": "cancelled before start",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/reppo_latentroll_oracle.py",
+        "--run-pattern",
+        "HalfCheetah-v4__reppo_diagnose_v29_h8_reward_16M__1__*",
+        "--snapshot-steps",
+        "8000000",
+        "12000000",
+        "16000000",
+        "--states",
+        "512",
+        "--rollouts",
+        "32",
+        "--threads",
+        "2"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 10800000,
+      "attemptCount": 0,
+      "createdAt": 1790481000910,
+      "updatedAt": 1790481516133,
+      "finishedAt": 1790481516133,
+      "dependencies": [
+        {
+          "parent": 10301,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790482733907
+        },
+        {
+          "parent": 10303,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790481914885
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 10306,
+      "name": "reppo_diagnose_v29_oracle_h8_noreward",
+      "state": "cancelled",
+      "stateReason": "cancelled before start",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/reppo_latentroll_oracle.py",
+        "--run-pattern",
+        "HalfCheetah-v4__reppo_diagnose_v29_h8_noreward_16M__1__*",
+        "--snapshot-steps",
+        "8000000",
+        "12000000",
+        "16000000",
+        "--states",
+        "512",
+        "--rollouts",
+        "32",
+        "--threads",
+        "2"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 10800000,
+      "attemptCount": 0,
+      "createdAt": 1790481000963,
+      "updatedAt": 1790481516169,
+      "finishedAt": 1790481516169,
+      "dependencies": [
+        {
+          "parent": 10302,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790483598907
+        },
+        {
+          "parent": 10303,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790481914885
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 10309,
+      "name": "reppo_diagnose_v29_oracle_parent_lam08_t8",
+      "state": "cancelled",
+      "stateReason": "cancelled before start",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/reppo_latentroll_oracle.py",
+        "--run-pattern",
+        "HalfCheetah-v4__reppo_diagnose_v29_parent_lam08_16M__1__*",
+        "--snapshot-steps",
+        "8000000",
+        "12000000",
+        "16000000",
+        "--states",
+        "512",
+        "--rollouts",
+        "32",
+        "--threads",
+        "8",
+        "--group-states",
+        "128"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 10800000,
+      "readySequence": 9488,
+      "attemptCount": 0,
+      "createdAt": 1790481516226,
+      "updatedAt": 1790486171642,
+      "finishedAt": 1790486171642,
+      "dependencies": [
+        {
+          "parent": 10299,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790481878585
+        },
+        {
+          "parent": 10303,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790481914885
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 10310,
+      "name": "reppo_diagnose_v29_oracle_h8_reward_t8",
+      "state": "cancelled",
+      "stateReason": "cancelled by request",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/reppo_latentroll_oracle.py",
+        "--run-pattern",
+        "HalfCheetah-v4__reppo_diagnose_v29_h8_reward_16M__1__*",
+        "--snapshot-steps",
+        "8000000",
+        "12000000",
+        "16000000",
+        "--states",
+        "512",
+        "--rollouts",
+        "32",
+        "--threads",
+        "8",
+        "--group-states",
+        "128"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 10800000,
+      "readySequence": 9491,
+      "attemptCount": 1,
+      "createdAt": 1790481516283,
+      "updatedAt": 1790485981291,
+      "finishedAt": 1790485981291,
+      "dependencies": [
+        {
+          "parent": 10301,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790482733907
+        },
+        {
+          "parent": 10303,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790481914885
+        }
+      ],
+      "attempts": [
+        {
+          "id": 8187,
+          "jobId": 10310,
+          "number": 1,
+          "state": "cancelled",
+          "maxParallelRuns": 1,
+          "termSignal": 15,
+          "message": "cancelled by request",
+          "createdAt": 1790484267801,
+          "finishedAt": 1790485981291,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/8187"
+        }
+      ]
+    },
+    {
+      "id": 10311,
+      "name": "reppo_diagnose_v29_oracle_h8_noreward_t8",
+      "state": "cancelled",
+      "stateReason": "cancelled before start",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/reppo_latentroll_oracle.py",
+        "--run-pattern",
+        "HalfCheetah-v4__reppo_diagnose_v29_h8_noreward_16M__1__*",
+        "--snapshot-steps",
+        "8000000",
+        "12000000",
+        "16000000",
+        "--states",
+        "512",
+        "--rollouts",
+        "32",
+        "--threads",
+        "8",
+        "--group-states",
+        "128"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 10800000,
+      "readySequence": 9495,
+      "attemptCount": 0,
+      "createdAt": 1790481516337,
+      "updatedAt": 1790486171761,
+      "finishedAt": 1790486171761,
+      "dependencies": [
+        {
+          "parent": 10302,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790483598907
+        },
+        {
+          "parent": 10303,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790481914885
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 10315,
+      "name": "reppo_diagnose_v29_attribution_contract",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_reppo_snapshot_gradients.py",
+        "-q"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 600000,
+      "readySequence": 9490,
+      "attemptCount": 1,
+      "createdAt": 1790482247958,
+      "updatedAt": 1790484267795,
+      "finishedAt": 1790484267795,
+      "attempts": [
+        {
+          "id": 8186,
+          "jobId": 10315,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1790484263450,
+          "finishedAt": 1790484267795,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/8186"
+        }
+      ]
+    },
+    {
+      "id": 10316,
+      "name": "reppo_diagnose_v29_gradients_parent_lam08",
+      "state": "skipped",
+      "stateReason": "prerequisite jobs [10309] did not satisfy required outcomes",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "scripts/reppo_snapshot_gradients.py",
+        "--run-pattern",
+        "HalfCheetah-v4__reppo_diagnose_v29_parent_lam08_16M__1__*",
+        "--snapshot-steps",
+        "8000000",
+        "12000000",
+        "16000000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1790482266951,
+      "updatedAt": 1790486171642,
+      "finishedAt": 1790486171642,
+      "dependencies": [
+        {
+          "parent": 10309,
+          "condition": "succeeded",
+          "parentState": "cancelled",
+          "resolution": "violated",
+          "parentOutcome": "cancelled",
+          "resolvedAt": 1790486171642
+        },
+        {
+          "parent": 10315,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790484267795
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 10317,
+      "name": "reppo_diagnose_v29_gradients_h8_reward",
+      "state": "skipped",
+      "stateReason": "prerequisite jobs [10310] did not satisfy required outcomes",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "scripts/reppo_snapshot_gradients.py",
+        "--run-pattern",
+        "HalfCheetah-v4__reppo_diagnose_v29_h8_reward_16M__1__*",
+        "--snapshot-steps",
+        "8000000",
+        "12000000",
+        "16000000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1790482268759,
+      "updatedAt": 1790485981291,
+      "finishedAt": 1790485981291,
+      "dependencies": [
+        {
+          "parent": 10310,
+          "condition": "succeeded",
+          "parentState": "cancelled",
+          "resolution": "violated",
+          "parentOutcome": "cancelled",
+          "resolvedAt": 1790485981291
+        },
+        {
+          "parent": 10315,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790484267795
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 10318,
+      "name": "reppo_diagnose_v29_gradients_h8_noreward",
+      "state": "skipped",
+      "stateReason": "prerequisite jobs [10311] did not satisfy required outcomes",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "scripts/reppo_snapshot_gradients.py",
+        "--run-pattern",
+        "HalfCheetah-v4__reppo_diagnose_v29_h8_noreward_16M__1__*",
+        "--snapshot-steps",
+        "8000000",
+        "12000000",
+        "16000000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1800000,
+      "attemptCount": 0,
+      "createdAt": 1790482268790,
+      "updatedAt": 1790486171761,
+      "finishedAt": 1790486171761,
+      "dependencies": [
+        {
+          "parent": 10311,
+          "condition": "succeeded",
+          "parentState": "cancelled",
+          "resolution": "violated",
+          "parentOutcome": "cancelled",
+          "resolvedAt": 1790486171761
+        },
+        {
+          "parent": 10315,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790484267795
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 10325,
+      "name": "reppo_diagnose_v29_gate_tests",
+      "state": "succeeded",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_reppo_policy_gate_analysis.py",
+        "-q"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 900000,
+      "readySequence": 9499,
+      "attemptCount": 1,
+      "createdAt": 1790484662601,
+      "updatedAt": 1790486111233,
+      "finishedAt": 1790486111233,
+      "attempts": [
+        {
+          "id": 8189,
+          "jobId": 10325,
+          "number": 1,
+          "state": "succeeded",
+          "maxParallelRuns": 1,
+          "exitCode": 0,
+          "createdAt": 1790486103739,
+          "finishedAt": 1790486111233,
+          "logDir": "/home/marvin/.local/state/mlqueue/attempts/8189"
+        }
+      ]
+    },
+    {
+      "id": 10326,
+      "name": "reppo_diagnose_v29_policy_gates_h8",
+      "state": "skipped",
+      "stateReason": "prerequisite jobs [10310] did not satisfy required outcomes",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/reppo_policy_gate_analysis.py",
+        "--run-pattern",
+        "HalfCheetah-v4__reppo_diagnose_v29_h8_reward_16M__1__*",
+        "--snapshot-steps",
+        "8000000",
+        "12000000",
+        "16000000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1200000,
+      "attemptCount": 0,
+      "createdAt": 1790484685828,
+      "updatedAt": 1790485981291,
+      "finishedAt": 1790485981291,
+      "dependencies": [
+        {
+          "parent": 10310,
+          "condition": "succeeded",
+          "parentState": "cancelled",
+          "resolution": "violated",
+          "parentOutcome": "cancelled",
+          "resolvedAt": 1790485981291
+        },
+        {
+          "parent": 10325,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790486111233
+        }
+      ],
+      "attempts": []
+    },
+    {
+      "id": 10327,
+      "name": "reppo_diagnose_v29_policy_gates_noreward",
+      "state": "skipped",
+      "stateReason": "prerequisite jobs [10311] did not satisfy required outcomes",
+      "maxParallelRuns": 1,
+      "priority": 0,
+      "cwd": "/home/marvin/Documents/repositories/cleanrl",
+      "args": [
+        ".venv/bin/python",
+        "-u",
+        "scripts/reppo_policy_gate_analysis.py",
+        "--run-pattern",
+        "HalfCheetah-v4__reppo_diagnose_v29_h8_noreward_16M__1__*",
+        "--snapshot-steps",
+        "8000000",
+        "12000000",
+        "16000000"
+      ],
+      "maxAttempts": 1,
+      "retryDelayMs": 0,
+      "timeLimitMs": 1200000,
+      "attemptCount": 0,
+      "createdAt": 1790484692183,
+      "updatedAt": 1790486171761,
+      "finishedAt": 1790486171761,
+      "dependencies": [
+        {
+          "parent": 10311,
+          "condition": "succeeded",
+          "parentState": "cancelled",
+          "resolution": "violated",
+          "parentOutcome": "cancelled",
+          "resolvedAt": 1790486171761
+        },
+        {
+          "parent": 10325,
+          "condition": "succeeded",
+          "parentState": "succeeded",
+          "resolution": "satisfied",
+          "parentOutcome": "succeeded",
+          "resolvedAt": 1790486111233
+        }
+      ],
+      "attempts": []
+    }
+  ],
+  "superseded_jobs": {
+    "10304": 10309,
+    "10305": 10310,
+    "10306": 10311
+  },
+  "validation": {
+    "gpu_trainer_and_graph_job": 10300,
+    "gpu_oracle_identity_job": 10303,
+    "cpu_statistics": "5 passed, simulator identity deselected"
+  },
+  "scheduling_note": "Parent oracle10309 temporarily held to prioritize H8 simulator diagnosis; release after H8 oracle admission.",
+  "outcome": {
+    "status": "closed_at_user_request",
+    "finished_at": 1790486297.8898084,
+    "training": "All three arms completed 16.1M requested steps.",
+    "simulator": "H8 complete8M/12M;16M interrupted by user. Control oracles neverstarted.",
+    "remaining_compute": "Cancelled or dependency-skipped; no campaignjobs active.",
+    "autocull": "stopped",
+    "limitations": "No16M oracle/controloracle, no offlinegradient/groupattribution/gates executed. Training-timegradientprobes completed."
+  }
+}

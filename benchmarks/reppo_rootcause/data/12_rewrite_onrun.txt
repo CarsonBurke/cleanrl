@@ -1,0 +1,39 @@
+
+===== snapshots (1015424, 1031808): 3000 on-run states, episode returns [3982, 4090, 3866], upright rows 0.994
+  top 1% / 5% of states hold 0.88 / 0.92 of gradient energy
+   all                  n 3000  per-state cos median +0.883 (p10 +0.33)  pooled cos +0.658  rms change / rms field 1.35  rms ratio k+1/k 1.78
+   upright only         n 2983  per-state cos median +0.883 (p10 +0.33)  pooled cos +0.954  rms change / rms field 0.56  rms ratio k+1/k 1.43
+   drop top 1% energy   n 2970  per-state cos median +0.882 (p10 +0.32)  pooled cos +0.342  rms change / rms field 2.98  rms ratio k+1/k 3.17
+   bottom half by |g|   n 1500  per-state cos median +0.791 (p10 +0.11)  pooled cos +0.643  rms change / rms field 1.00  rms ratio k+1/k 1.29
+   50-90%               n 1200  per-state cos median +0.925 (p10 +0.63)  pooled cos +0.519  rms change / rms field 1.51  rms ratio k+1/k 1.77
+   90-99%               n  270  per-state cos median +0.977 (p10 +0.88)  pooled cos +0.304  rms change / rms field 3.99  rms ratio k+1/k 4.18
+   top 1%               n   30  per-state cos median +0.993 (p10 +0.93)  pooled cos +0.790  rms change / rms field 0.94  rms ratio k+1/k 1.50
+  KL(k -> k+1): mean 0.0276, median 0.0236, frac > 0.03 0.347, frac > 2x bound 0.050; upright rows frac outside 0.346, inverted rows 0.471
+  Spearman(KL, |sigma g|) +0.154; share of |sigma g|^2 in states outside the bound 0.608; outside-fraction by |sigma g| quintile [0.28, 0.3, 0.33, 0.35, 0.47]
+  cos(actual mean move, critic_k pathwise direction) per state: median +0.283, inside +0.231, outside +0.364; with critic_k+1: median +0.458
+
+===== snapshots (4013696, 4030080): 3000 on-run states, episode returns [1290, 9384, 9665], upright rows 0.732
+  top 1% / 5% of states hold 0.69 / 0.84 of gradient energy
+   all                  n 3000  per-state cos median +0.925 (p10 +0.58)  pooled cos +0.316  rms change / rms field 1.28  rms ratio k+1/k 1.18
+   upright only         n 2197  per-state cos median +0.923 (p10 +0.51)  pooled cos +0.733  rms change / rms field 0.68  rms ratio k+1/k 0.67
+   drop top 1% energy   n 2970  per-state cos median +0.925 (p10 +0.58)  pooled cos +0.407  rms change / rms field 1.88  rms ratio k+1/k 2.05
+   bottom half by |g|   n 1500  per-state cos median +0.902 (p10 +0.55)  pooled cos +0.147  rms change / rms field 7.94  rms ratio k+1/k 8.02
+   50-90%               n 1200  per-state cos median +0.939 (p10 +0.62)  pooled cos +0.797  rms change / rms field 0.67  rms ratio k+1/k 1.09
+   90-99%               n  270  per-state cos median +0.985 (p10 +0.64)  pooled cos +0.506  rms change / rms field 1.39  rms ratio k+1/k 1.59
+   top 1%               n   30  per-state cos median +0.980 (p10 +0.29)  pooled cos +0.544  rms change / rms field 0.88  rms ratio k+1/k 0.29
+  KL(k -> k+1): mean 0.0136, median 0.0105, frac > 0.03 0.045, frac > 2x bound 0.003; upright rows frac outside 0.061, inverted rows 0.000
+  Spearman(KL, |sigma g|) +0.266; share of |sigma g|^2 in states outside the bound 0.025; outside-fraction by |sigma g| quintile [0.02, 0.03, 0.04, 0.04, 0.1]
+  cos(actual mean move, critic_k pathwise direction) per state: median +0.216, inside +0.214, outside +0.328; with critic_k+1: median +0.325
+
+===== snapshots (7913088, 7929472): 3000 on-run states, episode returns [11938, 11570, 11818], upright rows 1.000
+  top 1% / 5% of states hold 0.88 / 0.94 of gradient energy
+   all                  n 3000  per-state cos median +0.923 (p10 +0.48)  pooled cos +0.507  rms change / rms field 0.88  rms ratio k+1/k 0.32
+   upright only         n 3000  per-state cos median +0.923 (p10 +0.48)  pooled cos +0.507  rms change / rms field 0.88  rms ratio k+1/k 0.32
+   drop top 1% energy   n 2970  per-state cos median +0.922 (p10 +0.48)  pooled cos +0.717  rms change / rms field 0.70  rms ratio k+1/k 0.82
+   bottom half by |g|   n 1500  per-state cos median +0.868 (p10 +0.40)  pooled cos +0.659  rms change / rms field 0.96  rms ratio k+1/k 1.25
+   50-90%               n 1200  per-state cos median +0.950 (p10 +0.64)  pooled cos +0.758  rms change / rms field 0.69  rms ratio k+1/k 0.98
+   90-99%               n  270  per-state cos median +0.987 (p10 +0.71)  pooled cos +0.721  rms change / rms field 0.69  rms ratio k+1/k 0.71
+   top 1%               n   30  per-state cos median +0.983 (p10 +0.43)  pooled cos +0.648  rms change / rms field 0.90  rms ratio k+1/k 0.16
+  KL(k -> k+1): mean 0.0420, median 0.0278, frac > 0.03 0.459, frac > 2x bound 0.195; upright rows frac outside 0.459
+  Spearman(KL, |sigma g|) +0.058; share of |sigma g|^2 in states outside the bound 0.837; outside-fraction by |sigma g| quintile [0.43, 0.44, 0.43, 0.48, 0.51]
+  cos(actual mean move, critic_k pathwise direction) per state: median +0.137, inside +0.169, outside +0.066; with critic_k+1: median +0.260

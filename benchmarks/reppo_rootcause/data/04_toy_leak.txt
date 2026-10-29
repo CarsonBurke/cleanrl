@@ -1,0 +1,92 @@
+== Part A: collinear-feature GD, closed form ==
+k=1.0 sigma=0.5: eig=0.1172,2.133  true g=0.44  early leak k v/(1+k^2)=1.150 | t=1: w_a=+0.951  t=10: w_a=+0.666  t=100: w_a=+0.440  t=1000: w_a=+0.440  t=10000: w_a=+0.440
+k=1.0 sigma=0.2: eig=0.0198,2.020  true g=0.44  early leak k v/(1+k^2)=1.150 | t=1: w_a=+0.987  t=10: w_a=+1.026  t=100: w_a=+0.539  t=1000: w_a=+0.440  t=10000: w_a=+0.440
+k=2.0 sigma=0.2: eig=0.0079,5.032  true g=0.44  early leak k v/(1+k^2)=0.920 | t=1: w_a=+0.909  t=10: w_a=+0.882  t=100: w_a=+0.656  t=1000: w_a=+0.440  t=10000: w_a=+0.440
+
+== Part B: kappa 0.5 (gain / LQR gain), sigma 0.5, iid target noise sd 0.0, rough state component sd 0.0, B scale 1, process noise 1, linear reward scale 1, level drift/iter 0.0 ==
+  between-state sd 2.30, within-state sd 0.317, sd(mu)/sigma 1.99, cos(true dQ/da, mu(s)) +0.68
+  it  1 Q(s,a)   level corr 0.933 err sd 0.79 | within sd true 0.291 hat 0.306 | contrast corr -0.241 | true-on-critic slope -0.31 cos -0.34 | self-consistency -0.140 (backup vs truth +0.805)
+  it  1 V+g.eps  level corr 0.951 err sd 0.63 | within sd true 0.287 hat 0.221 | contrast corr +0.822 | true-on-critic slope +1.06 cos +0.90 | self-consistency +0.761 (backup vs truth +0.881)
+  it  4 Q(s,a)   level corr 0.998 err sd 0.14 | within sd true 0.296 hat 0.240 | contrast corr +0.741 | true-on-critic slope +0.91 cos +0.79 | self-consistency +0.712 (backup vs truth +0.964)
+  it  4 V+g.eps  level corr 0.999 err sd 0.09 | within sd true 0.300 hat 0.272 | contrast corr +0.919 | true-on-critic slope +0.99 cos +1.00 | self-consistency +0.895 (backup vs truth +0.972)
+  it  8 Q(s,a)   level corr 0.999 err sd 0.08 | within sd true 0.290 hat 0.264 | contrast corr +0.935 | true-on-critic slope +1.03 cos +0.98 | self-consistency +0.897 (backup vs truth +0.959)
+  it  8 V+g.eps  level corr 0.999 err sd 0.08 | within sd true 0.296 hat 0.272 | contrast corr +0.913 | true-on-critic slope +0.99 cos +1.00 | self-consistency +0.887 (backup vs truth +0.969)
+  it 16 Q(s,a)   level corr 1.000 err sd 0.06 | within sd true 0.298 hat 0.292 | contrast corr +0.990 | true-on-critic slope +1.00 cos +0.99 | self-consistency +0.949 (backup vs truth +0.959)
+  it 16 V+g.eps  level corr 0.999 err sd 0.08 | within sd true 0.299 hat 0.274 | contrast corr +0.920 | true-on-critic slope +1.00 cos +1.00 | self-consistency +0.888 (backup vs truth +0.967)
+
+== Part B: kappa 0.5 (gain / LQR gain), sigma 0.5, iid target noise sd 0.6, rough state component sd 0.0, B scale 1, process noise 1, linear reward scale 1, level drift/iter 0.0 ==
+  between-state sd 2.30, within-state sd 0.317, sd(mu)/sigma 1.99, cos(true dQ/da, mu(s)) +0.68
+  it  1 Q(s,a)   level corr 0.932 err sd 0.80 | within sd true 0.291 hat 0.308 | contrast corr -0.241 | true-on-critic slope -0.31 cos -0.34 | self-consistency -0.128 (backup vs truth +0.801)
+  it  1 V+g.eps  level corr 0.950 err sd 0.63 | within sd true 0.287 hat 0.221 | contrast corr +0.807 | true-on-critic slope +1.04 cos +0.88 | self-consistency +0.745 (backup vs truth +0.878)
+  it  4 Q(s,a)   level corr 0.997 err sd 0.18 | within sd true 0.296 hat 0.235 | contrast corr +0.659 | true-on-critic slope +0.82 cos +0.70 | self-consistency +0.631 (backup vs truth +0.964)
+  it  4 V+g.eps  level corr 0.998 err sd 0.12 | within sd true 0.300 hat 0.279 | contrast corr +0.904 | true-on-critic slope +0.95 cos +0.98 | self-consistency +0.875 (backup vs truth +0.969)
+  it  8 Q(s,a)   level corr 0.998 err sd 0.14 | within sd true 0.290 hat 0.264 | contrast corr +0.885 | true-on-critic slope +0.98 cos +0.94 | self-consistency +0.850 (backup vs truth +0.956)
+  it  8 V+g.eps  level corr 0.999 err sd 0.12 | within sd true 0.296 hat 0.287 | contrast corr +0.897 | true-on-critic slope +0.92 cos +0.98 | self-consistency +0.871 (backup vs truth +0.965)
+  it 16 Q(s,a)   level corr 0.999 err sd 0.11 | within sd true 0.298 hat 0.279 | contrast corr +0.960 | true-on-critic slope +1.02 cos +0.98 | self-consistency +0.916 (backup vs truth +0.958)
+  it 16 V+g.eps  level corr 0.999 err sd 0.12 | within sd true 0.299 hat 0.278 | contrast corr +0.906 | true-on-critic slope +0.96 cos +0.98 | self-consistency +0.870 (backup vs truth +0.964)
+
+== Part B: kappa 0.5 (gain / LQR gain), sigma 0.5, iid target noise sd 0.6, rough state component sd 0.9, B scale 1, process noise 1, linear reward scale 1, level drift/iter 0.0 ==
+  between-state sd 2.30, within-state sd 0.317, sd(mu)/sigma 1.99, cos(true dQ/da, mu(s)) +0.68
+  it  1 Q(s,a)   level corr 0.892 err sd 1.12 | within sd true 0.291 hat 0.330 | contrast corr -0.276 | true-on-critic slope -0.31 cos -0.37 | self-consistency -0.106 (backup vs truth +0.688)
+  it  1 V+g.eps  level corr 0.908 err sd 0.96 | within sd true 0.287 hat 0.217 | contrast corr +0.778 | true-on-critic slope +1.02 cos +0.85 | self-consistency +0.639 (backup vs truth +0.770)
+  it  4 Q(s,a)   level corr 0.971 err sd 0.61 | within sd true 0.296 hat 0.243 | contrast corr +0.541 | true-on-critic slope +0.65 cos +0.57 | self-consistency +0.496 (backup vs truth +0.877)
+  it  4 V+g.eps  level corr 0.967 err sd 0.61 | within sd true 0.300 hat 0.287 | contrast corr +0.895 | true-on-critic slope +0.92 cos +0.97 | self-consistency +0.806 (backup vs truth +0.889)
+  it  8 Q(s,a)   level corr 0.973 err sd 0.57 | within sd true 0.290 hat 0.267 | contrast corr +0.837 | true-on-critic slope +0.91 cos +0.89 | self-consistency +0.749 (backup vs truth +0.863)
+  it  8 V+g.eps  level corr 0.979 err sd 0.53 | within sd true 0.296 hat 0.297 | contrast corr +0.889 | true-on-critic slope +0.88 cos +0.97 | self-consistency +0.791 (backup vs truth +0.877)
+  it 16 Q(s,a)   level corr 0.986 err sd 0.46 | within sd true 0.298 hat 0.278 | contrast corr +0.919 | true-on-critic slope +0.97 cos +0.95 | self-consistency +0.802 (backup vs truth +0.855)
+  it 16 V+g.eps  level corr 0.989 err sd 0.43 | within sd true 0.299 hat 0.275 | contrast corr +0.897 | true-on-critic slope +0.96 cos +0.97 | self-consistency +0.789 (backup vs truth +0.864)
+
+== Part B: kappa 1.5 (gain / LQR gain), sigma 0.5, iid target noise sd 0.6, rough state component sd 0.9, B scale 1, process noise 1, linear reward scale 1, level drift/iter 0.0 ==
+  between-state sd 2.30, within-state sd 0.394, sd(mu)/sigma 5.78, cos(true dQ/da, mu(s)) -0.57
+  it  1 Q(s,a)   level corr 0.871 err sd 1.21 | within sd true 0.363 hat 0.168 | contrast corr +0.693 | true-on-critic slope +1.46 cos +0.73 | self-consistency +0.685 (backup vs truth +0.862)
+  it  1 V+g.eps  level corr 0.890 err sd 1.12 | within sd true 0.363 hat 0.290 | contrast corr +0.810 | true-on-critic slope +1.01 cos +0.88 | self-consistency +0.791 (backup vs truth +0.863)
+  it  4 Q(s,a)   level corr 0.977 err sd 0.57 | within sd true 0.375 hat 0.294 | contrast corr +0.841 | true-on-critic slope +1.06 cos +0.89 | self-consistency +0.810 (backup vs truth +0.927)
+  it  4 V+g.eps  level corr 0.974 err sd 0.59 | within sd true 0.369 hat 0.371 | contrast corr +0.909 | true-on-critic slope +0.92 cos +0.98 | self-consistency +0.844 (backup vs truth +0.921)
+  it  8 Q(s,a)   level corr 0.972 err sd 0.56 | within sd true 0.364 hat 0.292 | contrast corr +0.890 | true-on-critic slope +1.08 cos +0.94 | self-consistency +0.835 (backup vs truth +0.922)
+  it  8 V+g.eps  level corr 0.976 err sd 0.53 | within sd true 0.375 hat 0.349 | contrast corr +0.903 | true-on-critic slope +0.96 cos +0.98 | self-consistency +0.839 (backup vs truth +0.923)
+  it 16 Q(s,a)   level corr 0.985 err sd 0.47 | within sd true 0.367 hat 0.313 | contrast corr +0.925 | true-on-critic slope +1.06 cos +0.97 | self-consistency +0.849 (backup vs truth +0.906)
+  it 16 V+g.eps  level corr 0.984 err sd 0.44 | within sd true 0.358 hat 0.336 | contrast corr +0.900 | true-on-critic slope +0.97 cos +0.98 | self-consistency +0.825 (backup vs truth +0.903)
+
+== Part B: kappa 0.5 (gain / LQR gain), sigma 0.15, iid target noise sd 0.6, rough state component sd 0.9, B scale 1, process noise 1, linear reward scale 1, level drift/iter 0.0 ==
+  between-state sd 2.30, within-state sd 0.090, sd(mu)/sigma 6.44, cos(true dQ/da, mu(s)) +0.68
+  it  1 Q(s,a)   level corr 0.897 err sd 1.10 | within sd true 0.082 hat 0.141 | contrast corr -0.528 | true-on-critic slope -0.32 cos -0.54 | self-consistency -0.401 (backup vs truth +0.653)
+  it  1 V+g.eps  level corr 0.911 err sd 0.94 | within sd true 0.081 hat 0.095 | contrast corr +0.491 | true-on-critic slope +0.41 cos +0.49 | self-consistency +0.316 (backup vs truth +0.724)
+  it  4 Q(s,a)   level corr 0.974 err sd 0.58 | within sd true 0.084 hat 0.134 | contrast corr -0.341 | true-on-critic slope -0.22 cos -0.35 | self-consistency -0.292 (backup vs truth +0.836)
+  it  4 V+g.eps  level corr 0.968 err sd 0.60 | within sd true 0.085 hat 0.102 | contrast corr +0.834 | true-on-critic slope +0.68 cos +0.84 | self-consistency +0.712 (backup vs truth +0.861)
+  it  8 Q(s,a)   level corr 0.975 err sd 0.55 | within sd true 0.083 hat 0.110 | contrast corr -0.188 | true-on-critic slope -0.15 cos -0.21 | self-consistency -0.148 (backup vs truth +0.841)
+  it  8 V+g.eps  level corr 0.978 err sd 0.53 | within sd true 0.084 hat 0.118 | contrast corr +0.844 | true-on-critic slope +0.60 cos +0.85 | self-consistency +0.727 (backup vs truth +0.851)
+  it 16 Q(s,a)   level corr 0.988 err sd 0.42 | within sd true 0.084 hat 0.084 | contrast corr +0.096 | true-on-critic slope +0.12 cos +0.12 | self-consistency +0.111 (backup vs truth +0.840)
+  it 16 V+g.eps  level corr 0.988 err sd 0.44 | within sd true 0.086 hat 0.097 | contrast corr +0.803 | true-on-critic slope +0.71 cos +0.81 | self-consistency +0.705 (backup vs truth +0.845)
+
+== Part B: kappa 0.5 (gain / LQR gain), sigma 0.5, iid target noise sd 0.6, rough state component sd 0.9, B scale 1, process noise 1, linear reward scale 1, level drift/iter 0.3 ==
+  between-state sd 2.30, within-state sd 0.317, sd(mu)/sigma 1.99, cos(true dQ/da, mu(s)) +0.68
+  it  1 Q(s,a)   level corr 0.890 err sd 1.12 | within sd true 0.291 hat 0.332 | contrast corr -0.276 | true-on-critic slope -0.31 cos -0.37 | self-consistency -0.101 (backup vs truth +0.679)
+  it  1 V+g.eps  level corr 0.909 err sd 0.95 | within sd true 0.287 hat 0.220 | contrast corr +0.779 | true-on-critic slope +1.01 cos +0.85 | self-consistency +0.620 (backup vs truth +0.760)
+  it  4 Q(s,a)   level corr 0.967 err sd 0.65 | within sd true 0.296 hat 0.241 | contrast corr +0.516 | true-on-critic slope +0.62 cos +0.53 | self-consistency +0.428 (backup vs truth +0.857)
+  it  4 V+g.eps  level corr 0.965 err sd 0.63 | within sd true 0.300 hat 0.286 | contrast corr +0.895 | true-on-critic slope +0.92 cos +0.97 | self-consistency +0.776 (backup vs truth +0.864)
+  it  8 Q(s,a)   level corr 0.963 err sd 0.68 | within sd true 0.290 hat 0.265 | contrast corr +0.821 | true-on-critic slope +0.91 cos +0.88 | self-consistency +0.667 (backup vs truth +0.819)
+  it  8 V+g.eps  level corr 0.968 err sd 0.66 | within sd true 0.296 hat 0.296 | contrast corr +0.889 | true-on-critic slope +0.88 cos +0.97 | self-consistency +0.740 (backup vs truth +0.835)
+  it 16 Q(s,a)   level corr 0.976 err sd 0.62 | within sd true 0.298 hat 0.287 | contrast corr +0.897 | true-on-critic slope +0.92 cos +0.92 | self-consistency +0.797 (backup vs truth +0.843)
+  it 16 V+g.eps  level corr 0.979 err sd 0.59 | within sd true 0.299 hat 0.275 | contrast corr +0.893 | true-on-critic slope +0.96 cos +0.97 | self-consistency +0.799 (backup vs truth +0.843)
+
+== Part B: kappa 0.5 (gain / LQR gain), sigma 0.5, iid target noise sd 0.6, rough state component sd 0.9, B scale 1, process noise 1, linear reward scale 1, level drift/iter 1.0 ==
+  between-state sd 2.30, within-state sd 0.317, sd(mu)/sigma 1.99, cos(true dQ/da, mu(s)) +0.68
+  it  1 Q(s,a)   level corr 0.872 err sd 1.27 | within sd true 0.291 hat 0.304 | contrast corr -0.305 | true-on-critic slope -0.37 cos -0.41 | self-consistency -0.011 (backup vs truth +0.540)
+  it  1 V+g.eps  level corr 0.892 err sd 1.09 | within sd true 0.287 hat 0.229 | contrast corr +0.763 | true-on-critic slope +0.95 cos +0.83 | self-consistency +0.461 (backup vs truth +0.624)
+  it  4 Q(s,a)   level corr 0.949 err sd 0.97 | within sd true 0.296 hat 0.255 | contrast corr +0.287 | true-on-critic slope +0.28 cos +0.26 | self-consistency +0.132 (backup vs truth +0.677)
+  it  4 V+g.eps  level corr 0.952 err sd 0.92 | within sd true 0.300 hat 0.288 | contrast corr +0.881 | true-on-critic slope +0.90 cos +0.95 | self-consistency +0.588 (backup vs truth +0.687)
+  it  8 Q(s,a)   level corr 0.920 err sd 1.30 | within sd true 0.290 hat 0.270 | contrast corr +0.670 | true-on-critic slope +0.70 cos +0.70 | self-consistency +0.324 (backup vs truth +0.586)
+  it  8 V+g.eps  level corr 0.921 err sd 1.31 | within sd true 0.296 hat 0.302 | contrast corr +0.867 | true-on-critic slope +0.84 cos +0.95 | self-consistency +0.502 (backup vs truth +0.596)
+  it 16 Q(s,a)   level corr 0.960 err sd 1.14 | within sd true 0.298 hat 0.351 | contrast corr +0.732 | true-on-critic slope +0.59 cos +0.74 | self-consistency +0.508 (backup vs truth +0.654)
+  it 16 V+g.eps  level corr 0.959 err sd 1.16 | within sd true 0.299 hat 0.286 | contrast corr +0.873 | true-on-critic slope +0.90 cos +0.95 | self-consistency +0.592 (backup vs truth +0.638)
+
+== Part B: kappa 0.5 (gain / LQR gain), sigma 0.15, iid target noise sd 0.6, rough state component sd 0.9, B scale 1, process noise 1, linear reward scale 1, level drift/iter 0.3 ==
+  between-state sd 2.30, within-state sd 0.090, sd(mu)/sigma 6.44, cos(true dQ/da, mu(s)) +0.68
+  it  1 Q(s,a)   level corr 0.895 err sd 1.09 | within sd true 0.082 hat 0.139 | contrast corr -0.522 | true-on-critic slope -0.32 cos -0.54 | self-consistency -0.348 (backup vs truth +0.639)
+  it  1 V+g.eps  level corr 0.912 err sd 0.93 | within sd true 0.081 hat 0.096 | contrast corr +0.508 | true-on-critic slope +0.42 cos +0.51 | self-consistency +0.327 (backup vs truth +0.704)
+  it  4 Q(s,a)   level corr 0.970 err sd 0.63 | within sd true 0.084 hat 0.135 | contrast corr -0.354 | true-on-critic slope -0.23 cos -0.37 | self-consistency -0.334 (backup vs truth +0.811)
+  it  4 V+g.eps  level corr 0.965 err sd 0.63 | within sd true 0.085 hat 0.103 | contrast corr +0.828 | true-on-critic slope +0.67 cos +0.83 | self-consistency +0.679 (backup vs truth +0.833)
+  it  8 Q(s,a)   level corr 0.963 err sd 0.66 | within sd true 0.083 hat 0.111 | contrast corr -0.220 | true-on-critic slope -0.17 cos -0.24 | self-consistency -0.230 (backup vs truth +0.786)
+  it  8 V+g.eps  level corr 0.967 err sd 0.66 | within sd true 0.084 hat 0.118 | contrast corr +0.835 | true-on-critic slope +0.60 cos +0.84 | self-consistency +0.668 (backup vs truth +0.800)
+  it 16 Q(s,a)   level corr 0.978 err sd 0.59 | within sd true 0.084 hat 0.090 | contrast corr +0.032 | true-on-critic slope +0.05 cos +0.05 | self-consistency +0.150 (backup vs truth +0.832)
+  it 16 V+g.eps  level corr 0.979 err sd 0.60 | within sd true 0.086 hat 0.097 | contrast corr +0.789 | true-on-critic slope +0.70 cos +0.80 | self-consistency +0.678 (backup vs truth +0.832)

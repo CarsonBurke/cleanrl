@@ -1,0 +1,100 @@
+/home/marvin/Documents/repositories/cleanrl/benchmarks/reppo_rootcause/scripts/03_q2_runs_table.py:93: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  rho, p = stats.spearmanr(m[mask], ret[mask])
+/home/marvin/Documents/repositories/cleanrl/benchmarks/reppo_rootcause/scripts/03_q2_runs_table.py:97: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  rho, p = stats.spearmanr(m[mask], ret8[mask])
+193 runs with returns; table -> data/03_q2_table.tsv
+
+== distribution of critic-quality metrics across runs (n = runs with the metric at that step)
+  corr @1M n= 99: min -0.029 p10 +0.032 p25 +0.061 median +0.080 p75 +0.098 p90 +0.122 max +0.285
+  corr @4M n= 81: min -0.120 p10 +0.041 p25 +0.068 median +0.080 p75 +0.108 p90 +0.132 max +0.259
+  corr @8M n= 77: min -0.078 p10 +0.020 p25 +0.044 median +0.070 p75 +0.093 p90 +0.116 max +0.162
+  ratio@1M n= 99: min +0.023 p10 +0.092 p25 +0.120 median +0.129 p75 +0.157 p90 +0.182 max +0.313
+  ratio@4M n= 81: min +0.031 p10 +0.103 p25 +0.131 median +0.157 p75 +0.185 p90 +0.210 max +0.302
+  ratio@8M n= 77: min +0.022 p10 +0.094 p25 +0.115 median +0.139 p75 +0.160 p90 +0.184 max +0.238
+  bell @1M n= 10: min +0.105 p10 +0.110 p25 +0.275 median +0.295 p75 +0.329 p90 +0.358 max +0.411
+  bell @4M n=  7: min +0.549 p10 +0.590 p25 +0.642 median +0.691 p75 +0.984 p90 +1.073 max +1.128
+  bell @8M n=  4: min +1.182 p10 +1.201 p25 +1.230 median +1.264 p75 +1.289 p90 +1.302 max +1.311
+  qmse @1M n=169: min +0.001 p10 +0.027 p25 +0.126 median +0.279 p75 +0.595 p90 +1.903 max +304.387
+  qmse @4M n=151: min +0.003 p10 +0.044 p25 +0.231 median +0.767 p75 +1.487 p90 +2.981 max +193.157
+  qmse @8M n=135: min +0.004 p10 +0.052 p25 +0.821 median +1.690 p75 +3.112 p90 +4.934 max +479.034
+  dqda @1M n= 99: min +0.131 p10 +0.206 p25 +0.269 median +0.423 p75 +0.541 p90 +0.775 max +4.477
+  dqda @4M n= 81: min +0.177 p10 +0.208 p25 +0.492 median +0.758 p75 +1.054 p90 +1.314 max +6.302
+  dqda @8M n= 77: min +0.131 p10 +0.306 p25 +0.751 median +1.045 p75 +1.218 p90 +1.442 max +11.684
+  dcos @1M n= 79: min +0.380 p10 +0.695 p25 +0.758 median +0.792 p75 +0.840 p90 +0.883 max +0.959
+  dcos @4M n= 64: min +0.322 p10 +0.702 p25 +0.753 median +0.794 p75 +0.820 p90 +0.865 max +0.926
+  dcos @8M n= 64: min +0.263 p10 +0.673 p25 +0.742 median +0.769 p75 +0.791 p90 +0.823 max +0.906
+
+== Spearman rank correlation of metric@T with return@T and with return@8M across runs
+   (healthy = return@T above the flipped ~2.3k trap: >3000 @1M, >5000 @4M, >6000 @8M)
+  corr  | @1M all n= 99 rho=-0.15 p=0.130 | @1M healthy n= 65 rho=-0.26 p=0.034 | @1M->ret8M healthy n=52 rho=+0.15 p=0.303 | @4M all n= 81 rho=-0.19 p=0.093 | @4M healthy n= 57 rho=-0.34 p=0.009 | @4M->ret8M healthy n=52 rho=-0.16 p=0.243 | @8M all n= 77 rho=-0.27 p=0.019 | @8M healthy n= 65 rho=-0.32 p=0.009
+  ratio | @1M all n= 99 rho=+0.15 p=0.138 | @1M healthy n= 65 rho=-0.18 p=0.143 | @1M->ret8M healthy n=52 rho=-0.18 p=0.203 | @4M all n= 81 rho=+0.19 p=0.085 | @4M healthy n= 57 rho=-0.40 p=0.002 | @4M->ret8M healthy n=52 rho=-0.15 p=0.299 | @8M all n= 77 rho=-0.01 p=0.948 | @8M healthy n= 65 rho=-0.40 p=0.001
+  bell  | @1M all n= 10 rho=+0.04 p=0.907
+  qmse  | @1M all n=169 rho=+0.25 p=0.001 | @1M healthy n= 87 rho=+0.18 p=0.087 | @1M->ret8M healthy n=83 rho=-0.32 p=0.003 | @4M all n=151 rho=+0.29 p=0.000 | @4M healthy n= 88 rho=+0.42 p=0.000 | @4M->ret8M healthy n=83 rho=+0.20 p=0.066 | @8M all n=135 rho=+0.35 p=0.000 | @8M healthy n= 96 rho=+0.26 p=0.010
+  dqda  | @1M all n= 99 rho=+0.71 p=0.000 | @1M healthy n= 65 rho=+0.46 p=0.000 | @1M->ret8M healthy n=52 rho=+0.32 p=0.022 | @4M all n= 81 rho=+0.78 p=0.000 | @4M healthy n= 57 rho=+0.60 p=0.000 | @4M->ret8M healthy n=52 rho=+0.35 p=0.011 | @8M all n= 77 rho=+0.20 p=0.080 | @8M healthy n= 65 rho=-0.14 p=0.274
+  dcos  | @1M all n= 79 rho=-0.29 p=0.010 | @1M healthy n= 49 rho=+0.11 p=0.460 | @1M->ret8M healthy n=40 rho=+0.42 p=0.007 | @4M all n= 64 rho=-0.26 p=0.035 | @4M healthy n= 41 rho=-0.04 p=0.809 | @4M->ret8M healthy n=40 rho=+0.15 p=0.351 | @8M all n= 64 rho=-0.36 p=0.003 | @8M healthy n= 53 rho=-0.35 p=0.010
+  std   | @1M all n=171 rho=-0.38 p=0.000 | @1M healthy n= 88 rho=-0.58 p=0.000 | @1M->ret8M healthy n=83 rho=+0.24 p=0.026 | @4M all n=153 rho=+0.14 p=0.093 | @4M healthy n= 88 rho=+0.29 p=0.005 | @4M->ret8M healthy n=83 rho=+0.54 p=0.000 | @8M all n=137 rho=+0.12 p=0.159 | @8M healthy n= 96 rho=+0.16 p=0.112
+  kl    | @1M all n=171 rho=+0.16 p=0.033 | @1M healthy n= 88 rho=+0.11 p=0.299 | @1M->ret8M healthy n=83 rho=+0.19 p=0.085 | @4M all n=153 rho=+0.12 p=0.157 | @4M healthy n= 88 rho=+0.13 p=0.244 | @4M->ret8M healthy n=83 rho=+0.14 p=0.218 | @8M all n=137 rho=+0.01 p=0.929 | @8M healthy n= 96 rho=-0.11 p=0.308
+  viol  | @1M all n=171 rho=-0.05 p=0.546 | @1M healthy n= 88 rho=-0.24 p=0.027 | @1M->ret8M healthy n=83 rho=+0.17 p=0.127 | @4M all n=153 rho=-0.45 p=0.000 | @4M healthy n= 88 rho=-0.37 p=0.000 | @4M->ret8M healthy n=83 rho=-0.23 p=0.039 | @8M all n=137 rho=-0.29 p=0.001 | @8M healthy n= 96 rho=-0.18 p=0.080
+  temp  | @1M all n=162 rho=+0.02 p=0.815 | @1M healthy n= 81 rho=+0.04 p=0.703 | @1M->ret8M healthy n=77 rho=+0.15 p=0.185 | @4M all n=145 rho=+0.52 p=0.000 | @4M healthy n= 82 rho=+0.60 p=0.000 | @4M->ret8M healthy n=77 rho=+0.48 p=0.000 | @8M all n=131 rho=+0.20 p=0.023 | @8M healthy n= 90 rho=-0.02 p=0.827
+  ent   | @1M all n=169 rho=-0.43 p=0.000 | @1M healthy n= 86 rho=-0.42 p=0.000 | @1M->ret8M healthy n=81 rho=-0.18 p=0.107 | @4M all n=151 rho=-0.13 p=0.121 | @4M healthy n= 86 rho=-0.09 p=0.421 | @4M->ret8M healthy n=81 rho=+0.14 p=0.204 | @8M all n=135 rho=-0.12 p=0.168 | @8M healthy n= 94 rho=+0.00 p=0.967
+  sat   | @1M all n= 97 rho=+0.23 p=0.021 | @1M healthy n= 63 rho=+0.07 p=0.581 | @1M->ret8M healthy n=50 rho=+0.54 p=0.000 | @4M all n= 79 rho=+0.06 p=0.570 | @4M healthy n= 55 rho=+0.40 p=0.003 | @4M->ret8M healthy n=50 rho=+0.34 p=0.016 | @8M all n= 75 rho=+0.01 p=0.965 | @8M healthy n= 63 rho=+0.04 p=0.768
+  clip  | @1M all n=150 rho=-0.19 p=0.020 | @1M healthy n= 82 rho=+nan p=nan | @1M->ret8M healthy n=78 rho=+nan p=nan | @4M all n=132 rho=-0.21 p=0.017 | @4M healthy n= 83 rho=+nan p=nan | @4M->ret8M healthy n=78 rho=+nan p=nan | @8M all n=120 rho=+0.05 p=0.555 | @8M healthy n= 91 rho=-0.00 p=0.998
+
+== extremes: runs with the highest / lowest held-out advantage corr @4M (need >= 3.75M steps)
+  reppo_duel_v26_lam0p95_50M                   corr +0.033/-0.120/+0.079 ratio 0.04/0.03/0.03 qmse nan ret 1670/3475/3464 | gve_lambda=0.95
+  reppo_duel_v26_lam0p8_50M                    corr +0.001/+0.005/-0.078 ratio 0.02/0.05/0.02 qmse nan ret 3477/3851/4134 | -
+  reppo_crossspread_v47                        corr +0.041/+0.007/+0.020 ratio 0.14/0.10/0.11 qmse 1.30 ret 6352/7667/8286 | spread_critic=crossfold
+  reppo_drifttemp_v49b_c3                      corr +0.011/+0.024/+nan ratio 0.08/0.08/nan qmse 193.16 ret -293/-256/nan | temperature_source=drift,drift_scale=3.0
+  reppo_clipgauss_v22_s0p2_50M                 corr +0.063/+0.034/+0.022 ratio 0.22/0.19/0.18 qmse 1.77 ret 5172/6782/8031 | gve_lambda=0.95,target_sigma=0.2
+  reppo_crossspread_v47_indep                  corr +0.059/+0.034/+0.060 ratio 0.13/0.10/0.09 qmse 0.95 ret 5802/7815/8863 | -
+  reppo_stepgeom_v48_floor                     corr +0.041/+0.035/+0.024 ratio 0.13/0.10/0.11 qmse 1.13 ret 5896/8275/9407 | trust_region=kl
+  reppo_probe_v23_ns4096_kl0p12_50M            corr +0.102/+0.036/+0.012 ratio 0.13/0.17/0.18 qmse 0.26 ret 3320/5752/7416 | num_steps=4096,gve_lambda=0.95,critic_updates=512,actor_updates=128,kl_bound=0.12
+  reppo_clipgauss_v22_s0p1_50M                 corr +0.022/+0.041/+0.064 ratio 0.18/0.17/0.16 qmse 1.37 ret 5224/6443/7538 | gve_lambda=0.95
+  reppo_exactfork_v62_control                  corr +0.102/+0.045/+0.065 ratio 0.12/0.15/0.13 qmse 1.28 ret 4417/8886/10619 | exact_targets=False
+  reppo_crossspread_v47_same                   corr +0.032/+0.048/+0.060 ratio 0.08/0.11/0.10 qmse 0.39 ret 5211/6396/7079 | spread_critic=same
+  reppo_orthoadv_v63_fork                      corr +0.030/+0.049/+nan ratio 0.14/0.13/nan qmse 0.48 ret 4322/6697/nan | exact_targets=False
+  ...
+  reppo_popanneal_v46_k16                      corr +0.075/+0.119/+nan ratio 0.15/0.21/nan qmse 0.37 ret 3847/6367/nan | ent_target_final_mult=0.5,num_heads=16,head_minibatch_size=1024
+  reppo_sharpmean_v44                          corr -0.029/+0.123/+0.076 ratio 0.12/0.19/0.12 qmse 0.08 ret 3957/5703/6471 | -
+  reppo_ids_v54_belief                         corr +0.157/+0.125/+0.137 ratio 0.21/0.20/0.18 qmse 0.77 ret 3960/7279/9013 | -
+  reppo_sharpmean_v44_const                    corr -0.029/+0.126/+0.043 ratio 0.12/0.19/0.18 qmse 0.09 ret 3957/5677/7323 | ent_target_final_mult=0.5
+  reppo_entanneal_v43_f1p0                     corr +0.093/+0.129/+0.093 ratio 0.14/0.16/0.14 qmse 0.14 ret 3797/5984/10018 | ent_target_final_mult=1.0,ent_anneal_start=0.1
+  reppo_probe_v23_kl0p015_50M                  corr +0.119/+0.132/+0.085 ratio 0.19/0.21/0.19 qmse 0.26 ret 3416/5674/7857 | gve_lambda=0.95,kl_bound=0.015
+  reppo_entanneal_v43_m0_late1p5               corr +0.121/+0.140/+0.080 ratio 0.17/0.22/0.11 qmse 0.64 ret 3567/7043/11561 | ent_target_mult=0.0
+  reppo_entanneal_v43_m0p25                    corr +0.113/+0.143/+0.096 ratio 0.15/0.18/0.17 qmse 0.37 ret 3527/7525/10157 | ent_target_mult=0.25,ent_target_final_mult=0.25,ent_anneal_start=0.1
+  reppo_entanneal_v43_m0                       corr +0.121/+0.144/+0.145 ratio 0.17/0.21/0.21 qmse 0.65 ret 3567/6935/8320 | ent_target_mult=0.0,ent_target_final_mult=0.0,ent_anneal_start=0.1
+  reppo_probe_v23_kl0p01_50M                   corr +0.159/+0.163/+0.154 ratio 0.22/0.24/0.24 qmse 0.37 ret 3581/5491/7585 | gve_lambda=0.95,kl_bound=0.01
+  reppo_ids_v54_lag                            corr +0.167/+0.168/+0.162 ratio 0.23/0.22/0.21 qmse 0.60 ret 3018/6212/8711 | offset_reference=lag
+  reppo_refresh_v25_lam0p8_ns4096_50M          corr +0.200/+0.169/+0.144 ratio 0.21/0.20/0.17 qmse 0.07 ret 2727/5663/8107 | num_steps=4096,critic_updates=512,actor_updates=128
+  reppo_stepgeom_v48_box                       corr +0.285/+0.259/+nan ratio 0.31/0.30/nan qmse 0.21 ret 212/2374/nan | nu_floor_std=0.0
+  reppo_stepgeom_v48_boxfloor                  corr +0.285/+0.259/+nan ratio 0.31/0.30/nan qmse 0.21 ret 212/2374/nan | -
+
+== extremes of advantage_std_ratio @4M
+  reppo_duel_v26_lam0p95_50M                   corr +0.033/-0.120/+0.079 ratio 0.04/0.03/0.03 qmse nan ret 1670/3475/3464 | gve_lambda=0.95
+  reppo_duel_v26_lam0p8_50M                    corr +0.001/+0.005/-0.078 ratio 0.02/0.05/0.02 qmse nan ret 3477/3851/4134 | -
+  reppo_drifttemp_v49b_c3                      corr +0.011/+0.024/+nan ratio 0.08/0.08/nan qmse 193.16 ret -293/-256/nan | temperature_source=drift,drift_scale=3.0
+  reppo_dynabranch_v37_fp32                    corr +0.065/+0.074/+nan ratio 0.07/0.09/nan qmse 0.03 ret 1724/2236/nan | imagine_starts=4096,imagine_branches=4,imagine_horizon=5
+  reppo_dynabranch_v37                         corr +0.083/+0.088/+0.090 ratio 0.09/0.10/0.10 qmse 0.02 ret 1690/2275/2358 | imagine_starts=4096,imagine_branches=4,imagine_horizon=5
+  reppo_stepgeom_v48_floor                     corr +0.041/+0.035/+0.024 ratio 0.13/0.10/0.11 qmse 1.13 ret 5896/8275/9407 | trust_region=kl
+  reppo_popanneal_v46_k16                      corr +0.075/+0.119/+nan ratio 0.15/0.21/nan qmse 0.37 ret 3847/6367/nan | ent_target_final_mult=0.5,num_heads=16,head_minibatch_size=1024
+  reppo_entanneal_v43_m0                       corr +0.121/+0.144/+0.145 ratio 0.17/0.21/0.21 qmse 0.65 ret 3567/6935/8320 | ent_target_mult=0.0,ent_target_final_mult=0.0,ent_anneal_start=0.1
+  reppo_probe_v23_kl0p015_50M                  corr +0.119/+0.132/+0.085 ratio 0.19/0.21/0.19 qmse 0.26 ret 3416/5674/7857 | gve_lambda=0.95,kl_bound=0.015
+  reppo_entanneal_v43_m0_late1p5               corr +0.121/+0.140/+0.080 ratio 0.17/0.22/0.11 qmse 0.64 ret 3567/7043/11561 | ent_target_mult=0.0
+  reppo_probe_v23_ns4096_50M                   corr +0.150/+0.079/+0.100 ratio 0.21/0.22/0.23 qmse 1.78 ret 1537/5668/9346 | num_steps=4096,gve_lambda=0.95,critic_updates=512,actor_updates=128
+  reppo_ids_v54_lag                            corr +0.167/+0.168/+0.162 ratio 0.23/0.22/0.21 qmse 0.60 ret 3018/6212/8711 | offset_reference=lag
+  reppo_probe_v23_kl0p01_50M                   corr +0.159/+0.163/+0.154 ratio 0.22/0.24/0.24 qmse 0.37 ret 3581/5491/7585 | gve_lambda=0.95,kl_bound=0.01
+  reppo_refresh_v25_lam0p95_50M                corr +0.075/+0.119/+0.098 ratio 0.18/0.25/0.18 qmse 0.45 ret 3984/6054/8977 | gve_lambda=0.95
+  reppo_stepgeom_v48_box                       corr +0.285/+0.259/+nan ratio 0.31/0.30/nan qmse 0.21 ret 212/2374/nan | nu_floor_std=0.0
+  reppo_stepgeom_v48_boxfloor                  corr +0.285/+0.259/+nan ratio 0.31/0.30/nan qmse 0.21 ret 212/2374/nan | -
+
+== runs logging bellman_rms_heldout
+  reppo_exactfork_v62_control                  bell 0.287/1.128/1.311 corr +0.045/+0.065 ret 8886/10619 | exact_targets=False
+  reppo_exactfork_v62_l08                      bell 0.271/1.035/1.182 corr +0.072/+0.073 ret 8882/10630 | -
+  reppo_exactfork_v62_l095                     bell 0.293/0.933/1.282 corr +0.050/+0.027 ret 8526/9932 | gve_lambda=0.95
+  reppo_exacttarget_v61_control                bell 0.111/nan/nan corr +nan/+nan ret nan/nan | exact_targets=False
+  reppo_exacttarget_v61_l08                    bell 0.105/nan/nan corr +nan/+nan ret nan/nan | -
+  reppo_exacttarget_v61_l095                   bell 0.352/0.691/1.246 corr +0.071/+0.036 ret 7465/9802 | gve_lambda=0.95
+  reppo_orthoadv_v63                           bell 0.337/nan/nan corr +nan/+nan ret nan/nan | exact_targets=False
+  reppo_orthoadv_v63_exact_l08_fork            bell 0.305/0.549/nan corr +0.067/+nan ret 6808/nan | -
+  reppo_orthoadv_v63_exact_l095_fork           bell 0.411/0.665/nan corr +0.053/+nan ret 5987/nan | gve_lambda=0.95
+  reppo_orthoadv_v63_fork                      bell 0.296/0.618/nan corr +0.049/+nan ret 6697/nan | exact_targets=False

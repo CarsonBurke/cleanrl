@@ -1,0 +1,33 @@
+== (1,2) SF vs pathwise-through-OLS-critic; nu = target noise sd, level sd 2.3, within-state sd 0.22 ==
+      N    nu  cos(pw,sf)  cos(sf,true)  cos(pw,true)  pred cos(sf)
+   1024  0.00       0.965         0.961         0.995         0.960
+   1024  0.66       0.939         0.762         0.756         0.780
+   4096  0.00       0.991         0.990         0.999         0.989
+   4096  0.66       0.988         0.928         0.936         0.928
+  16384  0.00       0.998         0.997         1.000         0.997
+  16384  0.66       0.998         0.980         0.983         0.981
+  65536  0.00       0.999         0.999         1.000         0.999
+  65536  0.66       0.999         0.995         0.995         0.995
+
+== effect of a level (baseline) error on the SF estimator; N = 16384, nu = 0.66 ==
+baseline error sd 0.0: cos(sf,true) = 0.981
+baseline error sd 0.3: cos(sf,true) = 0.978
+baseline error sd 0.9: cos(sf,true) = 0.952
+
+== (3) per-state estimators of the action slope from K samples, evaluated on fresh actions ==
+corr of predicted contrast sigma*ghat.eps' with the true contrast; formulas vs Monte Carlo
+nu 0.3 K   1 minnorm  corr MC  0.202  formula  0.210  sd(hat contrast) 0.173
+nu 0.3 K   1 sf       corr MC  0.228  formula  0.228  sd(hat contrast) 0.955
+nu 0.3 K   6 sf       corr MC  0.498  formula  0.498  sd(hat contrast) 0.443
+nu 0.3 K  24 sf       corr MC  0.748  formula  0.755  sd(hat contrast) 0.292
+nu 0.3 K  96 sf       corr MC  0.916  formula  0.917  sd(hat contrast) 0.240
+nu 0.6 K   1 minnorm  corr MC  0.107  formula  0.117  sd(hat contrast) 0.320
+nu 0.6 K   1 sf       corr MC  0.140  formula  0.138  sd(hat contrast) 1.608
+nu 0.6 K   6 sf       corr MC  0.326  formula  0.323  sd(hat contrast) 0.684
+nu 0.6 K  24 sf       corr MC  0.562  formula  0.563  sd(hat contrast) 0.392
+nu 0.6 K  96 sf       corr MC  0.808  formula  0.806  sd(hat contrast) 0.274
+nu 0.9 K   1 minnorm  corr MC  0.089  formula  0.080  sd(hat contrast) 0.459
+nu 0.9 K   1 sf       corr MC  0.094  formula  0.096  sd(hat contrast) 2.303
+nu 0.9 K   6 sf       corr MC  0.228  formula  0.230  sd(hat contrast) 0.954
+nu 0.9 K  24 sf       corr MC  0.426  formula  0.427  sd(hat contrast) 0.511
+nu 0.9 K  96 sf       corr MC  0.683  formula  0.687  sd(hat contrast) 0.320

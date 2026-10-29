@@ -1,0 +1,15 @@
+snapshot 4013696: returns [1290, 9384, 9665]; energy share inverted rows 0.300 (rows 0.268)
+  top-30 state indices (episode*1000+step): [121, 124, 186, 187, 197, 208, 1133, 1136, 1234, 1338, 1414, 1490, 1492, 1493, 1494, 1756, 1825, 1861, 1896, 1899, 1947, 2071, 2117, 2126, 2149, 2477, 2525, 2599, 2975, 2983]
+  top-30: |pitch| median 0.11 vs all 0.25; pre-tanh std 0.39 vs 0.61; Q 80.3 vs 66.6; share of top-30 inverted 0.07
+  first inverted step per episode: {0: 197, 1: None, 2: None}
+   upright |pitch| 0-0.3: rows 0.593, energy share 0.525, median |g| 0.297
+   upright |pitch| 0.3-0.6: rows 0.135, energy share 0.170, median |g| 0.255
+   upright |pitch| 0.6-1.0: rows 0.002, energy share 0.004, median |g| 0.613
+   upright |pitch| 1.0-1.57: rows 0.002, energy share 0.002, median |g| 0.818
+snapshot 7913088: returns [11938, 11570, 11818]; energy share inverted rows 0.000 (rows 0.000)
+  top-30 state indices (episode*1000+step): [135, 156, 180, 192, 193, 397, 404, 452, 623, 768, 844, 996, 1528, 1597, 1693, 1696, 1697, 1963, 1965, 1989, 2177, 2258, 2446, 2492, 2548, 2568, 2573, 2675, 2957, 2959]
+  top-30: |pitch| median 0.19 vs all 0.19; pre-tanh std 0.44 vs 0.49; Q 103.3 vs 106.8; share of top-30 inverted 0.00
+  first inverted step per episode: {0: None, 1: None, 2: None}
+   upright |pitch| 0-0.3: rows 0.812, energy share 0.945, median |g| 0.337
+   upright |pitch| 0.3-0.6: rows 0.187, energy share 0.055, median |g| 0.291
+   upright |pitch| 0.6-1.0: rows 0.001, energy share 0.000, median |g| 0.220

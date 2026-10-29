@@ -1,0 +1,45 @@
+
+=== v23_4M  (cruising states: 481/512)
+   critic           all: +0.285 [+0.195,+0.417]     cruising: +0.310 [+0.206,+0.487]
+   const/lin        all: +0.002 [-0.065,+0.065]     cruising: +0.006 [-0.065,+0.073]
+   const/lin+quad   all: +0.184 [+0.125,+0.250]     cruising: +0.180 [+0.114,+0.248]
+   linear/lin       all: +0.110 [+0.047,+0.181]     cruising: +0.113 [+0.052,+0.185]
+   linear/lin+quad  all: +0.165 [+0.086,+0.257]     cruising: +0.171 [+0.095,+0.265]
+   rf/lin           all: +0.114 [+0.047,+0.189]     cruising: +0.118 [+0.054,+0.191]
+   rf/lin+quad      all: +0.105 [+0.033,+0.191]     cruising: +0.114 [+0.032,+0.199]
+
+=== v23_12M  (cruising states: 429/512)
+   critic           all: +0.027 [-0.080,+0.193]     cruising: +0.173 [+0.086,+0.260]
+   const/lin        all: -0.024 [-0.062,-0.006]     cruising: -0.066 [-0.141,+0.003]
+   const/lin+quad   all: -0.030 [-0.067,+0.015]     cruising: -0.007 [-0.078,+0.064]
+   linear/lin       all: -0.034 [-0.090,+0.049]     cruising: +0.103 [+0.040,+0.174]
+   linear/lin+quad  all: +0.039 [-0.027,+0.104]     cruising: -0.037 [-0.103,+0.033]
+   rf/lin           all: -0.073 [-0.135,+0.005]     cruising: +0.018 [-0.037,+0.072]
+   rf/lin+quad      all: -0.069 [-0.251,+0.078]     cruising: -0.017 [-0.078,+0.049]
+
+=== v23_30M  (cruising states: 406/512)
+   critic           all: +0.233 [+0.139,+0.362]     cruising: +0.275 [+0.167,+0.405]
+   const/lin        all: -0.020 [-0.094,+0.059]     cruising: -0.019 [-0.089,+0.059]
+   const/lin+quad   all: +0.054 [-0.033,+0.171]     cruising: +0.064 [-0.029,+0.175]
+   linear/lin       all: +0.082 [-0.006,+0.193]     cruising: +0.072 [-0.020,+0.166]
+   linear/lin+quad  all: -0.027 [-0.118,+0.082]     cruising: -0.025 [-0.130,+0.090]
+   rf/lin           all: +0.049 [-0.032,+0.139]     cruising: +0.067 [-0.010,+0.154]
+   rf/lin+quad      all: -0.045 [-0.139,+0.057]     cruising: -0.041 [-0.152,+0.080]
+
+=== v29h8_8M  (cruising states: 468/512)
+   critic           all: +0.200 [+0.068,+0.328]     cruising: +0.283 [+0.185,+0.378]
+   const/lin        all: +0.030 [-0.053,+0.107]     cruising: +0.028 [-0.062,+0.107]
+   const/lin+quad   all: +0.130 [+0.059,+0.198]     cruising: +0.136 [+0.058,+0.213]
+   linear/lin       all: +0.097 [+0.025,+0.175]     cruising: +0.096 [+0.018,+0.172]
+   linear/lin+quad  all: +0.118 [+0.028,+0.210]     cruising: +0.102 [-0.002,+0.191]
+   rf/lin           all: +0.068 [-0.016,+0.153]     cruising: +0.060 [-0.026,+0.162]
+   rf/lin+quad      all: +0.092 [+0.026,+0.159]     cruising: +0.074 [-0.008,+0.155]
+
+=== v29h8_12M  (cruising states: 417/512)
+   critic           all: +0.154 [+0.084,+0.252]     cruising: +0.148 [+0.062,+0.306]
+   const/lin        all: -0.041 [-0.081,-0.005]     cruising: -0.057 [-0.141,-0.005]
+   const/lin+quad   all: +0.037 [-0.011,+0.102]     cruising: +0.074 [+0.015,+0.150]
+   linear/lin       all: +0.009 [-0.025,+0.073]     cruising: +0.043 [-0.014,+0.141]
+   linear/lin+quad  all: +0.005 [-0.032,+0.046]     cruising: -0.003 [-0.059,+0.059]
+   rf/lin           all: +0.006 [-0.036,+0.085]     cruising: +0.053 [+0.003,+0.157]
+   rf/lin+quad      all: +0.017 [-0.018,+0.078]     cruising: +0.027 [-0.027,+0.124]

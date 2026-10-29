@@ -1,0 +1,152 @@
+
+=== kappa 3.0, w 0.15, sigma 0.02, gamma 0.9: Lyapunov +0.303/step (e-fold 3.3 steps), horizon 10 steps, gamma*exp(lyap) = 1.22 ===
+(a) sd V 1.380 | within-state sd of Q 0.4008 | rms smoothed slope 16.536 | rms pointwise slope 25.403 | linear-in-eps share of within-state var 0.68 | corr(pointwise, smoothed) 0.73
+(b) per-sample variance / E[g^2] of unbiased slope estimators (exact V at the horizon)
+      n  zeroth (SF)  first (pathwise sim)  bias check SF  bias check FO
+      1         2.55                  1.35           1.00           1.00
+      2         3.72                  4.05           1.00           1.00
+      3         4.61                   8.6           0.99           1.01
+      5         6.02                  33.3           1.00           1.02
+      8         7.31                   232           1.00           0.95
+     12         8.13              3.04e+03           1.00           0.91
+     20         8.62              5.31e+05           1.00          -0.06
+     40         8.74               2.6e+11           1.00          11.81
+(c) slope MSE / E[g^2] of the n-step SF target with V_hat = blur(V, l); K = pooled samples per estimate
+    V_hat blur l =  1.00 sigma (level error sd 0.280, sd V 1.380)
+      n      :       1       2       3       5       8      12      20      40
+      bias^2 :   0.062   0.011   0.002   0.000   0.000   0.000   0.000   0.000
+      var    :     2.4     3.7     4.8     6.4     7.8     8.7     9.3     9.4
+      lvl err:   0.079   0.032   0.017   0.003   0.000   0.000   0.000   0.000
+      K    16: best n =  1, MSE/E[g^2] at n=1 0.213, at best 0.213, at n=40 0.589
+      K   256: best n =  3, MSE/E[g^2] at n=1 0.072, at best 0.021, at n=40 0.037
+      K  4096: best n =  5, MSE/E[g^2] at n=1 0.063, at best 0.002, at n=40 0.002
+    V_hat blur l =  4.00 sigma (level error sd 0.734, sd V 1.380)
+      n      :       1       2       3       5       8      12      20      40
+      bias^2 :   0.552   0.287   0.077   0.010   0.000   0.000   0.000   0.000
+      var    :     2.2     4.7     6.2     8.1     9.8    11.0    11.8    12.1
+      lvl err:   0.371   0.176   0.096   0.026   0.004   0.000   0.000   0.000
+      K    16: best n =  3, MSE/E[g^2] at n=1 0.689, at best 0.463, at n=40 0.756
+      K   256: best n =  8, MSE/E[g^2] at n=1 0.561, at best 0.039, at n=40 0.047
+      K  4096: best n =  8, MSE/E[g^2] at n=1 0.553, at best 0.003, at n=40 0.003
+    V_hat blur l = 16.00 sigma (level error sd 1.301, sd V 1.380)
+      n      :       1       2       3       5       8      12      20      40
+      bias^2 :   0.945   0.750   0.493   0.063   0.001   0.000   0.000   0.000
+      var    :     3.9     7.8     9.9    12.9    16.2    19.1    22.0    23.9
+      lvl err:   0.882   0.494   0.265   0.091   0.012   0.002   0.000   0.000
+      K    16: best n =  5, MSE/E[g^2] at n=1 1.190, at best 0.866, at n=40 1.491
+      K   256: best n =  8, MSE/E[g^2] at n=1 0.961, at best 0.064, at n=40 0.093
+      K  4096: best n = 12, MSE/E[g^2] at n=1 0.946, at best 0.005, at n=40 0.006
+
+=== kappa 3.0, w 0.15, sigma 0.02, gamma 0.97: Lyapunov +0.304/step (e-fold 3.3 steps), horizon 33 steps, gamma*exp(lyap) = 1.31 ===
+(a) sd V 1.484 | within-state sd of Q 0.4875 | rms smoothed slope 19.536 | rms pointwise slope 32.715 | linear-in-eps share of within-state var 0.64 | corr(pointwise, smoothed) 0.70
+(b) per-sample variance / E[g^2] of unbiased slope estimators (exact V at the horizon)
+      n  zeroth (SF)  first (pathwise sim)  bias check SF  bias check FO
+      1         2.73                  1.73           1.00           1.00
+      2         4.19                  5.67           1.01           1.00
+      3         5.52                  13.7           1.01           1.00
+      5         8.06                  67.6           1.01           1.01
+      8        11.32                   739           1.00           1.06
+     12        14.76              1.73e+04           1.00           1.09
+     20        19.73               9.2e+06           1.00          -4.38
+     40        25.10              5.37e+13           1.01       15837.23
+(c) slope MSE / E[g^2] of the n-step SF target with V_hat = blur(V, l); K = pooled samples per estimate
+    V_hat blur l =  1.00 sigma (level error sd 0.337, sd V 1.484)
+      n      :       1       2       3       5       8      12      20      40
+      bias^2 :   0.076   0.015   0.004   0.000   0.000   0.000   0.000   0.000
+      var    :     2.4     3.9     5.3     7.9    11.3    14.9    20.0    25.6
+      lvl err:   0.101   0.044   0.025   0.006   0.001   0.000   0.000   0.000
+      K    16: best n =  1, MSE/E[g^2] at n=1 0.224, at best 0.224, at n=40 1.602
+      K   256: best n =  3, MSE/E[g^2] at n=1 0.085, at best 0.025, at n=40 0.100
+      K  4096: best n =  5, MSE/E[g^2] at n=1 0.077, at best 0.002, at n=40 0.006
+    V_hat blur l =  4.00 sigma (level error sd 0.833, sd V 1.484)
+      n      :       1       2       3       5       8      12      20      40
+      bias^2 :   0.616   0.343   0.101   0.017   0.000   0.000   0.000   0.000
+      var    :     2.0     4.5     6.2     9.1    12.5    16.3    21.7    27.7
+      lvl err:   0.444   0.225   0.132   0.041   0.008   0.001   0.000   0.000
+      K    16: best n =  3, MSE/E[g^2] at n=1 0.739, at best 0.491, at n=40 1.731
+      K   256: best n =  8, MSE/E[g^2] at n=1 0.623, at best 0.049, at n=40 0.108
+      K  4096: best n =  8, MSE/E[g^2] at n=1 0.616, at best 0.003, at n=40 0.007
+    V_hat blur l = 16.00 sigma (level error sd 1.406, sd V 1.484)
+      n      :       1       2       3       5       8      12      20      40
+      bias^2 :   0.954   0.792   0.553   0.089   0.002   0.000   0.000   0.000
+      var    :     2.7     5.7     7.7    10.9    14.7    19.1    25.3    33.4
+      lvl err:   0.994   0.586   0.331   0.129   0.020   0.004   0.000   0.000
+      K    16: best n =  5, MSE/E[g^2] at n=1 1.121, at best 0.769, at n=40 2.085
+      K   256: best n =  8, MSE/E[g^2] at n=1 0.964, at best 0.059, at n=40 0.130
+      K  4096: best n = 12, MSE/E[g^2] at n=1 0.955, at best 0.005, at n=40 0.008
+
+=== kappa 3.0, w 0.15, sigma 0.005, gamma 0.9: Lyapunov +0.347/step (e-fold 2.9 steps), horizon 10 steps, gamma*exp(lyap) = 1.27 ===
+(a) sd V 1.471 | within-state sd of Q 0.2173 | rms smoothed slope 35.808 | rms pointwise slope 60.765 | linear-in-eps share of within-state var 0.68 | corr(pointwise, smoothed) 0.82
+(b) per-sample variance / E[g^2] of unbiased slope estimators (exact V at the horizon)
+      n  zeroth (SF)  first (pathwise sim)  bias check SF  bias check FO
+      1         2.32                  1.07           1.00           1.00
+      2         3.41                   3.2           1.01           1.00
+      3         4.31                  6.94           1.01           0.99
+      5         5.61                    26           1.01           0.99
+      8         6.78                   177           1.01           1.00
+     12         7.54              2.21e+03           1.01           1.18
+     20         8.03              3.39e+05           1.01          -0.99
+     40         8.13              9.43e+10           1.01        -201.06
+(c) slope MSE / E[g^2] of the n-step SF target with V_hat = blur(V, l); K = pooled samples per estimate
+    V_hat blur l =  1.00 sigma (level error sd 0.158, sd V 1.471)
+      n      :       1       2       3       5       8      12      20      40
+      bias^2 :   0.056   0.011   0.003   0.001   0.000   0.000   0.000   0.000
+      var    :     2.2     3.3     4.3     5.9     7.3     8.2     8.7     8.9
+      lvl err:   0.051   0.026   0.019   0.008   0.002   0.000   0.000   0.000
+      K    16: best n =  1, MSE/E[g^2] at n=1 0.191, at best 0.191, at n=40 0.554
+      K   256: best n =  3, MSE/E[g^2] at n=1 0.064, at best 0.020, at n=40 0.035
+      K  4096: best n =  8, MSE/E[g^2] at n=1 0.056, at best 0.002, at n=40 0.002
+    V_hat blur l =  4.00 sigma (level error sd 0.418, sd V 1.471)
+      n      :       1       2       3       5       8      12      20      40
+      bias^2 :   0.602   0.334   0.141   0.058   0.004   0.000   0.000   0.000
+      var    :     1.6     3.4     5.0     7.3     9.3    10.6    11.4    11.6
+      lvl err:   0.247   0.172   0.135   0.061   0.013   0.001   0.000   0.000
+      K    16: best n =  3, MSE/E[g^2] at n=1 0.701, at best 0.451, at n=40 0.725
+      K   256: best n =  8, MSE/E[g^2] at n=1 0.608, at best 0.040, at n=40 0.045
+      K  4096: best n = 12, MSE/E[g^2] at n=1 0.602, at best 0.003, at n=40 0.003
+    V_hat blur l = 16.00 sigma (level error sd 0.828, sd V 1.471)
+      n      :       1       2       3       5       8      12      20      40
+      bias^2 :   0.906   0.828   0.658   0.286   0.021   0.000   0.000   0.000
+      var    :     3.8     9.4    12.6    14.7    17.9    20.1    22.2    23.3
+      lvl err:   0.513   0.387   0.301   0.160   0.033   0.004   0.000   0.000
+      K    16: best n =  8, MSE/E[g^2] at n=1 1.146, at best 1.140, at n=40 1.454
+      K   256: best n = 12, MSE/E[g^2] at n=1 0.921, at best 0.079, at n=40 0.091
+      K  4096: best n = 12, MSE/E[g^2] at n=1 0.907, at best 0.005, at n=40 0.006
+
+=== kappa 3.0, w 0.31, sigma 0.02, gamma 0.9: Lyapunov -0.141/step (e-fold -7.1 steps), horizon 10 steps, gamma*exp(lyap) = 0.78 ===
+(a) sd V 2.814 | within-state sd of Q 1.1232 | rms smoothed slope 42.061 | rms pointwise slope 93.138 | linear-in-eps share of within-state var 0.56 | corr(pointwise, smoothed) 0.68
+(b) per-sample variance / E[g^2] of unbiased slope estimators (exact V at the horizon)
+      n  zeroth (SF)  first (pathwise sim)  bias check SF  bias check FO
+      1         2.28                 0.303           1.00           1.00
+      2         3.26                 0.678           1.00           1.00
+      3         3.96                  1.11           1.00           1.00
+      5         4.97                  2.03           1.00           1.00
+      8         5.92                  3.74           1.00           1.01
+     12         6.53                  5.26           1.00           1.00
+     20         6.91                  14.8           1.00           1.01
+     40         6.99                  24.4           1.00           1.00
+(c) slope MSE / E[g^2] of the n-step SF target with V_hat = blur(V, l); K = pooled samples per estimate
+    V_hat blur l =  1.00 sigma (level error sd 0.649, sd V 2.814)
+      n      :       1       2       3       5       8      12      20      40
+      bias^2 :   0.018   0.004   0.001   0.000   0.000   0.000   0.000   0.000
+      var    :     3.4     3.9     4.5     5.6     6.7     7.3     7.7     7.8
+      lvl err:   0.207   0.049   0.018   0.008   0.003   0.001   0.000   0.000
+      K    16: best n =  1, MSE/E[g^2] at n=1 0.233, at best 0.233, at n=40 0.490
+      K   256: best n =  3, MSE/E[g^2] at n=1 0.031, at best 0.019, at n=40 0.031
+      K  4096: best n =  5, MSE/E[g^2] at n=1 0.019, at best 0.002, at n=40 0.002
+    V_hat blur l =  4.00 sigma (level error sd 1.658, sd V 2.814)
+      n      :       1       2       3       5       8      12      20      40
+      bias^2 :   0.336   0.172   0.099   0.047   0.016   0.004   0.000   0.000
+      var    :    12.6     6.3    10.9    12.1    12.2    15.0    18.3    20.6
+      lvl err:   1.026   0.485   0.316   0.165   0.062   0.025   0.006   0.000
+      K    16: best n =  2, MSE/E[g^2] at n=1 1.125, at best 0.563, at n=40 1.287
+      K   256: best n = 12, MSE/E[g^2] at n=1 0.385, at best 0.062, at n=40 0.080
+      K  4096: best n = 20, MSE/E[g^2] at n=1 0.339, at best 0.005, at n=40 0.005
+    V_hat blur l = 16.00 sigma (level error sd 2.680, sd V 2.814)
+      n      :       1       2       3       5       8      12      20      40
+      bias^2 :   0.891   0.508   0.101   0.009   0.001   0.000   0.000   0.000
+      var    :     3.4     9.5    18.7    40.5    75.2   116.7   171.8   214.2
+      lvl err:   2.315   1.663   1.221   0.569   0.165   0.034   0.002   0.000
+      K    16: best n =  1, MSE/E[g^2] at n=1 1.100, at best 1.100, at n=40 13.390
+      K   256: best n =  5, MSE/E[g^2] at n=1 0.904, at best 0.168, at n=40 0.837
+      K  4096: best n =  5, MSE/E[g^2] at n=1 0.892, at best 0.019, at n=40 0.052
