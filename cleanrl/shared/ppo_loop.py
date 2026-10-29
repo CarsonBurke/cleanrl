@@ -50,7 +50,15 @@ def compute_gae(
     gamma,
     gae_lambda,
 ):
-    """Terminal-aware GAE over ``(T, N)`` device tensors. See module docstring."""
+    """Terminal-aware GAE over ``(T, N)`` device tensors. See module docstring.
+
+    ``gae_lambda`` is a float, or a ``(T, N)`` tensor of state-dependent
+    lambdas where ``gae_lambda[t]`` weights the continuation from step ``t``
+    into ``t + 1`` -- i.e. lambda of the state bootstrapped at ``t + 1``:
+    ``G_t = r_t + gamma * ((1 - lam[t]) * V_{t+1} + lam[t] * G_{t+1})``.
+    The last row only multiplies a zero continuation and is never read.
+    """
+    per_step = isinstance(gae_lambda, torch.Tensor)
     truncated = truncations.bool()
     bootstrap_nonterminal = 1.0 - terminations
     trace_nonterminal = 1.0 - torch.maximum(terminations, truncations)
@@ -63,7 +71,8 @@ def compute_gae(
             truncated[t], truncation_bootstrap_values[t], next_value
         )
         delta = rewards[t] + gamma * bootstrap_nonterminal[t] * next_value - values[t]
-        last_advantage = delta + gamma * gae_lambda * trace_nonterminal[t] * last_advantage
+        lam = gae_lambda[t] if per_step else gae_lambda
+        last_advantage = delta + gamma * lam * trace_nonterminal[t] * last_advantage
         advantages[t] = last_advantage
     return advantages, advantages + values
 
@@ -102,7 +111,9 @@ def get_gae_fn(compiled=False, mode="reduce-overhead", *, explicit_next_values=F
                 from cleanrl.shared.gae import gae_cuda_or_reference, gae_next_cuda_or_reference
 
                 fn = gae_next_cuda_or_reference if explicit_next_values else gae_cuda_or_reference
-            fn = torch.compile(fn, mode=mode)
+            # Static: a second (gamma, lambda) would otherwise turn the floats symbolic on recompile,
+            # which fails the Triton path's float check and falls back to the reference loop.
+            fn = torch.compile(fn, mode=mode, dynamic=False)
         _gae_fn_cache[key] = fn
     return _gae_fn_cache[key]
 
@@ -223,6 +234,22 @@ class TruncationBootstrapCache:
                 raise ValueError("final observation shape changed during the rollout")
             entries = self._entries_for(np.asarray([slot]))
             self._observations[entries[0]] = observation
+
+    def entries(self, device):
+        """Upload recorded finals once: ``(observations, flat_slots)`` on ``device``.
+
+        For learners that re-evaluate bootstraps with a changing critic: write
+        ``value_fn(observations)`` into a zeroed ``(T, N)`` tensor's flat view at
+        ``flat_slots`` (as ``resolve`` does). Rows are ordered by rollout slot.
+        """
+        if self._observations is None:
+            raise ValueError("entries() needs obs_shape at construction or a recorded truncation")
+        order = np.argsort(self._entry_slots[: self._size])
+        observations = np.empty((self._size,) + self._observations.shape[1:], dtype=np.float32)
+        if self._size:
+            np.take(self._observations, order, axis=0, out=observations)
+        return (torch.as_tensor(observations, device=device),
+                torch.as_tensor(self._entry_slots[: self._size][order], dtype=torch.long, device=device))
 
     def resolve(self, value_fn, device, *, batch_size=None):
         """Single batched forward; ``(T, N)`` float32 tensor on ``device``.

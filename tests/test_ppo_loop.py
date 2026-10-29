@@ -83,6 +83,51 @@ def test_gae_terminal_truncation_semantics():
     assert adv_trunc[0, 0].item() == pytest.approx(1.0 + 9.9 - 0.5)
 
 
+def _lambda_return_advantages(rewards, values, terms, truncs, bootstrap, tail, gamma, lambdas):
+    """Independent oracle: explicit state-dependent lambda-returns, then G - V."""
+    steps, envs = rewards.shape
+    advantages = torch.zeros_like(rewards)
+    for env in range(envs):
+        future = None  # G_{t+1}, unset at a trace boundary or the rollout end
+        for t in range(steps - 1, -1, -1):
+            if terms[t, env]:
+                next_value, future = 0.0, None
+            elif truncs[t, env]:
+                next_value, future = bootstrap[t, env], None
+            else:
+                next_value = tail[env] if t == steps - 1 else values[t + 1, env]
+            target = next_value if future is None else (1 - lambdas[t, env]) * next_value + lambdas[t, env] * future
+            future = rewards[t, env] + gamma * target
+            advantages[t, env] = future - values[t, env]
+    return advantages
+
+
+def test_gae_per_step_lambda_matches_lambda_return_oracle():
+    inputs = _random_gae_inputs(97, 5, seed=3)
+    lambdas = torch.rand(97, 5, generator=torch.Generator().manual_seed(4))
+    adv, ret = compute_gae(*inputs, 0.99, lambdas)
+    torch.testing.assert_close(adv, _lambda_return_advantages(*inputs, 0.99, lambdas), atol=1e-5, rtol=1e-5)
+    torch.testing.assert_close(ret, adv + inputs[1])
+    # A constant tensor is the scalar path.
+    expected = compute_gae(*inputs, 0.99, 0.95)
+    torch.testing.assert_close(compute_gae(*inputs, 0.99, torch.full((97, 5), 0.95)), expected)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+@pytest.mark.cuda
+def test_compiled_gae_per_step_lambda_matches_eager_on_cuda():
+    inputs = [tensor.cuda() for tensor in _random_gae_inputs(67, 3, seed=5)]
+    lambdas = torch.rand(67, 3, generator=torch.Generator().manual_seed(6)).cuda()
+    expected = compute_gae(*inputs, 0.99, lambdas)
+    torch.compiler.cudagraph_mark_step_begin()
+    actual = get_gae_fn(compiled=True)(*inputs, 0.99, lambdas)
+    torch.testing.assert_close(actual, expected, atol=1e-5, rtol=1e-5)
+    # Scalar calls through the same cached function still take the scalar path.
+    torch.compiler.cudagraph_mark_step_begin()
+    torch.testing.assert_close(get_gae_fn(compiled=True)(*inputs, 0.99, 0.95),
+                               compute_gae(*inputs, 0.99, 0.95), atol=1e-5, rtol=1e-5)
+
+
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
 @pytest.mark.cuda
 def test_gae_compiled_matches_eager_on_cuda(capsys):
@@ -560,3 +605,16 @@ def test_explained_variance_matches_numpy():
     )
     nan = explained_variance(torch.ones(16), torch.ones(16))
     assert nan.shape == () and bool(torch.isnan(nan))
+
+
+def test_truncation_cache_entries_match_resolve():
+    cache = TruncationBootstrapCache(4, 3, obs_shape=(2,))
+    empty_obs, empty_slots = cache.entries("cpu")
+    assert empty_obs.shape == (0, 2) and empty_slots.numel() == 0
+    cache.push_normalized(3, [True, False, True], np.arange(6, dtype=np.float32).reshape(3, 2))
+    cache.push_normalized(1, [False, True, False], 10 + np.arange(6, dtype=np.float32).reshape(3, 2))
+    observations, slots = cache.entries("cpu")
+    assert slots.tolist() == sorted(slots.tolist())
+    rebuilt = torch.zeros(4, 3)
+    rebuilt.view(-1).index_copy_(0, slots, observations.sum(-1))
+    torch.testing.assert_close(rebuilt, cache.resolve(lambda batch: batch.sum(-1), "cpu"))
