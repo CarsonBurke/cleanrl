@@ -1,0 +1,158 @@
+{
+  "status": "terminal_15min_censored_prefix",
+  "script": "cleanrl/td7/latentq/td7_latentq_paired_lambda_center_v25.py",
+  "base": "paired_lambda_coverage_v24",
+  "hypothesis": "Removing conflicting positive-sigma sampled-preaction supervision improves policy-average center and derivative calibration without giving up latent-Q or horizon signal.",
+  "changes": [
+    "Remove positive-sigma preaction loss, retain diagnostic queries.",
+    "Average paired Hermite and sigma-zero point losses equally (1/2 rather than1/3).",
+    "Use point residual alone for LAP priorities; this also changes actor/encoder state sampling."
+  ],
+  "preserved": [
+    "Network, SALE, allvalidbranchcoverage, label/target/encoder clocks, bounds, actor/entropy objective, allinteractioncounts andoptimizerbursts."
+  ],
+  "validation": {
+    "pure_tests": 15,
+    "independent_review": "critic_redteam cleared source and independently passed15puretests"
+  },
+  "prediction": "Better same-label heldout center/odd/even calibration and then matched-interaction returns; loss reduction alone insufficient.",
+  "limits": [
+    "Priority and normalization changes limit isolated attribution.",
+    "120 fitting directions still reused heavily; no truevalue oracle.",
+    "Unconstrained actor distribution movement remains."
+  ],
+  "declared_max_parallel_runs": 1,
+  "time_limit": "15m",
+  "job_id": 12018,
+  "after_terminal": 12016,
+  "user_wall_clock_constraint": "900000ms per attempt from commandspawn, compilation included",
+  "actual_runtime": "Compiled CUDA/native fitting verified; mlq terminal time-limit900000ms exceeded signal15; no retry/continuation",
+  "observed": {
+    "counts": {
+      "charts/SPS": {
+        "step": 896640,
+        "value": 1060.0
+      },
+      "charts/ordinary_transitions": {
+        "step": 917120,
+        "value": 736896.0
+      },
+      "charts/branch_transitions": {
+        "step": 917120,
+        "value": 180224.0
+      },
+      "charts/branch_useful_transitions": {
+        "step": 917120,
+        "value": 177487.0
+      },
+      "charts/optimizer_steps": {
+        "step": 896640,
+        "value": 688128.0
+      }
+    },
+    "returns": {
+      "charts/episodic_return": {
+        "last_step": 912128,
+        "last20_mean": -201.42107276916505,
+        "trailing100k": {
+          "500000": {
+            "mean": 98.40710487848595,
+            "samples": 79,
+            "partial": false
+          },
+          "600000": {
+            "mean": 108.51597571372986,
+            "samples": 80,
+            "partial": false
+          },
+          "800000": {
+            "mean": -114.77477644383907,
+            "samples": 80,
+            "partial": false
+          }
+        }
+      },
+      "eval/episodic_return": {
+        "last_step": 876160,
+        "last20_mean": 32.25069745779037,
+        "trailing100k": {
+          "500000": {
+            "mean": -51.46450579166412,
+            "samples": 2,
+            "partial": false
+          },
+          "600000": {
+            "mean": 215.23116048177084,
+            "samples": 3,
+            "partial": false
+          },
+          "800000": {
+            "mean": -277.3544108072917,
+            "samples": 3,
+            "partial": false
+          }
+        }
+      }
+    },
+    "fit_effects": {
+      "holdout/odd/initial": {
+        "bursts": 42,
+        "first_step": 56960,
+        "last_step": 896640,
+        "old_mean_mse": 292.84135181189606,
+        "new_mean_mse": 136.69402180340452,
+        "improved_fraction": 0.7380952380952381,
+        "median_burst_ratio": 0.5113083910769621,
+        "pooled_ratio": 0.46678524381081493,
+        "last20_pooled_ratio": 0.26664889998545754
+      },
+      "holdout/odd/final": {
+        "bursts": 42,
+        "first_step": 56960,
+        "last_step": 896640,
+        "old_mean_mse": 287.747002920158,
+        "new_mean_mse": 127.26308331569834,
+        "improved_fraction": 0.7857142857142857,
+        "median_burst_ratio": 0.4381043898564243,
+        "pooled_ratio": 0.4422742270959826,
+        "last20_pooled_ratio": 0.24371618793478417
+      },
+      "holdout/even/initial": {
+        "bursts": 42,
+        "first_step": 56960,
+        "last_step": 896640,
+        "old_mean_mse": 1058.924200908414,
+        "new_mean_mse": 1026.0574210257757,
+        "improved_fraction": 0.5238095238095238,
+        "median_burst_ratio": 0.9047118248737334,
+        "pooled_ratio": 0.9689621033739308,
+        "last20_pooled_ratio": 1.2335521566421126
+      },
+      "holdout/even/final": {
+        "bursts": 42,
+        "first_step": 56960,
+        "last_step": 896640,
+        "old_mean_mse": 2140.3516237877666,
+        "new_mean_mse": 353.31191460930165,
+        "improved_fraction": 0.9047619047619048,
+        "median_burst_ratio": 0.1683468124544631,
+        "pooled_ratio": 0.1650719025241506,
+        "last20_pooled_ratio": 0.17944437465324073
+      }
+    },
+    "independent_signed_contrast_review": {
+      "bursts": 42,
+      "holdout_latest_correlation_mean": 0.019,
+      "holdout_latest_correlation_median": -0.0715,
+      "negative_bursts": 23,
+      "lastthird_latest_correlation_median": 0.2188,
+      "fit_latest_correlation_median": 0.9924,
+      "holdout_latest_rmsratio_median": 1.1317,
+      "lastthird_odd_initial_final_pooled_fit_effect": [
+        0.195,
+        0.181
+      ],
+      "interpretation": "Improved same-label error acrossprefix; persistent fit/holdout directionaltransfergap. Not truegradient/valuecalibration; no proven dominantfailurecause."
+    }
+  }
+}

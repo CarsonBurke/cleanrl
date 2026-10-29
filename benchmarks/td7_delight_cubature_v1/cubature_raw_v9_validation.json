@@ -1,0 +1,249 @@
+{
+  "scope": "Synthetic fixed-shape GPU benchmark; not a training evaluation",
+  "torch_version": "2.12.0+cu130",
+  "cuda_version": "13.0",
+  "gpu": "NVIDIA GeForce RTX 5090",
+  "configuration": {
+    "modules": [
+      "cleanrl/td7/delight/td7_latentq_delight_cubature_v1.py",
+      "cleanrl/td7/delight/td7_latentq_delight_cubature_raw_v9.py"
+    ],
+    "steps": 2000,
+    "repeats": 3,
+    "buffer_size": 1000000,
+    "batch_size": 256,
+    "state_dim": 17,
+    "action_dim": 6,
+    "actor_objective": "delight",
+    "atol": 2e-05,
+    "rtol": 0.0002,
+    "output": "benchmarks/td7_delight_cubature_v1/cubature_raw_v9_validation.json",
+    "no_entropy_floor": false,
+    "target_smoothing_sigma": null,
+    "gate_scale": "raw"
+  },
+  "modules": [
+    {
+      "path": "cleanrl/td7/delight/td7_latentq_delight_cubature_v1.py",
+      "trainer_args": {
+        "exp_name": "td7_latentq_delight_cubature_v1",
+        "seed": 1,
+        "compile": true,
+        "env_id": "HalfCheetah-v4",
+        "total_timesteps": 8000000,
+        "num_envs": 16,
+        "num_steps": 1024,
+        "env_threads": 2,
+        "actor_sale": true,
+        "actor_objective": "delight",
+        "actor_samples": 4,
+        "delight_temperature": 1.0,
+        "surprisal": "relative",
+        "surprisal_cap": 10.0,
+        "gate_scale": "raw",
+        "gate_scope": "mean",
+        "max_grad_norm": 0.5,
+        "updates_per_step": 1.0,
+        "warmup_rollouts": 1,
+        "warmup_sigma": 0.6,
+        "hermite_order": 2,
+        "eval_interval": 2,
+        "eval_eps": 10,
+        "buffer_size": 1000000,
+        "batch_size": 256,
+        "gamma": 0.99,
+        "target_update_rate": 250,
+        "target_sigma": 0.1,
+        "target_smoothing_sigma": 0.2,
+        "alpha_lr": 0.001,
+        "policy_freq": 2,
+        "lap_alpha": 0.4,
+        "min_priority": 1.0,
+        "zs_dim": 256,
+        "hidden_dim": 256,
+        "encoder_lr": 0.0003,
+        "critic_lr": 0.0003,
+        "actor_lr": 0.0003
+      },
+      "build_capture_seconds": 17.949020972009748,
+      "equivalence": {
+        "reference": true
+      },
+      "cuda_graph_mixed_cadence": {
+        "steps_per_repeat": 2000,
+        "repeats": 3,
+        "samples": [
+          {
+            "wall_us_per_step": 898.388806002913,
+            "cuda_interval_us_per_step": 898.357177734375
+          },
+          {
+            "wall_us_per_step": 889.0273974975571,
+            "cuda_interval_us_per_step": 888.9617309570312
+          },
+          {
+            "wall_us_per_step": 888.7441795086488,
+            "cuda_interval_us_per_step": 888.5960083007812
+          }
+        ],
+        "median_wall_us_per_step": 889.0273974975571,
+        "median_steps_per_second": 1124.824727353521
+      },
+      "native_hermite_validation": null,
+      "train_api_with_targets_and_logging_cadence": {
+        "steps_per_repeat": 2000,
+        "repeats": 3,
+        "samples": [
+          {
+            "wall_us_per_step": 881.0032345063519,
+            "cuda_interval_us_per_step": 880.9754028320312
+          },
+          {
+            "wall_us_per_step": 888.3305765048135,
+            "cuda_interval_us_per_step": 888.2154541015625
+          },
+          {
+            "wall_us_per_step": 882.6375255011953,
+            "cuda_interval_us_per_step": 882.612548828125
+          }
+        ],
+        "median_wall_us_per_step": 882.6375255011953,
+        "median_steps_per_second": 1132.9679184353301
+      },
+      "checkpoint_restore": null,
+      "peak_torch_allocated_bytes": 505470976,
+      "peak_torch_reserved_bytes": 681574400
+    },
+    {
+      "path": "cleanrl/td7/delight/td7_latentq_delight_cubature_raw_v9.py",
+      "trainer_args": {
+        "exp_name": "td7_latentq_delight_cubature_raw_v9",
+        "seed": 1,
+        "compile": true,
+        "env_id": "HalfCheetah-v4",
+        "total_timesteps": 8000000,
+        "num_envs": 16,
+        "num_steps": 1024,
+        "env_threads": 2,
+        "actor_sale": true,
+        "actor_objective": "delight",
+        "actor_samples": 4,
+        "delight_temperature": 1.0,
+        "surprisal": "relative",
+        "surprisal_cap": 10.0,
+        "gate_scale": "raw",
+        "gate_scope": "mean",
+        "max_grad_norm": 0.5,
+        "updates_per_step": 1.0,
+        "warmup_rollouts": 1,
+        "warmup_sigma": 0.6,
+        "hermite_order": 2,
+        "eval_interval": 2,
+        "eval_eps": 10,
+        "buffer_size": 1000000,
+        "batch_size": 256,
+        "gamma": 0.99,
+        "target_update_rate": 250,
+        "target_sigma": 0.1,
+        "target_smoothing_sigma": 0.2,
+        "alpha_lr": 0.001,
+        "policy_freq": 2,
+        "lap_alpha": 0.4,
+        "min_priority": 1.0,
+        "zs_dim": 256,
+        "hidden_dim": 256,
+        "encoder_lr": 0.0003,
+        "critic_lr": 0.0003,
+        "actor_lr": 0.0003
+      },
+      "build_capture_seconds": 0.6866498250165023,
+      "equivalence": {
+        "passed": true,
+        "atol": 2e-05,
+        "rtol": 0.0002,
+        "max_absolute_errors": {
+          "critic_forward": 0.0,
+          "critic_jvp_value": 0.0,
+          "critic_jvp_tangent": 0.0,
+          "critic_loss": 0.0,
+          "td_errors": 0.0,
+          "diagnostics": 0.0,
+          "fixed_zs": 0.0,
+          "jvp_gradient/q0.weight": 0.0,
+          "training_gradient/q0.weight": 0.0,
+          "jvp_gradient/q0.bias": 0.0,
+          "training_gradient/q0.bias": 0.0,
+          "jvp_gradient/q1.weight": 0.0,
+          "training_gradient/q1.weight": 0.0,
+          "jvp_gradient/q1.bias": 0.0,
+          "training_gradient/q1.bias": 0.0,
+          "jvp_gradient/q2.weight": 0.0,
+          "training_gradient/q2.weight": 0.0,
+          "jvp_gradient/q2.bias": 0.0,
+          "training_gradient/q2.bias": 0.0,
+          "jvp_gradient/q3.weight": 0.0,
+          "training_gradient/q3.weight": 0.0,
+          "jvp_gradient/q3.bias": 0.0,
+          "training_gradient/q3.bias": 0.0,
+          "actor_loss": 0.0,
+          "actor_log_std": 0.0,
+          "actor_diagnostics": 0.0,
+          "actor_gradient/l0.weight": 0.0,
+          "actor_gradient/l0.bias": 0.0,
+          "actor_gradient/l1.weight": 0.0,
+          "actor_gradient/l1.bias": 0.0,
+          "actor_gradient/l2.weight": 0.0,
+          "actor_gradient/l2.bias": 0.0,
+          "actor_gradient/l3.weight": 0.0,
+          "actor_gradient/l3.bias": 0.0,
+          "actor_gradient/l3_logstd.weight": 0.0,
+          "actor_gradient/l3_logstd.bias": 0.0
+        }
+      },
+      "cuda_graph_mixed_cadence": {
+        "steps_per_repeat": 2000,
+        "repeats": 3,
+        "samples": [
+          {
+            "wall_us_per_step": 914.2059500154573,
+            "cuda_interval_us_per_step": 914.1739501953125
+          },
+          {
+            "wall_us_per_step": 924.5674694830086,
+            "cuda_interval_us_per_step": 924.5314331054688
+          },
+          {
+            "wall_us_per_step": 920.3619034960866,
+            "cuda_interval_us_per_step": 920.2926635742188
+          }
+        ],
+        "median_wall_us_per_step": 920.3619034960866,
+        "median_steps_per_second": 1086.529110126571
+      },
+      "native_hermite_validation": null,
+      "train_api_with_targets_and_logging_cadence": {
+        "steps_per_repeat": 2000,
+        "repeats": 3,
+        "samples": [
+          {
+            "wall_us_per_step": 905.0493259856012,
+            "cuda_interval_us_per_step": 905.0135498046875
+          },
+          {
+            "wall_us_per_step": 909.2830675072037,
+            "cuda_interval_us_per_step": 909.21533203125
+          },
+          {
+            "wall_us_per_step": 907.6568415039219,
+            "cuda_interval_us_per_step": 907.6299438476562
+          }
+        ],
+        "median_wall_us_per_step": 907.6568415039219,
+        "median_steps_per_second": 1101.737963372889
+      },
+      "checkpoint_restore": null,
+      "peak_torch_allocated_bytes": 505471488,
+      "peak_torch_reserved_bytes": 681574400
+    }
+  ]
+}

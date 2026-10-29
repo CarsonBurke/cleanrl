@@ -1,0 +1,480 @@
+{
+  "HalfCheetah-v4__td7_latentq_value_floor_v5__1__1791703320": {
+    "last_step": 966000,
+    "windows": {
+      "200000": {
+        "charts/episodic_return": {
+          "mean": 8578.317639160156,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 7063.28369140625,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.0937046359236143,
+          "n": 49
+        },
+        "delight/baseline_gap_rms": {
+          "mean": 0.18630931845733098,
+          "n": 49
+        },
+        "delight/baseline_sign_disagreement": {
+          "mean": 0.14885602678571427,
+          "n": 49
+        },
+        "delight/advantage_mean": {
+          "mean": -0.14319227696681508,
+          "n": 49
+        },
+        "delight/advantage_rms": {
+          "mean": 0.517734015474514,
+          "n": 49
+        },
+        "delight/gate_mean": {
+          "mean": 0.8059431460438943,
+          "n": 49
+        },
+        "delight/positive_advantage_fraction": {
+          "mean": 0.3762755102040816,
+          "n": 49
+        },
+        "gap_rms_over_advantage_rms": 0.3598552787507589
+      },
+      "400000": {
+        "charts/episodic_return": {
+          "mean": 13851.422778320313,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 14320.513671875,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.09543552021591031,
+          "n": 49
+        },
+        "delight/baseline_gap_rms": {
+          "mean": 0.39225581896548367,
+          "n": 49
+        },
+        "delight/baseline_sign_disagreement": {
+          "mean": 0.12934470663265307,
+          "n": 49
+        },
+        "delight/advantage_mean": {
+          "mean": -0.17481085612457625,
+          "n": 49
+        },
+        "delight/advantage_rms": {
+          "mean": 1.0141670320715224,
+          "n": 49
+        },
+        "delight/gate_mean": {
+          "mean": 0.8384181528675313,
+          "n": 49
+        },
+        "delight/positive_advantage_fraction": {
+          "mean": 0.40541294642857145,
+          "n": 49
+        },
+        "gap_rms_over_advantage_rms": 0.38677634606625677
+      },
+      "600000": {
+        "charts/episodic_return": {
+          "mean": 14116.609984016419,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 10544.3447265625,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.090230607060772,
+          "n": 33
+        },
+        "delight/baseline_gap_rms": {
+          "mean": 0.2320718155665831,
+          "n": 33
+        },
+        "delight/baseline_sign_disagreement": {
+          "mean": 0.12961647727272727,
+          "n": 33
+        },
+        "delight/advantage_mean": {
+          "mean": -0.17627344393368924,
+          "n": 33
+        },
+        "delight/advantage_rms": {
+          "mean": 0.7401471977884119,
+          "n": 33
+        },
+        "delight/gate_mean": {
+          "mean": 0.8188182043306755,
+          "n": 33
+        },
+        "delight/positive_advantage_fraction": {
+          "mean": 0.3981711647727273,
+          "n": 33
+        },
+        "gap_rms_over_advantage_rms": 0.313548191846193
+      },
+      "800000": {
+        "charts/episodic_return": {
+          "mean": 16256.836779785157,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 16964.681640625,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.0677051842777115,
+          "n": 33
+        },
+        "delight/baseline_gap_rms": {
+          "mean": 0.22683988014856973,
+          "n": 33
+        },
+        "delight/baseline_sign_disagreement": {
+          "mean": 0.12890625,
+          "n": 33
+        },
+        "delight/advantage_mean": {
+          "mean": -0.1571945624821114,
+          "n": 33
+        },
+        "delight/advantage_rms": {
+          "mean": 0.7496611475944519,
+          "n": 33
+        },
+        "delight/gate_mean": {
+          "mean": 0.8370199384111346,
+          "n": 33
+        },
+        "delight/positive_advantage_fraction": {
+          "mean": 0.41358901515151514,
+          "n": 33
+        },
+        "gap_rms_over_advantage_rms": 0.30258988461181996
+      },
+      "900000": {
+        "charts/episodic_return": {
+          "mean": 16592.250537109376,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 17280.521484375,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.0522152574849315,
+          "n": 32
+        },
+        "delight/baseline_gap_rms": {
+          "mean": 0.21163610834628344,
+          "n": 32
+        },
+        "delight/baseline_sign_disagreement": {
+          "mean": 0.1234130859375,
+          "n": 32
+        },
+        "delight/advantage_mean": {
+          "mean": -0.14631485403515399,
+          "n": 32
+        },
+        "delight/advantage_rms": {
+          "mean": 0.7737243622541428,
+          "n": 32
+        },
+        "delight/gate_mean": {
+          "mean": 0.8451519832015038,
+          "n": 32
+        },
+        "delight/positive_advantage_fraction": {
+          "mean": 0.421417236328125,
+          "n": 32
+        },
+        "gap_rms_over_advantage_rms": 0.2735290740099095
+      },
+      "950000": {
+        "charts/episodic_return": {
+          "mean": 15940.339447021484,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 16333.3671875,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.05693514187040986,
+          "n": 49
+        },
+        "delight/baseline_gap_rms": {
+          "mean": 0.2788062025697864,
+          "n": 49
+        },
+        "delight/baseline_sign_disagreement": {
+          "mean": 0.12232940051020408,
+          "n": 49
+        },
+        "delight/advantage_mean": {
+          "mean": -0.14997216724619575,
+          "n": 49
+        },
+        "delight/advantage_rms": {
+          "mean": 0.8305485358043593,
+          "n": 49
+        },
+        "delight/gate_mean": {
+          "mean": 0.848096384077656,
+          "n": 49
+        },
+        "delight/positive_advantage_fraction": {
+          "mean": 0.4235092474489796,
+          "n": 49
+        },
+        "gap_rms_over_advantage_rms": 0.335689234946121
+      }
+    },
+    "last_50_episode_mean": 15191.288842773438
+  },
+  "HalfCheetah-v4__td7_latentq_value_floor_v5_cubature__1__1791704173": {
+    "last_step": 360000,
+    "windows": {
+      "200000": {
+        "charts/episodic_return": {
+          "mean": 10315.577954101562,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 10672.8251953125,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.09641878071184061,
+          "n": 49
+        },
+        "delight/baseline_gap_rms": {
+          "mean": 0.20687435506557933,
+          "n": 49
+        },
+        "delight/baseline_sign_disagreement": {
+          "mean": 0.16880580357142858,
+          "n": 49
+        },
+        "delight/advantage_mean": {
+          "mean": -0.05633027615899942,
+          "n": 49
+        },
+        "delight/advantage_rms": {
+          "mean": 0.4759663842162307,
+          "n": 49
+        },
+        "delight/gate_mean": {
+          "mean": 0.9139223998906661,
+          "n": 49
+        },
+        "delight/positive_advantage_fraction": {
+          "mean": 0.47781808035714285,
+          "n": 49
+        },
+        "gap_rms_over_advantage_rms": 0.4346406845648088
+      },
+      "400000": {
+        "delight/cubature_center_gap": {
+          "mean": -0.07994179901751605,
+          "n": 11
+        },
+        "delight/baseline_gap_rms": {
+          "mean": 0.2282582534985109,
+          "n": 11
+        },
+        "delight/baseline_sign_disagreement": {
+          "mean": 0.14533025568181818,
+          "n": 11
+        },
+        "delight/advantage_mean": {
+          "mean": -0.0656871988692067,
+          "n": 11
+        },
+        "delight/advantage_rms": {
+          "mean": 0.6424738927321001,
+          "n": 11
+        },
+        "delight/gate_mean": {
+          "mean": 0.9132550087842074,
+          "n": 11
+        },
+        "delight/positive_advantage_fraction": {
+          "mean": 0.47718394886363635,
+          "n": 11
+        },
+        "gap_rms_over_advantage_rms": 0.355280200613055
+      }
+    },
+    "last_50_episode_mean": 11606.86087890625
+  },
+  "HalfCheetah-v4__td7_latentq_delight_cubature_v1__1__1791688686": {
+    "last_step": 1670000,
+    "windows": {
+      "200000": {
+        "charts/episodic_return": {
+          "mean": 10094.3466796875,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 10999.2294921875,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.08671467469967141,
+          "n": 49
+        },
+        "delight/advantage_mean": {
+          "mean": -0.05597618750619645,
+          "n": 49
+        },
+        "delight/advantage_rms": {
+          "mean": 0.4529431693407954,
+          "n": 49
+        },
+        "delight/gate_mean": {
+          "mean": 0.9132788935486151,
+          "n": 49
+        }
+      },
+      "400000": {
+        "charts/episodic_return": {
+          "mean": 12009.555969238281,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 6338.181640625,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.07801274468704146,
+          "n": 49
+        },
+        "delight/advantage_mean": {
+          "mean": -0.07569106691041771,
+          "n": 49
+        },
+        "delight/advantage_rms": {
+          "mean": 0.689475806391969,
+          "n": 49
+        },
+        "delight/gate_mean": {
+          "mean": 0.9099935402675551,
+          "n": 49
+        }
+      },
+      "600000": {
+        "charts/episodic_return": {
+          "mean": 15811.680322265625,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 16224.263671875,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.08598921030308261,
+          "n": 33
+        },
+        "delight/advantage_mean": {
+          "mean": -0.08833861542922078,
+          "n": 33
+        },
+        "delight/advantage_rms": {
+          "mean": 0.7264262582316543,
+          "n": 33
+        },
+        "delight/gate_mean": {
+          "mean": 0.9078423146045569,
+          "n": 33
+        }
+      },
+      "800000": {
+        "charts/episodic_return": {
+          "mean": 15937.864978027344,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 16835.314453125,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.05301058697373127,
+          "n": 33
+        },
+        "delight/advantage_mean": {
+          "mean": -0.0908991385138396,
+          "n": 33
+        },
+        "delight/advantage_rms": {
+          "mean": 0.7072091906359701,
+          "n": 33
+        },
+        "delight/gate_mean": {
+          "mean": 0.8922978477044539,
+          "n": 33
+        }
+      },
+      "900000": {
+        "charts/episodic_return": {
+          "mean": 16785.6759765625,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 17263.228515625,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.04639123211381957,
+          "n": 32
+        },
+        "delight/advantage_mean": {
+          "mean": -0.08802491379901767,
+          "n": 32
+        },
+        "delight/advantage_rms": {
+          "mean": 0.6604644590988755,
+          "n": 32
+        },
+        "delight/gate_mean": {
+          "mean": 0.8877624571323395,
+          "n": 32
+        }
+      },
+      "950000": {
+        "charts/episodic_return": {
+          "mean": 16842.21884765625,
+          "n": 40
+        },
+        "eval/episodic_return": {
+          "mean": 17213.416015625,
+          "n": 1
+        },
+        "delight/cubature_center_gap": {
+          "mean": -0.04587262991473687,
+          "n": 49
+        },
+        "delight/advantage_mean": {
+          "mean": -0.08683291336103362,
+          "n": 49
+        },
+        "delight/advantage_rms": {
+          "mean": 0.6675249849046979,
+          "n": 49
+        },
+        "delight/gate_mean": {
+          "mean": 0.8863976816741788,
+          "n": 49
+        }
+      }
+    },
+    "last_50_episode_mean": 17491.87203796387
+  }
+}

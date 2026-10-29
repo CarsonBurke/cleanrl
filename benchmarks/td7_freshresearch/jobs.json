@@ -1,0 +1,365 @@
+[
+  {
+    "id": 11971,
+    "name": "td7_latentq_onpolicy_v8_replay_sale",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 3,
+    "timeLimitMs": null,
+    "args": [
+      ".venv/bin/python",
+      "-u",
+      "cleanrl/td7/latentq/td7_latentq_preaction_onpolicy_v8.py",
+      "--env-id",
+      "HalfCheetah-v4",
+      "--num-envs",
+      "16",
+      "--exp-name",
+      "td7_latentq_onpolicy_v8_replay_sale",
+      "--total-timesteps",
+      "3000000",
+      "--seed",
+      "1",
+      "--env-threads",
+      "2",
+      "--actor-mode",
+      "replay",
+      "--actor-sale"
+    ]
+  },
+  {
+    "id": 11992,
+    "name": "td7_latentq_fresh_sale_v9",
+    "state": "failed",
+    "stateReason": "time limit of 900000 ms exceeded",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 900000,
+    "args": [
+      "bash",
+      "-c",
+      "set -eu\n.venv/bin/python -u scripts/autocull.py --ref td7_latentq_onpolicy_v8_replay_sale --only td7_latentq_fresh_sale_v9 --enforce all --yes --watch 600 > logs/td7_latentq_fresh_sale_v9_autocull.log 2>&1 &\ncull_pid=$!\ntrap 'kill \"$cull_pid\" 2>/dev/null || true; wait \"$cull_pid\" 2>/dev/null || true' EXIT\n.venv/bin/python -u cleanrl/td7/latentq/td7_latentq_preaction_fresh_sale_v9.py --env-id HalfCheetah-v4 --num-envs 16 --exp-name td7_latentq_fresh_sale_v9 --total-timesteps 8000000 --seed 1 --env-threads 2 --compile\n"
+    ]
+  },
+  {
+    "id": 11994,
+    "name": "td7_freshresearch_cadence_v10",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 2700000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_freshresearch_cadence_v10",
+      "cleanrl/td7/latentq/td7_latentq_preaction_fresh_cadence_v10.py"
+    ]
+  },
+  {
+    "id": 11995,
+    "name": "td7_freshresearch_integral_lambda_v11",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 2700000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_freshresearch_integral_lambda_v11",
+      "cleanrl/td7/latentq/td7_latentq_action_integral_fresh_v11.py"
+    ]
+  },
+  {
+    "id": 11996,
+    "name": "td7_freshresearch_integral_td0_v11",
+    "state": "cancelled",
+    "stateReason": "cancelled before start",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 2700000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_freshresearch_integral_td0_v11",
+      "cleanrl/td7/latentq/td7_latentq_action_integral_fresh_v11.py",
+      "--trace-lambda",
+      "0"
+    ]
+  },
+  {
+    "id": 11997,
+    "name": "td7_freshresearch_sparse_critic_v13",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 2700000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_freshresearch_sparse_critic_v13",
+      "cleanrl/td7/latentq/td7_latentq_preaction_sparse_critic_v13.py"
+    ]
+  },
+  {
+    "id": 11998,
+    "name": "td7_freshresearch_score_actor_v12",
+    "state": "cancelled",
+    "stateReason": "cancelled before start",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 2700000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_freshresearch_score_actor_v12",
+      "cleanrl/td7/latentq/td7_latentq_action_integral_score_fresh_v12.py"
+    ]
+  },
+  {
+    "id": 11999,
+    "name": "td7_freshresearch_largebatch_4pass_v13",
+    "state": "succeeded",
+    "stateReason": null,
+    "maxParallelRuns": 1,
+    "timeLimitMs": 2700000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_freshresearch_largebatch_4pass_v13",
+      "cleanrl/td7/latentq/td7_latentq_preaction_sparse_critic_v13.py",
+      "--critic-freq",
+      "1",
+      "--num-steps",
+      "1024",
+      "--updates-per-step",
+      "0.015625",
+      "--warmup-rollouts",
+      "1",
+      "--eval-interval",
+      "2",
+      "--diagnostic-interval",
+      "2"
+    ]
+  },
+  {
+    "id": 12002,
+    "name": "td7_freshresearch_integral_largebatch_v11",
+    "state": "cancelled",
+    "stateReason": "cancelled before start",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 2700000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_freshresearch_integral_largebatch_v11",
+      "cleanrl/td7/latentq/td7_latentq_action_integral_fresh_v11.py",
+      "--num-steps",
+      "1024",
+      "--updates-per-step",
+      "0.015625",
+      "--warmup-rollouts",
+      "1",
+      "--eval-interval",
+      "2",
+      "--diagnostic-interval",
+      "16"
+    ]
+  },
+  {
+    "id": 12003,
+    "name": "td7_freshresearch_anchored_actor_v14",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 2700000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_freshresearch_anchored_actor_v14",
+      "cleanrl/td7/latentq/td7_latentq_preaction_anchored_actor_v14.py"
+    ]
+  },
+  {
+    "id": 12004,
+    "name": "td7_latentq_critic_fresh_probe_v15",
+    "state": "cancelled",
+    "stateReason": "cancelled before start",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 14400000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_latentq_critic_fresh_probe_v15",
+      "cleanrl/td7/latentq/td7_latentq_critic_probe_v15.py",
+      "--critic-source",
+      "fresh"
+    ]
+  },
+  {
+    "id": 12005,
+    "name": "td7_latentq_critic_replay_probe_v15",
+    "state": "cancelled",
+    "stateReason": "cancelled before start",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 14400000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_latentq_critic_replay_probe_v15",
+      "cleanrl/td7/latentq/td7_latentq_critic_probe_v15.py",
+      "--critic-source",
+      "replay"
+    ]
+  },
+  {
+    "id": 12006,
+    "name": "td7_latentq_integral_only_v16",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 21600000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_latentq_integral_only_v16",
+      "cleanrl/td7/latentq/td7_latentq_action_integral_td_v16.py"
+    ]
+  },
+  {
+    "id": 12007,
+    "name": "td7_latentq_lambda_only_v17",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 14400000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_latentq_lambda_only_v17",
+      "cleanrl/td7/latentq/td7_latentq_preaction_lambda_v17.py"
+    ]
+  },
+  {
+    "id": 12008,
+    "name": "td7_latentq_lambda_future_cv_v18",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 14400000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_latentq_lambda_future_cv_v18",
+      "cleanrl/td7/latentq/td7_latentq_preaction_lambda_cv_v18.py"
+    ]
+  },
+  {
+    "id": 12009,
+    "name": "td7_latentq_lambda_snapshot_cv_v19",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 14400000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised.sh",
+      "td7_latentq_lambda_snapshot_cv_v19",
+      "cleanrl/td7/latentq/td7_latentq_preaction_lambda_snapshot_cv_v19.py"
+    ]
+  },
+  {
+    "id": 12010,
+    "name": "td7_latentq_lambda_refresh_cv_v20",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 14400000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised_v2.sh",
+      "td7_latentq_lambda_refresh_cv_v20",
+      "cleanrl/td7/latentq/td7_latentq_preaction_lambda_refresh_cv_v20.py"
+    ]
+  },
+  {
+    "id": 12011,
+    "name": "td7_latentq_analytic_moments_v21",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 14400000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised_v2.sh",
+      "td7_latentq_analytic_moments_v21",
+      "cleanrl/td7/latentq/td7_latentq_analytic_moments_v21.py"
+    ]
+  },
+  {
+    "id": 12012,
+    "name": "td7_latentq_paired_lambda_sale_v22",
+    "state": "failed",
+    "stateReason": "command exited with code 1",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 14400000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised_v2.sh",
+      "td7_latentq_paired_lambda_sale_v22",
+      "cleanrl/td7/latentq/td7_latentq_paired_lambda_sale_v22.py"
+    ]
+  },
+  {
+    "id": 12013,
+    "name": "td7_latentq_paired_lambda_sale_v23",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 21600000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised_v2.sh",
+      "td7_latentq_paired_lambda_sale_v23",
+      "cleanrl/td7/latentq/td7_latentq_paired_lambda_sale_v23.py"
+    ]
+  },
+  {
+    "id": 12016,
+    "name": "td7_latentq_paired_lambda_coverage_v24",
+    "state": "cancelled",
+    "stateReason": "cancelled by request",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 900000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised_v2.sh",
+      "td7_latentq_paired_lambda_coverage_v24",
+      "cleanrl/td7/latentq/td7_latentq_paired_lambda_coverage_v24.py"
+    ]
+  },
+  {
+    "id": 12018,
+    "name": "td7_latentq_paired_lambda_center_v25",
+    "state": "failed",
+    "stateReason": "time limit of 900000 ms exceeded",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 900000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised_v2.sh",
+      "td7_latentq_paired_lambda_center_v25",
+      "cleanrl/td7/latentq/td7_latentq_paired_lambda_center_v25.py"
+    ]
+  },
+  {
+    "id": 12022,
+    "name": "td7_latentq_paired_replay_coverage_v26",
+    "state": "failed",
+    "stateReason": "time limit of 900000 ms exceeded",
+    "maxParallelRuns": 1,
+    "timeLimitMs": 900000,
+    "args": [
+      "bash",
+      "benchmarks/td7_freshresearch/run_supervised_v2.sh",
+      "td7_latentq_paired_replay_coverage_v26",
+      "cleanrl/td7/latentq/td7_latentq_paired_replay_coverage_v26.py"
+    ]
+  }
+]

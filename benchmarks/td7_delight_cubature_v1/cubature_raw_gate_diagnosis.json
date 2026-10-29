@@ -1,0 +1,143 @@
+{
+  "scope": "Observed scalars; \u00b130k-step windows. No causal identification from one seed.",
+  "runs": [
+    {
+      "run": "HalfCheetah-v4__td7_latentq_delight_cubature_raw_v9__1__1791831078",
+      "windows": [
+        {
+          "step": 600000,
+          "eval/episodic_return": 16983.228515625,
+          "actor/kl": 18.102691411972046,
+          "actor/kl_mean_term": 17.680938243865967,
+          "actor/kl_scale_term": 0.42175301909446716,
+          "delight/advantage_mean": -0.09380996966591248,
+          "delight/advantage_rms": 0.7427344886156229,
+          "delight/gate_suppressed": 0.04815204326923077,
+          "delight/gate_saturated": 0.014408052884615385,
+          "delight/clipped_action_fraction": 0.3143629922316625
+        },
+        {
+          "step": 1000000,
+          "eval/episodic_return": 17584.84375,
+          "actor/kl": 10.526792208353678,
+          "actor/kl_mean_term": 8.878467559814453,
+          "actor/kl_scale_term": 1.6483238438765209,
+          "delight/advantage_mean": -0.08609914295375347,
+          "delight/advantage_rms": 0.6366318702697754,
+          "delight/gate_suppressed": 0.0406640625,
+          "delight/gate_saturated": 0.01083984375,
+          "delight/clipped_action_fraction": 0.33472982883453367
+        },
+        {
+          "step": 1400000,
+          "eval/episodic_return": 17992.033203125,
+          "actor/kl": 40.107099771499634,
+          "actor/kl_mean_term": 35.387006402015686,
+          "actor/kl_scale_term": 4.720096193253994,
+          "delight/advantage_mean": -0.08171623698793924,
+          "delight/advantage_rms": 0.6887494642000932,
+          "delight/gate_suppressed": 0.03368389423076923,
+          "delight/gate_saturated": 0.006986177884615385,
+          "delight/clipped_action_fraction": 0.35791517541958734
+        },
+        {
+          "step": 1600000,
+          "eval/episodic_return": 14890.05908203125,
+          "actor/kl": 35.75606143474579,
+          "actor/kl_mean_term": 26.338969111442566,
+          "actor/kl_scale_term": 9.417090967297554,
+          "delight/advantage_mean": -0.08277966036941066,
+          "delight/advantage_rms": 0.7932804588115576,
+          "delight/gate_suppressed": 0.037982362689393936,
+          "delight/gate_saturated": 0.008182410037878788,
+          "delight/clipped_action_fraction": 0.369034594207099
+        },
+        {
+          "step": 1800000,
+          "eval/episodic_return": 18248.0107421875,
+          "actor/kl": 27.462915579477947,
+          "actor/kl_mean_term": 23.322752952575684,
+          "actor/kl_scale_term": 4.140161792437236,
+          "delight/advantage_mean": -0.09741646036201594,
+          "delight/advantage_rms": 0.890113924230848,
+          "delight/gate_suppressed": 0.0428093112244898,
+          "delight/gate_saturated": 0.009466677295918368,
+          "delight/clipped_action_fraction": 0.3713860639504024
+        },
+        {
+          "step": 1900000,
+          "eval/episodic_return": 18105.255859375,
+          "actor/kl": 98.91774495442708,
+          "actor/kl_mean_term": 93.64642143249512,
+          "actor/kl_scale_term": 5.271324515342712,
+          "delight/advantage_mean": -0.10315045676365191,
+          "delight/advantage_rms": 0.9149445635931832,
+          "delight/gate_suppressed": 0.045579559948979595,
+          "delight/gate_saturated": 0.010642538265306123,
+          "delight/clipped_action_fraction": 0.3712498776766719
+        }
+      ],
+      "latest_eval": {
+        "step": 1916544,
+        "return": 18035.40234375
+      }
+    },
+    {
+      "run": "HalfCheetah-v4__td7_latentq_delight_cubature_v1__1__1791688686",
+      "windows": [
+        {
+          "step": 600000,
+          "eval/episodic_return": 16575.658203125,
+          "actor/kl": 12.581461668014526,
+          "actor/kl_mean_term": 11.418867230415344,
+          "actor/kl_scale_term": 1.1625946611166,
+          "delight/advantage_mean": -0.090059655217024,
+          "delight/advantage_rms": 0.7164453194691585,
+          "delight/gate_suppressed": 0.08351862980769231,
+          "delight/gate_saturated": 0.030153245192307693,
+          "delight/clipped_action_fraction": 0.3412460029125214
+        },
+        {
+          "step": 1000000,
+          "eval/episodic_return": 17285.29296875,
+          "actor/kl": 23.767495314280193,
+          "actor/kl_mean_term": 23.265663623809814,
+          "actor/kl_scale_term": 0.5018315513928732,
+          "delight/advantage_mean": -0.0837509336322546,
+          "delight/advantage_rms": 0.662846393585205,
+          "delight/gate_suppressed": 0.0790625,
+          "delight/gate_saturated": 0.023984375,
+          "delight/clipped_action_fraction": 0.3555501389503479
+        },
+        {
+          "step": 1400000,
+          "eval/episodic_return": 17909.1103515625,
+          "actor/kl": 38.994534969329834,
+          "actor/kl_mean_term": 37.44247508049011,
+          "actor/kl_scale_term": 1.552058756351471,
+          "delight/advantage_mean": -0.08289877193478437,
+          "delight/advantage_rms": 0.5902268469333649,
+          "delight/gate_suppressed": 0.0871844951923077,
+          "delight/gate_saturated": 0.018915264423076922,
+          "delight/clipped_action_fraction": 0.36648138119624213
+        },
+        {
+          "step": 1600000,
+          "eval/episodic_return": 18667.8720703125,
+          "actor/kl": 14.126782774925232,
+          "actor/kl_mean_term": 11.473928213119507,
+          "actor/kl_scale_term": 2.652854897081852,
+          "delight/advantage_mean": -0.09245679019527002,
+          "delight/advantage_rms": 0.77793462619637,
+          "delight/gate_suppressed": 0.08240116003787878,
+          "delight/gate_saturated": 0.016335227272727272,
+          "delight/clipped_action_fraction": 0.363663500457099
+        }
+      ],
+      "latest_eval": {
+        "step": 1654400,
+        "return": 18454.6796875
+      }
+    }
+  ]
+}

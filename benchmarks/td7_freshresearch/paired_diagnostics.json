@@ -1,0 +1,928 @@
+{
+  "generated": "2026-10-08T02:17:29.548536+00:00",
+  "limitations": [
+    "Single seed; correlated bursts and eight temporally dependent heldout anchors per burst; lane0 main states still train SALE and actor.",
+    "Same-label fitting effects are not accuracy against a true value oracle.",
+    "Collected interaction counts can precede completed fitting/SPS logs.",
+    "Pooled MSE ratios weight high-error bursts more; median ratios weight bursts equally.",
+    "Continuation initial/latest comparisons also change labels; only paired clock matrix holds both clocks explicitly."
+  ],
+  "jobs": [
+    {
+      "id": 12016,
+      "name": "td7_latentq_paired_lambda_coverage_v24",
+      "state": "cancelled",
+      "stateReason": "cancelled by request",
+      "maxParallelRuns": 1,
+      "timeLimitMs": 900000,
+      "run": "HalfCheetah-v4__td7_latentq_paired_lambda_coverage_v24__1__1791423004",
+      "counts": {
+        "charts/SPS": {
+          "step": 773760,
+          "value": 1012.0
+        },
+        "charts/ordinary_transitions": {
+          "step": 794240,
+          "value": 638592.0
+        },
+        "charts/branch_transitions": {
+          "step": 794240,
+          "value": 155648.0
+        },
+        "charts/branch_useful_transitions": {
+          "step": 794240,
+          "value": 153341.0
+        },
+        "charts/optimizer_steps": {
+          "step": 773760,
+          "value": 589824.0
+        }
+      },
+      "returns": {
+        "charts/episodic_return": {
+          "last_step": 789552,
+          "last20_mean": 2292.797644042969,
+          "trailing100k": {
+            "100000": {
+              "mean": -147.58689977572516,
+              "samples": 52,
+              "partial": false
+            },
+            "200000": {
+              "mean": 346.826296043396,
+              "samples": 80,
+              "partial": false
+            },
+            "300000": {
+              "mean": 1438.825112505657,
+              "samples": 82,
+              "partial": false
+            },
+            "400000": {
+              "mean": 1684.031455334322,
+              "samples": 81,
+              "partial": false
+            },
+            "500000": {
+              "mean": 1369.877466901948,
+              "samples": 79,
+              "partial": false
+            },
+            "600000": {
+              "mean": 1293.5948600769043,
+              "samples": 80,
+              "partial": false
+            },
+            "700000": {
+              "mean": 2036.4534771110439,
+              "samples": 79,
+              "partial": false
+            }
+          }
+        },
+        "eval/episodic_return": {
+          "last_step": 753280,
+          "last20_mean": 2330.7009455362954,
+          "trailing100k": {
+            "100000": {
+              "mean": -207.96553802490234,
+              "samples": 2,
+              "partial": false
+            },
+            "200000": {
+              "mean": 1360.8892211914062,
+              "samples": 2,
+              "partial": false
+            },
+            "300000": {
+              "mean": 2535.881591796875,
+              "samples": 2,
+              "partial": false
+            },
+            "400000": {
+              "mean": 2923.51806640625,
+              "samples": 3,
+              "partial": false
+            },
+            "500000": {
+              "mean": 2825.1029052734375,
+              "samples": 2,
+              "partial": false
+            },
+            "600000": {
+              "mean": 2033.0249430338542,
+              "samples": 3,
+              "partial": false
+            },
+            "700000": {
+              "mean": 3288.3660888671875,
+              "samples": 2,
+              "partial": false
+            }
+          }
+        }
+      },
+      "fit_effects": {
+        "fit/odd/initial": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 451.703468173406,
+          "new_mean_mse": 53.58906312267774,
+          "improved_fraction": 0.9722222222222222,
+          "median_burst_ratio": 0.11860317261151909,
+          "pooled_ratio": 0.11863770570409979,
+          "last20_pooled_ratio": 0.08978352737006103
+        },
+        "fit/odd/final": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 542.28728727109,
+          "new_mean_mse": 0.841489949141558,
+          "improved_fraction": 1.0,
+          "median_burst_ratio": 0.0012347192408547244,
+          "pooled_ratio": 0.0015517419804844071,
+          "last20_pooled_ratio": 0.0021167339224594057
+        },
+        "fit/even/initial": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 773.5926179024908,
+          "new_mean_mse": 1616.1166384021442,
+          "improved_fraction": 0.4444444444444444,
+          "median_burst_ratio": 1.0807153015297422,
+          "pooled_ratio": 2.0891055589233285,
+          "last20_pooled_ratio": 2.610715889090631
+        },
+        "fit/even/final": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 2940.970542768637,
+          "new_mean_mse": 2.2876804594642532,
+          "improved_fraction": 1.0,
+          "median_burst_ratio": 0.001078502612943971,
+          "pooled_ratio": 0.0007778658188499314,
+          "last20_pooled_ratio": 0.0007212245098630049
+        },
+        "holdout/odd/initial": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 516.4814479853828,
+          "new_mean_mse": 511.70453395321965,
+          "improved_fraction": 0.4444444444444444,
+          "median_burst_ratio": 1.2556862547828338,
+          "pooled_ratio": 0.9907510443002429,
+          "last20_pooled_ratio": 0.9266498221184727
+        },
+        "holdout/odd/final": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 546.5105714695399,
+          "new_mean_mse": 536.6699425137291,
+          "improved_fraction": 0.4444444444444444,
+          "median_burst_ratio": 1.225103263141453,
+          "pooled_ratio": 0.9819937079545419,
+          "last20_pooled_ratio": 0.9004969353551561
+        },
+        "holdout/even/initial": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 678.3552799477345,
+          "new_mean_mse": 1939.6013364990552,
+          "improved_fraction": 0.2222222222222222,
+          "median_burst_ratio": 2.9022897695960572,
+          "pooled_ratio": 2.8592706415559945,
+          "last20_pooled_ratio": 4.195868492081386
+        },
+        "holdout/even/final": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 2631.1984725826314,
+          "new_mean_mse": 476.9921481413767,
+          "improved_fraction": 0.9444444444444444,
+          "median_burst_ratio": 0.24362456842471197,
+          "pooled_ratio": 0.18128322629846652,
+          "last20_pooled_ratio": 0.15529458406052035
+        },
+        "branch_point/0/initial": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 787.2927525732666,
+          "new_mean_mse": 2074.3155214488506,
+          "improved_fraction": 0.25,
+          "median_burst_ratio": 2.089737757010714,
+          "pooled_ratio": 2.634744845127749,
+          "last20_pooled_ratio": 3.6944679394860542
+        },
+        "branch_point/8/initial": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 851.6223169072634,
+          "new_mean_mse": 2097.3801667855846,
+          "improved_fraction": 0.2777777777777778,
+          "median_burst_ratio": 2.2917038662007934,
+          "pooled_ratio": 2.4628055478893427,
+          "last20_pooled_ratio": 3.270435316307025
+        },
+        "branch_point/16/initial": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 754.6025830871529,
+          "new_mean_mse": 2389.51637625032,
+          "improved_fraction": 0.1388888888888889,
+          "median_burst_ratio": 2.6026203382642588,
+          "pooled_ratio": 3.1665891819168905,
+          "last20_pooled_ratio": 3.869943240156061
+        },
+        "branch_point/31/initial": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 931.6885770527232,
+          "new_mean_mse": 2793.5400189459324,
+          "improved_fraction": 0.2777777777777778,
+          "median_burst_ratio": 3.0703317466826747,
+          "pooled_ratio": 2.998362422541378,
+          "last20_pooled_ratio": 4.258152470208465
+        }
+      },
+      "crossed_label_effects": {
+        "branch_point/0/latest": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 787.2927525732666,
+          "new_mean_mse": 592.734018452155,
+          "improved_fraction": 0.6944444444444444,
+          "median_burst_ratio": 0.6810246374898663,
+          "pooled_ratio": 0.7528762541186919,
+          "last20_pooled_ratio": 0.8398339336438759
+        },
+        "branch_point/8/latest": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 851.6223169072634,
+          "new_mean_mse": 638.1711965090492,
+          "improved_fraction": 0.6388888888888888,
+          "median_burst_ratio": 0.7125032927312197,
+          "pooled_ratio": 0.7493594094934247,
+          "last20_pooled_ratio": 0.6640148410496995
+        },
+        "branch_point/16/latest": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 754.6025830871529,
+          "new_mean_mse": 671.7726100107861,
+          "improved_fraction": 0.6111111111111112,
+          "median_burst_ratio": 0.7693912804378544,
+          "pooled_ratio": 0.8902336475744607,
+          "last20_pooled_ratio": 0.8400777260713899
+        },
+        "branch_point/31/latest": {
+          "bursts": 36,
+          "first_step": 56960,
+          "last_step": 773760,
+          "old_mean_mse": 931.6885770527232,
+          "new_mean_mse": 461.6450175132292,
+          "improved_fraction": 0.7222222222222222,
+          "median_burst_ratio": 0.4915649680748959,
+          "pooled_ratio": 0.49549283836191677,
+          "last20_pooled_ratio": 0.4107709561941368
+        }
+      },
+      "actor/kl": {
+        "last_step": 773760,
+        "last_value": 7354.15185546875
+      },
+      "charts/sigma_mean": {
+        "last_step": 794240,
+        "last_value": 0.6278102397918701
+      },
+      "losses/alpha": {
+        "last_step": 794240,
+        "last_value": 7.064346937285526e-12
+      }
+    },
+    {
+      "id": 12018,
+      "name": "td7_latentq_paired_lambda_center_v25",
+      "state": "failed",
+      "stateReason": "time limit of 900000 ms exceeded",
+      "maxParallelRuns": 1,
+      "timeLimitMs": 900000,
+      "run": "HalfCheetah-v4__td7_latentq_paired_lambda_center_v25__1__1791423956",
+      "counts": {
+        "charts/SPS": {
+          "step": 896640,
+          "value": 1060.0
+        },
+        "charts/ordinary_transitions": {
+          "step": 917120,
+          "value": 736896.0
+        },
+        "charts/branch_transitions": {
+          "step": 917120,
+          "value": 180224.0
+        },
+        "charts/branch_useful_transitions": {
+          "step": 917120,
+          "value": 177487.0
+        },
+        "charts/optimizer_steps": {
+          "step": 896640,
+          "value": 688128.0
+        }
+      },
+      "returns": {
+        "charts/episodic_return": {
+          "last_step": 912128,
+          "last20_mean": -201.42107276916505,
+          "trailing100k": {
+            "100000": {
+              "mean": -77.1471289396286,
+              "samples": 52,
+              "partial": false
+            },
+            "200000": {
+              "mean": 317.7238149046898,
+              "samples": 80,
+              "partial": false
+            },
+            "300000": {
+              "mean": 470.9856905733667,
+              "samples": 82,
+              "partial": false
+            },
+            "400000": {
+              "mean": 18.419618995101363,
+              "samples": 81,
+              "partial": false
+            },
+            "500000": {
+              "mean": 98.40710487848595,
+              "samples": 79,
+              "partial": false
+            },
+            "600000": {
+              "mean": 108.51597571372986,
+              "samples": 80,
+              "partial": false
+            },
+            "700000": {
+              "mean": -111.6010979429076,
+              "samples": 79,
+              "partial": false
+            },
+            "800000": {
+              "mean": -114.77477644383907,
+              "samples": 80,
+              "partial": false
+            }
+          }
+        },
+        "eval/episodic_return": {
+          "last_step": 876160,
+          "last20_mean": 32.25069745779037,
+          "trailing100k": {
+            "100000": {
+              "mean": -170.61159896850586,
+              "samples": 2,
+              "partial": false
+            },
+            "200000": {
+              "mean": 683.0718078613281,
+              "samples": 2,
+              "partial": false
+            },
+            "300000": {
+              "mean": 539.2949829101562,
+              "samples": 2,
+              "partial": false
+            },
+            "400000": {
+              "mean": -133.32284609476724,
+              "samples": 3,
+              "partial": false
+            },
+            "500000": {
+              "mean": -51.46450579166412,
+              "samples": 2,
+              "partial": false
+            },
+            "600000": {
+              "mean": 215.23116048177084,
+              "samples": 3,
+              "partial": false
+            },
+            "700000": {
+              "mean": -1.5428924560546875,
+              "samples": 2,
+              "partial": false
+            },
+            "800000": {
+              "mean": -277.3544108072917,
+              "samples": 3,
+              "partial": false
+            }
+          }
+        }
+      },
+      "fit_effects": {
+        "fit/odd/initial": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 515.517705198976,
+          "new_mean_mse": 23.143801969204407,
+          "improved_fraction": 0.9761904761904762,
+          "median_burst_ratio": 0.05865027841270401,
+          "pooled_ratio": 0.044894291186898264,
+          "last20_pooled_ratio": 0.011971621597845492
+        },
+        "fit/odd/final": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 540.6480131334226,
+          "new_mean_mse": 1.7060474869569935,
+          "improved_fraction": 1.0,
+          "median_burst_ratio": 0.0019292185229437715,
+          "pooled_ratio": 0.0031555604487830983,
+          "last20_pooled_ratio": 0.0012214064293623362
+        },
+        "fit/even/initial": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 1849.0685901017416,
+          "new_mean_mse": 874.3618976161594,
+          "improved_fraction": 0.6190476190476191,
+          "median_burst_ratio": 0.6444981600455436,
+          "pooled_ratio": 0.472866124218815,
+          "last20_pooled_ratio": 0.2560803688906199
+        },
+        "fit/even/final": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 3307.20329114369,
+          "new_mean_mse": 0.9579448197896238,
+          "improved_fraction": 1.0,
+          "median_burst_ratio": 0.0005445647386491405,
+          "pooled_ratio": 0.00028965404768279286,
+          "last20_pooled_ratio": 0.00013690868485753666
+        },
+        "holdout/odd/initial": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 292.84135181189606,
+          "new_mean_mse": 136.69402180340452,
+          "improved_fraction": 0.7380952380952381,
+          "median_burst_ratio": 0.5113083910769621,
+          "pooled_ratio": 0.46678524381081493,
+          "last20_pooled_ratio": 0.26664889998545754
+        },
+        "holdout/odd/final": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 287.747002920158,
+          "new_mean_mse": 127.26308331569834,
+          "improved_fraction": 0.7857142857142857,
+          "median_burst_ratio": 0.4381043898564243,
+          "pooled_ratio": 0.4422742270959826,
+          "last20_pooled_ratio": 0.24371618793478417
+        },
+        "holdout/even/initial": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 1058.924200908414,
+          "new_mean_mse": 1026.0574210257757,
+          "improved_fraction": 0.5238095238095238,
+          "median_burst_ratio": 0.9047118248737334,
+          "pooled_ratio": 0.9689621033739308,
+          "last20_pooled_ratio": 1.2335521566421126
+        },
+        "holdout/even/final": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 2140.3516237877666,
+          "new_mean_mse": 353.31191460930165,
+          "improved_fraction": 0.9047619047619048,
+          "median_burst_ratio": 0.1683468124544631,
+          "pooled_ratio": 0.1650719025241506,
+          "last20_pooled_ratio": 0.17944437465324073
+        },
+        "branch_point/0/initial": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 741.2044040044503,
+          "new_mean_mse": 905.8417361293521,
+          "improved_fraction": 0.4523809523809524,
+          "median_burst_ratio": 1.0972282734950953,
+          "pooled_ratio": 1.2221213625221703,
+          "last20_pooled_ratio": 1.6507224738479742
+        },
+        "branch_point/8/initial": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 684.8044327870011,
+          "new_mean_mse": 889.4666740177643,
+          "improved_fraction": 0.4523809523809524,
+          "median_burst_ratio": 1.1654929094867812,
+          "pooled_ratio": 1.2988623195644828,
+          "last20_pooled_ratio": 1.9869068435270092
+        },
+        "branch_point/16/initial": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 659.2049149416741,
+          "new_mean_mse": 951.1116571894714,
+          "improved_fraction": 0.40476190476190477,
+          "median_burst_ratio": 1.2431895510439277,
+          "pooled_ratio": 1.4428163923408017,
+          "last20_pooled_ratio": 1.8673071174043285
+        },
+        "branch_point/31/initial": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 922.829033661545,
+          "new_mean_mse": 1215.524153075048,
+          "improved_fraction": 0.40476190476190477,
+          "median_burst_ratio": 1.91781586939552,
+          "pooled_ratio": 1.317171554791861,
+          "last20_pooled_ratio": 1.9228857582575853
+        }
+      },
+      "crossed_label_effects": {
+        "branch_point/0/latest": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 741.2044040044503,
+          "new_mean_mse": 210.19379827876887,
+          "improved_fraction": 0.8571428571428571,
+          "median_burst_ratio": 0.230817571323519,
+          "pooled_ratio": 0.2835841194995204,
+          "last20_pooled_ratio": 0.2448983889673224
+        },
+        "branch_point/8/latest": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 684.8044327870011,
+          "new_mean_mse": 156.84367783981864,
+          "improved_fraction": 0.8571428571428571,
+          "median_burst_ratio": 0.25820208318440663,
+          "pooled_ratio": 0.2290342619446838,
+          "last20_pooled_ratio": 0.1832956683062931
+        },
+        "branch_point/16/latest": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 659.2049149416741,
+          "new_mean_mse": 201.1931315213331,
+          "improved_fraction": 0.8333333333333334,
+          "median_burst_ratio": 0.30729736126555063,
+          "pooled_ratio": 0.30520575159718655,
+          "last20_pooled_ratio": 0.13081573759823303
+        },
+        "branch_point/31/latest": {
+          "bursts": 42,
+          "first_step": 56960,
+          "last_step": 896640,
+          "old_mean_mse": 922.829033661545,
+          "new_mean_mse": 206.23267658593664,
+          "improved_fraction": 0.8095238095238095,
+          "median_burst_ratio": 0.272941071893767,
+          "pooled_ratio": 0.22347874748550028,
+          "last20_pooled_ratio": 0.13980893310288328
+        }
+      },
+      "actor/kl": {
+        "last_step": 896640,
+        "last_value": 8385.7265625
+      },
+      "charts/sigma_mean": {
+        "last_step": 917120,
+        "last_value": 0.651708722114563
+      },
+      "losses/alpha": {
+        "last_step": 917120,
+        "last_value": 0.007884564809501171
+      }
+    },
+    {
+      "id": 12022,
+      "name": "td7_latentq_paired_replay_coverage_v26",
+      "state": "failed",
+      "stateReason": "time limit of 900000 ms exceeded",
+      "maxParallelRuns": 1,
+      "timeLimitMs": 900000,
+      "run": "HalfCheetah-v4__td7_latentq_paired_replay_coverage_v26__1__1791424911",
+      "counts": {
+        "charts/SPS": {
+          "step": 589440,
+          "value": 673.0
+        },
+        "charts/ordinary_transitions": {
+          "step": 609920,
+          "value": 491136.0
+        },
+        "charts/branch_transitions": {
+          "step": 609920,
+          "value": 118784.0
+        },
+        "charts/branch_useful_transitions": {
+          "step": 609920,
+          "value": 116955.0
+        },
+        "charts/optimizer_steps": {
+          "step": 589440,
+          "value": 442368.0
+        }
+      },
+      "returns": {
+        "charts/episodic_return": {
+          "last_step": 605696,
+          "last20_mean": 161.2602891921997,
+          "trailing100k": {
+            "100000": {
+              "mean": -334.48612002226025,
+              "samples": 52,
+              "partial": false
+            },
+            "200000": {
+              "mean": 931.4997161149979,
+              "samples": 80,
+              "partial": false
+            },
+            "300000": {
+              "mean": 2495.9904401825697,
+              "samples": 82,
+              "partial": false
+            },
+            "400000": {
+              "mean": 2766.0302390699035,
+              "samples": 81,
+              "partial": false
+            },
+            "500000": {
+              "mean": 1975.6139951778364,
+              "samples": 79,
+              "partial": false
+            },
+            "600000": {
+              "mean": 165.5725618124008,
+              "samples": 80,
+              "partial": false
+            }
+          }
+        },
+        "eval/episodic_return": {
+          "last_step": 589440,
+          "last20_mean": 1817.6385416303362,
+          "trailing100k": {
+            "100000": {
+              "mean": -529.7014694213867,
+              "samples": 2,
+              "partial": false
+            },
+            "200000": {
+              "mean": 1896.363525390625,
+              "samples": 2,
+              "partial": false
+            },
+            "300000": {
+              "mean": 3396.3238525390625,
+              "samples": 2,
+              "partial": false
+            },
+            "400000": {
+              "mean": 3344.5997721354165,
+              "samples": 3,
+              "partial": false
+            },
+            "500000": {
+              "mean": 2491.5413818359375,
+              "samples": 2,
+              "partial": false
+            }
+          }
+        }
+      },
+      "fit_effects": {
+        "fit/odd/initial": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 201.32503646788084,
+          "new_mean_mse": 15.86338161645,
+          "improved_fraction": 0.9629629629629629,
+          "median_burst_ratio": 0.05680196853016252,
+          "pooled_ratio": 0.07879487765040503,
+          "last20_pooled_ratio": 0.07033041236345373
+        },
+        "fit/odd/final": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 205.93925014427967,
+          "new_mean_mse": 1.7042292199783131,
+          "improved_fraction": 1.0,
+          "median_burst_ratio": 0.0027281388864198756,
+          "pooled_ratio": 0.00827539781165728,
+          "last20_pooled_ratio": 0.007031063687591194
+        },
+        "fit/even/initial": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 526.6532497670916,
+          "new_mean_mse": 2301.867410355144,
+          "improved_fraction": 0.3333333333333333,
+          "median_burst_ratio": 2.2232000520756583,
+          "pooled_ratio": 4.370745668754779,
+          "last20_pooled_ratio": 4.301328462121633
+        },
+        "fit/even/final": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 3705.346517721812,
+          "new_mean_mse": 1.3673134859202913,
+          "improved_fraction": 1.0,
+          "median_burst_ratio": 0.0005557904169669434,
+          "pooled_ratio": 0.0003690109627752083,
+          "last20_pooled_ratio": 0.00037035747745142055
+        },
+        "holdout/odd/initial": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 195.01879407160192,
+          "new_mean_mse": 192.2243365894365,
+          "improved_fraction": 0.4444444444444444,
+          "median_burst_ratio": 1.0226814440498977,
+          "pooled_ratio": 0.9856708298527401,
+          "last20_pooled_ratio": 0.9052643291678035
+        },
+        "holdout/odd/final": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 204.79642804437833,
+          "new_mean_mse": 197.176214741267,
+          "improved_fraction": 0.5185185185185185,
+          "median_burst_ratio": 0.9950049990324453,
+          "pooled_ratio": 0.9627912782665325,
+          "last20_pooled_ratio": 0.8801203301914451
+        },
+        "holdout/even/initial": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 445.7840060464762,
+          "new_mean_mse": 2429.1737183111686,
+          "improved_fraction": 0.1111111111111111,
+          "median_burst_ratio": 3.609262781428139,
+          "pooled_ratio": 5.449216852472517,
+          "last20_pooled_ratio": 5.238508121341134
+        },
+        "holdout/even/final": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 3490.490638220752,
+          "new_mean_mse": 367.72757084529707,
+          "improved_fraction": 0.9259259259259259,
+          "median_burst_ratio": 0.13156587968368422,
+          "pooled_ratio": 0.10535125544205531,
+          "last20_pooled_ratio": 0.11292057708122952
+        },
+        "branch_point/0/initial": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 345.6994805371872,
+          "new_mean_mse": 2378.8982198856497,
+          "improved_fraction": 0.2222222222222222,
+          "median_burst_ratio": 4.120579731571837,
+          "pooled_ratio": 6.881405248827817,
+          "last20_pooled_ratio": 6.707545112270702
+        },
+        "branch_point/8/initial": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 353.80236352428244,
+          "new_mean_mse": 2493.49102669292,
+          "improved_fraction": 0.18518518518518517,
+          "median_burst_ratio": 5.457451745582689,
+          "pooled_ratio": 7.047694656007534,
+          "last20_pooled_ratio": 6.898946019053631
+        },
+        "branch_point/16/initial": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 242.1011507378684,
+          "new_mean_mse": 2344.703907083582,
+          "improved_fraction": 0.1111111111111111,
+          "median_burst_ratio": 5.495183678893629,
+          "pooled_ratio": 9.684811079738637,
+          "last20_pooled_ratio": 9.567044022837475
+        },
+        "branch_point/31/initial": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 233.02030968679875,
+          "new_mean_mse": 2924.51050416187,
+          "improved_fraction": 0.07407407407407407,
+          "median_burst_ratio": 8.657141124051723,
+          "pooled_ratio": 12.550453254880177,
+          "last20_pooled_ratio": 11.613342666491418
+        }
+      },
+      "crossed_label_effects": {
+        "branch_point/0/latest": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 345.6994805371872,
+          "new_mean_mse": 226.70452954551135,
+          "improved_fraction": 0.7777777777777778,
+          "median_burst_ratio": 0.542489632660056,
+          "pooled_ratio": 0.6557849875655933,
+          "last20_pooled_ratio": 0.6667404483381555
+        },
+        "branch_point/8/latest": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 353.80236352428244,
+          "new_mean_mse": 264.66339193118944,
+          "improved_fraction": 0.7037037037037037,
+          "median_burst_ratio": 0.5660023184839363,
+          "pooled_ratio": 0.7480543354624166,
+          "last20_pooled_ratio": 0.7604394308431821
+        },
+        "branch_point/16/latest": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 242.1011507378684,
+          "new_mean_mse": 142.1218389318221,
+          "improved_fraction": 0.8148148148148148,
+          "median_burst_ratio": 0.4279491471359883,
+          "pooled_ratio": 0.5870349583166687,
+          "last20_pooled_ratio": 0.590860535200828
+        },
+        "branch_point/31/latest": {
+          "bursts": 27,
+          "first_step": 56960,
+          "last_step": 589440,
+          "old_mean_mse": 233.02030968679875,
+          "new_mean_mse": 149.56703477953045,
+          "improved_fraction": 0.6296296296296297,
+          "median_burst_ratio": 0.7063791392437367,
+          "pooled_ratio": 0.6418626555795185,
+          "last20_pooled_ratio": 0.6349211348076895
+        }
+      },
+      "actor/kl": {
+        "last_step": 589440,
+        "last_value": 31939.27734375
+      },
+      "charts/sigma_mean": {
+        "last_step": 609920,
+        "last_value": 0.6559732556343079
+      },
+      "losses/alpha": {
+        "last_step": 609920,
+        "last_value": 0.04302527755498886
+      }
+    }
+  ]
+}

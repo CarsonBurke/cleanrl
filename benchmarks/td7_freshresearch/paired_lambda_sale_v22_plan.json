@@ -1,0 +1,68 @@
+{
+  "method": "Fresh latent-Q with action-SALE and antithetic lambda-return supervision",
+  "status": "failed_runtime_before_learning",
+  "script": "cleanrl/td7/latentq/td7_latentq_paired_lambda_sale_v22.py",
+  "base": "td7_latentq_preaction_lambda_refresh_cv_v20.py",
+  "hypothesis": "Observed paired action contrasts with shared future innovations improve actor-facing action credit while retaining long-horizon reward information and learned action dynamics.",
+  "changes": [
+    "Restore original latent center/JVP and action-conditioned SALE representation, replacing the failed finite-basis v21 package.",
+    "Remove ineffective snapshot control variates.",
+    "At eight predetermined 32-step segment starts per lane, copy full MuJoCo state and episode metadata into separate native branch environments.",
+    "Use the opposite initial Gaussian innovation and the same subsequent Gaussian innovations under each trajectory's own frozen behavior-policy inputs.",
+    "Replace the single-return Hermite channel with uniformly sampled paired odd/even squared regression. Keep physical-point and observed-preaction channels with exact detached LAP compensation.",
+    "Include additional minus-anchor direct observations with weight equal to their distinct observation count. Plus anchors already occur in the main data.",
+    "Add max gradient norm 0.5 for encoder, critic and actor as required by shared standards; TD7 base omitted it."
+  ],
+  "preserved": [
+    "Original latent critic, actual action-SALE zsa/JVP pathway and actor architecture",
+    "Gaussian behavior, actor entropy autotuning and shared main-rollout LAP actor/encoder samples",
+    "Lambda 0.95, 32-step traces, cached behavior continuation and existing hard target/encoder refresh every 250 updates",
+    "16 environments, 1024 ordinary steps each, 16384 critic/encoder updates and 8192 delayed actor updates per trained ordinary rollout"
+  ],
+  "budget": {
+    "total_training_interactions": 8000000,
+    "ordinary_steps_per_rollout": 16384,
+    "additional_branch_steps_per_rollout": 4096,
+    "total_steps_per_rollout": 20480,
+    "anchors_per_rollout": 128,
+    "critic_fitting_anchors": 120,
+    "critic_holdout_anchors": 8,
+    "counting": "Count staggered warmup and every branch physics step, including masked post-boundary steps. Floor rollout count so the training budget is never exceeded. Evaluation supplies no training labels and retains benchmark convention.",
+    "confound": "Branching leaves about 20% fewer ordinary transitions and optimizer updates per total training interaction. Architecture, projection objective, gradient clipping and data collection change together."
+  },
+  "prediction": "Held-out odd-contrast prediction and fixed-label action-credit calibration improve, followed by better matched-interaction returns. Lower training loss alone is not success.",
+  "diagnostics": [
+    "Held-out odd/even errors, correlation and predicted-to-observed magnitude against both unchanged initial labels and refreshed labels",
+    "Observed reward and bootstrap contributions to paired contrasts",
+    "Fixed-query center and odd-projection displacement through fitting",
+    "Per-offset state/action coupling while both trajectories remain in the source episode",
+    "Raw Gaussian KL, anchor counts, unique sampled directions, reuse and ordinary/branch interaction counts"
+  ],
+  "limits": [
+    "A pair identifies one directional contrast, not the full six-dimensional gradient. Repeated updates do not create new observations.",
+    "There are only eight held-out anchors per rollout; temporal and episode dependence limits statistical conclusions.",
+    "Same-noise coupling can deteriorate as trajectories and state-dependent policies diverge. Noise reduction is an empirical prediction.",
+    "Lambda labels still contain bootstrap bias and data-adaptive refresh. Derivative targets concern the bootstrapped label expectation, not a ground-truth Q oracle.",
+    "The held-out lane still trains SALE and actor and participates in shared bootstrap bounds.",
+    "The critic retains omitted mixed higher Hermite terms and unconstrained actor movement outside behavior support.",
+    "Exact sampling compensation concerns the squared objective and gradients before nonlinear clipping, not expected clipped optimizer updates.",
+    "One seed and censored predecessors cannot establish a final benchmark ranking."
+  ],
+  "validation": {
+    "pure_tests": 8,
+    "syntax": "passed",
+    "independent_review": "critic_redteam: simulator, budgeting, target refresh, loss/JVP and capture review found no blocking defect; undefined diagnostic ratios corrected",
+    "compiled_cuda_and_native": "Initial CUDA capture and native environment construction passed. First paired collection stopped at observation equality assertion, before fitting any recorded training rollout."
+  },
+  "job_id": 12012,
+  "declared_max_parallel_runs": 1,
+  "time_limit": "4h",
+  "runtime_failure": {
+    "job_id": 12012,
+    "queue_state": "failed",
+    "last_training_episode_step": 32000,
+    "cause": "Individual staggered reset updates warm.next_obs and physics state, while the native vector observation cache can remain stale until its next vector step. Copying that cache into the branch mismatches the authoritative rollout state.",
+    "fix": "New frozen version v23 passes the authoritative rollout observation into capture. Full physics/age copying and equality assertion remain.",
+    "learning_inference": "None; no measured learning outcome."
+  }
+}

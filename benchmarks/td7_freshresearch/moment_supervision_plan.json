@@ -1,0 +1,35 @@
+{
+  "status": "independently reviewed hypothesis; no trainer or job submitted",
+  "priority": "finish requested jobs 12003, 12006 and 12007 first",
+  "estimand": "Gaussian-smoothed first-action value for a fixed behavior continuation and fixed frozen-return estimator; not a true-Q oracle",
+  "center": "C(s,m,sigma)=F(s,m,sigma,u=m), including SALE zsa(m)",
+  "population_identity": "E[(C+a.dot(eps)+0.5*b.dot(eps^2-1)-G)^2]=(C-E[G])^2+||a-E[eps*G]||^2+0.5*||b-E[(eps^2-1)*G]||^2+constant, where a=sigma*d_mean C and b=sigma*d_std C",
+  "interpretation": "Uniform direct moments and uniform MSE Hermite reconstruction have identical population objectives even when values and derivatives share network parameters. Potential benefits concern finite-batch optimization and weighting, not extra information.",
+  "baseline": "Detach a predictor frozen before current rollout collection; if fitted on current rollout, cross-fit independent trajectories or lanes. Freezing only before optimizer fitting does not guarantee conditional action-noise independence.",
+  "directional_targets": {
+    "center": "G",
+    "mean": "(G-B)*dot(r_mean,eps), prediction total center JVP along mean tangent sigma*r_mean",
+    "std": "(G-B)*dot(r_std,eps^2-1), prediction center JVP along std tangent sigma*r_std",
+    "directions": "Independent of recorded action noise. Independent unnormalized Rademacher directions preserve vector loss in expectation; unit directions require multiplying loss by action dimension.",
+    "weights": "center 1, mean 1, std 0.5 to match Hermite reconstruction population weights",
+    "computation": "Separate mean and std analytical JVP calls; retain mean paths through explicit mean, preaction and SALE zsa. Random projection saves computation but does not intrinsically reduce statistical variance."
+  },
+  "discriminating_comparison": {
+    "control": "Uniform MSE Hermite reconstruction, same three queries and frozen return estimator",
+    "intervention": "Uniform direct moment MSE replacing only center reconstruction; matched population weights and other query losses unchanged",
+    "shared_gain_prediction": "If both improve similarly over LAP/Huber, sampling or loss weighting is the leading mechanism",
+    "additional_gain_prediction": "If direct moments additionally improve held-out directional calibration and stability, finite-batch Hermite Gram coupling becomes plausible",
+    "accuracy_evidence": "Aggregate held-out trajectory directional and nearby-query calibration, with estimator noise reported; training loss and drift alone insufficient"
+  },
+  "neighborhood_extension": {
+    "mean_queries": "Independent tiny shift delta*sigma*r with unit-norm r; equal-std raw Gaussian E[w^2]=exp(delta^2)",
+    "labels": "center B+w*(G-B); d_mean w*(G-B)*(u-m)/sigma^2; d_std w*(G-B)*(((u-m)/sigma)^2-1)/sigma",
+    "restriction": "All query randomness independent of recorded action noise; fixed continuation. Uniform samples or exact LAP probability compensation.",
+    "std_widening": "Raw Gaussian weight second moment is finite only when every query variance is strictly less than twice behavior variance; querying std .2 from behavior .1 violates this. Clipped execution does not fix raw-likelihood variance."
+  },
+  "other_ideas": {
+    "semigroup": "Valid Gaussian-smoothing consistency identity for fixed physical-action value and continuation; an intended constraint for free latent F, not new observations",
+    "infonce": "Cross-state return ranking confounds state and action quality and does not calibrate Q; goal-conditioned contrastive-RL value equivalence requires its specific density setup"
+  },
+  "review": "Independent method review confirmed formulas, total derivative paths, baseline independence conditions and exact population-equivalence identity. Training improvement remains untested."
+}

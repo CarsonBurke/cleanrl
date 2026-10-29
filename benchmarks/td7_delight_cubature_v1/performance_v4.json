@@ -1,0 +1,243 @@
+{
+  "scope": "Synthetic fixed-shape GPU benchmark; not a training evaluation",
+  "torch_version": "2.12.0+cu130",
+  "cuda_version": "13.0",
+  "gpu": "NVIDIA GeForce RTX 5090",
+  "configuration": {
+    "modules": [
+      "cleanrl/td7/delight/td7_latentq_delight_fast_preaction_v3.py",
+      "cleanrl/td7/delight/td7_latentq_value_baseline_v4.py"
+    ],
+    "steps": 2000,
+    "repeats": 3,
+    "buffer_size": 1000000,
+    "batch_size": 256,
+    "state_dim": 17,
+    "action_dim": 6,
+    "actor_objective": "delight",
+    "atol": 2e-05,
+    "rtol": 0.0002,
+    "output": "benchmarks/td7_delight_cubature_v1/performance_v4.json"
+  },
+  "modules": [
+    {
+      "path": "cleanrl/td7/delight/td7_latentq_delight_fast_preaction_v3.py",
+      "trainer_args": {
+        "exp_name": "td7_latentq_delight_fast_preaction_v3",
+        "seed": 1,
+        "compile": true,
+        "env_id": "HalfCheetah-v4",
+        "total_timesteps": 8000000,
+        "num_envs": 16,
+        "num_steps": 1024,
+        "env_threads": 2,
+        "actor_sale": true,
+        "actor_objective": "delight",
+        "actor_query": "point",
+        "priority_block_size": 256,
+        "actor_samples": 4,
+        "delight_temperature": 1.0,
+        "surprisal": "relative",
+        "surprisal_cap": 10.0,
+        "gate_scale": "rms",
+        "gate_scope": "mean",
+        "max_grad_norm": 0.5,
+        "updates_per_step": 1.0,
+        "warmup_rollouts": 1,
+        "warmup_sigma": 0.6,
+        "hermite_order": 2,
+        "eval_interval": 2,
+        "eval_eps": 10,
+        "buffer_size": 1000000,
+        "batch_size": 256,
+        "gamma": 0.99,
+        "target_update_rate": 250,
+        "target_smoothing_sigma": 0.2,
+        "policy_freq": 2,
+        "lap_alpha": 0.4,
+        "min_priority": 1.0,
+        "zs_dim": 256,
+        "hidden_dim": 256,
+        "encoder_lr": 0.0003,
+        "critic_lr": 0.0003,
+        "actor_lr": 0.0003
+      },
+      "build_capture_seconds": 17.602717238973128,
+      "equivalence": {
+        "reference": true
+      },
+      "cuda_graph_mixed_cadence": {
+        "steps_per_repeat": 2000,
+        "repeats": 3,
+        "samples": [
+          {
+            "wall_us_per_step": 1285.438017002889,
+            "cuda_interval_us_per_step": 1284.983642578125
+          },
+          {
+            "wall_us_per_step": 1324.8553869925672,
+            "cuda_interval_us_per_step": 1324.5274658203125
+          },
+          {
+            "wall_us_per_step": 1260.4663584934315,
+            "cuda_interval_us_per_step": 1260.157470703125
+          }
+        ],
+        "median_wall_us_per_step": 1285.438017002889,
+        "median_steps_per_second": 777.9449392134732
+      },
+      "train_api_with_targets_and_logging_cadence": {
+        "steps_per_repeat": 2000,
+        "repeats": 3,
+        "samples": [
+          {
+            "wall_us_per_step": 1302.0667515083915,
+            "cuda_interval_us_per_step": 1301.72802734375
+          },
+          {
+            "wall_us_per_step": 1321.698510000715,
+            "cuda_interval_us_per_step": 1321.090087890625
+          },
+          {
+            "wall_us_per_step": 1276.0146785003599,
+            "cuda_interval_us_per_step": 1275.413818359375
+          }
+        ],
+        "median_wall_us_per_step": 1302.0667515083915,
+        "median_steps_per_second": 768.0097804828674
+      },
+      "peak_torch_allocated_bytes": 506008064,
+      "peak_torch_reserved_bytes": 660602880
+    },
+    {
+      "path": "cleanrl/td7/delight/td7_latentq_value_baseline_v4.py",
+      "trainer_args": {
+        "exp_name": "td7_latentq_value_baseline_v4",
+        "seed": 1,
+        "compile": true,
+        "env_id": "HalfCheetah-v4",
+        "total_timesteps": 8000000,
+        "num_envs": 16,
+        "num_steps": 1024,
+        "env_threads": 2,
+        "actor_sale": true,
+        "actor_objective": "delight",
+        "actor_baseline": "cubature",
+        "target_std": "fixed",
+        "priority_block_size": 256,
+        "actor_samples": 4,
+        "delight_temperature": 1.0,
+        "surprisal": "relative",
+        "surprisal_cap": 10.0,
+        "gate_scale": "rms",
+        "gate_scope": "mean",
+        "max_grad_norm": 0.5,
+        "updates_per_step": 1.0,
+        "warmup_rollouts": 1,
+        "warmup_sigma": 0.6,
+        "hermite_order": 2,
+        "eval_interval": 2,
+        "eval_eps": 10,
+        "buffer_size": 1000000,
+        "batch_size": 256,
+        "gamma": 0.99,
+        "target_update_rate": 250,
+        "target_smoothing_sigma": 0.2,
+        "policy_freq": 2,
+        "lap_alpha": 0.4,
+        "min_priority": 1.0,
+        "zs_dim": 256,
+        "hidden_dim": 256,
+        "encoder_lr": 0.0003,
+        "critic_lr": 0.0003,
+        "actor_lr": 0.0003
+      },
+      "build_capture_seconds": 3.2147520199941937,
+      "equivalence": {
+        "passed": true,
+        "atol": 2e-05,
+        "rtol": 0.0002,
+        "max_absolute_errors": {
+          "critic_forward": 0.0,
+          "critic_jvp_value": 0.0,
+          "critic_jvp_tangent": 0.0,
+          "critic_loss": 0.0,
+          "td_errors": 0.0,
+          "diagnostics": 0.0,
+          "fixed_zs": 0.0,
+          "jvp_gradient/q0.weight": 0.0,
+          "training_gradient/q0.weight": 0.0,
+          "jvp_gradient/q0.bias": 0.0,
+          "training_gradient/q0.bias": 0.0,
+          "jvp_gradient/q1.weight": 0.0,
+          "training_gradient/q1.weight": 0.0,
+          "jvp_gradient/q1.bias": 0.0,
+          "training_gradient/q1.bias": 0.0,
+          "jvp_gradient/q2.weight": 0.0,
+          "training_gradient/q2.weight": 0.0,
+          "jvp_gradient/q2.bias": 0.0,
+          "training_gradient/q2.bias": 0.0,
+          "jvp_gradient/q3.weight": 0.0,
+          "training_gradient/q3.weight": 0.0,
+          "jvp_gradient/q3.bias": 0.0,
+          "training_gradient/q3.bias": 0.0,
+          "actor_loss": 0.0,
+          "actor_log_std": 0.0,
+          "actor_diagnostics": 0.0,
+          "actor_gradient/l0.weight": 0.0,
+          "actor_gradient/l0.bias": 0.0,
+          "actor_gradient/l1.weight": 0.0,
+          "actor_gradient/l1.bias": 0.0,
+          "actor_gradient/l2.weight": 0.0,
+          "actor_gradient/l2.bias": 0.0,
+          "actor_gradient/l3.weight": 0.0,
+          "actor_gradient/l3.bias": 0.0,
+          "actor_gradient/l3_logstd.weight": 0.0,
+          "actor_gradient/l3_logstd.bias": 0.0
+        }
+      },
+      "cuda_graph_mixed_cadence": {
+        "steps_per_repeat": 2000,
+        "repeats": 3,
+        "samples": [
+          {
+            "wall_us_per_step": 1307.1648464974714,
+            "cuda_interval_us_per_step": 1306.77490234375
+          },
+          {
+            "wall_us_per_step": 1303.7459604965989,
+            "cuda_interval_us_per_step": 1303.1761474609375
+          },
+          {
+            "wall_us_per_step": 1250.1605239958735,
+            "cuda_interval_us_per_step": 1249.6214599609375
+          }
+        ],
+        "median_wall_us_per_step": 1303.7459604965989,
+        "median_steps_per_second": 767.0205931983087
+      },
+      "train_api_with_targets_and_logging_cadence": {
+        "steps_per_repeat": 2000,
+        "repeats": 3,
+        "samples": [
+          {
+            "wall_us_per_step": 1275.194282992743,
+            "cuda_interval_us_per_step": 1274.582763671875
+          },
+          {
+            "wall_us_per_step": 1265.9639589983271,
+            "cuda_interval_us_per_step": 1265.8878173828125
+          },
+          {
+            "wall_us_per_step": 1218.9278439909685,
+            "cuda_interval_us_per_step": 1218.408935546875
+          }
+        ],
+        "median_wall_us_per_step": 1265.9639589983271,
+        "median_steps_per_second": 789.9119030143902
+      },
+      "peak_torch_allocated_bytes": 506008064,
+      "peak_torch_reserved_bytes": 660602880
+    }
+  ]
+}

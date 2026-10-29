@@ -1,0 +1,50 @@
+{
+  "base_run": "HalfCheetah-v4__td7_latentq_fresh_sale_v9__1__1791405636",
+  "common": {
+    "env_id": "HalfCheetah-v4",
+    "total_timesteps": 8000000,
+    "seed": 1,
+    "num_envs": 16,
+    "num_steps": 1024,
+    "updates_per_step": 1.0,
+    "batch_size": 256,
+    "warmup_rollouts": 1,
+    "target_update_rate": 250,
+    "policy_freq": 2,
+    "env_threads": 2,
+    "compile": true,
+    "max_parallel_runs": 1,
+    "sampling": "original shared fresh LAP"
+  },
+  "arms": [
+    {
+      "job_id": 12006,
+      "name": "td7_latentq_integral_only_v16",
+      "script": "cleanrl/td7/latentq/td7_latentq_action_integral_td_v16.py",
+      "change": "physical action-Q and 8-sample antithetic actor integration",
+      "target": "moving one-step, fixed smoothing std .2, min of per-twin sample means",
+      "time_limit": "6h",
+      "observed_state": "cancelled after partial .884M training; no resubmission"
+    },
+    {
+      "job_id": 12007,
+      "name": "td7_latentq_lambda_only_v17",
+      "script": "cleanrl/td7/latentq/td7_latentq_preaction_lambda_v17.py",
+      "change": "latent-Q with frozen behavior lambda .95 labels in 32-step segments",
+      "target": "latent behavior mean/std queries using paired target critic encoder; frozen per burst",
+      "time_limit": "4h",
+      "observed_state": "running"
+    }
+  ],
+  "validation": {
+    "pure_tensor_tests": 12,
+    "independent_review": "no blocking bugs",
+    "gpu_execution": "v16 CUDA compiled training reached ~.884M, cancelled by request with unknown caller and no runtime exception; v17 real queued CUDA training started"
+  },
+  "limits": [
+    "lambda package changes trace length, label freezing and continuation policy/std together",
+    "old combined run also changed cadence, so does not form a matched-cadence factorial interaction test",
+    "original v9 ended at .818M; compare at observed matched steps",
+    "single seed is not a robustness estimate"
+  ]
+}

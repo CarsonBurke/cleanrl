@@ -1,0 +1,15 @@
+{
+  "status": "reviewed_information_test_not_implemented_or_submitted",
+  "trigger": "v21 poor returns despite small behavior-support heldout residuals leave actor-facing credit unresolved",
+  "hypothesis": "Analytic basis can predict current actor query contrasts inaccurately despite internally exact expectations",
+  "design": [
+    "Freeze critic, paired encoder, bounds and a declared continuation policy at the branch collection",
+    "Anchor current actor queries on stored simulator states; choose actor gradient/proposal direction",
+    "Use common first Gaussian innovation for clip(mu \u00b1 delta*direction + sigma*eps), then common future Gaussian innovations under identical frozen behavior continuation through32-step lambda horizon",
+    "Compare per-head and actor twin-mean point prediction contrast with paired return-label contrast; report observed reward and bootstrap components separately",
+    "Include state/episode blocks and uncertainty; common noise reduces variance but creates no exact Q oracle",
+    "Restore full simulator state, time limit, RNG, wrapper state and episode masks correctly; validate restoration algebra and repeatability without smoke runs",
+    "Count every executed branch simulator transition against the same total interaction budget; no unaccounted labels/replay or finetuning"
+  ],
+  "decision": "Information first; do not infer that derivatives are wrong from current scores and do not immediately expand architecture or tune parameters"
+}

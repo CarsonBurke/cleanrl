@@ -1,0 +1,85 @@
+{
+  "scope": "Analytical transfer assessment; no trainer changes or new training jobs.",
+  "source": "/home/marvin/Documents/repositories/parameter-golf/postraining/runs/critic_design_math_20261013/design_synthesis.json",
+  "binary_identity": "E[R sigmoid(R*l/eta)|s,a] = Q(s,a) sigmoid(l/eta), for R in {0,1}, no baseline, and fixed measurable l.",
+  "continuous_target": "E[(G-b) sigmoid((G-b)*l/eta)|s,a,policy_context]; multiply by 2 for our convention.",
+  "counterexamples": [
+    {
+      "surprise": 2,
+      "baseline": 0,
+      "mean_return": -1,
+      "distribution": [
+        [
+          1,
+          -1
+        ]
+      ],
+      "coefficient": -0.11920292202211755
+    },
+    {
+      "surprise": 2,
+      "baseline": 0,
+      "mean_return": -1,
+      "distribution": [
+        [
+          0.5,
+          -3
+        ],
+        [
+          0.5,
+          1
+        ]
+      ],
+      "coefficient": 0.436689604253989
+    },
+    {
+      "surprise": 1,
+      "baseline": 0,
+      "mean_return": 0,
+      "distribution": [
+        [
+          1,
+          0
+        ]
+      ],
+      "doubled_coefficient": 0
+    },
+    {
+      "surprise": 1,
+      "baseline": 0,
+      "mean_return": 0,
+      "distribution": [
+        [
+          0.5,
+          -1
+        ],
+        [
+          0.5,
+          1
+        ]
+      ],
+      "doubled_coefficient": 0.4621171572600098
+    }
+  ],
+  "binary_frozen_Q_optimum": {
+    "Q": [
+      0.2,
+      0.19
+    ],
+    "probabilities": [
+      0.5384615384615385,
+      0.46153846153846145
+    ]
+  },
+  "qualifications": [
+    "Existing mean-advantage DG and conditional sampled-return DG have different estimands; the former is not automatically a bug.",
+    "Scalar mean Q and latent V do not determine nonlinear return utility.",
+    "No additive scalar Bellman recursion for gated coefficient.",
+    "Correct conditional coefficient retains DG exploration pressure and is not established to fix excessive sigma.",
+    "Q/(1+density) is not the binary simplification for real-valued HalfCheetah returns.",
+    "Current fixed-sigma .2 continuation differs from current stochastic actor policy.",
+    "Existing critic already nonlinear, action-conditioned, separate from actor parameters."
+  ],
+  "recommendation": "If testing conditional sampled-return DG, learn a policy-consistent return distribution and integrate the whole gated utility, or train a coefficient critic on valid trajectory-return labels. Do not gate predicted coefficient again. Retain existing mean-Q lane for comparisons.",
+  "validation": "Scalar numerical evaluation and independent team analysis; inspected source's reported 300 finite-action checks, did not rerun those checks."
+}

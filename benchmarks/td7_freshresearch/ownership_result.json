@@ -1,0 +1,17 @@
+{
+  "status": "completed_bounded_experiments_and_analysis",
+  "owned_jobs": [
+    12016,
+    12018,
+    12022
+  ],
+  "all_owned_jobs_terminal": true,
+  "declared_max_parallel_runs": 1,
+  "time_limit_ms_each": 900000,
+  "no_extensions_continuations_retries": true,
+  "source_and_tests_frozen": true,
+  "report": "benchmarks/td7_freshresearch/report.html",
+  "outcome": "v25 improves same-labelfitting butfailsreturns; v26temporaryrecoverythen collapse. No benchmarkwin established.",
+  "recorded_counts_boundary_note": "Collected counttags cover fully recorded batches; completed-fittingclock is distinct. Interrupted partialoptimizerburst contributes no postfitdiagnostic. Evaluation physics is separate from8Mtrainingbudget. Counts are recorded lowerbounds if an interruption occurs before a batchcounter is flushed.",
+  "future_scientific_priority": "Derivative identifiability and currentactor-query calibration under movingtargets; no evidence supports scalar replaycapacity/noise retuning or a claim that actorconstraintalone is the cure."
+}

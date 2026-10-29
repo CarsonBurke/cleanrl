@@ -1,0 +1,39 @@
+{
+  "reviewer": "harness prefix_review",
+  "completed_bursts": 27,
+  "completed_fitting_clock": 589440,
+  "latest_heldout_odd_correlation_median": -0.0691,
+  "final_third_heldout_odd_correlation_median": -0.0458,
+  "fitted_odd_correlation_median": 0.9967,
+  "negative_heldout_correlation_bursts": 16,
+  "latest_odd_rmsratio_median": 1.0039,
+  "final_third_odd_initial_final_fit_effect": [
+    0.6401,
+    0.6298
+  ],
+  "whole_crossed_encoder_old_ratio_initial_final": [
+    0.8594,
+    0.8573
+  ],
+  "whole_critic_after_encoder_ratio_initial_final": [
+    1.1469,
+    1.1231
+  ],
+  "final_third_crossed_encoder_old_ratio_initial_final": [
+    0.7769,
+    0.758
+  ],
+  "final_third_critic_after_encoder_ratio_initial_final": [
+    0.8239,
+    0.831
+  ],
+  "predicted_actor_gain_positive_bursts": 27,
+  "predicted_actor_gain_median": 12.44,
+  "raw_old_new_kl_median": 15211,
+  "saturation_probability_change_median": 0.00296,
+  "final_point_pair_occupancy": [
+    262144,
+    2048
+  ],
+  "interpretation": "Actual compiledCUDA/history passes. Temporary return recovery, later fitting improvement, but signedcontrasttransfer gap and collapse persist. No stablebenchmarkwin or causaloracle."
+}

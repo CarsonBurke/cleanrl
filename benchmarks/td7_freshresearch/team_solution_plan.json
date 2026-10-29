@@ -1,0 +1,60 @@
+{
+  "created_utc": "2026-10-08T00:39:08.163931+00:00",
+  "request": "Use a team to think about the best solution",
+  "reviewers": {
+    "critic_redteam": "target variance, horizon, and control-variate failure",
+    "physical_q": "latent distribution consistency and architecture",
+    "latentq_critic_probe": "causal evidence audit and falsification"
+  },
+  "method": "Independent read-only analyses followed by direct peer critique; no extra baseline jobs launched for deliberation",
+  "findings": [
+    "Unit future Hermite controls increased residual variance; calibrated snapshots produced negligible reduction. These controls predict little useful future return noise.",
+    "Frozen lambda also changes continuation distribution and removes roughly 65 within-burst bootstrap refreshes. Lambda itself is not isolated as stability or underperformance cause.",
+    "Current LAP/Huber Hermite loss is not a proper unweighted conditional Gaussian moment projection. Missing Huber constant affects reported values, not gradients away from threshold.",
+    "Integral-only early results are mixed across matched training/evaluation points; structural consistency is plausible, sustained superiority unproven.",
+    "v9 mean JVP includes latent mean, preaction, and SALE action-embedding paths. No missing chain-rule bug found.",
+    "Same-state action coverage remains limited; neither exact integration nor low training loss establishes gradient accuracy.",
+    "Refreshed lambda v20 was stopped at 1.048M; approximately1665 training at1M did not rescue early performance. No final8M conclusion follows."
+  ],
+  "first_candidate": {
+    "method": "Distribution-native latent critic with fixed physical action basis and exact clipped-Gaussian expectations",
+    "basis": "state/SALE-conditioned intercept + 6 linear coefficients + 21 symmetric quadratic coefficients + 30 hinge coefficients (five interior knots per joint)",
+    "coefficients_per_twin": 58,
+    "action_function": "q(s,a)=V(s)+g(s).a+0.5*a^T H(s)a+sum_i,k w_i,k(s)*max(a_i-knot_k,0)",
+    "latent_value": "C(s,mu,sigma)=V+g.m1+0.5*m1^T H*m1+0.5*diag(H).(m2-m1^2)+sum_i,k w_i,k*E[hinge_i,k]",
+    "meaning": "m1,m2 and hinge moments computed for componentwise clipped Gaussian actions. Values and actor derivatives share one model without Monte Carlo actor evaluations.",
+    "target": "Retain lambda horizon and behavior-consistent target-update recipe; use v20 evidence to choose refresh policy explicitly",
+    "objective": "Proper conditional-mean squared-error return regression, uniform or exact sampling-probability compensation. Treat architecture+objective as a deliberate package, not isolated one-factor evidence.",
+    "preserve": "SALE state representation, fixed action basis/scaling, original actor/encoder cadence and environment-step budget",
+    "guarantee": "Exact internal distribution/point/gradient consistency only; no guarantee of learned accuracy or higher returns",
+    "risk": "Small behavior sigma weakly excites curvature; hinges can be inactive or collinear; cross-joint nonlinearity beyond quadratic may exceed capacity",
+    "prediction": "Better independent action-credit calibration and benchmark returns if free latent-coordinate inconsistency is limiting. An automatically zero convolution error is not evidence of accuracy.",
+    "status": "Reviewed design; trainer not implemented or submitted during team deliberation"
+  },
+  "second_candidate": {
+    "method": "Genuine paired same-state action branches with shared future policy noise",
+    "purpose": "Observe return differences to identify first-action effects while reducing shared continuation noise",
+    "accounting": "Count all branch simulator transitions in total benchmark interaction budget; correctly restore full simulator and time-limit state",
+    "condition": "Prioritize if actor-facing gradients remain inaccurate despite consistent analytic model"
+  },
+  "rejected_first_choices": [
+    "More scalar future-CV tuning without predictive covariance",
+    "Soft self-consistency alone as evidence of critic accuracy",
+    "Moving local Hermite anchors without coefficient transport and paired target anchors",
+    "Naive cross-state return-ranking InfoNCE"
+  ],
+  "current_experiment": {
+    "job_id": 12010,
+    "name": "td7_latentq_lambda_refresh_cv_v20",
+    "declared_limit": 1,
+    "role": "Tests behavior-consistent lambda bootstrap refresh; controls previously negligible",
+    "state_at_deliberation": "cancelled at 1.048M after deliberation",
+    "matched_training_at_1M": 1665.3
+  },
+  "limits": [
+    "Single seed and mostly censored runs",
+    "Source snapshots absent for original comparisons",
+    "No original full 8M baseline",
+    "New candidate needs compiled CUDA training and independent accuracy evidence"
+  ]
+}

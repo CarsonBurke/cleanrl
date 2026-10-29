@@ -1,0 +1,76 @@
+{
+  "method": "Fixed physical quadratic + hinge LATENT-Q analytic clipped-Gaussian moments",
+  "status": "cancelled_at_1M_for_clear_underperformance",
+  "script": "cleanrl/td7/latentq/td7_latentq_analytic_moments_v21.py",
+  "package_changes": [
+    "State/SALE coefficient heads in a fixed physical-action basis replace unconstrained latent-coordinate networks",
+    "Observed lambda-return point regression uses exact LAP-probability-compensated MSE instead of three-query Huber Hermite reconstruction",
+    "Remove ineffective future CV snapshots and corrections",
+    "Exclude rollout lane0 from critic fitting only; actor/encoder still share full LAP batch"
+  ],
+  "preserved": [
+    "lambda .95 / 32 step horizon",
+    "v20 behavior continuation cached before fitting and bootstrap refreshed after existing target250 hard updates",
+    "16x1024 rollout, 16384 critic/encoder updates and delayed8192 actor updates",
+    "SALE encoder training and state/actor features; action-conditioned zsa inputs to Q are removed",
+    "seed1 CUDA compilation env16 threads2 budget8M max1 cap4h"
+  ],
+  "prediction": "Tying all distribution derivatives to an observed-return point function and a proper mean projection may improve action credit and returns if inconsistent latent coordinates are limiting.",
+  "falsification": "Weak or unstable heldout score moments and poor matched returns despite internal exactness favor identification/capacity/actor-data issues over convolution inconsistency.",
+  "limits": [
+    "Exact convolution equality is an architectural identity, not measured accuracy",
+    "The critic no longer consumes SALE action-conditioned zsa features. This representation change prevents isolating consistency as the cause of a poor result.",
+    "Small behavior sigma weakly identifies curvature and hinge slopes",
+    "Heldout lane still affects SALE, actor, and refreshed bootstrap labels; not a fully independent target or a counterfactual oracle",
+    "Score moments use raw Gaussian innovations and segment block uncertainty; temporal dependence and bootstrapping limit interpretation",
+    "Per-head exact expectation; minimum of twin expectations differs from expectation of twin minimum",
+    "One seed and censored predecessors do not establish final score rank"
+  ],
+  "predecessor": {
+    "id": 12010,
+    "queue_state": "cancelled",
+    "queue_reason": "cancelled by request",
+    "cancellation_provenance": "not established; scoped autocull last verdict keep",
+    "training_last_step": 1048000,
+    "training_last20": 1448.8,
+    "training_trailing100k_at_1M": 1609.6586315797108,
+    "training_trailing100k_at_800k": 1397.6525969552522,
+    "eval_trailing100k_at_800k": 1602.25,
+    "fresh_v9_eval_same_window": 9935.07,
+    "eval_window_samples": 3,
+    "inference": "Refresh changed labels without recovering v9 learning speed in observed prefix. Eventual performance and isolated lambda/noise cause remain unknown."
+  },
+  "job_id": 12011,
+  "declared_max_parallel_runs": 1,
+  "time_limit": "4h",
+  "validation": {
+    "new_pure_math_tests": 14,
+    "preserved_bootstrap_tests": 5,
+    "result": "19 passed",
+    "independent_review": "redteam_v21: no blocking defect; per-head exactness, heldout indirect feedback and temporal correlation caveats documented",
+    "compiled_cuda": "Full compiled CUDA training reached over 1M interactions without a runtime failure."
+  },
+  "independent_outcome_review": {
+    "status": "completed_read_only",
+    "reviewer": "redteam_v21",
+    "findings": [
+      "Low heldout pointMSE and pooled residual-score moments do not certify action credit at current actor proposals",
+      "Exploration is heterogeneous and bound-saturated; not uniformly sigma .1",
+      "Raw Gaussian KL upper-bounds physical clipped-action KL; cannot equate them",
+      "Package failure does not isolate integration, MSE, basis capacity, CV removal, heldout fraction or lambda refresh",
+      "Wrong derivatives are not established; poor occupancy, off-support exploitation, misspecification and bootstrapped label error remain competing explanations"
+    ],
+    "next_information_test": "Accounted paired simulator branches at actor-relevant query/direction with common Gaussian innovations, frozen continuation policy and separately reported observed-reward/bootstrap contrasts. No new branch trainer/job yet."
+  },
+  "outcome": {
+    "job_id": 12011,
+    "queue_state": "cancelled",
+    "cancellation_provenance": "Root requested graceful mlq cancellation after persistently negative returns through 1M.",
+    "last_training_step": 1015008,
+    "training_trailing100k_at_1M": -454.99744800529857,
+    "v20_training_same_window": 1609.6586315797108,
+    "training_last20": -434.2,
+    "inference": "This architecture/objective package failed to improve in its observed prefix. Exact consistency was insufficient; removal of action-SALE features and capacity/identification changes prevent isolating its cause. Eventual 8M outcome remains unknown."
+  },
+  "comparison_window": "Explicit trailing 100k interaction window; quick score_runs centered windows are not used for these fields."
+}

@@ -1,0 +1,1934 @@
+{
+  "scope": "Synthetic fixed-shape GPU benchmark; not a training evaluation",
+  "torch_version": "2.12.0+cu130",
+  "cuda_version": "13.0",
+  "gpu": "NVIDIA GeForce RTX 5090",
+  "configuration": {
+    "modules": [
+      "cleanrl/td7/delight/td7_latentq_delight_reference_v10.py",
+      "cleanrl/td7/delight/td7_latentq_delight_projected_v11.py"
+    ],
+    "steps": 2000,
+    "repeats": 3,
+    "buffer_size": 1000000,
+    "batch_size": 256,
+    "state_dim": 17,
+    "action_dim": 6,
+    "actor_objective": "delight",
+    "atol": 2e-05,
+    "rtol": 0.0002,
+    "output": "benchmarks/td7_delight_cubature_v1/projected_v11_relative_validation.json",
+    "no_entropy_floor": false,
+    "target_smoothing_sigma": 0.2,
+    "gate_scale": "raw",
+    "gate_scope": "all",
+    "actor_baseline": "latent",
+    "actor_advantage": null,
+    "surprisal": "relative",
+    "math_actor_entropy_coefficient": 0.0
+  },
+  "modules": [
+    {
+      "path": "cleanrl/td7/delight/td7_latentq_delight_reference_v10.py",
+      "trainer_args": {
+        "exp_name": "td7_latentq_delight_reference_v10",
+        "seed": 1,
+        "compile": true,
+        "resume": "",
+        "checkpoint_path": "",
+        "checkpoint_interval_seconds": 300.0,
+        "env_id": "HalfCheetah-v4",
+        "total_timesteps": 8000000,
+        "num_envs": 16,
+        "num_steps": 1024,
+        "env_threads": 2,
+        "actor_sale": true,
+        "actor_objective": "delight",
+        "actor_baseline": "latent",
+        "actor_samples": 4,
+        "delight_temperature": 1.0,
+        "surprisal_cap": 10.0,
+        "gate_scale": "raw",
+        "gate_scope": "all",
+        "max_grad_norm": 0.5,
+        "updates_per_step": 1.0,
+        "warmup_rollouts": 1,
+        "warmup_sigma": 0.6,
+        "hermite_order": 2,
+        "eval_interval": 2,
+        "eval_eps": 10,
+        "buffer_size": 1000000,
+        "batch_size": 256,
+        "gamma": 0.99,
+        "target_update_rate": 250,
+        "entropy_floor": true,
+        "target_sigma": 0.1,
+        "target_smoothing_sigma": 0.2,
+        "alpha_lr": 0.001,
+        "policy_freq": 2,
+        "lap_alpha": 0.4,
+        "min_priority": 1.0,
+        "zs_dim": 256,
+        "hidden_dim": 256,
+        "encoder_lr": 0.0003,
+        "critic_lr": 0.0003,
+        "actor_lr": 0.0003
+      },
+      "build_capture_seconds": 3.659166850033216,
+      "equivalence": {
+        "reference": true
+      },
+      "cuda_graph_mixed_cadence": {
+        "steps_per_repeat": 2000,
+        "repeats": 3,
+        "samples": [
+          {
+            "wall_us_per_step": 831.5501995093655,
+            "cuda_interval_us_per_step": 831.518310546875
+          },
+          {
+            "wall_us_per_step": 829.7243934939615,
+            "cuda_interval_us_per_step": 829.6197509765625
+          },
+          {
+            "wall_us_per_step": 828.7487234920263,
+            "cuda_interval_us_per_step": 828.6309814453125
+          }
+        ],
+        "median_wall_us_per_step": 829.7243934939615,
+        "median_steps_per_second": 1205.219477505066
+      },
+      "native_hermite_validation": null,
+      "point_gradient_probe_validation": {
+        "passed": true,
+        "no_weight_gradient_or_rng_mutation": true,
+        "metrics": {
+          "pg_norm": 0.3043491542339325,
+          "delight_mean_norm": 0.1635771244764328,
+          "delight_all_norm": 0.16357608139514923,
+          "delight_mean_cosine": 0.9809333682060242,
+          "delight_all_cosine": 0.9809320569038391,
+          "delight_mean_difference_ratio": 0.48418334126472473,
+          "delight_all_difference_ratio": 0.4841878414154053,
+          "scale_inner_norm": 7.102041854523122e-05,
+          "scale_outer_norm": 0.00010122772073373199,
+          "scale_inner_outer_cosine": -0.3173929452896118,
+          "entropy_norm": 0.0005112195503897965,
+          "entropy_reward_ratio": 0.003125270828604698,
+          "entropy_reward_cosine": -0.012477121315896511,
+          "other_reference_full_cosine": 0.8926573395729065,
+          "reference_gap_mean": 0.10349519550800323,
+          "reference_gap_rms": 0.2550849914550781,
+          "reference_sign_disagreement": 0.2333984375
+        },
+        "scope": "Same saved training directions, current weights; finite-batch gradients, not population"
+      },
+      "train_api_with_targets_and_logging_cadence": {
+        "steps_per_repeat": 2000,
+        "repeats": 3,
+        "samples": [
+          {
+            "wall_us_per_step": 826.2668955139816,
+            "cuda_interval_us_per_step": 826.232177734375
+          },
+          {
+            "wall_us_per_step": 829.619525000453,
+            "cuda_interval_us_per_step": 829.58740234375
+          },
+          {
+            "wall_us_per_step": 830.1798235042952,
+            "cuda_interval_us_per_step": 830.1520385742188
+          }
+        ],
+        "median_wall_us_per_step": 829.619525000453,
+        "median_steps_per_second": 1205.3718239086213
+      },
+      "checkpoint_restore": {
+        "passed": true,
+        "exact_serialized_nonuniform_state": true,
+        "exact_next_update_uniform_prefix": true,
+        "nonuniform_next_update_exact": false,
+        "sampler_probe": {
+          "uniform_draws_identical": true,
+          "cdf_identical": false,
+          "cdf_max_absolute_error": 0.125,
+          "sample_indices_identical": false,
+          "changed_sample_positions": [
+            58,
+            98,
+            147,
+            188,
+            200,
+            244,
+            251
+          ],
+          "first_indices_at_changes": [
+            715838,
+            466074,
+            948244,
+            465708,
+            388941,
+            503277,
+            349565
+          ],
+          "second_indices_at_changes": [
+            715839,
+            466075,
+            948243,
+            465709,
+            388940,
+            503276,
+            349564
+          ]
+        },
+        "nonuniform_diagnostics": {
+          "restored_state_errors": {},
+          "restored_rng_errors": {},
+          "captured_address_errors": {},
+          "next_update_errors": {
+            "next-update/models/actor/l0.weight": {
+              "max_absolute_error": 7.890164852142334e-05,
+              "mismatched_elements": 4351,
+              "elements": 4352
+            },
+            "next-update/models/actor/l0.bias": {
+              "max_absolute_error": 1.6576610505580902e-05,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/actor/l1.weight": {
+              "max_absolute_error": 0.00036180391907691956,
+              "mismatched_elements": 107996,
+              "elements": 131072
+            },
+            "next-update/models/actor/l1.bias": {
+              "max_absolute_error": 6.791949272155762e-05,
+              "mismatched_elements": 211,
+              "elements": 256
+            },
+            "next-update/models/actor/l2.weight": {
+              "max_absolute_error": 0.00033984705805778503,
+              "mismatched_elements": 34091,
+              "elements": 65536
+            },
+            "next-update/models/actor/l2.bias": {
+              "max_absolute_error": 5.002506077289581e-05,
+              "mismatched_elements": 204,
+              "elements": 256
+            },
+            "next-update/models/actor/l3.weight": {
+              "max_absolute_error": 0.0001444593071937561,
+              "mismatched_elements": 1209,
+              "elements": 1536
+            },
+            "next-update/models/actor/l3.bias": {
+              "max_absolute_error": 1.0479241609573364e-05,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/models/actor/l3_logstd.weight": {
+              "max_absolute_error": 1.1622905731201172e-06,
+              "mismatched_elements": 673,
+              "elements": 1536
+            },
+            "next-update/models/actor/l3_logstd.bias": {
+              "max_absolute_error": 3.725290298461914e-08,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/models/actor_target/l0.weight": {
+              "max_absolute_error": 7.890164852142334e-05,
+              "mismatched_elements": 4351,
+              "elements": 4352
+            },
+            "next-update/models/actor_target/l0.bias": {
+              "max_absolute_error": 1.6576610505580902e-05,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/actor_target/l1.weight": {
+              "max_absolute_error": 0.00036180391907691956,
+              "mismatched_elements": 107996,
+              "elements": 131072
+            },
+            "next-update/models/actor_target/l1.bias": {
+              "max_absolute_error": 6.791949272155762e-05,
+              "mismatched_elements": 211,
+              "elements": 256
+            },
+            "next-update/models/actor_target/l2.weight": {
+              "max_absolute_error": 0.00033984705805778503,
+              "mismatched_elements": 34091,
+              "elements": 65536
+            },
+            "next-update/models/actor_target/l2.bias": {
+              "max_absolute_error": 5.002506077289581e-05,
+              "mismatched_elements": 204,
+              "elements": 256
+            },
+            "next-update/models/actor_target/l3.weight": {
+              "max_absolute_error": 0.0001444593071937561,
+              "mismatched_elements": 1209,
+              "elements": 1536
+            },
+            "next-update/models/actor_target/l3.bias": {
+              "max_absolute_error": 1.0479241609573364e-05,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/models/actor_target/l3_logstd.weight": {
+              "max_absolute_error": 1.1622905731201172e-06,
+              "mismatched_elements": 673,
+              "elements": 1536
+            },
+            "next-update/models/actor_target/l3_logstd.bias": {
+              "max_absolute_error": 3.725290298461914e-08,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/models/critic/q0.weight": {
+              "max_absolute_error": 3.598816692829132e-05,
+              "mismatched_elements": 17912,
+              "elements": 17920
+            },
+            "next-update/models/critic/q0.bias": {
+              "max_absolute_error": 7.107853889465332e-06,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/models/critic/q1.weight": {
+              "max_absolute_error": 4.589371383190155e-05,
+              "mismatched_elements": 393150,
+              "elements": 393216
+            },
+            "next-update/models/critic/q1.bias": {
+              "max_absolute_error": 1.1664582416415215e-05,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/models/critic/q2.weight": {
+              "max_absolute_error": 3.123283386230469e-05,
+              "mismatched_elements": 131028,
+              "elements": 131072
+            },
+            "next-update/models/critic/q2.bias": {
+              "max_absolute_error": 8.530914783477783e-06,
+              "mismatched_elements": 511,
+              "elements": 512
+            },
+            "next-update/models/critic/q3.weight": {
+              "max_absolute_error": 1.039222115650773e-05,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/models/critic/q3.bias": {
+              "max_absolute_error": 1.1920928955078125e-06,
+              "mismatched_elements": 2,
+              "elements": 2
+            },
+            "next-update/models/critic_target/q0.weight": {
+              "max_absolute_error": 3.598816692829132e-05,
+              "mismatched_elements": 17912,
+              "elements": 17920
+            },
+            "next-update/models/critic_target/q0.bias": {
+              "max_absolute_error": 7.107853889465332e-06,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/models/critic_target/q1.weight": {
+              "max_absolute_error": 4.589371383190155e-05,
+              "mismatched_elements": 393150,
+              "elements": 393216
+            },
+            "next-update/models/critic_target/q1.bias": {
+              "max_absolute_error": 1.1664582416415215e-05,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/models/critic_target/q2.weight": {
+              "max_absolute_error": 3.123283386230469e-05,
+              "mismatched_elements": 131028,
+              "elements": 131072
+            },
+            "next-update/models/critic_target/q2.bias": {
+              "max_absolute_error": 8.530914783477783e-06,
+              "mismatched_elements": 511,
+              "elements": 512
+            },
+            "next-update/models/critic_target/q3.weight": {
+              "max_absolute_error": 1.039222115650773e-05,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/models/critic_target/q3.bias": {
+              "max_absolute_error": 1.1920928955078125e-06,
+              "mismatched_elements": 2,
+              "elements": 2
+            },
+            "next-update/models/encoder/zs1.weight": {
+              "max_absolute_error": 4.197657108306885e-05,
+              "mismatched_elements": 4350,
+              "elements": 4352
+            },
+            "next-update/models/encoder/zs1.bias": {
+              "max_absolute_error": 9.514391422271729e-06,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/encoder/zs2.weight": {
+              "max_absolute_error": 4.834681749343872e-05,
+              "mismatched_elements": 65520,
+              "elements": 65536
+            },
+            "next-update/models/encoder/zs2.bias": {
+              "max_absolute_error": 8.910894393920898e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/models/encoder/zs3.weight": {
+              "max_absolute_error": 4.902482032775879e-05,
+              "mismatched_elements": 65505,
+              "elements": 65536
+            },
+            "next-update/models/encoder/zs3.bias": {
+              "max_absolute_error": 5.066394805908203e-06,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/encoder/zsa1.weight": {
+              "max_absolute_error": 3.414321690797806e-05,
+              "mismatched_elements": 67023,
+              "elements": 67072
+            },
+            "next-update/models/encoder/zsa1.bias": {
+              "max_absolute_error": 3.2335519790649414e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/models/encoder/zsa2.weight": {
+              "max_absolute_error": 1.1228024959564209e-05,
+              "mismatched_elements": 65488,
+              "elements": 65536
+            },
+            "next-update/models/encoder/zsa2.bias": {
+              "max_absolute_error": 5.945563316345215e-06,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/encoder/zsa3.weight": {
+              "max_absolute_error": 1.0130053851753473e-05,
+              "mismatched_elements": 65485,
+              "elements": 65536
+            },
+            "next-update/models/encoder/zsa3.bias": {
+              "max_absolute_error": 6.154179573059082e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/models/fixed_encoder/zs1.weight": {
+              "max_absolute_error": 4.197657108306885e-05,
+              "mismatched_elements": 4350,
+              "elements": 4352
+            },
+            "next-update/models/fixed_encoder/zs1.bias": {
+              "max_absolute_error": 9.514391422271729e-06,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/fixed_encoder/zs2.weight": {
+              "max_absolute_error": 4.834681749343872e-05,
+              "mismatched_elements": 65520,
+              "elements": 65536
+            },
+            "next-update/models/fixed_encoder/zs2.bias": {
+              "max_absolute_error": 8.910894393920898e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/models/fixed_encoder/zs3.weight": {
+              "max_absolute_error": 4.902482032775879e-05,
+              "mismatched_elements": 65505,
+              "elements": 65536
+            },
+            "next-update/models/fixed_encoder/zs3.bias": {
+              "max_absolute_error": 5.066394805908203e-06,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/fixed_encoder/zsa1.weight": {
+              "max_absolute_error": 3.414321690797806e-05,
+              "mismatched_elements": 67023,
+              "elements": 67072
+            },
+            "next-update/models/fixed_encoder/zsa1.bias": {
+              "max_absolute_error": 3.2335519790649414e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/models/fixed_encoder/zsa2.weight": {
+              "max_absolute_error": 1.1228024959564209e-05,
+              "mismatched_elements": 65488,
+              "elements": 65536
+            },
+            "next-update/models/fixed_encoder/zsa2.bias": {
+              "max_absolute_error": 5.945563316345215e-06,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/fixed_encoder/zsa3.weight": {
+              "max_absolute_error": 1.0130053851753473e-05,
+              "mismatched_elements": 65485,
+              "elements": 65536
+            },
+            "next-update/models/fixed_encoder/zsa3.bias": {
+              "max_absolute_error": 6.154179573059082e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/0/exp_avg": {
+              "max_absolute_error": 1.171136455013766e-05,
+              "mismatched_elements": 4352,
+              "elements": 4352
+            },
+            "next-update/optimizers/encoder_optimizer/state/0/exp_avg_sq": {
+              "max_absolute_error": 2.587974279322225e-11,
+              "mismatched_elements": 4348,
+              "elements": 4352
+            },
+            "next-update/optimizers/encoder_optimizer/state/1/exp_avg": {
+              "max_absolute_error": 3.1807207960810047e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/1/exp_avg_sq": {
+              "max_absolute_error": 7.595701845275471e-12,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/2/exp_avg": {
+              "max_absolute_error": 7.95433288658387e-06,
+              "mismatched_elements": 65535,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/2/exp_avg_sq": {
+              "max_absolute_error": 1.2350342970535166e-11,
+              "mismatched_elements": 65470,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/3/exp_avg": {
+              "max_absolute_error": 3.3670689845166635e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/3/exp_avg_sq": {
+              "max_absolute_error": 7.190692485892214e-12,
+              "mismatched_elements": 252,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/4/exp_avg": {
+              "max_absolute_error": 9.851844879449345e-06,
+              "mismatched_elements": 65536,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/4/exp_avg_sq": {
+              "max_absolute_error": 3.385114411003087e-11,
+              "mismatched_elements": 65444,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/5/exp_avg": {
+              "max_absolute_error": 4.389259402159951e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/5/exp_avg_sq": {
+              "max_absolute_error": 1.8911094912255066e-11,
+              "mismatched_elements": 253,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/6/exp_avg": {
+              "max_absolute_error": 4.238807377987541e-06,
+              "mismatched_elements": 67072,
+              "elements": 67072
+            },
+            "next-update/optimizers/encoder_optimizer/state/6/exp_avg_sq": {
+              "max_absolute_error": 2.8485658276622416e-11,
+              "mismatched_elements": 66910,
+              "elements": 67072
+            },
+            "next-update/optimizers/encoder_optimizer/state/7/exp_avg": {
+              "max_absolute_error": 1.5746050507914333e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/7/exp_avg_sq": {
+              "max_absolute_error": 7.782219313412497e-12,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/8/exp_avg": {
+              "max_absolute_error": 1.1201015695405658e-05,
+              "mismatched_elements": 65536,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/8/exp_avg_sq": {
+              "max_absolute_error": 1.4057377484277822e-10,
+              "mismatched_elements": 65360,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/9/exp_avg": {
+              "max_absolute_error": 2.588328243291471e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/9/exp_avg_sq": {
+              "max_absolute_error": 8.324008149429574e-12,
+              "mismatched_elements": 254,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/10/exp_avg": {
+              "max_absolute_error": 1.797460072339163e-05,
+              "mismatched_elements": 65536,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/10/exp_avg_sq": {
+              "max_absolute_error": 3.234958967368584e-10,
+              "mismatched_elements": 65398,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/11/exp_avg": {
+              "max_absolute_error": 3.4654447063076077e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/11/exp_avg_sq": {
+              "max_absolute_error": 1.3768541862191341e-11,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/critic_optimizer/state/0/exp_avg": {
+              "max_absolute_error": 0.00038120924727991223,
+              "mismatched_elements": 17920,
+              "elements": 17920
+            },
+            "next-update/optimizers/critic_optimizer/state/0/exp_avg_sq": {
+              "max_absolute_error": 4.98694134876132e-08,
+              "mismatched_elements": 17902,
+              "elements": 17920
+            },
+            "next-update/optimizers/critic_optimizer/state/1/exp_avg": {
+              "max_absolute_error": 7.071273284964263e-05,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/1/exp_avg_sq": {
+              "max_absolute_error": 6.017216946929693e-09,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/2/exp_avg": {
+              "max_absolute_error": 7.47837150356645e-05,
+              "mismatched_elements": 393216,
+              "elements": 393216
+            },
+            "next-update/optimizers/critic_optimizer/state/2/exp_avg_sq": {
+              "max_absolute_error": 2.5979716156143695e-09,
+              "mismatched_elements": 392659,
+              "elements": 393216
+            },
+            "next-update/optimizers/critic_optimizer/state/3/exp_avg": {
+              "max_absolute_error": 1.9546569092199206e-05,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/3/exp_avg_sq": {
+              "max_absolute_error": 4.049525159643963e-10,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/4/exp_avg": {
+              "max_absolute_error": 6.698590004816651e-05,
+              "mismatched_elements": 131072,
+              "elements": 131072
+            },
+            "next-update/optimizers/critic_optimizer/state/4/exp_avg_sq": {
+              "max_absolute_error": 7.290509529411793e-09,
+              "mismatched_elements": 130413,
+              "elements": 131072
+            },
+            "next-update/optimizers/critic_optimizer/state/5/exp_avg": {
+              "max_absolute_error": 8.794955647317693e-06,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/5/exp_avg_sq": {
+              "max_absolute_error": 1.283240180782741e-10,
+              "mismatched_elements": 511,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/6/exp_avg": {
+              "max_absolute_error": 0.0003535674186423421,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/6/exp_avg_sq": {
+              "max_absolute_error": 1.5040859580039978e-07,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/7/exp_avg": {
+              "max_absolute_error": 6.044539622962475e-05,
+              "mismatched_elements": 2,
+              "elements": 2
+            },
+            "next-update/optimizers/critic_optimizer/state/7/exp_avg_sq": {
+              "max_absolute_error": 2.0634615793824196e-08,
+              "mismatched_elements": 2,
+              "elements": 2
+            },
+            "next-update/optimizers/actor_optimizer/state/0/exp_avg": {
+              "max_absolute_error": 3.567196108633652e-05,
+              "mismatched_elements": 4352,
+              "elements": 4352
+            },
+            "next-update/optimizers/actor_optimizer/state/0/exp_avg_sq": {
+              "max_absolute_error": 4.856026691868465e-10,
+              "mismatched_elements": 4351,
+              "elements": 4352
+            },
+            "next-update/optimizers/actor_optimizer/state/1/exp_avg": {
+              "max_absolute_error": 6.672387826256454e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/actor_optimizer/state/1/exp_avg_sq": {
+              "max_absolute_error": 1.1090151019743644e-10,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/optimizers/actor_optimizer/state/2/exp_avg": {
+              "max_absolute_error": 3.0230701668187976e-05,
+              "mismatched_elements": 108543,
+              "elements": 131072
+            },
+            "next-update/optimizers/actor_optimizer/state/2/exp_avg_sq": {
+              "max_absolute_error": 4.285372057211134e-10,
+              "mismatched_elements": 102194,
+              "elements": 131072
+            },
+            "next-update/optimizers/actor_optimizer/state/3/exp_avg": {
+              "max_absolute_error": 7.30095780454576e-06,
+              "mismatched_elements": 212,
+              "elements": 256
+            },
+            "next-update/optimizers/actor_optimizer/state/3/exp_avg_sq": {
+              "max_absolute_error": 5.682920800609281e-11,
+              "mismatched_elements": 200,
+              "elements": 256
+            },
+            "next-update/optimizers/actor_optimizer/state/4/exp_avg": {
+              "max_absolute_error": 7.976207416504622e-05,
+              "mismatched_elements": 35035,
+              "elements": 65536
+            },
+            "next-update/optimizers/actor_optimizer/state/4/exp_avg_sq": {
+              "max_absolute_error": 4.361254468676634e-09,
+              "mismatched_elements": 30433,
+              "elements": 65536
+            },
+            "next-update/optimizers/actor_optimizer/state/5/exp_avg": {
+              "max_absolute_error": 1.6039655747590587e-05,
+              "mismatched_elements": 205,
+              "elements": 256
+            },
+            "next-update/optimizers/actor_optimizer/state/5/exp_avg_sq": {
+              "max_absolute_error": 2.412434696452692e-10,
+              "mismatched_elements": 197,
+              "elements": 256
+            },
+            "next-update/optimizers/actor_optimizer/state/6/exp_avg": {
+              "max_absolute_error": 0.000416717492043972,
+              "mismatched_elements": 1226,
+              "elements": 1536
+            },
+            "next-update/optimizers/actor_optimizer/state/6/exp_avg_sq": {
+              "max_absolute_error": 4.030880518257618e-08,
+              "mismatched_elements": 1140,
+              "elements": 1536
+            },
+            "next-update/optimizers/actor_optimizer/state/7/exp_avg": {
+              "max_absolute_error": 0.00022300845012068748,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/optimizers/actor_optimizer/state/7/exp_avg_sq": {
+              "max_absolute_error": 1.1412339517846704e-08,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/optimizers/actor_optimizer/state/8/exp_avg": {
+              "max_absolute_error": 3.071618266403675e-07,
+              "mismatched_elements": 1191,
+              "elements": 1536
+            },
+            "next-update/optimizers/actor_optimizer/state/8/exp_avg_sq": {
+              "max_absolute_error": 1.1368683772161603e-13,
+              "mismatched_elements": 115,
+              "elements": 1536
+            },
+            "next-update/optimizers/actor_optimizer/state/9/exp_avg": {
+              "max_absolute_error": 1.7663660401012748e-07,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/buffers/metrics": {
+              "max_absolute_error": 0.09280729293823242,
+              "mismatched_elements": 23,
+              "elements": 30
+            },
+            "next-update/buffers/clipping_statistics": {
+              "max_absolute_error": 0.152374267578125,
+              "mismatched_elements": 4,
+              "elements": 15
+            },
+            "next-update/buffers/probe_state": {
+              "max_absolute_error": 6.402973890304565,
+              "mismatched_elements": 255,
+              "elements": 4352
+            },
+            "next-update/buffers/probe_zs": {
+              "max_absolute_error": 5.809862375259399,
+              "mismatched_elements": 3840,
+              "elements": 65536
+            },
+            "next-update/priority": {
+              "max_absolute_error": 0.25656259059906006,
+              "mismatched_elements": 5,
+              "elements": 1000000
+            }
+          },
+          "next_rng_errors": {},
+          "priority_sampler": {
+            "expected": {
+              "changed_rows": 59,
+              "first_changed_indices": [
+                17013,
+                33223,
+                39417,
+                80517,
+                113628,
+                163314,
+                166829,
+                188209,
+                200582,
+                206682,
+                208092,
+                222324,
+                232251,
+                279563,
+                280755,
+                308021,
+                317966,
+                322450,
+                339236,
+                353743,
+                359443,
+                360026,
+                411284,
+                435855,
+                442209,
+                451290,
+                472641,
+                475538,
+                478220,
+                480812,
+                482547,
+                506089
+              ]
+            },
+            "actual": {
+              "changed_rows": 56,
+              "first_changed_indices": [
+                17013,
+                33223,
+                39417,
+                80517,
+                113628,
+                163314,
+                166829,
+                188209,
+                200582,
+                206682,
+                208092,
+                222324,
+                232251,
+                279563,
+                280755,
+                308021,
+                317966,
+                322450,
+                339236,
+                349564,
+                353743,
+                359443,
+                360026,
+                435855,
+                442209,
+                451290,
+                472641,
+                475538,
+                478220,
+                480812,
+                482547,
+                506089
+              ]
+            },
+            "same_changed_indices": false,
+            "expected_only_indices": [
+              411284,
+              635646,
+              656766,
+              715839
+            ],
+            "actual_only_indices": [
+              349564
+            ]
+          },
+          "models_max_absolute_errors": {
+            "actor": 0.00036180391907691956,
+            "actor_target": 0.00036180391907691956,
+            "critic": 4.589371383190155e-05,
+            "critic_target": 4.589371383190155e-05,
+            "encoder": 4.902482032775879e-05,
+            "fixed_encoder": 4.902482032775879e-05,
+            "fixed_encoder_target": 0.0
+          },
+          "phase": "nonuniform-original-priority"
+        },
+        "uniform_diagnostics": {
+          "restored_state_errors": {},
+          "restored_rng_errors": {},
+          "captured_address_errors": {},
+          "next_update_errors": {},
+          "next_rng_errors": {},
+          "priority_sampler": {
+            "expected": {
+              "changed_rows": 3,
+              "first_changed_indices": [
+                200627,
+                857505,
+                877412
+              ]
+            },
+            "actual": {
+              "changed_rows": 3,
+              "first_changed_indices": [
+                200627,
+                857505,
+                877412
+              ]
+            },
+            "same_changed_indices": true,
+            "expected_only_indices": [],
+            "actual_only_indices": []
+          },
+          "models_max_absolute_errors": {
+            "actor": 0.0,
+            "actor_target": 0.0,
+            "critic": 0.0,
+            "critic_target": 0.0,
+            "encoder": 0.0,
+            "fixed_encoder": 0.0,
+            "fixed_encoder_target": 0.0
+          },
+          "phase": "uniform-exact-prefix-priority"
+        },
+        "scope": "Exact serialized learner/replay/Adam/alpha/RNG/addresses; exact next captured update with uniform FP32 prefix sums, including hard targets; excludes environment trajectory",
+        "limitation": "Original nonuniform CUDA FP32 parallel CDF may vary by scan association; its next update is reported separately without a bitwise requirement"
+      },
+      "peak_torch_allocated_bytes": 482737152,
+      "peak_torch_reserved_bytes": 616562688
+    },
+    {
+      "path": "cleanrl/td7/delight/td7_latentq_delight_projected_v11.py",
+      "trainer_args": {
+        "exp_name": "td7_latentq_delight_projected_v11",
+        "seed": 1,
+        "compile": true,
+        "resume": "",
+        "checkpoint_path": "",
+        "checkpoint_interval_seconds": 300.0,
+        "env_id": "HalfCheetah-v4",
+        "total_timesteps": 8000000,
+        "num_envs": 16,
+        "num_steps": 1024,
+        "env_threads": 2,
+        "actor_sale": true,
+        "actor_objective": "delight",
+        "actor_baseline": "latent",
+        "actor_samples": 4,
+        "delight_temperature": 1.0,
+        "surprisal": "relative",
+        "surprisal_cap": 10.0,
+        "gate_scale": "raw",
+        "gate_scope": "all",
+        "max_grad_norm": 0.5,
+        "updates_per_step": 1.0,
+        "warmup_rollouts": 1,
+        "warmup_sigma": 0.6,
+        "hermite_order": 2,
+        "eval_interval": 2,
+        "eval_eps": 10,
+        "buffer_size": 1000000,
+        "batch_size": 256,
+        "gamma": 0.99,
+        "target_update_rate": 250,
+        "entropy_floor": true,
+        "target_sigma": 0.1,
+        "target_smoothing_sigma": 0.2,
+        "initial_alpha": 0.0,
+        "alpha_lr": 0.001,
+        "policy_freq": 2,
+        "lap_alpha": 0.4,
+        "min_priority": 1.0,
+        "zs_dim": 256,
+        "hidden_dim": 256,
+        "encoder_lr": 0.0003,
+        "critic_lr": 0.0003,
+        "actor_lr": 0.0003
+      },
+      "build_capture_seconds": 2.352000930986833,
+      "equivalence": {
+        "passed": true,
+        "atol": 2e-05,
+        "rtol": 0.0002,
+        "max_absolute_errors": {
+          "critic_forward": 0.0,
+          "critic_jvp_value": 0.0,
+          "critic_jvp_tangent": 0.0,
+          "critic_loss": 0.0,
+          "td_errors": 0.0,
+          "diagnostics": 0.0,
+          "fixed_zs": 0.0,
+          "jvp_gradient/q0.weight": 0.0,
+          "training_gradient/q0.weight": 0.0,
+          "jvp_gradient/q0.bias": 0.0,
+          "training_gradient/q0.bias": 0.0,
+          "jvp_gradient/q1.weight": 0.0,
+          "training_gradient/q1.weight": 0.0,
+          "jvp_gradient/q1.bias": 0.0,
+          "training_gradient/q1.bias": 0.0,
+          "jvp_gradient/q2.weight": 0.0,
+          "training_gradient/q2.weight": 0.0,
+          "jvp_gradient/q2.bias": 0.0,
+          "training_gradient/q2.bias": 0.0,
+          "jvp_gradient/q3.weight": 0.0,
+          "training_gradient/q3.weight": 0.0,
+          "jvp_gradient/q3.bias": 0.0,
+          "training_gradient/q3.bias": 0.0,
+          "actor_loss": 0.0,
+          "actor_log_std": 0.0,
+          "actor_diagnostics": 0.0,
+          "actor_gradient/l0.weight": 0.0,
+          "actor_gradient/l0.bias": 0.0,
+          "actor_gradient/l1.weight": 0.0,
+          "actor_gradient/l1.bias": 0.0,
+          "actor_gradient/l2.weight": 0.0,
+          "actor_gradient/l2.bias": 0.0,
+          "actor_gradient/l3.weight": 0.0,
+          "actor_gradient/l3.bias": 0.0,
+          "actor_gradient/l3_logstd.weight": 0.0,
+          "actor_gradient/l3_logstd.bias": 0.0
+        }
+      },
+      "cuda_graph_mixed_cadence": {
+        "steps_per_repeat": 2000,
+        "repeats": 3,
+        "samples": [
+          {
+            "wall_us_per_step": 824.1880260175094,
+            "cuda_interval_us_per_step": 824.1500244140625
+          },
+          {
+            "wall_us_per_step": 837.6098765002098,
+            "cuda_interval_us_per_step": 837.5729370117188
+          },
+          {
+            "wall_us_per_step": 837.3946509964298,
+            "cuda_interval_us_per_step": 837.3690185546875
+          }
+        ],
+        "median_wall_us_per_step": 837.3946509964298,
+        "median_steps_per_second": 1194.1800664836865
+      },
+      "native_hermite_validation": null,
+      "point_gradient_probe_validation": {
+        "passed": true,
+        "no_weight_gradient_or_rng_mutation": true,
+        "metrics": {
+          "pg_norm": 0.07002338767051697,
+          "delight_mean_norm": 0.06902529299259186,
+          "delight_all_norm": 0.0662417784333229,
+          "delight_mean_cosine": 0.998308539390564,
+          "delight_all_cosine": 0.991611897945404,
+          "delight_mean_difference_ratio": 0.05948017165064812,
+          "delight_all_difference_ratio": 0.13706573843955994,
+          "scale_inner_norm": 0.031159402802586555,
+          "scale_outer_norm": 0.04886799305677414,
+          "scale_inner_outer_cosine": -0.9260941743850708,
+          "entropy_norm": 0.0,
+          "entropy_reward_ratio": 0.0,
+          "entropy_reward_cosine": 0.0,
+          "other_reference_full_cosine": 0.9913151860237122,
+          "reference_gap_mean": -0.016708899289369583,
+          "reference_gap_rms": 0.04589097946882248,
+          "reference_sign_disagreement": 0.189453125
+        },
+        "scope": "Same saved training directions, current weights; finite-batch gradients, not population"
+      },
+      "train_api_with_targets_and_logging_cadence": {
+        "steps_per_repeat": 2000,
+        "repeats": 3,
+        "samples": [
+          {
+            "wall_us_per_step": 824.9094579950906,
+            "cuda_interval_us_per_step": 824.8804321289062
+          },
+          {
+            "wall_us_per_step": 831.3803854980506,
+            "cuda_interval_us_per_step": 831.359375
+          },
+          {
+            "wall_us_per_step": 832.0201250026003,
+            "cuda_interval_us_per_step": 831.996337890625
+          }
+        ],
+        "median_wall_us_per_step": 831.3803854980506,
+        "median_steps_per_second": 1202.8188509654763
+      },
+      "checkpoint_restore": {
+        "passed": true,
+        "exact_serialized_nonuniform_state": true,
+        "exact_next_update_uniform_prefix": true,
+        "nonuniform_next_update_exact": false,
+        "sampler_probe": {
+          "uniform_draws_identical": true,
+          "cdf_identical": false,
+          "cdf_max_absolute_error": 0.25,
+          "sample_indices_identical": false,
+          "changed_sample_positions": [
+            48,
+            50,
+            62,
+            110,
+            118,
+            184,
+            189,
+            226,
+            244
+          ],
+          "first_indices_at_changes": [
+            593623,
+            981950,
+            793432,
+            856982,
+            712655,
+            513024,
+            744048,
+            857441,
+            503435
+          ],
+          "second_indices_at_changes": [
+            593622,
+            981951,
+            793433,
+            856981,
+            712656,
+            513025,
+            744049,
+            857440,
+            503436
+          ]
+        },
+        "nonuniform_diagnostics": {
+          "restored_state_errors": {},
+          "restored_rng_errors": {},
+          "captured_address_errors": {},
+          "next_update_errors": {
+            "next-update/models/actor/l0.weight": {
+              "max_absolute_error": 8.106231689453125e-06,
+              "mismatched_elements": 4337,
+              "elements": 4352
+            },
+            "next-update/models/actor/l0.bias": {
+              "max_absolute_error": 6.813555955886841e-06,
+              "mismatched_elements": 254,
+              "elements": 256
+            },
+            "next-update/models/actor/l1.weight": {
+              "max_absolute_error": 7.748976349830627e-05,
+              "mismatched_elements": 89229,
+              "elements": 131072
+            },
+            "next-update/models/actor/l1.bias": {
+              "max_absolute_error": 1.9662082195281982e-05,
+              "mismatched_elements": 174,
+              "elements": 256
+            },
+            "next-update/models/actor/l2.weight": {
+              "max_absolute_error": 0.00013752467930316925,
+              "mismatched_elements": 21759,
+              "elements": 65536
+            },
+            "next-update/models/actor/l2.bias": {
+              "max_absolute_error": 1.4007091522216797e-05,
+              "mismatched_elements": 220,
+              "elements": 256
+            },
+            "next-update/models/actor/l3.weight": {
+              "max_absolute_error": 3.0467286705970764e-05,
+              "mismatched_elements": 1313,
+              "elements": 1536
+            },
+            "next-update/models/actor/l3.bias": {
+              "max_absolute_error": 3.0882656574249268e-06,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/models/actor/l3_logstd.weight": {
+              "max_absolute_error": 1.8369406461715698e-05,
+              "mismatched_elements": 1304,
+              "elements": 1536
+            },
+            "next-update/models/actor/l3_logstd.bias": {
+              "max_absolute_error": 2.0675361156463623e-06,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/models/actor_target/l0.weight": {
+              "max_absolute_error": 8.106231689453125e-06,
+              "mismatched_elements": 4337,
+              "elements": 4352
+            },
+            "next-update/models/actor_target/l0.bias": {
+              "max_absolute_error": 6.813555955886841e-06,
+              "mismatched_elements": 254,
+              "elements": 256
+            },
+            "next-update/models/actor_target/l1.weight": {
+              "max_absolute_error": 7.748976349830627e-05,
+              "mismatched_elements": 89229,
+              "elements": 131072
+            },
+            "next-update/models/actor_target/l1.bias": {
+              "max_absolute_error": 1.9662082195281982e-05,
+              "mismatched_elements": 174,
+              "elements": 256
+            },
+            "next-update/models/actor_target/l2.weight": {
+              "max_absolute_error": 0.00013752467930316925,
+              "mismatched_elements": 21759,
+              "elements": 65536
+            },
+            "next-update/models/actor_target/l2.bias": {
+              "max_absolute_error": 1.4007091522216797e-05,
+              "mismatched_elements": 220,
+              "elements": 256
+            },
+            "next-update/models/actor_target/l3.weight": {
+              "max_absolute_error": 3.0467286705970764e-05,
+              "mismatched_elements": 1313,
+              "elements": 1536
+            },
+            "next-update/models/actor_target/l3.bias": {
+              "max_absolute_error": 3.0882656574249268e-06,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/models/actor_target/l3_logstd.weight": {
+              "max_absolute_error": 1.8369406461715698e-05,
+              "mismatched_elements": 1304,
+              "elements": 1536
+            },
+            "next-update/models/actor_target/l3_logstd.bias": {
+              "max_absolute_error": 2.0675361156463623e-06,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/models/critic/q0.weight": {
+              "max_absolute_error": 3.53008508682251e-05,
+              "mismatched_elements": 17908,
+              "elements": 17920
+            },
+            "next-update/models/critic/q0.bias": {
+              "max_absolute_error": 6.40377402305603e-06,
+              "mismatched_elements": 511,
+              "elements": 512
+            },
+            "next-update/models/critic/q1.weight": {
+              "max_absolute_error": 2.968963235616684e-05,
+              "mismatched_elements": 393090,
+              "elements": 393216
+            },
+            "next-update/models/critic/q1.bias": {
+              "max_absolute_error": 7.1339309215545654e-06,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/models/critic/q2.weight": {
+              "max_absolute_error": 1.6367994248867035e-05,
+              "mismatched_elements": 130971,
+              "elements": 131072
+            },
+            "next-update/models/critic/q2.bias": {
+              "max_absolute_error": 3.489665687084198e-06,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/models/critic/q3.weight": {
+              "max_absolute_error": 8.779421477811411e-06,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/models/critic/q3.bias": {
+              "max_absolute_error": 1.5944242477416992e-06,
+              "mismatched_elements": 2,
+              "elements": 2
+            },
+            "next-update/models/critic_target/q0.weight": {
+              "max_absolute_error": 3.53008508682251e-05,
+              "mismatched_elements": 17908,
+              "elements": 17920
+            },
+            "next-update/models/critic_target/q0.bias": {
+              "max_absolute_error": 6.40377402305603e-06,
+              "mismatched_elements": 511,
+              "elements": 512
+            },
+            "next-update/models/critic_target/q1.weight": {
+              "max_absolute_error": 2.968963235616684e-05,
+              "mismatched_elements": 393090,
+              "elements": 393216
+            },
+            "next-update/models/critic_target/q1.bias": {
+              "max_absolute_error": 7.1339309215545654e-06,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/models/critic_target/q2.weight": {
+              "max_absolute_error": 1.6367994248867035e-05,
+              "mismatched_elements": 130971,
+              "elements": 131072
+            },
+            "next-update/models/critic_target/q2.bias": {
+              "max_absolute_error": 3.489665687084198e-06,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/models/critic_target/q3.weight": {
+              "max_absolute_error": 8.779421477811411e-06,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/models/critic_target/q3.bias": {
+              "max_absolute_error": 1.5944242477416992e-06,
+              "mismatched_elements": 2,
+              "elements": 2
+            },
+            "next-update/models/encoder/zs1.weight": {
+              "max_absolute_error": 2.9306858777999878e-05,
+              "mismatched_elements": 4350,
+              "elements": 4352
+            },
+            "next-update/models/encoder/zs1.bias": {
+              "max_absolute_error": 6.102025508880615e-06,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/encoder/zs2.weight": {
+              "max_absolute_error": 2.73287296295166e-05,
+              "mismatched_elements": 65512,
+              "elements": 65536
+            },
+            "next-update/models/encoder/zs2.bias": {
+              "max_absolute_error": 8.344650268554688e-06,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/encoder/zs3.weight": {
+              "max_absolute_error": 2.648681402206421e-05,
+              "mismatched_elements": 65509,
+              "elements": 65536
+            },
+            "next-update/models/encoder/zs3.bias": {
+              "max_absolute_error": 2.7995556592941284e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/models/encoder/zsa1.weight": {
+              "max_absolute_error": 3.9612408727407455e-05,
+              "mismatched_elements": 67014,
+              "elements": 67072
+            },
+            "next-update/models/encoder/zsa1.bias": {
+              "max_absolute_error": 2.6151537895202637e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/models/encoder/zsa2.weight": {
+              "max_absolute_error": 6.021931767463684e-06,
+              "mismatched_elements": 65465,
+              "elements": 65536
+            },
+            "next-update/models/encoder/zsa2.bias": {
+              "max_absolute_error": 3.46451997756958e-06,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/encoder/zsa3.weight": {
+              "max_absolute_error": 7.856637239456177e-06,
+              "mismatched_elements": 65490,
+              "elements": 65536
+            },
+            "next-update/models/encoder/zsa3.bias": {
+              "max_absolute_error": 4.71901148557663e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/models/fixed_encoder/zs1.weight": {
+              "max_absolute_error": 2.9306858777999878e-05,
+              "mismatched_elements": 4350,
+              "elements": 4352
+            },
+            "next-update/models/fixed_encoder/zs1.bias": {
+              "max_absolute_error": 6.102025508880615e-06,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/fixed_encoder/zs2.weight": {
+              "max_absolute_error": 2.73287296295166e-05,
+              "mismatched_elements": 65512,
+              "elements": 65536
+            },
+            "next-update/models/fixed_encoder/zs2.bias": {
+              "max_absolute_error": 8.344650268554688e-06,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/fixed_encoder/zs3.weight": {
+              "max_absolute_error": 2.648681402206421e-05,
+              "mismatched_elements": 65509,
+              "elements": 65536
+            },
+            "next-update/models/fixed_encoder/zs3.bias": {
+              "max_absolute_error": 2.7995556592941284e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/models/fixed_encoder/zsa1.weight": {
+              "max_absolute_error": 3.9612408727407455e-05,
+              "mismatched_elements": 67014,
+              "elements": 67072
+            },
+            "next-update/models/fixed_encoder/zsa1.bias": {
+              "max_absolute_error": 2.6151537895202637e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/models/fixed_encoder/zsa2.weight": {
+              "max_absolute_error": 6.021931767463684e-06,
+              "mismatched_elements": 65465,
+              "elements": 65536
+            },
+            "next-update/models/fixed_encoder/zsa2.bias": {
+              "max_absolute_error": 3.46451997756958e-06,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/models/fixed_encoder/zsa3.weight": {
+              "max_absolute_error": 7.856637239456177e-06,
+              "mismatched_elements": 65490,
+              "elements": 65536
+            },
+            "next-update/models/fixed_encoder/zsa3.bias": {
+              "max_absolute_error": 4.71901148557663e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/0/exp_avg": {
+              "max_absolute_error": 6.888434654683806e-06,
+              "mismatched_elements": 4352,
+              "elements": 4352
+            },
+            "next-update/optimizers/encoder_optimizer/state/0/exp_avg_sq": {
+              "max_absolute_error": 2.929301246012983e-11,
+              "mismatched_elements": 4349,
+              "elements": 4352
+            },
+            "next-update/optimizers/encoder_optimizer/state/1/exp_avg": {
+              "max_absolute_error": 2.257450319120835e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/1/exp_avg_sq": {
+              "max_absolute_error": 8.249401162174763e-12,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/2/exp_avg": {
+              "max_absolute_error": 3.7785557651659474e-06,
+              "mismatched_elements": 65536,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/2/exp_avg_sq": {
+              "max_absolute_error": 7.295941628626679e-12,
+              "mismatched_elements": 65458,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/3/exp_avg": {
+              "max_absolute_error": 3.1850668165134266e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/3/exp_avg_sq": {
+              "max_absolute_error": 6.1026739217595605e-12,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/4/exp_avg": {
+              "max_absolute_error": 8.019818778848276e-06,
+              "mismatched_elements": 65536,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/4/exp_avg_sq": {
+              "max_absolute_error": 3.5216274341109965e-11,
+              "mismatched_elements": 65422,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/5/exp_avg": {
+              "max_absolute_error": 2.473680069670081e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/5/exp_avg_sq": {
+              "max_absolute_error": 2.022204625973245e-11,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/6/exp_avg": {
+              "max_absolute_error": 6.4947817008942366e-06,
+              "mismatched_elements": 67072,
+              "elements": 67072
+            },
+            "next-update/optimizers/encoder_optimizer/state/6/exp_avg_sq": {
+              "max_absolute_error": 8.570566478738328e-11,
+              "mismatched_elements": 66935,
+              "elements": 67072
+            },
+            "next-update/optimizers/encoder_optimizer/state/7/exp_avg": {
+              "max_absolute_error": 1.3955673239252064e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/7/exp_avg_sq": {
+              "max_absolute_error": 1.0647482895365101e-11,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/8/exp_avg": {
+              "max_absolute_error": 7.802311301929876e-06,
+              "mismatched_elements": 65536,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/8/exp_avg_sq": {
+              "max_absolute_error": 1.3511680663214065e-10,
+              "mismatched_elements": 65425,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/9/exp_avg": {
+              "max_absolute_error": 1.8727459973888472e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/9/exp_avg_sq": {
+              "max_absolute_error": 5.718092666029406e-12,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/10/exp_avg": {
+              "max_absolute_error": 1.527564018033445e-05,
+              "mismatched_elements": 65536,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/10/exp_avg_sq": {
+              "max_absolute_error": 5.420019988378044e-10,
+              "mismatched_elements": 65408,
+              "elements": 65536
+            },
+            "next-update/optimizers/encoder_optimizer/state/11/exp_avg": {
+              "max_absolute_error": 2.6894813345279545e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/encoder_optimizer/state/11/exp_avg_sq": {
+              "max_absolute_error": 2.119548980772379e-11,
+              "mismatched_elements": 255,
+              "elements": 256
+            },
+            "next-update/optimizers/critic_optimizer/state/0/exp_avg": {
+              "max_absolute_error": 0.00018064165124087594,
+              "mismatched_elements": 17920,
+              "elements": 17920
+            },
+            "next-update/optimizers/critic_optimizer/state/0/exp_avg_sq": {
+              "max_absolute_error": 1.4219949662219733e-08,
+              "mismatched_elements": 17903,
+              "elements": 17920
+            },
+            "next-update/optimizers/critic_optimizer/state/1/exp_avg": {
+              "max_absolute_error": 6.359850522130728e-05,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/1/exp_avg_sq": {
+              "max_absolute_error": 5.871697794646025e-09,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/2/exp_avg": {
+              "max_absolute_error": 5.742833309341222e-05,
+              "mismatched_elements": 393216,
+              "elements": 393216
+            },
+            "next-update/optimizers/critic_optimizer/state/2/exp_avg_sq": {
+              "max_absolute_error": 3.847617335850373e-09,
+              "mismatched_elements": 392193,
+              "elements": 393216
+            },
+            "next-update/optimizers/critic_optimizer/state/3/exp_avg": {
+              "max_absolute_error": 1.3432203559204936e-05,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/3/exp_avg_sq": {
+              "max_absolute_error": 7.098606147337705e-10,
+              "mismatched_elements": 511,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/4/exp_avg": {
+              "max_absolute_error": 5.266221705824137e-05,
+              "mismatched_elements": 131072,
+              "elements": 131072
+            },
+            "next-update/optimizers/critic_optimizer/state/4/exp_avg_sq": {
+              "max_absolute_error": 3.610693966038525e-09,
+              "mismatched_elements": 130452,
+              "elements": 131072
+            },
+            "next-update/optimizers/critic_optimizer/state/5/exp_avg": {
+              "max_absolute_error": 8.358540071640164e-06,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/5/exp_avg_sq": {
+              "max_absolute_error": 1.190869625133928e-10,
+              "mismatched_elements": 509,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/6/exp_avg": {
+              "max_absolute_error": 0.000320592662319541,
+              "mismatched_elements": 512,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/6/exp_avg_sq": {
+              "max_absolute_error": 1.3527460396289825e-07,
+              "mismatched_elements": 511,
+              "elements": 512
+            },
+            "next-update/optimizers/critic_optimizer/state/7/exp_avg": {
+              "max_absolute_error": 8.124299347400665e-05,
+              "mismatched_elements": 2,
+              "elements": 2
+            },
+            "next-update/optimizers/critic_optimizer/state/7/exp_avg_sq": {
+              "max_absolute_error": 3.058812581002712e-08,
+              "mismatched_elements": 2,
+              "elements": 2
+            },
+            "next-update/optimizers/actor_optimizer/state/0/exp_avg": {
+              "max_absolute_error": 1.1276366421952844e-05,
+              "mismatched_elements": 4352,
+              "elements": 4352
+            },
+            "next-update/optimizers/actor_optimizer/state/0/exp_avg_sq": {
+              "max_absolute_error": 4.828279998037033e-10,
+              "mismatched_elements": 4348,
+              "elements": 4352
+            },
+            "next-update/optimizers/actor_optimizer/state/1/exp_avg": {
+              "max_absolute_error": 2.913933712989092e-06,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/actor_optimizer/state/1/exp_avg_sq": {
+              "max_absolute_error": 1.0538769856793806e-10,
+              "mismatched_elements": 256,
+              "elements": 256
+            },
+            "next-update/optimizers/actor_optimizer/state/2/exp_avg": {
+              "max_absolute_error": 5.073852662462741e-06,
+              "mismatched_elements": 98466,
+              "elements": 131072
+            },
+            "next-update/optimizers/actor_optimizer/state/2/exp_avg_sq": {
+              "max_absolute_error": 1.2231282653374365e-10,
+              "mismatched_elements": 84594,
+              "elements": 131072
+            },
+            "next-update/optimizers/actor_optimizer/state/3/exp_avg": {
+              "max_absolute_error": 1.6130070434883237e-06,
+              "mismatched_elements": 191,
+              "elements": 256
+            },
+            "next-update/optimizers/actor_optimizer/state/3/exp_avg_sq": {
+              "max_absolute_error": 1.510258584858093e-11,
+              "mismatched_elements": 167,
+              "elements": 256
+            },
+            "next-update/optimizers/actor_optimizer/state/4/exp_avg": {
+              "max_absolute_error": 3.877549897879362e-05,
+              "mismatched_elements": 26919,
+              "elements": 65536
+            },
+            "next-update/optimizers/actor_optimizer/state/4/exp_avg_sq": {
+              "max_absolute_error": 3.0065052669669967e-09,
+              "mismatched_elements": 18603,
+              "elements": 65536
+            },
+            "next-update/optimizers/actor_optimizer/state/5/exp_avg": {
+              "max_absolute_error": 9.27326618693769e-06,
+              "mismatched_elements": 224,
+              "elements": 256
+            },
+            "next-update/optimizers/actor_optimizer/state/5/exp_avg_sq": {
+              "max_absolute_error": 1.7507773009128869e-10,
+              "mismatched_elements": 217,
+              "elements": 256
+            },
+            "next-update/optimizers/actor_optimizer/state/6/exp_avg": {
+              "max_absolute_error": 4.9259455408900976e-05,
+              "mismatched_elements": 1337,
+              "elements": 1536
+            },
+            "next-update/optimizers/actor_optimizer/state/6/exp_avg_sq": {
+              "max_absolute_error": 5.131369107402861e-09,
+              "mismatched_elements": 1238,
+              "elements": 1536
+            },
+            "next-update/optimizers/actor_optimizer/state/7/exp_avg": {
+              "max_absolute_error": 0.00016769114881753922,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/optimizers/actor_optimizer/state/7/exp_avg_sq": {
+              "max_absolute_error": 1.1912197805941105e-07,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/optimizers/actor_optimizer/state/8/exp_avg": {
+              "max_absolute_error": 1.618260284885764e-05,
+              "mismatched_elements": 1332,
+              "elements": 1536
+            },
+            "next-update/optimizers/actor_optimizer/state/8/exp_avg_sq": {
+              "max_absolute_error": 2.558522282924969e-10,
+              "mismatched_elements": 1203,
+              "elements": 1536
+            },
+            "next-update/optimizers/actor_optimizer/state/9/exp_avg": {
+              "max_absolute_error": 2.5630230084061623e-05,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/optimizers/actor_optimizer/state/9/exp_avg_sq": {
+              "max_absolute_error": 2.2228050511330366e-09,
+              "mismatched_elements": 6,
+              "elements": 6
+            },
+            "next-update/optimizers/alpha_optimizer/state/0/exp_avg": {
+              "max_absolute_error": 0.00808650255203247,
+              "mismatched_elements": 1,
+              "elements": 1
+            },
+            "next-update/optimizers/alpha_optimizer/state/0/exp_avg_sq": {
+              "max_absolute_error": 2.5153160095214844e-05,
+              "mismatched_elements": 1,
+              "elements": 1
+            },
+            "next-update/buffers/metrics": {
+              "max_absolute_error": 0.13535234332084656,
+              "mismatched_elements": 24,
+              "elements": 31
+            },
+            "next-update/buffers/clipping_statistics": {
+              "max_absolute_error": 0.1017303466796875,
+              "mismatched_elements": 4,
+              "elements": 15
+            },
+            "next-update/buffers/probe_state": {
+              "max_absolute_error": 5.805368185043335,
+              "mismatched_elements": 204,
+              "elements": 4352
+            },
+            "next-update/buffers/probe_zs": {
+              "max_absolute_error": 7.718643426895142,
+              "mismatched_elements": 3072,
+              "elements": 65536
+            },
+            "next-update/priority": {
+              "max_absolute_error": 0.9963805675506592,
+              "mismatched_elements": 2,
+              "elements": 1000000
+            }
+          },
+          "next_rng_errors": {},
+          "priority_sampler": {
+            "expected": {
+              "changed_rows": 50,
+              "first_changed_indices": [
+                27390,
+                38971,
+                39360,
+                74219,
+                80502,
+                82874,
+                104475,
+                111457,
+                113610,
+                162092,
+                172096,
+                176486,
+                200593,
+                200888,
+                208136,
+                212559,
+                244261,
+                268528,
+                289117,
+                308106,
+                309969,
+                318051,
+                349693,
+                353888,
+                359586,
+                366230,
+                372885,
+                376280,
+                464342,
+                469802,
+                475679,
+                478348
+              ]
+            },
+            "actual": {
+              "changed_rows": 50,
+              "first_changed_indices": [
+                27390,
+                38971,
+                39360,
+                74219,
+                80502,
+                82874,
+                104475,
+                111457,
+                113610,
+                162092,
+                172096,
+                176486,
+                200593,
+                200888,
+                208136,
+                212559,
+                244261,
+                268528,
+                289117,
+                308106,
+                309969,
+                318051,
+                349693,
+                353888,
+                359586,
+                366230,
+                372885,
+                376280,
+                464342,
+                469802,
+                475679,
+                478348
+              ]
+            },
+            "same_changed_indices": false,
+            "expected_only_indices": [
+              809369
+            ],
+            "actual_only_indices": [
+              563885
+            ]
+          },
+          "models_max_absolute_errors": {
+            "actor": 0.00013752467930316925,
+            "actor_target": 0.00013752467930316925,
+            "critic": 3.53008508682251e-05,
+            "critic_target": 3.53008508682251e-05,
+            "encoder": 3.9612408727407455e-05,
+            "fixed_encoder": 3.9612408727407455e-05,
+            "fixed_encoder_target": 0.0
+          },
+          "phase": "nonuniform-original-priority"
+        },
+        "uniform_diagnostics": {
+          "restored_state_errors": {},
+          "restored_rng_errors": {},
+          "captured_address_errors": {},
+          "next_update_errors": {},
+          "next_rng_errors": {},
+          "priority_sampler": {
+            "expected": {
+              "changed_rows": 3,
+              "first_changed_indices": [
+                200627,
+                857505,
+                877412
+              ]
+            },
+            "actual": {
+              "changed_rows": 3,
+              "first_changed_indices": [
+                200627,
+                857505,
+                877412
+              ]
+            },
+            "same_changed_indices": true,
+            "expected_only_indices": [],
+            "actual_only_indices": []
+          },
+          "models_max_absolute_errors": {
+            "actor": 0.0,
+            "actor_target": 0.0,
+            "critic": 0.0,
+            "critic_target": 0.0,
+            "encoder": 0.0,
+            "fixed_encoder": 0.0,
+            "fixed_encoder_target": 0.0
+          },
+          "phase": "uniform-exact-prefix-priority"
+        },
+        "scope": "Exact serialized learner/replay/Adam/alpha/RNG/addresses; exact next captured update with uniform FP32 prefix sums, including hard targets; excludes environment trajectory",
+        "limitation": "Original nonuniform CUDA FP32 parallel CDF may vary by scan association; its next update is reported separately without a bitwise requirement"
+      },
+      "peak_torch_allocated_bytes": 482737152,
+      "peak_torch_reserved_bytes": 616562688
+    }
+  ]
+}

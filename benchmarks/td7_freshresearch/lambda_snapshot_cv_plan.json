@@ -1,0 +1,75 @@
+{
+  "name": "td7_latentq_lambda_snapshot_cv_v19",
+  "status": "cancelled",
+  "budget": 8000000,
+  "seed": 1,
+  "max_parallel_runs": 1,
+  "hypothesis": "Previous-collection joint calibration with the exact predictor snapshot prevents v18 excess label variance; useful out-of-sample denoising and score gains are uncertain because observed covariance is weak.",
+  "preserved": "v17 latent critic, 32-step lambda=.95, frozen labels, actor/encoder/critic cadence, LAP/Huber and coupled minibatches",
+  "calibration": "Two signed coefficients from raw-label residual versus future order1/order2 controls; covariance centered, double precision Moore-Penrose inverse; no tuned ridge or coefficient clipping. Deploy only next collection with exact unchanged candidate critic and encoder snapshot. First collection zero coefficients.",
+  "guarantee": "Conditional label mean preserved for deployed pre-collection model/coefficients; no claim for Huber/LAP objective or next target bounds.",
+  "validation": {
+    "analytical_tests": 6,
+    "v18_regression_tests": 8,
+    "review": "Independent review found deployed-coefficient logging alias; fixed with cloned metric values. No blocking algorithm or snapshot lifecycle issue found.",
+    "gpu": "Real compiled CUDA run producing metrics with no logged runtime exception."
+  },
+  "decision_gate": "v18 at v17 observed .6M horizon: persistent paired variance inflation and no promising learning trend justify informative cull and one calibrated follow-up. No v17 duplicate or integral variants.",
+  "job_id": 12009,
+  "time_limit": "4h",
+  "decision": "v18 persistent variance inflation through .605M; matched training tail -9 vs v17 1255 and shared-step evaluation 198 vs1477. Stopped .622M; recovery censored. One calibrated follow-up justified to prevent noise injection and measure out-of-sample correlation.",
+  "latest_metrics": {
+    "charts/episodic_return": {
+      "invalid_samples": 0,
+      "last_step": 343008,
+      "last_value": 1358.953125,
+      "step_unit": "environment_transitions",
+      "last20_mean": 1256.4617492675782,
+      "matched": {
+        "500000": null,
+        "600000": null,
+        "800000": null,
+        "1000000": null,
+        "2000000": null,
+        "4000000": null,
+        "8000000": null
+      },
+      "after1M": null
+    },
+    "eval/episodic_return": {
+      "invalid_samples": 0,
+      "last_step": 310912,
+      "last_value": 1324.960205078125,
+      "step_unit": "environment_transitions",
+      "last20_mean": 397.61432605319555,
+      "matched": {
+        "500000": null,
+        "600000": null,
+        "800000": null,
+        "1000000": null,
+        "2000000": null,
+        "4000000": null,
+        "8000000": null
+      },
+      "after1M": null
+    },
+    "critic_cv/variance_ratio": {
+      "invalid_samples": 0,
+      "last_step": 343680,
+      "last_value": 0.9999884963035583,
+      "step_unit": "environment_transitions",
+      "last20_mean": 1.006516084074974,
+      "matched": {
+        "500000": null,
+        "600000": null,
+        "800000": null,
+        "1000000": null,
+        "2000000": null,
+        "4000000": null,
+        "8000000": null
+      },
+      "after1M": null
+    }
+  },
+  "outcome": "Autocull early DEAD gate at786k despite modest rising returns. Censored; no full benchmark claim. No duplicate resubmission. Matched.6M varratio1.005 means no observed useful denoising."
+}

@@ -1,0 +1,28 @@
+{
+  "job_id": 12011,
+  "scope": "Independent read-only review and contingency reasoning; not benchmark results",
+  "reviewers": ["critic_redteam", "latentq_critic_probe", "physical_q"],
+  "correctness": "No blocking defect found in exact clipped Gaussian moments, cross-action quadratic factors, zero-sigma point queries, actor gradients, inverse-LAP compensation, or behavior-cached lambda bootstrap refresh.",
+  "interpretation_limits": [
+    "Exact integration is an architectural identity, not evidence of action-value accuracy.",
+    "Verified architecture confound: v21 retains encoder training and zs state features but removes Q's action-conditioned zsa input. Learned action dynamics no longer directly inform Q or its actor-facing derivatives.",
+    "Prefit score residuals measure average mismatch against bootstrapped labels, not state-specific or actor-parameter gradient accuracy.",
+    "Scale scores are derivatives with respect to sigma, not log-sigma.",
+    "Postfit labels, representation and bounds depend on fitting. Postfit diagnostics are not an independent accuracy oracle.",
+    "Prefit and postfit point MSE use different refreshed labels; their difference is not a paired accuracy improvement.",
+    "Horizon-block standard errors are descriptive because episode and bootstrap dependence can persist across blocks."
+  ],
+  "failure_contingency": {
+    "hypothesis": "Narrow on-policy samples fail to identify action credit even when distribution queries are internally consistent.",
+    "diagnostic": "Freeze continuation and bootstrap snapshots. Clone complete MuJoCo state into isolated branch data. Perturb the initial behavior mean in opposite directions along a predicted improvement direction, sharing initial and future Gaussian innovations. Compare paired 32-step lambda target contrast with analytic distribution-value contrast, including executed clipping.",
+    "training_candidate": "Antithetic initial actions with shared future innovations supply paired return contrasts. Regress predicted point-value differences against those contrasts so the state-value intercept cannot absorb the action evidence.",
+    "accounting": "Count every branch physics transition toward the 8M interaction budget. Preserve episode age, termination and truncation semantics. Do not alter live native environments or use qpos/qvel-only restoration.",
+    "falsification": "Poor paired covariance or continued held-out contrast error would reject the intended noise cancellation or action identification benefit."
+  },
+  "low_cost_noise_diagnostic": {
+    "control": "Future-only recursive innovation q_snapshot(s,a) minus its exact behavior-policy expectation, evaluated with a critic snapshot fixed before collection.",
+    "difference_from_failed_v18": "Uses the full nonlinear action function and exact clipped expectation rather than a truncated Hermite control.",
+    "cautions": "Center the innovation with the unclamped expectation even when the bootstrap is clamped; stop recursion at segment and episode boundaries; never include the current action control. Measure covariance and variance on paired samples before deploying. Prior negligible Hermite covariance lowers confidence in a large gain.",
+    "priority": "Diagnostic opportunity, not authorization to launch another uncalibrated control-variate variant."
+  }
+}

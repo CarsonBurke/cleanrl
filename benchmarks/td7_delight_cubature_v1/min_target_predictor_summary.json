@@ -1,0 +1,15 @@
+{
+  "scope": "40 HalfCheetah latent-Q runs; 13 observed through1M,11 with1Mgreedyevaluation; survivor/culling andmethodfamily bias; min earlylearnerupdates vsfutureenvsteps",
+  "drop_window_learner_steps": [
+    200000,
+    400000
+  ],
+  "rank_correlations": {
+    "drop_vs_return1M": 0.5824175824175823,
+    "drop_vs_eval1M": 0.6454545454545455,
+    "drop_vs_return1M_partial_current400k_return": 0.2937350073119631,
+    "drop_vs_eval1M_partial_current400k_return": 0.3228819757907
+  },
+  "early_absolute_min_rank_correlation_with_return1M": 0.4340659340659341,
+  "interpretation": "More-negative absolute minimum not robustlybetter; continued minimum expansion is the supportive signal, partly explained by learning progress."
+}

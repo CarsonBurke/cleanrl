@@ -1,0 +1,57 @@
+{
+  "status": "reviewed conditional design; await v25 terminal evidence; no code or performance claim",
+  "reviewer": "harness diagnostic_review (independent read-only source and scalar review)",
+  "observed_boundary": 466560,
+  "heldout_odd_pooled_new_old_mse": {
+    "initial": 1.04,
+    "final": 1.041
+  },
+  "heldout_even_pooled_new_old_mse": {
+    "initial": 1.581,
+    "final": 0.358
+  },
+  "interpretation": "Training contrasts fit much better than withheld critic-loss contrasts. Odd pooled fitting effect nearly neutral despite majority burst degradation; even depends strongly on label clock. Critic and fixed-encoder motion remain bundled.",
+  "next_hypothesis": "Persistent critic state/direction coverage without historical actor sampling can improve generalization.",
+  "proposed_method": "Critic-only replay with current frozen-behavior Bellman relabeling; retain fresh paired32-step lambda labels and original latentF/action-SALE.",
+  "replay_targets": "r + gamma * not_done * target_center(next_state, frozen_behavior_mean, frozen_behavior_std)",
+  "policy_conditioning": "Historical initial distribution queries are valid for current continuation Q. Snapshot behavior actor and encoder before fitting; relabel all replay continuation to that policy. Never reuse historical lambda labels after continuation drift.",
+  "sampling": "Exclude lane0 from critic replay. Historical physical transitions and paired anchor first transitions supply point and Hermite channels. Actor/alpha remain fresh main-only. SALE can replay but this is an explicit representation sampling confound.",
+  "diagnostics": [
+    "Existing four-cell label/prediction clock matrix",
+    "Old-critic/old-encoder versus old-critic/new-encoder probes on same queries and labels",
+    "Pooled and median same-label error ratios, improvement fractions, bias and RMS calibration"
+  ],
+  "limitations": [
+    "One-step replay introduces bootstrap dependence",
+    "Fresh32-step and replay1-step labels have different variance",
+    "Hermite approximation and sparse directions remain",
+    "Current v24 holdout trains main encoder/actor; not fully independent",
+    "Historical replay comparison does not isolate critic replay"
+  ],
+  "no_performance_claim": true,
+  "completed_v24_review": {
+    "bursts": 36,
+    "fitting_clock_end": 773760,
+    "odd_holdout_initial_pooled": 0.9907510443002429,
+    "odd_holdout_final_pooled": 0.9819937079545419,
+    "odd_holdout_initial_median": 1.2556862547828338,
+    "odd_improved_bursts": 16,
+    "last_third_odd_initial_final_pooled": [
+      1.091,
+      1.093
+    ],
+    "even_initial_final_pooled": [
+      2.8592706415559945,
+      0.18128322629846652
+    ],
+    "interpretation": "Sparse-direction training fit does not transfer clearly; not universal fit worsening. Even label movement dominates clock-dependent verdicts."
+  },
+  "implementation_guidance": {
+    "continuation": "Copy actor AND fixed encoder into permanent behavior snapshot modules once per outer burst; use sampled replay next_state forwards, not target actor or live fixed encoder. Target critic/encoder can still copy250.",
+    "replay_pair": "Store shared source coordinates/noise and both first transitions atomically; never store latents, reuse historical lambda labels, or leak lane0. Historical initial distribution is a query; continuation is current snapshot.",
+    "complexity": "Minibatch current-behavior relabeling avoids full-replay refresh65 times per burst. Fixed shapes can compile and capture.",
+    "sampling": "Uniform replay point and paired sampling; actor/alpha still fresh main-only LAP.",
+    "representation": "Prefer explicit joint critic+SALE historical coverage if v25 repeats odd transfer failure. No frozen encoder or actor replay. Disclose joint coverage and one-step-vs-lambda confounds.",
+    "diagnostics": "Same-query label-clock matrix plus crossed oldcritic/oldencoder, oldcritic/newencoder, newcritic/newencoder; distinguish replay and fresh losses."
+  }
+}

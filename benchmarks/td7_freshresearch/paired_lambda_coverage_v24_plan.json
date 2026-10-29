@@ -1,0 +1,45 @@
+{
+  "status": "cancelled_censored_prefix",
+  "script": "cleanrl/td7/latentq/td7_latentq_paired_lambda_coverage_v24.py",
+  "base": "paired_lambda_sale_v23",
+  "hypothesis": "Training critic and SALE on all valid, already collected branch transitions reduces continuation bootstrap error while preserving latent-Q and horizon signal.",
+  "changes": [
+    "Use all eligible branch transitions for proper direct point/preaction critic losses and encoder training.",
+    "Keep paired odd/even anchor supervision and unchanged main-only actor sampling.",
+    "Include eligible branch labels in target range bounds.",
+    "Compare initial/final predictions against initial/final labels to separate critic movement from label movement."
+  ],
+  "preserved": [
+    "lambda .95, trace32, hard targets250",
+    "8M counted training interactions including branches; seed1; env16 threads2",
+    "original latent/action-SALE pathways; same optimizer counts"
+  ],
+  "prediction": "Held-out branch direct errors improve before returns improve; training loss alone is insufficient.",
+  "limits": [
+    "Critic coverage, encoder coverage and target bounds change together.",
+    "120 fitting directions remain heavily reused; heldout labels share learned bootstraps.",
+    "No strict actor support constraint; large raw Gaussian KL remains.",
+    "One seed, censored prefixes, no ground-truth value oracle."
+  ],
+  "validation": {
+    "pure_tests": 13,
+    "independent_review": "critic_redteam: no blocker; validity, importance weights, buffer addresses, mixtures and clock diagnostics checked.",
+    "queued_runtime": "Actual compiled CUDA fitting and native branch collection passed through250k; no final performance result."
+  },
+  "declared_max_parallel_runs": 1,
+  "time_limit": "15m",
+  "job_id": 12016,
+  "user_wall_clock_constraint": "900000ms per attempt from commandspawn, compilation included",
+  "observed": {
+    "queue_reason": "cancelled by request; no attribution to autocull or wallcap",
+    "last_completed_fitting_clock": 773760,
+    "collected_interactions": 794240,
+    "ordinary_interactions": 638592,
+    "branch_interactions": 155648,
+    "last_training_episode_step": 789552,
+    "last20_training_mean": 2292.797644042969,
+    "trailing100k_at500k": 1369.877466901948,
+    "trailing100k_at600k": 1293.5948600769043,
+    "full8M_outcome": false
+  }
+}

@@ -1,0 +1,98 @@
+[
+  {
+    "precision": "production",
+    "reference": "modal",
+    "eps": "supplied",
+    "max_absolute_error": 3.298744559288025e-06,
+    "relative_norm_error": 9.21097380341962e-05,
+    "full_gradient_norm": 0.13344205915927887
+  },
+  {
+    "precision": "production",
+    "reference": "modal",
+    "eps": "reconstructed",
+    "max_absolute_error": 3.298744559288025e-06,
+    "relative_norm_error": 9.210951975546777e-05,
+    "full_gradient_norm": 0.13344205915927887
+  },
+  {
+    "precision": "production",
+    "reference": "latent",
+    "eps": "supplied",
+    "max_absolute_error": 3.2242387533187866e-06,
+    "relative_norm_error": 0.00010514278983464465,
+    "full_gradient_norm": 0.1367482841014862
+  },
+  {
+    "precision": "production",
+    "reference": "latent",
+    "eps": "reconstructed",
+    "max_absolute_error": 3.2242387533187866e-06,
+    "relative_norm_error": 0.00010514278255868703,
+    "full_gradient_norm": 0.1367482841014862
+  },
+  {
+    "precision": "float32_precise",
+    "reference": "modal",
+    "eps": "supplied",
+    "max_absolute_error": 1.862645149230957e-09,
+    "relative_norm_error": 4.379893425721093e-08,
+    "full_gradient_norm": 0.13355639576911926
+  },
+  {
+    "precision": "float32_precise",
+    "reference": "modal",
+    "eps": "reconstructed",
+    "max_absolute_error": 1.862645149230957e-09,
+    "relative_norm_error": 4.322102498122149e-08,
+    "full_gradient_norm": 0.13355639576911926
+  },
+  {
+    "precision": "float32_precise",
+    "reference": "latent",
+    "eps": "supplied",
+    "max_absolute_error": 3.725290298461914e-09,
+    "relative_norm_error": 6.14828223888253e-08,
+    "full_gradient_norm": 0.13686715066432953
+  },
+  {
+    "precision": "float32_precise",
+    "reference": "latent",
+    "eps": "reconstructed",
+    "max_absolute_error": 1.3969838619232178e-09,
+    "relative_norm_error": 4.267957720571758e-08,
+    "full_gradient_norm": 0.13686715066432953
+  },
+  {
+    "precision": "float64",
+    "reference": "modal",
+    "eps": "supplied",
+    "max_absolute_error": 3.469446951953614e-18,
+    "relative_norm_error": 1.2818584832680674e-16,
+    "full_gradient_norm": 0.0915969334365201
+  },
+  {
+    "precision": "float64",
+    "reference": "modal",
+    "eps": "reconstructed",
+    "max_absolute_error": 3.469446951953614e-18,
+    "relative_norm_error": 1.2546075071305503e-16,
+    "full_gradient_norm": 0.0915969334365201
+  },
+  {
+    "precision": "float64",
+    "reference": "latent",
+    "eps": "supplied",
+    "max_absolute_error": 3.469446951953614e-18,
+    "relative_norm_error": 1.3966610656817104e-16,
+    "full_gradient_norm": 0.09150750952421766
+  },
+  {
+    "precision": "float64",
+    "reference": "latent",
+    "eps": "reconstructed",
+    "max_absolute_error": 3.469446951953614e-18,
+    "relative_norm_error": 1.324237972175599e-16,
+    "full_gradient_norm": 0.09150750952421766
+  }
+]

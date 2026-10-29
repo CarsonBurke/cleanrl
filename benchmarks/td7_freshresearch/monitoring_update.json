@@ -1,0 +1,39 @@
+{
+  "anchored_actor": {
+    "job_id": 12003,
+    "state": "cancelled",
+    "reason": "no sustained learning through 3.33M; matched 2M trailing100k \u2212195 vs four-pass control6448; removing swaps also removes learned actor dynamics"
+  },
+  "integral_only": {
+    "job_id": 12006,
+    "state": "cancelled",
+    "supervision": "manual queue/metric supervision; original autocull subprocess cannot reach socket because queued env omitted XDG_RUNTIME_DIR",
+    "launched_supervisor_sha256": "acdecd553cb1e45ed90535e255c64650652070bd5f59f61110bb5783e8fcdf02",
+    "last_logged_step": 884000,
+    "cancellation": "Queue reports cancelled by request. Not issued by this continuation; scoped helper logs only daemon connection failures. Caller unknown. No runtime exception logged; no resubmission."
+  },
+  "lambda_only": {
+    "job_id": 12007,
+    "state": "cancelled",
+    "supervision": "supervisor now resolves existing per-user socket when explicit endpoint and XDG_RUNTIME_DIR absent",
+    "upcoming_supervisor_sha256": "83ecbb3f7bb2fb5e26c4b7236907b4dcc74c096bfd4e854342431d09a40564ef",
+    "last_logged_step": 605008,
+    "cancellation": "Queue reports cancelled by request; not issued by this continuation, caller unknown. Partial outcome only."
+  },
+  "trainers": "v14/v16/v17 unchanged",
+  "scope": "No new training jobs or unrelated job controls",
+  "lambda_future_cv": {
+    "job_id": 12008,
+    "state": "cancelled",
+    "max_parallel_runs": 1,
+    "last_step": 622000,
+    "interpretation": "Unit-strength controls currently increase variance; no final return conclusion. Calibration must retain exact predictor snapshot; small covariance predicts limited benefit.",
+    "cancellation": "Issued by this continuation after persistent variance inflation and shared .605M comparison; eventual recovery censored."
+  },
+  "lambda_snapshot_cv": {
+    "job_id": 12009,
+    "state": "running",
+    "max_parallel_runs": 1,
+    "latest_step": 343008
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "job_id": 12010,
+  "name": "td7_latentq_lambda_refresh_cv_v20",
+  "state": "submitted",
+  "max_parallel_runs": 1,
+  "budget": 8000000,
+  "seed": 1,
+  "time_limit": "4h",
+  "hypothesis": "Within-burst bootstrap propagation was removed by lambda label freezing; refresh at existing hard-target cadence while preserving horizon/rewards/behavior continuation may restore learning speed. Moderate confidence, not established cause.",
+  "changes": "Cache continuation mu/sigma before fit. After each existing250-update hard refresh, recompute32-step lambda labels with refreshed targetcritic/pairedencoder/TD7bounds; subtract same deployedcontrols. No extra action noise or extra optimizersteps.",
+  "preserved": "v19 architecture, loss/LAP, actor, encoder, fit counts, lambda=.95/horizon32, exact snapshot calibration",
+  "diagnostics": "critic_cv initial paired variance; critic_refresh count/increment/final displacement and final paired residual metrics against same prefit center. Initial metrics do not describe refreshed labels.",
+  "limits": "Refresh package includes critic, paired encoder and bounds; cannot isolate critic lag. Refreshed targets depend on current fitting; frozen-label interpretation no longer applies. Controls remain pre-collection fixed. Stale priorities briefly after refresh and bootstrap amplification may worsen fitting.",
+  "supervisor": "run_supervised_v2.sh retains original ref, exactname, enforceall/yes/watch600; disables documented unsafeearlyDEAD interval with dead-until0; default minsteps unchanged.",
+  "validation": {
+    "analytical_tests": 5,
+    "independent_review": "No blocking defect; final-label metrics added after review.",
+    "gpu": "pending full run"
+  }
+}

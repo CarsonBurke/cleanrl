@@ -1,0 +1,57 @@
+{
+  "command": "agent.spawn",
+  "data": {
+    "agent": {
+      "channel": "360f0ec7-180f-4052-8f8f-d87d5ba572b0",
+      "closed": false,
+      "console": null,
+      "created_ms": 1791862778696,
+      "id": "745935df-4897-4998-b467-c74c3cd8e97e",
+      "name": "dg_sigma_claude",
+      "origin": {
+        "Child": {
+          "parent": "f0ef397b-ab1e-45d1-82b3-0a5dedba1dee"
+        }
+      },
+      "session": null,
+      "spec": {
+        "account": "claude/system",
+        "model": null,
+        "permission_mode": null,
+        "provider": "Claude",
+        "reasoning_effort": null,
+        "surface": "Chat",
+        "target": {
+          "channel": "360f0ec7-180f-4052-8f8f-d87d5ba572b0",
+          "directory": "/home/marvin/Documents/repositories/cleanrl",
+          "repository": "/home/marvin/Documents/repositories/cleanrl/.git"
+        }
+      }
+    },
+    "created": true,
+    "idempotency_key": "3a7ad93c-3a88-4573-8311-792453b7a1e4",
+    "run": {
+      "accepted_ms": 1791862778696,
+      "agent": "745935df-4897-4998-b467-c74c3cd8e97e",
+      "finished_ms": null,
+      "id": "2a111d81-0195-4bd4-989d-96f812b52f37",
+      "provider_key": null,
+      "result": {
+        "diagnostic": null,
+        "text": "",
+        "truncated": false,
+        "usage": {
+          "context_limit": 0,
+          "context_tokens": 0,
+          "cost_microusd": null,
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "revision": 1,
+      "started_ms": null,
+      "state": "Accepted"
+    }
+  },
+  "ok": true
+}

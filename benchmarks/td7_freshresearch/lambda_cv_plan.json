@@ -1,0 +1,94 @@
+{
+  "job_id": 12008,
+  "name": "td7_latentq_lambda_future_cv_v18",
+  "control_job": 12007,
+  "dependency": "after-terminal 12007",
+  "budget": 8000000,
+  "seed": 1,
+  "max_parallel_runs": 1,
+  "lambda": 0.95,
+  "trace_horizon": 32,
+  "cv_strength": 1.0,
+  "architecture": "unchanged latent-Q v17",
+  "correction": "future-only centered linear/quadratic Gaussian Hermite controls from unchanged prefit critic",
+  "guarantee": "conditional label mean at same prefit model and behavior; not Huber/LAP objective or whole training equivalence",
+  "prediction": "lower paired residual dispersion if controls correlate with future action-induced return noise; better learning if this is limiting",
+  "validation": {
+    "analytical_tests": 8,
+    "independent_review": "passed, no blocking bug",
+    "gpu": "Real compiled CUDA run has produced metrics; no logged runtime error through current evidence coverage."
+  },
+  "integral": "dropped by user",
+  "last_observed_state": "cancelled",
+  "control_last_observed_state": "cancelled",
+  "control_recorded_steps": 605008,
+  "control_cancel_actor": "not established from queue state",
+  "observed_mechanism": {
+    "variance_ratio": {
+      "invalid_samples": 0,
+      "last_step": 261760,
+      "last_value": 1.8633570671081543,
+      "step_unit": "environment_transitions",
+      "last20_mean": 1.6990442991256713,
+      "matched": {
+        "500000": null,
+        "800000": null,
+        "1000000": null,
+        "2000000": null,
+        "4000000": null,
+        "8000000": null
+      },
+      "after1M": null
+    },
+    "raw_residual_variance": {
+      "invalid_samples": 0,
+      "last_step": 261760,
+      "last_value": 215.23289489746094,
+      "step_unit": "environment_transitions",
+      "last20_mean": 204.67791376312573,
+      "matched": {
+        "500000": null,
+        "800000": null,
+        "1000000": null,
+        "2000000": null,
+        "4000000": null,
+        "8000000": null
+      },
+      "after1M": null
+    },
+    "clean_residual_variance": {
+      "invalid_samples": 0,
+      "last_step": 261760,
+      "last_value": 401.05572509765625,
+      "step_unit": "environment_transitions",
+      "last20_mean": 373.0628957624237,
+      "matched": {
+        "500000": null,
+        "800000": null,
+        "1000000": null,
+        "2000000": null,
+        "4000000": null,
+        "8000000": null
+      },
+      "after1M": null
+    },
+    "residual_control_covariance": {
+      "invalid_samples": 0,
+      "last_step": 261760,
+      "last_value": -0.6715359687805176,
+      "step_unit": "environment_transitions",
+      "last20_mean": 0.48089407685523233,
+      "matched": {
+        "500000": null,
+        "800000": null,
+        "1000000": null,
+        "2000000": null,
+        "4000000": null,
+        "8000000": null
+      },
+      "after1M": null
+    }
+  },
+  "interpretation": "Unit-strength controls currently increase variance; no final return conclusion. Calibration must retain exact predictor snapshot; small covariance predicts limited benefit.",
+  "cull_reason": "v18 persistent variance inflation through .605M; matched training tail -9 vs v17 1255 and shared-step evaluation 198 vs1477. Stopped .622M; recovery censored. One calibrated follow-up justified to prevent noise injection and measure out-of-sample correlation."
+}

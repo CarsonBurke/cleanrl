@@ -1,0 +1,265 @@
+{
+ "checkpoint": "runs/HalfCheetah-v4__td7_latentq_delight_reference_v10_latent_all__1__1791861435/checkpoint.pt",
+ "checkpoint_global_step": 736896,
+ "window_rows": 327680,
+ "window_first_global_step_approx": 409216,
+ "holdout_rows": 32768,
+ "continuity_fraction": 0.9990020394325256,
+ "args": {
+  "stages": "C,A",
+  "checkpoint": "/home/marvin/Documents/repositories/cleanrl/runs/HalfCheetah-v4__td7_latentq_delight_reference_v10_latent_all__1__1791861435/checkpoint.pt",
+  "window_rollouts": 20,
+  "holdout_rollouts": 2,
+  "c_queries": 5000,
+  "a_states": 20000,
+  "r_states": 4000,
+  "fit_steps": 30000,
+  "batch": 1024,
+  "tail": 16,
+  "eta_action": [
+   0.05,
+   0.1,
+   0.2,
+   0.4
+  ],
+  "eta_goal": [
+   0.1,
+   0.25,
+   0.5,
+   1.0
+  ],
+  "out": ""
+ },
+ "C": {
+  "database_rows": 292735,
+  "queries": 5000,
+  "action_total_var": 4.462233543395996,
+  "policy_mean_total_var": 5.212759017944336,
+  "metric": "within-neighbourhood action variance (trace) / database action variance (trace)",
+  "space": "per-dim z-scored s (block /sqrt(17)) ++ per-dim z-scored g=zs(s_{t+k}) (block /sqrt(256)); k=0 is the s-only reference; neighbours from the same env within 10 steps are excluded",
+  "by_k": {
+   "0": {
+    "median_random_pair_distance": 1.396904468536377,
+    "by_K": {
+     "4": {
+      "radius_median": 0.21881183981895447,
+      "radius_over_random_pair": 0.15664051819393,
+      "spread_ratio": 0.38384119567658925,
+      "spread_ratio_ci95": [
+       0.3762243558493701,
+       0.391378317462034
+      ],
+      "spread_ratio_tightest_decile": 0.30075308971528264,
+      "tightest_decile_radius_median": 0.1377623975276947,
+      "policy_mean_spread_ratio": 0.34931729939211253
+     },
+     "8": {
+      "radius_median": 0.23660790920257568,
+      "radius_over_random_pair": 0.16938016488019714,
+      "spread_ratio": 0.3886211525091628,
+      "spread_ratio_ci95": [
+       0.3823348345829261,
+       0.39531225856172836
+      ],
+      "spread_ratio_tightest_decile": 0.30760790627722945,
+      "tightest_decile_radius_median": 0.15065790712833405,
+      "policy_mean_spread_ratio": 0.35770561965175823
+     },
+     "32": {
+      "radius_median": 0.27795588970184326,
+      "radius_over_random_pair": 0.19897988442479164,
+      "spread_ratio": 0.41059084640256843,
+      "spread_ratio_ci95": [
+       0.4044685595676504,
+       0.4162718789157748
+      ],
+      "spread_ratio_tightest_decile": 0.3209904389642981,
+      "tightest_decile_radius_median": 0.18003149330615997,
+      "policy_mean_spread_ratio": 0.38850582315717214
+     }
+    }
+   },
+   "1": {
+    "median_random_pair_distance": 1.9503893852233887,
+    "by_K": {
+     "4": {
+      "radius_median": 0.44278305768966675,
+      "radius_over_random_pair": 0.22702290170583164,
+      "spread_ratio": 0.134748375771614,
+      "spread_ratio_ci95": [
+       0.1310555523616096,
+       0.13861241665136778
+      ],
+      "spread_ratio_tightest_decile": 0.08313633350651882,
+      "tightest_decile_radius_median": 0.2647121548652649,
+      "policy_mean_spread_ratio": 0.13206121789932915
+     },
+     "8": {
+      "radius_median": 0.47199738025665283,
+      "radius_over_random_pair": 0.24200161456610492,
+      "spread_ratio": 0.14549478990235287,
+      "spread_ratio_ci95": [
+       0.1420959668441337,
+       0.14892229168639137
+      ],
+      "spread_ratio_tightest_decile": 0.09190858403018941,
+      "tightest_decile_radius_median": 0.2851177752017975,
+      "policy_mean_spread_ratio": 0.14002172156347384
+     },
+     "32": {
+      "radius_median": 0.5362448692321777,
+      "radius_over_random_pair": 0.27494246702473657,
+      "spread_ratio": 0.1718822631845199,
+      "spread_ratio_ci95": [
+       0.16797884415678507,
+       0.17555769502441873
+      ],
+      "spread_ratio_tightest_decile": 0.10588077376083861,
+      "tightest_decile_radius_median": 0.3390154242515564,
+      "policy_mean_spread_ratio": 0.1614327079278417
+     }
+    }
+   },
+   "4": {
+    "median_random_pair_distance": 1.9367316961288452,
+    "by_K": {
+     "4": {
+      "radius_median": 0.527191698551178,
+      "radius_over_random_pair": 0.2722068831758849,
+      "spread_ratio": 0.3096053187535518,
+      "spread_ratio_ci95": [
+       0.3035082243158835,
+       0.31572661712749606
+      ],
+      "spread_ratio_tightest_decile": 0.2110039189004638,
+      "tightest_decile_radius_median": 0.2835245430469513,
+      "policy_mean_spread_ratio": 0.24847491157815862
+     },
+     "8": {
+      "radius_median": 0.5567363500595093,
+      "radius_over_random_pair": 0.2874617848059792,
+      "spread_ratio": 0.3187774351350537,
+      "spread_ratio_ci95": [
+       0.31315341277638703,
+       0.3241998648853994
+      ],
+      "spread_ratio_tightest_decile": 0.21652250987445798,
+      "tightest_decile_radius_median": 0.3112018406391144,
+      "policy_mean_spread_ratio": 0.2584209661869407
+     },
+     "32": {
+      "radius_median": 0.6215764880180359,
+      "radius_over_random_pair": 0.32094093841725624,
+      "spread_ratio": 0.33458196435940996,
+      "spread_ratio_ci95": [
+       0.3297106951049917,
+       0.3397852496403605
+      ],
+      "spread_ratio_tightest_decile": 0.2222035156725029,
+      "tightest_decile_radius_median": 0.360791951417923,
+      "policy_mean_spread_ratio": 0.2813452462293687
+     }
+    }
+   },
+   "8": {
+    "median_random_pair_distance": 1.9240703582763672,
+    "by_K": {
+     "4": {
+      "radius_median": 0.5718041062355042,
+      "radius_over_random_pair": 0.29718461374132976,
+      "spread_ratio": 0.39408619294202535,
+      "spread_ratio_ci95": [
+       0.3869017914332385,
+       0.4017477005191931
+      ],
+      "spread_ratio_tightest_decile": 0.2469682566177195,
+      "tightest_decile_radius_median": 0.28681692481040955,
+      "policy_mean_spread_ratio": 0.35872012790791863
+     },
+     "8": {
+      "radius_median": 0.6018209457397461,
+      "radius_over_random_pair": 0.312785311176912,
+      "spread_ratio": 0.4015645948025974,
+      "spread_ratio_ci95": [
+       0.3952061993707618,
+       0.4081208961504735
+      ],
+      "spread_ratio_tightest_decile": 0.2560275815875688,
+      "tightest_decile_radius_median": 0.31076177954673767,
+      "policy_mean_spread_ratio": 0.3689052030662166
+     },
+     "32": {
+      "radius_median": 0.6700891256332397,
+      "radius_over_random_pair": 0.34826643565858123,
+      "spread_ratio": 0.4165955063816109,
+      "spread_ratio_ci95": [
+       0.41068360144313165,
+       0.4226788692262926
+      ],
+      "spread_ratio_tightest_decile": 0.26040584925254184,
+      "tightest_decile_radius_median": 0.3635876178741455,
+      "policy_mean_spread_ratio": 0.3927345660634953
+     }
+    }
+   }
+  }
+ },
+ "A": {
+  "states": 20000,
+  "fraction_dQdzsa_in_rangeJ": [
+   0.0323570103947357,
+   0.03172605131041213,
+   0.0329624867725637
+  ],
+  "fraction_median": 0.016670959070324898,
+  "fraction_quantiles_10_50_90": [
+   0.0034547813702374697,
+   0.01667161099612713,
+   0.0752144381403923
+  ],
+  "random_direction_fraction": [
+   0.023313819688465447,
+   0.023138453299090107,
+   0.023494974300864415
+  ],
+  "isotropic_expectation": 0.0234375,
+  "fraction_in_zs_manifold_top_pcs": {
+   "6": [
+    0.069239367963525,
+    0.06880974054074555,
+    0.06967299781069887
+   ],
+   "16": [
+    0.24072007851433008,
+    0.24001170932409818,
+    0.24144804400678258
+   ],
+   "32": [
+    0.32846193598993123,
+    0.3276232706090994,
+    0.3292926556425076
+   ]
+  },
+  "J_singular_values_median": [
+   6.221060276031494,
+   4.430835723876953,
+   3.3546597957611084,
+   2.482234477996826,
+   1.9574018716812134,
+   1.2389411926269531
+  ],
+  "J_condition_median": 4.724722385406494,
+  "dQda_zsa_path_norm_over_total": [
+   0.83079708243981,
+   0.8280204744162784,
+   0.8335808320335485
+  ],
+  "dQda_zsa_path_cosine_with_total": [
+   0.8896929666945711,
+   0.887300315243993,
+   0.8919654467410664
+  ],
+  "zsa_predicts_next_zs_R2_holdout": 0.990108891390264,
+  "actor_mean_saturated_fraction(|mu|>0.99)": 0.8351916670799255
+ }
+}

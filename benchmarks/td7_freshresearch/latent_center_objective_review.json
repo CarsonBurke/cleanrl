@@ -1,0 +1,24 @@
+{
+  "status": "independently_derived; ablation being implemented, no performance claim",
+  "reviewers": [
+    "critic_redteam",
+    "physical_q"
+  ],
+  "problem": "The positive-sigma sampled-preaction channel and policy-average center use the same continuous F without a channel selector. Exact realized-action regression near u=mu conflicts with an expected-value center when action curvature is nonzero.",
+  "quadratic_example": {
+    "action_value": "Q(u)=u\u00b2",
+    "family": "F(mu,sigma,u)=u\u00b2+b sigma\u00b2",
+    "point_sigma_zero_loss": "0",
+    "paired_hermite_population_loss": "3 sigma\u2074 (b\u22121)\u00b2",
+    "sampled_preaction_population_loss": "sigma\u2074 b\u00b2",
+    "equal_weight_optimum": "b=.75 rather than1",
+    "actor_center": "mu\u00b2+.75 sigma\u00b2 instead of mu\u00b2+sigma\u00b2"
+  },
+  "qualifications": [
+    "Clipping changes the polynomial formula but retains the mismatch: Q(0)=0 versus positive E[clip(sigma eps)\u00b2].",
+    "Highly expressive finite networks can form narrow center ridges. This is an incompatible exact smooth population fit, not a positive lower bound on infimum error for arbitrary networks.",
+    "Finite batch, bootstrap bias, derivative identification and actor movement remain.",
+    "Coverage v24 may still help continuation accuracy; this critique is a separate objective issue."
+  ],
+  "planned_v25": "Remove positive-sigma sampled-preaction loss; preserve sigma-zero point and paired Hermite, latent/Sale, horizon and branch coverage. Point-only priority avoids routing sampling through an untrained preaction output; actor LAP sampling thereby changes. Normalize two losses equally instead of three."
+}

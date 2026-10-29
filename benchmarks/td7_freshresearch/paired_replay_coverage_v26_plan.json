@@ -1,0 +1,210 @@
+{
+  "status": "terminal_15min_censored_prefix_not_promoted",
+  "script": "cleanrl/td7/latentq/td7_latentq_paired_replay_coverage_v26.py",
+  "base": "paired_lambda_center_v25",
+  "hypothesis": "Persistent raw point and paired direction coverage constrains critic and SALE specialization while preserving fresh actor states.",
+  "changes": [
+    "Uniform past-only point ring262144 and atomic pair ring2048; lane0 permanently excluded; eligible branches only.",
+    "Critic and SALE receive equal fresh/history source weights. Actor/alpha and LAP remain fresh.",
+    "Sampled history relabeled one-step under a current-burst frozen actor AND its fixed encoder, with evolving target critic/encoder; no stored lambda labels.",
+    "Preserve current fresh lambda(.95)/32, compatible point/Hermite and original latent/action-SALE.",
+    "Report replay occupancy/age, separate losses and predicted actor query gains/saturation; these queries are not value oracles.",
+    "Crossed oldcritic/newencoder probe on identical paired queries and both label clocks; order-dependent descriptive decomposition."
+  ],
+  "prediction": "Stronger heldout signed contrast transfer precedes matched-prefix return improvement.",
+  "limits": [
+    "Joint critic and representation coverage; extra target compute; one-step history vs32step fresh labels; expanded replay target bounds.",
+    "Historical initial distribution queries persist while continuation is current snapshot.",
+    "Fresh actor still unconstrained and may exploit critic errors.",
+    "Single seed; eight dependent heldout anchors; learned bootstrap targets;15minute censored prefixes."
+  ],
+  "declared_max_parallel_runs": 1,
+  "time_limit": "15m",
+  "user_wall_clock_constraint": "900000ms per attempt from command spawn, compilation included; no extension or continuation/retry to evade cap",
+  "starting_state": "Fresh seed1 initialization; no checkpoint continuation",
+  "job_id": 12022,
+  "validation": {
+    "pure_tests": 21,
+    "independent_review": "prefix_review independently20passed after finalsource; source+crossedprobe cleared; finaladdedtest usesfakealgebra no neuralruntime",
+    "runtime": "Actual compiledCUDA/nonemptyfullhistory/nativephysics/crossedencoder/actorquerydiagnostics verified; terminal900000mscap signal15, not a runtime exception"
+  },
+  "observed": {
+    "counts": {
+      "charts/SPS": {
+        "step": 589440,
+        "value": 673.0
+      },
+      "charts/ordinary_transitions": {
+        "step": 609920,
+        "value": 491136.0
+      },
+      "charts/branch_transitions": {
+        "step": 609920,
+        "value": 118784.0
+      },
+      "charts/branch_useful_transitions": {
+        "step": 609920,
+        "value": 116955.0
+      },
+      "charts/optimizer_steps": {
+        "step": 589440,
+        "value": 442368.0
+      }
+    },
+    "returns": {
+      "charts/episodic_return": {
+        "last_step": 605696,
+        "last20_mean": 161.2602891921997,
+        "trailing100k": {
+          "100000": {
+            "mean": -334.48612002226025,
+            "samples": 52,
+            "partial": false
+          },
+          "200000": {
+            "mean": 931.4997161149979,
+            "samples": 80,
+            "partial": false
+          },
+          "300000": {
+            "mean": 2495.9904401825697,
+            "samples": 82,
+            "partial": false
+          },
+          "400000": {
+            "mean": 2766.0302390699035,
+            "samples": 81,
+            "partial": false
+          },
+          "500000": {
+            "mean": 1975.6139951778364,
+            "samples": 79,
+            "partial": false
+          },
+          "600000": {
+            "mean": 165.5725618124008,
+            "samples": 80,
+            "partial": false
+          }
+        }
+      },
+      "eval/episodic_return": {
+        "last_step": 589440,
+        "last20_mean": 1817.6385416303362,
+        "trailing100k": {
+          "100000": {
+            "mean": -529.7014694213867,
+            "samples": 2,
+            "partial": false
+          },
+          "200000": {
+            "mean": 1896.363525390625,
+            "samples": 2,
+            "partial": false
+          },
+          "300000": {
+            "mean": 3396.3238525390625,
+            "samples": 2,
+            "partial": false
+          },
+          "400000": {
+            "mean": 3344.5997721354165,
+            "samples": 3,
+            "partial": false
+          },
+          "500000": {
+            "mean": 2491.5413818359375,
+            "samples": 2,
+            "partial": false
+          }
+        }
+      }
+    },
+    "fit_effects": {
+      "holdout/odd/initial": {
+        "bursts": 27,
+        "first_step": 56960,
+        "last_step": 589440,
+        "old_mean_mse": 195.01879407160192,
+        "new_mean_mse": 192.2243365894365,
+        "improved_fraction": 0.4444444444444444,
+        "median_burst_ratio": 1.0226814440498977,
+        "pooled_ratio": 0.9856708298527401,
+        "last20_pooled_ratio": 0.9052643291678035
+      },
+      "holdout/odd/final": {
+        "bursts": 27,
+        "first_step": 56960,
+        "last_step": 589440,
+        "old_mean_mse": 204.79642804437833,
+        "new_mean_mse": 197.176214741267,
+        "improved_fraction": 0.5185185185185185,
+        "median_burst_ratio": 0.9950049990324453,
+        "pooled_ratio": 0.9627912782665325,
+        "last20_pooled_ratio": 0.8801203301914451
+      },
+      "holdout/even/initial": {
+        "bursts": 27,
+        "first_step": 56960,
+        "last_step": 589440,
+        "old_mean_mse": 445.7840060464762,
+        "new_mean_mse": 2429.1737183111686,
+        "improved_fraction": 0.1111111111111111,
+        "median_burst_ratio": 3.609262781428139,
+        "pooled_ratio": 5.449216852472517,
+        "last20_pooled_ratio": 5.238508121341134
+      },
+      "holdout/even/final": {
+        "bursts": 27,
+        "first_step": 56960,
+        "last_step": 589440,
+        "old_mean_mse": 3490.490638220752,
+        "new_mean_mse": 367.72757084529707,
+        "improved_fraction": 0.9259259259259259,
+        "median_burst_ratio": 0.13156587968368422,
+        "pooled_ratio": 0.10535125544205531,
+        "last20_pooled_ratio": 0.11292057708122952
+      }
+    },
+    "independent_review": {
+      "reviewer": "harness prefix_review",
+      "completed_bursts": 27,
+      "completed_fitting_clock": 589440,
+      "latest_heldout_odd_correlation_median": -0.0691,
+      "final_third_heldout_odd_correlation_median": -0.0458,
+      "fitted_odd_correlation_median": 0.9967,
+      "negative_heldout_correlation_bursts": 16,
+      "latest_odd_rmsratio_median": 1.0039,
+      "final_third_odd_initial_final_fit_effect": [
+        0.6401,
+        0.6298
+      ],
+      "whole_crossed_encoder_old_ratio_initial_final": [
+        0.8594,
+        0.8573
+      ],
+      "whole_critic_after_encoder_ratio_initial_final": [
+        1.1469,
+        1.1231
+      ],
+      "final_third_crossed_encoder_old_ratio_initial_final": [
+        0.7769,
+        0.758
+      ],
+      "final_third_critic_after_encoder_ratio_initial_final": [
+        0.8239,
+        0.831
+      ],
+      "predicted_actor_gain_positive_bursts": 27,
+      "predicted_actor_gain_median": 12.44,
+      "raw_old_new_kl_median": 15211,
+      "saturation_probability_change_median": 0.00296,
+      "final_point_pair_occupancy": [
+        262144,
+        2048
+      ],
+      "interpretation": "Actual compiledCUDA/history passes. Temporary return recovery, later fitting improvement, but signedcontrasttransfer gap and collapse persist. No stablebenchmarkwin or causaloracle."
+    }
+  },
+  "decision": "Do not promote as durable solution: earlyreturns improve but collapse by600k; proposed heldout directional calibration improvement unsupported. No extension, checkpoint continuation, retry or further sweep."
+}
