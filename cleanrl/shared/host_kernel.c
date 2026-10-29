@@ -33,6 +33,13 @@
  *   call glibc's expf/log1pf -- exactly what NumPy's own scalar logaddexp loop
  *   calls -- instead of the polynomials above, and they need the build's
  *   -ffp-contract=off so that `low + span * v` keeps both of its roundings.
+ * - CLEANRL_OP_BETA_MODE_CONC (the mode/concentration Beta heads) cannot be
+ *   bit-identical to a float32 NumPy chain: NumPy's float32 exp is its own
+ *   SIMD routine, not glibc's expf. It instead evaluates in FP64 with glibc
+ *   exp and rounds each concentration to float32 once; the NumPy reference
+ *   (sampling.beta_concentrations_host) does the same in float64, so the two
+ *   differ only when two sub-ulp FP64 exps straddle a float32 rounding
+ *   boundary, i.e. by at most 1 ulp and essentially never.
  *
  * No OpenMP, no threads, no Python/NumPy C-API, no callbacks: ctypes drops the
  * GIL around the call.
@@ -63,8 +70,12 @@ enum {
     CLEANRL_OP_ATTENTION = 17,   /* token-major, noncausal per-sample attention */
     CLEANRL_OP_SWIGLU = 18,      /* dst = up * silu(gate), without caps       */
     CLEANRL_OP_SILU = 19,        /* dst = silu(src)                           */
-    CLEANRL_OP_RELUSQ = 20       /* dst = relu(src)^2                         */
+    CLEANRL_OP_RELUSQ = 20,      /* dst = relu(src)^2                         */
+    CLEANRL_OP_BETA_MODE_CONC = 21, /* alpha, beta = 1 + {m, 1-m} nu(z_nu)    */
 };
+
+/* CLEANRL_OP_BETA_MODE_CONC's concentration map, in the op's last operand. */
+enum { CLEANRL_PRECISION_EXP = 0, CLEANRL_PRECISION_SOFTPLUS = 1 };
 
 /* ops[k * OP_STRIDE + 0] is the code; the remaining seven slots are buffer
  * indices and dimensions, laid out per opcode by host_graph.py. */
@@ -353,6 +364,32 @@ static void beta_conc(float *restrict alpha, float *restrict beta,
     }
 }
 
+/* alpha = 1 + m nu, beta = 1 + (1 - m) nu with m = sigmoid(z_m) and nu =
+ * exp(z_nu) or 2 softplus(z_nu), logits split on the last axis like beta_conc.
+ * FP64 throughout, one rounding to float32 per output (see the numerics
+ * notes). 1 - m is sigmoid(-z_m), so neither concentration cancels near the
+ * bounds; exp overflow to +inf gives an exact 0 mode or complement. The
+ * softplus form is log1p(exp(-|z|)) + max(z, 0), as NumPy's float64 logaddexp
+ * evaluates it. */
+static void beta_mode_conc(float *restrict alpha, float *restrict beta,
+                           const float *restrict logits, int rows, int half, int map)
+{
+    for (int r = 0; r < rows; ++r) {
+        const float *row = logits + (size_t)r * (size_t)half * 2;
+        float *ar = alpha + (size_t)r * (size_t)half;
+        float *br = beta + (size_t)r * (size_t)half;
+        for (int c = 0; c < half; ++c) {
+            const double z = (double)row[c];
+            const double s = (double)row[half + c];
+            const double precision = map == CLEANRL_PRECISION_SOFTPLUS
+                ? 2.0 * (s > 0.0 ? s + log1p(exp(-s)) : log1p(exp(s)))
+                : exp(s);
+            ar[c] = (float)(1.0 + precision / (1.0 + exp(-z)));
+            br[c] = (float)(1.0 + precision / (1.0 + exp(z)));
+        }
+    }
+}
+
 /* native = clip((float)draw, bounds[0], bounds[1]); action = low + span * native.
  *
  * draw is the FP64 output of numpy.random.Generator.beta, read straight out of
@@ -473,6 +510,9 @@ void cleanrl_host_forward(const cleanrl_host_graph *graph, const float *x, float
         }
         case CLEANRL_OP_BETA_CONC:
             beta_conc(dst, bufs[op[3]], bufs[op[2]], op[5], op[6]);
+            break;
+        case CLEANRL_OP_BETA_MODE_CONC:
+            beta_mode_conc(dst, bufs[op[3]], bufs[op[2]], op[5], op[6], op[7]);
             break;
         case CLEANRL_OP_BETA_RESCALE:
             beta_rescale(dst, bufs[op[3]], (const double *)bufs[op[2]],

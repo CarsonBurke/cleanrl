@@ -26,8 +26,9 @@ Contracts (identical to the NumPy mirrors, so this is a drop-in replacement)
   ``LReluSphereTrunk``, ``LReluResTrunk``), ``NormResidualTrunk`` from
   ``norm_residual`` and its ``PreRMSTrunk``/``PreRMSStageTrunk``/``SiTUReorgTrunk``
   subclasses, ``Sequential(NGPTTrunk, NGPTHead)`` from ``ngpt``, and plain
-  ``nn.Sequential`` stacks of ``Linear``/``Tanh``/``SiLU``/``ReLU``/``LeakyReluSq``/
-  ``SiTUGLUBranch``. SiLU requires the fused graph; other supported stacks may
+  ``nn.Sequential`` stacks of ``Linear``/``RMSNorm``/``LayerNorm``/``Tanh``/``SiLU``/
+  ``ReLU``/``LeakyReluSq``/``SiTUGLUBranch``. SiLU and norms require the fused
+  graph; other supported stacks may
   use a NumPy mirror, except normalized trunks and nGPT, which require fused execution.
 - Host arithmetic is true FP32 with no relaxed-IEEE compiler flags. It is not
   bit-identical to the NumPy mirrors: BLAS reassociates its dot products, the
@@ -72,7 +73,7 @@ from cleanrl.shared.host_actor import (
     ReluSq, SQ_PAIR_CAP, CappedLeakyReluSq, CappedSignedSquare, HostLReluResActor,
     HostLReluSphereActor, HostMLP, HostSiTUDenseActor, HostSiTUResActor,
     HostSiTUSphereActor, LReluSqPair, LeakyReluSq, LReluResTrunk,
-    LReluSphereTrunk, SiTUDenseTrunk, SiTUGLUBranch, SiTUResTrunk,
+    LReluSphereTrunk, SiTUDenseTrunk, SignedSquare, SiTUGLUBranch, SiTUResTrunk,
     SiTUSphereTrunk, SITU_GLU_MEAN_SQUARE,
 )
 from cleanrl.shared.ngpt import NGPTBlock, NGPTHead, NGPTTrunk
@@ -106,6 +107,7 @@ _OP_ATTENTION = 17
 _OP_SWIGLU = 18
 _OP_SILU = 19
 _OP_RELUSQ = 20
+_OP_BETA_MODE_CONC = 21
 _OP_STRIDE = 8
 
 # -march=native output is CPU specific and no flag here relaxes IEEE semantics.
@@ -724,6 +726,11 @@ class HostGraphActor:
                     self.in_features = int(module.in_dim)
                 current = self._situ_glu_branch(current, module)
                 cols = int(module.out_dim)
+            elif type(module) in (nn.RMSNorm, nn.LayerNorm):
+                if cols is None:
+                    raise ValueError(
+                        "HostGraphActor requires the first layer to be Linear or SiTUGLUBranch")
+                self._norm(current, current, module, cols)
             elif isinstance(module, (nn.Tanh, nn.SiLU, nn.ReLU, ReluSq, LeakyReluSq)):
                 if cols is None:
                     raise ValueError(
@@ -742,7 +749,7 @@ class HostGraphActor:
             else:
                 raise TypeError(
                     "HostGraphActor supports Sequential(<host_actor trunk>, Linear) and "
-                    "Linear/Tanh/SiLU/ReLU/LeakyReluSq/SiTUGLUBranch stacks, not "
+                    "Linear/RMSNorm/LayerNorm/Tanh/SiLU/ReLU/LeakyReluSq/SiTUGLUBranch stacks, not "
                     f"{type(module).__name__}"
                 )
         if cols is None:
@@ -1085,7 +1092,11 @@ class BetaHeadGraph:
       split on the last axis into two C-contiguous ``(num_rows, act_dim)``
       arrays, which is what ``numpy.random.Generator.beta`` wants (the NumPy
       path hands it two strided views of one ``(num_rows, 2 * act_dim)``
-      buffer instead).
+      buffer instead). ``parameterization="mode"`` computes
+      ``1 + {m, 1 - m} exp(z_nu)``, ``m = sigmoid(z_m)``, instead, and
+      ``"mode_softplus"`` the same with ``2 softplus(z_nu)``; those ops are
+      within 1 ulp of its NumPy reference rather than bit-identical (see
+      ``host_kernel.c``).
     - ``rescale(draw)`` -> ``(native, action)``: the FP64 draw cast to float32,
       clipped to ``[epsilon, 1 - epsilon]``, then ``low + (high - low) * it``.
 
@@ -1100,9 +1111,15 @@ class BetaHeadGraph:
     nothing on this path allocates per step.
     """
 
-    def __init__(self, num_rows, act_dim, low, high, *, epsilon=1e-6):
+    def __init__(self, num_rows, act_dim, low, high, *, epsilon=1e-6, parameterization="softplus"):
         if num_rows <= 0 or act_dim <= 0:
             raise ValueError("num_rows and act_dim must be positive")
+        # (op, concentration map operand); the map selects exp or 2 softplus for the mode heads.
+        concentration_op = {"softplus": (_OP_BETA_CONC, 0), "mode": (_OP_BETA_MODE_CONC, 0),
+                            "mode_softplus": (_OP_BETA_MODE_CONC, 1)}.get(parameterization)
+        if concentration_op is None:
+            raise ValueError("parameterization must be 'softplus', 'mode' or 'mode_softplus'")
+        self.parameterization = parameterization
         self.num_rows, self.act_dim = int(num_rows), int(act_dim)
         self.epsilon = float(epsilon)
         rows, cols = self.num_rows, self.act_dim
@@ -1118,7 +1135,7 @@ class BetaHeadGraph:
         stub = np.zeros(1, dtype=np.float32)
         self._concentration = _Marshalled(
             (stub, self.alpha, self.beta),
-            (_OP_BETA_CONC, 1, 0, 2, 0, rows, cols, 0),
+            (concentration_op[0], 1, 0, 2, 0, rows, cols, concentration_op[1]),
             x_slot=0, out_slot=1,
         )
         self._rescale = _Marshalled(

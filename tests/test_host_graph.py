@@ -238,6 +238,30 @@ def test_host_graph_matches_leakyrelusq_and_situglu_device_forwards():
                                rtol=1e-5, atol=1e-6)
 
 
+def test_host_graph_matches_rmsnorm_silu_mlp_and_tracks_norm_gains():
+    """REPPO-style Linear -> RMSNorm(affine) -> SiLU stacks, including learned gains."""
+    configure_runtime(matmul_precision="highest", allow_tf32=False)
+    torch.manual_seed(3)
+    net = nn.Sequential(
+        nn.Linear(17, 96), nn.RMSNorm(96, eps=1e-5), nn.SiLU(),
+        nn.Linear(96, 96), nn.RMSNorm(96, eps=1e-5), nn.SiLU(),
+        nn.Linear(96, 12),
+    ).cuda()
+    x = np.random.default_rng(3).standard_normal((16, 17)).astype(np.float32)
+    mirror = make_host_mirror(net, 16)
+    assert mirror.fused
+    np.testing.assert_allclose(mirror(x), device_forward(net, x), rtol=1e-5, atol=1e-5)
+    with torch.no_grad():
+        for module in net:
+            if isinstance(module, nn.RMSNorm):
+                module.weight.uniform_(0.5, 2.0)
+        expected = device_forward(net, x)
+    mirror.refresh()
+    np.testing.assert_allclose(mirror(x), expected, rtol=1e-5, atol=1e-5)
+    with pytest.raises(ValueError, match="eps=1e-5"):
+        HostGraphActor(nn.Sequential(nn.Linear(3, 4), nn.RMSNorm(4)).cuda(), 2)
+
+
 def test_host_graph_returns_one_reused_output_buffer():
     configure_runtime(matmul_precision="highest", allow_tf32=False)
     torch.manual_seed(6)
