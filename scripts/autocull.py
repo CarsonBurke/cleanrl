@@ -190,7 +190,7 @@ def mlq_jobs() -> list[dict]:
 
 def mlq_cancel(job_id: int, force: bool) -> str:
     cmd = ["mlq", "cancel", str(job_id)] + (["--force"] if force else [])
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    r = subprocess.run(cmd, capture_output=True, text=True, check=True)
     return (r.stdout + r.stderr).strip()
 
 
@@ -568,10 +568,13 @@ def judge(run: RunView, ref: RunView | None, a) -> tuple[str, str]:
     # trial even if it later recovers. Unlike plateau/behind this compares the
     # run with its own prior peak and does not penalize slow starters.
     if a.collapse_ratio > 0 and (not a.calibrated_envs or run.env in a.calibrated_envs):
+        collapse_min_steps = getattr(a, "collapse_min_steps", None)
+        if collapse_min_steps is None:
+            collapse_min_steps = a.min_steps
         curve = run.ema_for(a.collapse_ema_halflife)
         peak = np.maximum.accumulate(curve)
         hits = np.flatnonzero(
-            (run.steps >= a.min_steps)
+            (run.steps >= collapse_min_steps)
             & (peak - curve >= a.collapse_drop)
             & (curve <= a.collapse_ratio * peak)
         )
@@ -949,6 +952,8 @@ def main() -> None:
                    help="minimum absolute EMA drop for the opt-in collapse rule")
     p.add_argument("--collapse-ema-halflife", default="100k",
                    help="step-aware EMA half-life for collapse detection; ignores single episodes")
+    p.add_argument("--collapse-min-steps", default=None,
+                   help="independent grace for the opt-in collapse rule; defaults to --min-steps")
     p.add_argument("--plateau-slope-window", default="1M",
                    help="trailing window for the PLATEAU slope test. Must be short enough not to "
                         "straddle an earlier rise: at 2M this read +13%%/1M on a curve that had "
@@ -1014,11 +1019,15 @@ def main() -> None:
 
     a.at = parse_steps(a.at)
     a.min_steps = parse_step(a.min_steps)
+    a.collapse_min_steps = (a.min_steps if a.collapse_min_steps is None
+                            else parse_step(a.collapse_min_steps))
     a.dead_steps = parse_step(a.dead_steps)
     a.ema_halflife = parse_step(a.ema_halflife)
     a.collapse_ema_halflife = parse_step(a.collapse_ema_halflife)
     if not 0 <= a.collapse_ratio < 1 or a.collapse_drop <= 0 or a.collapse_ema_halflife <= 0:
         p.error("collapse ratio must be in [0,1), with positive drop and EMA half-life")
+    if a.collapse_min_steps < 0:
+        p.error("collapse grace must be nonnegative")
     a.plateau_slope_window = parse_step(a.plateau_slope_window)
     a.plateau_min_steps = parse_step(a.plateau_min_steps)
     a.plateau_ema_halflife = parse_step(a.plateau_ema_halflife)
@@ -1045,7 +1054,11 @@ def main() -> None:
         try:
             sweep(a, root, curves)
         except subprocess.CalledProcessError as e:
-            print(f"autocull: mlq unavailable ({e}); retrying", file=sys.stderr)
+            detail = (e.stderr or e.stdout or str(e)).strip()
+            action = "retrying" if a.watch else "exiting"
+            print(f"autocull: mlq command failed ({detail}); {action}", file=sys.stderr)
+            if not a.watch:
+                raise
         except Exception:
             # A supervisor that dies silently is worse than none, because the operator
             # believes plateaued arms are still being reaped. Measured killers of the old

@@ -44,3 +44,21 @@ def test_severe_collapse_remains_disqualifying_after_recovery():
 ])
 def test_slow_start_noise_small_drawdown_and_pregrace_dip_survive(values):
     assert judge(curve(values), None, policy())[0] == "keep"
+
+
+def test_early_collapse_grace_is_opt_in_and_independent_of_performance_grace():
+    run = curve(np.r_[np.linspace(0, 8000, 350), np.full(650, 500)])
+    assert judge(run, None, policy())[0] == "keep"
+    assert judge(run, None, policy(collapse_min_steps=None))[0] == "keep"
+    verdict, reason = judge(run, None, policy(collapse_min_steps=200_000,
+                                             collapse_ema_halflife=50_000,
+                                             collapse_ratio=0.5))
+    assert verdict == "collapse"
+    assert "own peak" in reason
+    assert enforceable(verdict, policy())
+
+
+def test_independent_collapse_grace_still_protects_pregrace_dips():
+    run = curve(np.r_[np.full(50, 8000), np.full(150, 500), np.full(800, 9000)])
+    assert judge(run, None, policy(collapse_min_steps=400_000,
+                                  collapse_ema_halflife=50_000))[0] == "keep"
