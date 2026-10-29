@@ -132,4 +132,4 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-worktrees/
+.worktrees/
